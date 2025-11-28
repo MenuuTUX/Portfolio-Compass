@@ -5,10 +5,18 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Trash2, RefreshCw } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useOnScreen } from '@/hooks/useOnScreen';
+import { Portfolio } from '@/types';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
-export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onClear }) {
+interface PortfolioBuilderProps {
+  portfolio: Portfolio;
+  onRemove: (ticker: string) => void;
+  onUpdateWeight: (ticker: string, weight: number) => void;
+  onClear: () => void;
+}
+
+export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onClear }: PortfolioBuilderProps) {
   const [ref, isVisible] = useOnScreen({ threshold: 0.1 });
 
   // Calculate aggregate metrics
@@ -16,7 +24,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   const isValid = Math.abs(totalWeight - 100) < 0.1;
 
   // Aggregate Sector Allocation
-  const sectorAllocation = portfolio.reduce((acc, item) => {
+  const sectorAllocation = portfolio.reduce((acc: {[key: string]: number}, item) => {
     Object.entries(item.sectors).forEach(([sector, amount]) => {
       acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
     });

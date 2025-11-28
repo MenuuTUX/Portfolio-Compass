@@ -6,11 +6,12 @@ import Hero from '@/components/Hero';
 import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import WealthProjector from '@/components/WealthProjector';
+import { ETF, Portfolio } from '@/types';
 
 export default function Home() {
-  const [portfolio, setPortfolio] = useState([]);
+  const [portfolio, setPortfolio] = useState<Portfolio>([]);
 
-  const handleAddToPortfolio = (etf) => {
+  const handleAddToPortfolio = (etf: ETF) => {
     setPortfolio(prev => {
       if (prev.find(item => item.ticker === etf.ticker)) return prev;
 
@@ -21,7 +22,7 @@ export default function Home() {
     });
   };
 
-  const handleRemoveFromPortfolio = (ticker) => {
+  const handleRemoveFromPortfolio = (ticker: string) => {
     setPortfolio(prev => {
       const newPortfolio = prev.filter(item => item.ticker !== ticker);
       if (newPortfolio.length === 0) return [];
@@ -31,7 +32,7 @@ export default function Home() {
     });
   };
 
-  const handleUpdateWeight = (ticker, weight) => {
+  const handleUpdateWeight = (ticker: string, weight: number) => {
     setPortfolio(prev => prev.map(item =>
       item.ticker === ticker ? { ...item, weight } : item
     ));

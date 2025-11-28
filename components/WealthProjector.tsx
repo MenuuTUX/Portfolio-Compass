@@ -1,58 +1,60 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useOnScreen } from '@/hooks/useOnScreen';
+import { Portfolio } from '@/types';
 
-export default function WealthProjector({ portfolio }) {
-  const [initialInvestment, setInitialInvestment] = useState(10000);
-  const [monthlyContribution, setMonthlyContribution] = useState(500);
-  const [years, setYears] = useState(20);
+interface WealthProjectorProps {
+  portfolio: Portfolio;
+}
+
+export default function WealthProjector({ portfolio }: WealthProjectorProps) {
+  const [initialInvestment, setInitialInvestment] = useState<number>(10000);
+  const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
+  const [years, setYears] = useState<number>(20);
   const [ref, isVisible] = useOnScreen({ threshold: 0.1 });
 
   // Calculate Weighted Average Return (Simplified Assumption based on Yield + 5% Capital Appreciation)
-  // In a real app, you'd use historic CAGR or a robust model.
-  const weightedReturn = useMemo(() => {
-    if (portfolio.length === 0) return 0.07; // Default 7%
+  let weightedReturn = 0.07; // Default 7%
 
+  if (portfolio.length > 0) {
     const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
-    if (totalWeight === 0) return 0;
+    if (totalWeight > 0) {
+      weightedReturn = portfolio.reduce((acc, item) => {
+        // Estimated Return = Yield + 5% (Base Capital Growth assumption for equities)
+        // Bond heavy? Adjust. This is a "toy" model for the demo.
+        let growthRate = 0.06;
+        if (item.ticker.includes('ZAG')) growthRate = 0.01;
 
-    return portfolio.reduce((acc, item) => {
-      // Estimated Return = Yield + 5% (Base Capital Growth assumption for equities)
-      // Bond heavy? Adjust. This is a "toy" model for the demo.
-      // Let's use specific logic:
-      // If Bonds (ZAG) -> Yield + 1%
-      // If Equity -> Yield + 6%
-      let growthRate = 0.06;
-      if (item.ticker.includes('ZAG')) growthRate = 0.01;
-
-      const estimatedTotalReturn = (item.metrics.yield / 100) + growthRate;
-      return acc + (estimatedTotalReturn * (item.weight / totalWeight));
-    }, 0);
-  }, [portfolio]);
-
-  const projectionData = useMemo(() => {
-    let balance = initialInvestment;
-    const data = [];
-    const monthlyRate = weightedReturn / 12;
-
-    for (let i = 0; i <= years * 12; i++) {
-      if (i % 12 === 0) {
-        data.push({
-          year: `Y${i / 12}`,
-          balance: Math.round(balance),
-          invested: initialInvestment + (monthlyContribution * i)
-        });
-      }
-      balance = (balance + monthlyContribution) * (1 + monthlyRate);
+        const estimatedTotalReturn = (item.metrics.yield / 100) + growthRate;
+        return acc + (estimatedTotalReturn * (item.weight / totalWeight));
+      }, 0);
+    } else {
+      weightedReturn = 0;
     }
-    return data;
-  }, [initialInvestment, monthlyContribution, years, weightedReturn]);
+  }
 
-  const finalAmount = projectionData[projectionData.length - 1].balance;
-  const totalInvested = projectionData[projectionData.length - 1].invested;
+  let balance = initialInvestment;
+  const data = [];
+  const monthlyRate = weightedReturn / 12;
+
+  for (let i = 0; i <= years * 12; i++) {
+    if (i % 12 === 0) {
+      data.push({
+        year: `Y${i / 12}`,
+        balance: Math.round(balance),
+        invested: initialInvestment + (monthlyContribution * i)
+      });
+    }
+    balance = (balance + monthlyContribution) * (1 + monthlyRate);
+  }
+
+  const projectionData = data;
+
+  const finalAmount = projectionData.length > 0 ? projectionData[projectionData.length - 1].balance : 0;
+  const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
 
   return (
     <section id="projector" ref={ref} className="py-24 px-4 max-w-7xl mx-auto">
@@ -62,7 +64,7 @@ export default function WealthProjector({ portfolio }) {
       )}>
         <div className="mb-12">
           <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
-          <p className="text-neutral-400">Monte Carlo simulation based on your portfolio's weighted yield + growth assumptions.</p>
+          <p className="text-neutral-400">Monte Carlo simulation based on your portfolio&apos;s weighted yield + growth assumptions.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -145,7 +147,7 @@ export default function WealthProjector({ portfolio }) {
                   />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                    formatter={(value) => formatCurrency(value)}
+                    formatter={(value: number) => formatCurrency(value)}
                   />
                   <Area
                     type="monotone"
