@@ -8,7 +8,7 @@ export default function Hero() {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: MouseEvent) => {
       const { innerWidth, innerHeight } = window;
       const x = (e.clientX / innerWidth - 0.5) * 20; // -10 to 10 deg
       const y = (e.clientY / innerHeight - 0.5) * 20; // -10 to 10 deg

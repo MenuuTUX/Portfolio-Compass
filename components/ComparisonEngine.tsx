@@ -1,13 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, ArrowUpRight, ArrowDownRight, Info } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
-import { cn, formatCurrency, formatPercentage } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { useOnScreen } from '@/hooks/useOnScreen';
+import { ETF } from '@/types';
+
+interface SparklineProps {
+  data: number[];
+  color: string;
+}
 
 // Sparkline component
-const Sparkline = ({ data, color }) => (
+const Sparkline = ({ data, color }: SparklineProps) => (
   <div className="h-16 w-32">
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data.map((val, i) => ({ i, val }))}>
@@ -25,8 +31,12 @@ const Sparkline = ({ data, color }) => (
   </div>
 );
 
-export default function ComparisonEngine({ onAddToPortfolio }) {
-  const [etfs, setEtfs] = useState([]);
+interface ComparisonEngineProps {
+  onAddToPortfolio: (etf: ETF) => void;
+}
+
+export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineProps) {
+  const [etfs, setEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [ref, isVisible] = useOnScreen({ threshold: 0.1 });
@@ -34,7 +44,7 @@ export default function ComparisonEngine({ onAddToPortfolio }) {
   useEffect(() => {
     fetch('/data/etfs.json')
       .then(res => res.json())
-      .then(data => {
+      .then((data: ETF[]) => {
         setEtfs(data);
         setLoading(false);
       })
