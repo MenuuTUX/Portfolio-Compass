@@ -33,7 +33,7 @@ if errorlevel 1 (
 
 REM 3. Dependencies
 echo 🐍 Installing Python dependencies with uv...
-uv pip install -r requirements.txt > nul 2>&1
+uv pip install -r requirements.txt
 if errorlevel 1 echo ⚠️  Python dependencies installation warning (check logs if needed)
 
 echo 📦 Installing Node.js dependencies...
@@ -45,7 +45,7 @@ call npx prisma db push
 
 REM 5. Seed
 echo 🌱 Seeding initial market data...
-python scripts/fetch_prices.py
+venv\Scripts\python scripts/fetch_prices.py
 
 REM 6. Start
 echo 🚀 Launching App...

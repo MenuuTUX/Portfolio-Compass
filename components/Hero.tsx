@@ -10,8 +10,10 @@ interface HeroProps {
 
 export default function Hero({ onStart }: HeroProps) {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const handleMouseMove = (e: MouseEvent) => {
       const { innerWidth, innerHeight } = window;
       const x = (e.clientX / innerWidth - 0.5) * 20; // -10 to 10 deg
@@ -27,32 +29,32 @@ export default function Hero({ onStart }: HeroProps) {
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       {/* Background Particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
-              <motion.div
-                  key={i}
-                  className="absolute bg-emerald-500/20 rounded-full blur-xl"
-                  initial={{
-                      x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
-                      y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000),
-                      scale: Math.random() * 0.5 + 0.5,
-                      opacity: 0
-                  }}
-                  animate={{
-                      y: [null, Math.random() * -100],
-                      opacity: [0, 0.5, 0],
-                  }}
-                  transition={{
-                      duration: Math.random() * 10 + 10,
-                      repeat: Infinity,
-                      ease: "linear",
-                      delay: Math.random() * 5
-                  }}
-                  style={{
-                      width: Math.random() * 300 + 50,
-                      height: Math.random() * 300 + 50,
-                  }}
-              />
-          ))}
+        {mounted && [...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute bg-emerald-500/20 rounded-full blur-xl"
+            initial={{
+              x: Math.random() * window.innerWidth,
+              y: Math.random() * window.innerHeight,
+              scale: Math.random() * 0.5 + 0.5,
+              opacity: 0
+            }}
+            animate={{
+              y: [null, Math.random() * -100],
+              opacity: [0, 0.5, 0],
+            }}
+            transition={{
+              duration: Math.random() * 10 + 10,
+              repeat: Infinity,
+              ease: "linear",
+              delay: Math.random() * 5
+            }}
+            style={{
+              width: Math.random() * 300 + 50,
+              height: Math.random() * 300 + 50,
+            }}
+          />
+        ))}
       </div>
 
       {/* 3D Gyroscope Container */}
