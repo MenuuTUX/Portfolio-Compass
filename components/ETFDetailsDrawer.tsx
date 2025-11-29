@@ -21,48 +21,51 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   const historyData = useMemo(() => {
     if (!etf || !etf.history) return [];
 
+    let targetInterval = '1wk'; // Default fallback
     const now = new Date();
     const cutoffDate = new Date();
 
+    // Map time range to required interval and cutoff date
     switch (timeRange) {
         case '1D':
-            // Show last 2 data points for a line, or filtered by 24h if intraday available.
-            // Since we have daily closes, 1D is a bit meaningless without intraday,
-            // but we can just show the very last point or last 2 days.
-            // Let's assume 1D means "Recent Context" so maybe last 5 days?
-            // Actually, usually 1D means intraday.
-            // Given we only have daily closes, 1D might just show the last available price point as a single dot or line.
-            // Let's default to last 5 days for "1D" to show some context, or just map it.
-            // A better approach with daily data is 1W minimum. But request asked for 1D.
-            // I'll filter for last 2 days to show the change.
-            cutoffDate.setDate(now.getDate() - 2);
+            targetInterval = '1h';
+            cutoffDate.setDate(now.getDate() - 2); // Fetch logic gets last 2 days for 1D view
             break;
         case '1W':
+            targetInterval = '1d';
             cutoffDate.setDate(now.getDate() - 7);
             break;
         case '1M':
+            targetInterval = '1wk';
             cutoffDate.setMonth(now.getMonth() - 1);
             break;
         case '1Y':
+            targetInterval = '1wk';
             cutoffDate.setFullYear(now.getFullYear() - 1);
             break;
         case '5Y':
+            targetInterval = '1mo';
             cutoffDate.setFullYear(now.getFullYear() - 5);
             break;
         default:
+            targetInterval = '1wk';
             cutoffDate.setMonth(now.getMonth() - 1);
     }
 
-    return etf.history.filter(h => new Date(h.date) >= cutoffDate);
+    // Filter by interval and date range
+    return etf.history
+        .filter(h => {
+            // Check interval match
+            if (h.interval && h.interval !== targetInterval) return false;
+            // Also check date range to be precise
+            return new Date(h.date) >= cutoffDate;
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [etf, timeRange]);
 
   const riskData = useMemo(() => {
     if (!etf) return null;
-    return calculateRiskMetric(historyData); // Calculate risk based on view? Or full history? Usually full history is better for stats. Let's use filtered to show risk OF THAT PERIOD or full?
-    // User probably wants risk metric of the asset in general, which usually implies recent volatility.
-    // The previous implementation used "30 days" for risk.
-    // Let's stick to using the displayed history for risk so the chart matches the volatility metric, or revert to fixed 30d.
-    // Let's use the visible history for dynamic feedback.
+    return calculateRiskMetric(historyData);
   }, [etf, historyData]);
 
   const sectorData = useMemo(() => {
@@ -179,7 +182,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                             contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                             itemStyle={{ color: '#fff' }}
                             formatter={(value: number) => [formatCurrency(value), 'Price']}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString() + ' ' + new Date(label).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                         />
                         <Area
                             type="monotone"

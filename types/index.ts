@@ -3,7 +3,7 @@ export interface ETF {
   name: string;
   price: number;
   changePercent: number;
-  history: { date: string; price: number }[];
+  history: { date: string; price: number; interval?: string }[];
   metrics: {
     mer: number;
     yield: number;
