@@ -32,7 +32,7 @@ model EtfHistory {
   etfId     String
   date      DateTime
   close     Float
-  interval  String
+  interval  String   @default("daily")
   etf       Etf      @relation(fields: [etfId], references: [ticker])
 
   @@index([etfId, date, interval])
