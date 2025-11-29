@@ -3,7 +3,6 @@ import { ETF } from '@/types'
 import { execFile } from 'child_process'
 import util from 'util'
 import path from 'path'
-import os from 'os'
 import prisma from '@/lib/db'
 
 // Force Node.js runtime to allow child_process execution
@@ -36,28 +35,92 @@ export async function GET(request: NextRequest) {
     })
 
     // 2. ON-DEMAND WRITE-THROUGH CACHE
-    // If DB result is empty and we have a specific query, try to fetch it live via Python script.
     if (etfs.length === 0 && query) {
       console.log(`[API] Ticker "${query}" not found in DB. Triggering write-through cache (Python fetch)...`);
 
       try {
         const scriptPath = path.join(process.cwd(), 'scripts', 'fetch_prices.py');
-
-        // Determine python command (try to be cross-platform friendly)
-        // In most production linux envs 'python3' is safe. In windows, often 'python'.
-        // We'll try 'python3' first, as run.sh uses it.
-        // If we were more robust we might check os.platform().
-        // For now, consistent with existing code but with better logging.
         const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
 
         const { stdout, stderr } = await execFilePromise(pythonCommand, [scriptPath, query]);
 
-        if (stdout) console.log('[Python Output]:', stdout);
         if (stderr) console.warn('[Python Log]:', stderr);
 
-        // 3. Re-query the database to get the newly added data
-        // Note: The python script might have added it as .TO, so we should search again loosely or checking exact match if we knew it.
-        // But since we search with 'contains', if python added "VFV.TO" and we searched "VFV", it should show up.
+        if (stdout) {
+            const fetchedData = JSON.parse(stdout);
+
+            for (const data of fetchedData) {
+                // Upsert ETF
+                await prisma.etf.upsert({
+                    where: { ticker: data.ticker },
+                    update: {
+                        name: data.name,
+                        currency: data.currency,
+                        exchange: data.exchange,
+                        price: data.price,
+                        daily_change: data.daily_change,
+                        yield: data.yield,
+                        mer: data.mer,
+                    },
+                    create: {
+                        ticker: data.ticker,
+                        name: data.name,
+                        currency: data.currency,
+                        exchange: data.exchange,
+                        price: data.price,
+                        daily_change: data.daily_change,
+                        yield: data.yield,
+                        mer: data.mer,
+                    }
+                });
+
+                // Update Sectors
+                await prisma.etfSector.deleteMany({ where: { etfId: data.ticker } });
+                if (data.sectors && data.sectors.length > 0) {
+                    await prisma.etfSector.createMany({
+                        data: data.sectors.map((s: any) => ({
+                            etfId: data.ticker,
+                            sector_name: s.sector_name,
+                            weight: s.weight
+                        }))
+                    });
+                }
+
+                // Update Allocation
+                await prisma.etfAllocation.deleteMany({ where: { etfId: data.ticker } });
+                if (data.allocation) {
+                    await prisma.etfAllocation.create({
+                        data: {
+                            etfId: data.ticker,
+                            stocks_weight: data.allocation.stocks_weight,
+                            bonds_weight: data.allocation.bonds_weight,
+                            cash_weight: data.allocation.cash_weight,
+                        }
+                    });
+                }
+
+                // Update History (Batch Insert with Interval)
+                // We delete existing history to avoid duplicates/conflicts when refreshing
+                // Or better, we should probably delete only overlapping ranges if we want to be smart,
+                // but given the fetch logic fetches "last X time", replacing is safest to ensure data integrity.
+                // However, deleting ALL history might be aggressive if we only fetched part.
+                // But the script fetches a comprehensive set of intervals.
+                await prisma.etfHistory.deleteMany({ where: { etfId: data.ticker } });
+
+                if (data.history && data.history.length > 0) {
+                    await prisma.etfHistory.createMany({
+                        data: data.history.map((h: any) => ({
+                            etfId: data.ticker,
+                            date: new Date(h.date),
+                            close: h.close,
+                            interval: h.interval
+                        }))
+                    });
+                }
+            }
+        }
+
+        // 3. Re-query the database
         etfs = await prisma.etf.findMany({
           where: whereClause,
           include: {
@@ -69,7 +132,6 @@ export async function GET(request: NextRequest) {
         })
       } catch (scriptError: any) {
         console.error("[API] Failed to execute data fetch script:", scriptError);
-        // We don't fail the request, just return empty list if script failed.
       }
     }
 
@@ -79,7 +141,11 @@ export async function GET(request: NextRequest) {
       name: etf.name,
       price: etf.price,
       changePercent: etf.daily_change,
-      history: etf.history.map((h) => ({ date: h.date.toISOString(), price: h.close })),
+      history: etf.history.map((h) => ({
+          date: h.date.toISOString(),
+          price: h.close,
+          interval: h.interval
+      })),
       metrics: { yield: etf.yield || 0, mer: etf.mer || 0 },
       allocation: {
         equities: etf.allocation?.stocks_weight || 0,
