@@ -13,9 +13,10 @@ interface PortfolioBuilderProps {
   onRemove: (ticker: string) => void;
   onUpdateWeight: (ticker: string, weight: number) => void;
   onClear: () => void;
+  onViewGrowth: () => void;
 }
 
-export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onClear }: PortfolioBuilderProps) {
+export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onClear, onViewGrowth }: PortfolioBuilderProps) {
   // Calculate aggregate metrics
   const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
   const isValid = Math.abs(totalWeight - 100) < 0.1;
@@ -45,12 +46,20 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             <h2 className="text-3xl font-bold text-white mb-2">Portfolio Builder</h2>
             <p className="text-neutral-400">Construct your custom allocation. Target 100% weight.</p>
           </div>
-          <button
-            onClick={onClear}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-          >
-            <RefreshCw className="w-4 h-4" /> Reset
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={onViewGrowth}
+              className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
+            >
+              See Growth Projection
+            </button>
+            <button
+              onClick={onClear}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-4 h-4" /> Reset
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">

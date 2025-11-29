@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     let etfs = await prisma.etf.findMany({
       where: whereClause,
       include: {
-        history: { orderBy: { date: 'asc' }, take: 30 },
+        history: { orderBy: { date: 'asc' } },
         sectors: true,
         allocation: true,
       },
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         etfs = await prisma.etf.findMany({
           where: whereClause,
           include: {
-            history: { orderBy: { date: 'asc' }, take: 30 },
+            history: { orderBy: { date: 'asc' } },
             sectors: true,
             allocation: true,
           },
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       name: etf.name,
       price: etf.price,
       changePercent: etf.daily_change,
-      history: etf.history.map((h) => h.close),
+      history: etf.history.map((h) => ({ date: h.date.toISOString(), price: h.close })),
       metrics: { yield: etf.yield || 0, mer: etf.mer || 0 },
       allocation: {
         equities: etf.allocation?.stocks_weight || 0,

@@ -14,7 +14,7 @@ type Tab = 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
-  const [activeTab, setActiveTab] = useState<Tab>('PORTFOLIO');
+  const [activeTab, setActiveTab] = useState<Tab>('ETFS');
   const [portfolio, setPortfolio] = useState<Portfolio>([]);
 
   const handleStart = () => {
@@ -91,6 +91,7 @@ export default function Home() {
                     onRemove={handleRemoveFromPortfolio}
                     onUpdateWeight={handleUpdateWeight}
                     onClear={handleClearPortfolio}
+                    onViewGrowth={() => setActiveTab('GROWTH')}
                   />
                 )}
                 {activeTab === 'ETFS' && (
