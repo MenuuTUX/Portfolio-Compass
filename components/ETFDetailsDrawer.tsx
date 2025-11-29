@@ -5,7 +5,7 @@ import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity } from 'luc
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 interface ETFDetailsDrawerProps {
   etf: ETF | null;
@@ -13,12 +13,57 @@ interface ETFDetailsDrawerProps {
 }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+const TIME_RANGES = ['1D', '1W', '1M', '1Y', '5Y'];
 
 export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps) {
+  const [timeRange, setTimeRange] = useState('1M');
+
+  const historyData = useMemo(() => {
+    if (!etf || !etf.history) return [];
+
+    const now = new Date();
+    const cutoffDate = new Date();
+
+    switch (timeRange) {
+        case '1D':
+            // Show last 2 data points for a line, or filtered by 24h if intraday available.
+            // Since we have daily closes, 1D is a bit meaningless without intraday,
+            // but we can just show the very last point or last 2 days.
+            // Let's assume 1D means "Recent Context" so maybe last 5 days?
+            // Actually, usually 1D means intraday.
+            // Given we only have daily closes, 1D might just show the last available price point as a single dot or line.
+            // Let's default to last 5 days for "1D" to show some context, or just map it.
+            // A better approach with daily data is 1W minimum. But request asked for 1D.
+            // I'll filter for last 2 days to show the change.
+            cutoffDate.setDate(now.getDate() - 2);
+            break;
+        case '1W':
+            cutoffDate.setDate(now.getDate() - 7);
+            break;
+        case '1M':
+            cutoffDate.setMonth(now.getMonth() - 1);
+            break;
+        case '1Y':
+            cutoffDate.setFullYear(now.getFullYear() - 1);
+            break;
+        case '5Y':
+            cutoffDate.setFullYear(now.getFullYear() - 5);
+            break;
+        default:
+            cutoffDate.setMonth(now.getMonth() - 1);
+    }
+
+    return etf.history.filter(h => new Date(h.date) >= cutoffDate);
+  }, [etf, timeRange]);
+
   const riskData = useMemo(() => {
     if (!etf) return null;
-    return calculateRiskMetric(etf.history);
-  }, [etf]);
+    return calculateRiskMetric(historyData); // Calculate risk based on view? Or full history? Usually full history is better for stats. Let's use filtered to show risk OF THAT PERIOD or full?
+    // User probably wants risk metric of the asset in general, which usually implies recent volatility.
+    // The previous implementation used "30 days" for risk.
+    // Let's stick to using the displayed history for risk so the chart matches the volatility metric, or revert to fixed 30d.
+    // Let's use the visible history for dynamic feedback.
+  }, [etf, historyData]);
 
   const sectorData = useMemo(() => {
     if (!etf || !etf.sectors) return [];
@@ -26,11 +71,6 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
       name,
       value
     })).sort((a, b) => b.value - a.value);
-  }, [etf]);
-
-  const historyData = useMemo(() => {
-    if (!etf || !etf.history) return [];
-    return etf.history.map((val, i) => ({ i, price: val }));
   }, [etf]);
 
   return (
@@ -93,9 +133,25 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
                 {/* Left Col: Chart */}
                 <div className="lg:col-span-2 bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col h-full min-h-[400px]">
-                  <div className="flex items-center gap-2 mb-6">
-                    <TrendingUp className="w-5 h-5 text-emerald-400" />
-                    <h3 className="text-lg font-bold text-white">Price History (30 Days)</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-emerald-400" />
+                        <h3 className="text-lg font-bold text-white">Price History</h3>
+                    </div>
+                    <div className="flex bg-black/20 rounded-lg p-1 gap-1">
+                        {TIME_RANGES.map(range => (
+                            <button
+                                key={range}
+                                onClick={() => setTimeRange(range)}
+                                className={cn(
+                                    "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                                    timeRange === range ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
+                                )}
+                            >
+                                {range}
+                            </button>
+                        ))}
+                    </div>
                   </div>
                   <div className="flex-1 w-full h-full min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
@@ -108,7 +164,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis
-                            dataKey="i"
+                            dataKey="date"
                             hide
                         />
                         <YAxis
@@ -123,7 +179,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                             contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                             itemStyle={{ color: '#fff' }}
                             formatter={(value: number) => [formatCurrency(value), 'Price']}
-                            labelFormatter={() => ''}
+                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
                         />
                         <Area
                             type="monotone"
@@ -200,7 +256,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                          <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-xs text-neutral-500 mb-1">Volatility (30d)</div>
+                                    <div className="text-xs text-neutral-500 mb-1">Volatility ({timeRange})</div>
                                     <div className={cn("text-xl font-bold", riskData?.color)}>{(riskData?.stdDev! * 100).toFixed(2)}%</div>
                                 </div>
                                 {riskData && (
