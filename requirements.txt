@@ -25,3 +25,5 @@ tzdata==2025.2
 urllib3==2.5.0
 websockets==15.0.1
 yfinance==0.2.66
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.25
