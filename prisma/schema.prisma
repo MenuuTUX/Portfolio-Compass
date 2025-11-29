@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Etf {
+  ticker         String          @id
+  name           String
+  currency       String
+  exchange       String?
+  price          Float
+  daily_change   Float
+  yield          Float?
+  mer            Float?
+  history        EtfHistory[]
+  sectors        EtfSector[]
+  allocation     EtfAllocation?
+
+  updatedAt      DateTime        @updatedAt
+}
+
+model EtfHistory {
+  id        Int      @id @default(autoincrement())
+  etfId     String
+  date      DateTime
+  close     Float
+  etf       Etf      @relation(fields: [etfId], references: [ticker])
+
+  @@index([etfId, date])
+}
+
+model EtfSector {
+  id          Int    @id @default(autoincrement())
+  etfId       String
+  sector_name String
+  weight      Float
+  etf         Etf    @relation(fields: [etfId], references: [ticker])
+}
+
+model EtfAllocation {
+  id           Int    @id @default(autoincrement())
+  etfId        String @unique
+  stocks_weight Float
+  bonds_weight  Float
+  cash_weight   Float
+  etf          Etf    @relation(fields: [etfId], references: [ticker])
+}

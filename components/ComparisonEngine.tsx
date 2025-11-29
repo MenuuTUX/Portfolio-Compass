@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -35,25 +35,51 @@ interface ComparisonEngineProps {
   onAddToPortfolio: (etf: ETF) => void;
 }
 
+// Debounce helper
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineProps) {
   const [etfs, setEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetch('/data/etfs.json')
-      .then(res => res.json())
-      .then((data: ETF[]) => {
-        setEtfs(data);
-        setLoading(false);
-      })
-      .catch(err => console.error("Failed to load ETF data", err));
+  const debouncedSearch = useDebounce(search, 500);
+
+  const fetchEtfs = useCallback(async (query: string) => {
+    setLoading(true);
+    try {
+      // If query is empty, we might want to fetch a default set or nothing.
+      // The previous behavior was showing everything (which was local).
+      // Now we'll fetch with empty query to get top 10 (as defined in API).
+      const res = await fetch(`/api/etfs/search?query=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error('Failed to fetch');
+      const data: ETF[] = await res.json();
+      setEtfs(data);
+    } catch (err) {
+      console.error("Failed to load ETF data", err);
+      setEtfs([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filteredEtfs = etfs.filter(etf =>
-    etf.ticker.toLowerCase().includes(search.toLowerCase()) ||
-    etf.name.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    fetchEtfs(debouncedSearch);
+  }, [debouncedSearch, fetchEtfs]);
 
   return (
     <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
@@ -90,7 +116,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
-            {filteredEtfs.map((etf) => {
+            {etfs.map((etf) => {
               const isPositive = etf.changePercent >= 0;
               return (
                 <div
@@ -114,7 +140,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
                       isPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
                     )}>
                       {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                      {Math.abs(etf.changePercent)}%
+                      {Math.abs(etf.changePercent).toFixed(2)}%
                     </div>
                   </div>
 
@@ -123,25 +149,32 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
                       <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
                       <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
                     </div>
-                    <Sparkline
-                      data={etf.history}
-                      color={isPositive ? '#10b981' : '#f43f5e'}
-                    />
+                    {etf.history && etf.history.length > 0 && (
+                        <Sparkline
+                        data={etf.history}
+                        color={isPositive ? '#10b981' : '#f43f5e'}
+                        />
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                     <div>
                       <div className="text-xs text-neutral-500 mb-1">Yield</div>
-                      <div className="text-sm font-medium text-emerald-400">{etf.metrics.yield}%</div>
+                      <div className="text-sm font-medium text-emerald-400">{etf.metrics.yield?.toFixed(2)}%</div>
                     </div>
                     <div>
                       <div className="text-xs text-neutral-500 mb-1">MER</div>
-                      <div className="text-sm font-medium text-neutral-300">{etf.metrics.mer}%</div>
+                      <div className="text-sm font-medium text-neutral-300">{etf.metrics.mer?.toFixed(2)}%</div>
                     </div>
                   </div>
                 </div>
               );
             })}
+            {etfs.length === 0 && !loading && (
+                <div className="col-span-full text-center text-neutral-500 py-12">
+                    No ETFs found matching "{search}"
+                </div>
+            )}
           </div>
         )}
       </motion.div>
