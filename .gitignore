@@ -5,3 +5,5 @@ out/
 *.log
 
 /lib/generated/prisma
+
+*.env
