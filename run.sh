@@ -11,14 +11,24 @@ if [ ! -f .env ]; then
 fi
 
 # 2. Python Environment
+
+# Check for uv
+if ! command -v uv &> /dev/null; then
+    echo "⬇️  Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # Ensure uv is in path for the current session
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
 if [ ! -d "venv" ]; then
-    python3 -m venv venv
+    echo "🔨 Creating Python virtual environment with uv..."
+    uv venv venv
 fi
 source venv/bin/activate || echo "⚠️  Could not activate venv"
 
 # 3. Dependencies
-echo "🐍 Installing Python dependencies..."
-pip install -r requirements.txt > /dev/null 2>&1
+echo "🐍 Installing Python dependencies with uv..."
+uv pip install -r requirements.txt > /dev/null 2>&1
 echo "📦 Installing Node.js dependencies..."
 npm install --silent > /dev/null 2>&1
 
