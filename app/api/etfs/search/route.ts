@@ -1,15 +1,13 @@
-import { PrismaClient } from '@prisma/client'
 import { NextRequest, NextResponse } from 'next/server'
 import { ETF } from '@/types'
 import { execFile } from 'child_process'
 import util from 'util'
 import path from 'path'
 import os from 'os'
+import prisma from '@/lib/db'
 
 // Force Node.js runtime to allow child_process execution
 export const dynamic = 'force-dynamic';
-
-const prisma = new PrismaClient()
 const execFilePromise = util.promisify(execFile)
 
 export async function GET(request: NextRequest) {
