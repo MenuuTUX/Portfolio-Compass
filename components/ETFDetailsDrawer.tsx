@@ -55,9 +55,9 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     // Filter by interval and date range
     return etf.history
         .filter(h => {
-            // Check interval match
-            if (h.interval && h.interval !== targetInterval) return false;
-            // Also check date range to be precise
+            // Strict interval match to prevent mixed data granularity
+            // We expect the backend to provide '1h', '1d', '1wk', '1mo' intervals
+            if (h.interval !== targetInterval) return false;
             return new Date(h.date) >= cutoffDate;
         })
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());

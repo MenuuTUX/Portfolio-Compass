@@ -20,6 +20,7 @@ model Etf {
   daily_change   Float
   yield          Float?
   mer            Float?
+  isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
   sectors        EtfSector[]
   allocation     EtfAllocation?
@@ -35,7 +36,7 @@ model EtfHistory {
   interval  String   @default("daily")
   etf       Etf      @relation(fields: [etfId], references: [ticker])
 
-  @@index([etfId, date, interval])
+  @@unique([etfId, date, interval])
 }
 
 model EtfSector {
