@@ -28,7 +28,7 @@ export interface RiskMetric {
   borderColor: string; // Border color class (e.g. border-rose-500/20)
 }
 
-export function calculateRiskMetric(history: number[]): RiskMetric {
+export function calculateRiskMetric(history: { date: string; price: number }[]): RiskMetric {
   if (!history || history.length < 2) {
     return {
       stdDev: 0,
@@ -42,8 +42,8 @@ export function calculateRiskMetric(history: number[]): RiskMetric {
   // 1. Calculate daily percent changes
   const changes: number[] = [];
   for (let i = 1; i < history.length; i++) {
-    const prev = history[i - 1];
-    const curr = history[i];
+    const prev = history[i - 1].price;
+    const curr = history[i].price;
     if (prev !== 0) {
       changes.push((curr - prev) / prev);
     }

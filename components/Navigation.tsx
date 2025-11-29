@@ -13,9 +13,9 @@ interface NavigationProps {
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'PORTFOLIO', label: 'Portfolio', icon: PieChart },
     { id: 'ETFS', label: 'ETFs', icon: Activity },
     { id: 'STOCKS', label: 'Stocks', icon: BarChart3 },
+    { id: 'PORTFOLIO', label: 'Portfolio', icon: PieChart },
     { id: 'GROWTH', label: 'Growth', icon: TrendingUp },
   ];
 

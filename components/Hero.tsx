@@ -25,6 +25,36 @@ export default function Hero({ onStart }: HeroProps) {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+      {/* Background Particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(20)].map((_, i) => (
+              <motion.div
+                  key={i}
+                  className="absolute bg-emerald-500/20 rounded-full blur-xl"
+                  initial={{
+                      x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
+                      y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 1000),
+                      scale: Math.random() * 0.5 + 0.5,
+                      opacity: 0
+                  }}
+                  animate={{
+                      y: [null, Math.random() * -100],
+                      opacity: [0, 0.5, 0],
+                  }}
+                  transition={{
+                      duration: Math.random() * 10 + 10,
+                      repeat: Infinity,
+                      ease: "linear",
+                      delay: Math.random() * 5
+                  }}
+                  style={{
+                      width: Math.random() * 300 + 50,
+                      height: Math.random() * 300 + 50,
+                  }}
+              />
+          ))}
+      </div>
+
       {/* 3D Gyroscope Container */}
       <div
         className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 opacity-40 md:opacity-100"
@@ -32,7 +62,10 @@ export default function Hero({ onStart }: HeroProps) {
           perspective: '1000px',
         }}
       >
-        <div
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1.5, ease: "easeOut" }}
           className="w-[600px] h-[600px] rounded-full border border-white/10 bg-gradient-to-tr from-emerald-500/5 to-transparent backdrop-blur-sm"
           style={{
             transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
@@ -43,14 +76,14 @@ export default function Hero({ onStart }: HeroProps) {
           <div className="absolute inset-4 rounded-full border border-white/5 border-dashed animate-[spin_60s_linear_infinite]" />
           <div className="absolute inset-20 rounded-full border border-emerald-500/10 animate-[spin_40s_linear_infinite_reverse]" />
           <div className="absolute inset-[30%] rounded-full bg-emerald-500/5 blur-3xl" />
-        </div>
+        </motion.div>
       </div>
 
       <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 1, delay: 0.2 }}
         >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-emerald-400 text-xs font-medium mb-6 backdrop-blur-md">
             <span className="relative flex h-2 w-2">

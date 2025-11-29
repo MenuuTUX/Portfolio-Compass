@@ -142,8 +142,8 @@ def fetch_and_store_etfs(tickers):
             # Use the valid ticker for DB operations (e.g. VFV -> VFV.TO)
             ticker = valid_ticker
 
-            # Fetch history (1mo)
-            hist = stock.history(period="1mo")
+            # Fetch history (5y)
+            hist = stock.history(period="5y")
 
             # Extract basic info safely
             price_raw = info.get("currentPrice", info.get("regularMarketPreviousClose", 0.0))
