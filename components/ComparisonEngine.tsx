@@ -60,6 +60,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
+  const [syncingTicker, setSyncingTicker] = useState<string | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -112,6 +113,37 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const handleSuggestionClick = (etf: ETF) => {
     setSearch(etf.ticker);
     setShowSuggestions(false);
+  };
+
+  const handleAdvancedView = async (etf: ETF) => {
+    if (etf.isDeepAnalysisLoaded) {
+      setSelectedETF(etf);
+      return;
+    }
+
+    setSyncingTicker(etf.ticker);
+    try {
+      const res = await fetch('/api/etfs/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: etf.ticker }),
+      });
+
+      if (!res.ok) throw new Error('Sync failed');
+
+      const updatedEtf: ETF = await res.json();
+
+      // Update local state
+      setEtfs(prev => prev.map(e => e.ticker === updatedEtf.ticker ? updatedEtf : e));
+      setSelectedETF(updatedEtf);
+    } catch (err) {
+      console.error('Failed to sync ETF details', err);
+      // Fallback: open what we have or show error?
+      // For now, let's open what we have but maybe show a toast (omitted for brevity)
+      setSelectedETF(etf);
+    } finally {
+      setSyncingTicker(null);
+    }
   };
 
   return (
@@ -243,11 +275,16 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
                         Add to Portfolio
                     </button>
                     <button
-                        onClick={() => setSelectedETF(etf)}
-                        className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100"
+                        onClick={() => handleAdvancedView(etf)}
+                        disabled={syncingTicker === etf.ticker}
+                        className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <Maximize2 className="w-4 h-4" />
-                        Advanced View
+                        {syncingTicker === etf.ticker ? (
+                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                             <Maximize2 className="w-4 h-4" />
+                        )}
+                        {syncingTicker === etf.ticker ? 'Syncing...' : 'Advanced View'}
                     </button>
                   </div>
 
