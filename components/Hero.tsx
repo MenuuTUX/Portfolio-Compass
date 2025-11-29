@@ -4,7 +4,11 @@ import { useState, useEffect } from 'react';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function Hero() {
+interface HeroProps {
+  onStart: () => void;
+}
+
+export default function Hero({ onStart }: HeroProps) {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -69,25 +73,21 @@ export default function Hero() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="#engine"
-              className="group px-8 py-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2"
+            <button
+              onClick={onStart}
+              className="group px-8 py-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
               Launch Terminal
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </a>
-            <a
-              href="#projector"
-              className="px-8 py-4 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition-colors backdrop-blur-md"
+            </button>
+            <button
+              onClick={onStart}
+              className="px-8 py-4 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium transition-colors backdrop-blur-md cursor-pointer"
             >
               Simulate Wealth
-            </a>
+            </button>
           </div>
         </motion.div>
-      </div>
-
-      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-neutral-500">
-        <ChevronDown className="w-6 h-6" />
       </div>
     </div>
   );
