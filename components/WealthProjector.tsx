@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
-import { useOnScreen } from '@/hooks/useOnScreen';
 import { Portfolio } from '@/types';
+import { motion } from 'framer-motion';
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
@@ -14,7 +14,6 @@ export default function WealthProjector({ portfolio }: WealthProjectorProps) {
   const [initialInvestment, setInitialInvestment] = useState<number>(10000);
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
-  const [ref, isVisible] = useOnScreen({ threshold: 0.1 });
 
   // Calculate Weighted Average Return (Simplified Assumption based on Yield + 5% Capital Appreciation)
   let weightedReturn = 0.07; // Default 7%
@@ -57,19 +56,20 @@ export default function WealthProjector({ portfolio }: WealthProjectorProps) {
   const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
 
   return (
-    <section id="projector" ref={ref} className="py-24 px-4 max-w-7xl mx-auto">
-      <div className={cn(
-        "transition-all duration-1000 transform",
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-20"
-      )}>
+    <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <div className="mb-12">
           <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
           <p className="text-neutral-400">Monte Carlo simulation based on your portfolio&apos;s weighted yield + growth assumptions.</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-20">
           {/* Controls */}
-          <div className="glass-panel p-6 rounded-xl space-y-6 h-fit">
+          <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-white/5 border border-white/5">
             <div>
               <label className="text-sm text-neutral-400 block mb-2">Initial Investment</label>
               <div className="relative">
@@ -115,7 +115,7 @@ export default function WealthProjector({ portfolio }: WealthProjectorProps) {
           </div>
 
           {/* Chart */}
-          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col">
+          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5">
             <div className="flex justify-between items-end mb-6">
               <div>
                 <div className="text-sm text-neutral-500">Projected Wealth</div>
@@ -168,7 +168,7 @@ export default function WealthProjector({ portfolio }: WealthProjectorProps) {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }
