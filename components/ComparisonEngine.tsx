@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 
 interface SparklineProps {
-  data: number[];
+  data: { date: string; price: number }[];
   color: string;
 }
 
@@ -17,11 +17,11 @@ interface SparklineProps {
 const Sparkline = ({ data, color }: SparklineProps) => (
   <div className="h-16 w-32">
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data.map((val, i) => ({ i, val }))}>
+      <LineChart data={data}>
         <YAxis domain={['dataMin', 'dataMax']} hide />
         <Line
           type="monotone"
-          dataKey="val"
+          dataKey="price"
           stroke={color}
           strokeWidth={2}
           dot={false}
