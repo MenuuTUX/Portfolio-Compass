@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ETF } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
+import ETFDetailsDrawer from './ETFDetailsDrawer';
 
 interface SparklineProps {
   data: number[];
@@ -58,6 +59,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -83,8 +85,6 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
       if (!res.ok) throw new Error('Failed to fetch');
       const data: ETF[] = await res.json();
       setEtfs(data);
-      // For simple implementation, suggestions are just the search results
-      // In a more complex app, we might have a separate lightweight endpoint for suggestions
       setSuggestions(data);
     } catch (err) {
       console.error("Failed to load ETF data", err);
@@ -112,7 +112,6 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const handleSuggestionClick = (etf: ETF) => {
     setSearch(etf.ticker);
     setShowSuggestions(false);
-    // Since search updates, the main effect will run and filter the grid to just this one
   };
 
   return (
@@ -192,52 +191,66 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
               return (
                 <div
                   key={etf.ticker}
-                  className="glass-card rounded-xl p-6 group cursor-pointer relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
-                  onClick={() => onAddToPortfolio(etf)}
+                  className="glass-card rounded-xl relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] group"
                 >
-                  <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded border border-emerald-500/30 font-bold backdrop-blur-sm">
-                      ADD +
+                  <div className="p-6 transition-all duration-300 group-hover:blur-sm group-hover:opacity-30">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
+                        <p className="text-sm text-neutral-400 line-clamp-1" title={etf.name}>{etf.name}</p>
+                      </div>
+                      <div className={cn(
+                        "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
+                        isPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                      )}>
+                        {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                        {Math.abs(etf.changePercent).toFixed(2)}%
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-end mb-6">
+                      <div>
+                        <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
+                        <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
+                      </div>
+                      {etf.history && etf.history.length > 0 && (
+                          <Sparkline
+                          data={etf.history}
+                          color={isPositive ? '#10b981' : '#f43f5e'}
+                          />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                      <div>
+                        <div className="text-xs text-neutral-500 mb-1">Yield</div>
+                        <div className="text-sm font-medium text-emerald-400">{etf.metrics.yield?.toFixed(2)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-neutral-500 mb-1">MER</div>
+                        <div className="text-sm font-medium text-neutral-300">{etf.metrics.mer?.toFixed(2)}%</div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
-                      <p className="text-sm text-neutral-400 line-clamp-1" title={etf.name}>{etf.name}</p>
-                    </div>
-                    <div className={cn(
-                      "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
-                      isPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                    )}>
-                      {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                      {Math.abs(etf.changePercent).toFixed(2)}%
-                    </div>
+                   {/* Overlay */}
+                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto">
+                    <button
+                        onClick={() => onAddToPortfolio(etf)}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add to Portfolio
+                    </button>
+                    <button
+                        onClick={() => setSelectedETF(etf)}
+                        className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100"
+                    >
+                        <Maximize2 className="w-4 h-4" />
+                        Advanced View
+                    </button>
                   </div>
 
-                  <div className="flex justify-between items-end mb-6">
-                    <div>
-                      <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
-                      <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
-                    </div>
-                    {etf.history && etf.history.length > 0 && (
-                        <Sparkline
-                        data={etf.history}
-                        color={isPositive ? '#10b981' : '#f43f5e'}
-                        />
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                    <div>
-                      <div className="text-xs text-neutral-500 mb-1">Yield</div>
-                      <div className="text-sm font-medium text-emerald-400">{etf.metrics.yield?.toFixed(2)}%</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-neutral-500 mb-1">MER</div>
-                      <div className="text-sm font-medium text-neutral-300">{etf.metrics.mer?.toFixed(2)}%</div>
-                    </div>
-                  </div>
                 </div>
               );
             })}
@@ -251,6 +264,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
           </div>
         )}
       </motion.div>
+      <ETFDetailsDrawer etf={selectedETF} onClose={() => setSelectedETF(null)} />
     </section>
   );
 }
