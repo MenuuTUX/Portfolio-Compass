@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
-import { useOnScreen } from '@/hooks/useOnScreen';
 import { ETF } from '@/types';
+import { motion } from 'framer-motion';
 
 interface SparklineProps {
   data: number[];
@@ -39,7 +39,6 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const [etfs, setEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [ref, isVisible] = useOnScreen({ threshold: 0.1 });
 
   useEffect(() => {
     fetch('/data/etfs.json')
@@ -57,11 +56,12 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   );
 
   return (
-    <section id="engine" ref={ref} className="py-24 px-4 max-w-7xl mx-auto">
-      <div className={cn(
-        "transition-all duration-1000 transform",
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-20"
-      )}>
+    <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
             <h2 className="text-3xl font-bold text-white mb-2">Market Engine</h2>
@@ -89,13 +89,13 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
              ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
             {filteredEtfs.map((etf) => {
               const isPositive = etf.changePercent >= 0;
               return (
                 <div
                   key={etf.ticker}
-                  className="glass-card rounded-xl p-6 group cursor-pointer relative overflow-hidden"
+                  className="glass-card rounded-xl p-6 group cursor-pointer relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all"
                   onClick={() => onAddToPortfolio(etf)}
                 >
                   <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -144,7 +144,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
             })}
           </div>
         )}
-      </div>
+      </motion.div>
     </section>
   );
 }
