@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ETF } from '@/types';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SparklineProps {
   data: number[];
@@ -56,30 +56,64 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const [etfs, setEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<ETF[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearch = useDebounce(search, 500);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const fetchEtfs = useCallback(async (query: string) => {
     setLoading(true);
     try {
-      // If query is empty, we might want to fetch a default set or nothing.
-      // The previous behavior was showing everything (which was local).
-      // Now we'll fetch with empty query to get top 10 (as defined in API).
       const res = await fetch(`/api/etfs/search?query=${encodeURIComponent(query)}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data: ETF[] = await res.json();
       setEtfs(data);
+      // For simple implementation, suggestions are just the search results
+      // In a more complex app, we might have a separate lightweight endpoint for suggestions
+      setSuggestions(data);
     } catch (err) {
       console.error("Failed to load ETF data", err);
       setEtfs([]);
+      setSuggestions([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Effect for main search/grid
   useEffect(() => {
     fetchEtfs(debouncedSearch);
   }, [debouncedSearch, fetchEtfs]);
+
+  // Handle typing to show suggestions
+  useEffect(() => {
+    if (search.length > 0) {
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [search]);
+
+  const handleSuggestionClick = (etf: ETF) => {
+    setSearch(etf.ticker);
+    setShowSuggestions(false);
+    // Since search updates, the main effect will run and filter the grid to just this one
+  };
 
   return (
     <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
@@ -94,17 +128,54 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
             <p className="text-neutral-400">Real-time analysis of leading ETFs. Click to add to builder.</p>
           </div>
 
-          <div className="relative w-full md:w-96">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-neutral-500" />
+          {/* Search Bar with Smart Autocomplete */}
+          <div className="relative w-full md:w-96" ref={searchContainerRef}>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+                <Search className="h-6 w-6 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search ticker or name..."
+                className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => { if (search) setShowSuggestions(true); }}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search ticker or name..."
-              className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-lg bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-sm transition-all"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+
+            {/* Suggestions Dropdown */}
+            <AnimatePresence>
+              {showSuggestions && suggestions.length > 0 && (
+                <motion.ul
+                  initial={{ opacity: 0, y: -10, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -10, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute z-50 w-full mt-2 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl"
+                >
+                  {suggestions.slice(0, 5).map((item) => (
+                    <motion.li
+                      key={item.ticker}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="cursor-pointer hover:bg-white/5 transition-colors"
+                      onClick={() => handleSuggestionClick(item)}
+                    >
+                      <div className="flex items-center justify-between px-4 py-3">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-white text-sm">{item.ticker}</span>
+                            <span className="text-xs text-neutral-400 truncate max-w-[200px]">{item.name}</span>
+                        </div>
+                        <div className={cn("text-xs font-medium", item.changePercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
+                            {formatCurrency(item.price)}
+                        </div>
+                      </div>
+                    </motion.li>
+                  ))}
+                </motion.ul>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -121,12 +192,12 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
               return (
                 <div
                   key={etf.ticker}
-                  className="glass-card rounded-xl p-6 group cursor-pointer relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all"
+                  className="glass-card rounded-xl p-6 group cursor-pointer relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
                   onClick={() => onAddToPortfolio(etf)}
                 >
                   <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded border border-emerald-500/30">
-                      Add +
+                    <div className="bg-emerald-500/20 text-emerald-400 text-xs px-2 py-1 rounded border border-emerald-500/30 font-bold backdrop-blur-sm">
+                      ADD +
                     </div>
                   </div>
 
@@ -171,8 +242,10 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
               );
             })}
             {etfs.length === 0 && !loading && (
-                <div className="col-span-full text-center text-neutral-500 py-12">
-                    No ETFs found matching "{search}"
+                <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
+                    <Search className="h-12 w-12 text-neutral-700 mb-4" />
+                    <p>No ETFs found matching "{search}"</p>
+                    <p className="text-sm text-neutral-600 mt-2">Try a different ticker (e.g., "VFV", "SPY")</p>
                 </div>
             )}
           </div>
