@@ -3,3 +3,6 @@ uvicorn
 redis
 pydantic-settings
 python-dotenv
+pandas
+yfinance
+httpx
