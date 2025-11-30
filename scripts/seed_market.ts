@@ -1,8 +1,14 @@
+import 'dotenv/config';
 import { PrismaClient } from '../lib/generated/prisma';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { execFile } from 'child_process';
 import path from 'path';
 
-const prisma = new PrismaClient();
+const connectionString = `${process.env.DATABASE_URL}`;
+const pool = new pg.Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const POPULAR_ETFS = [
   'VFV', 'XEQT', 'SPY', 'QQQ', 'VOO', 'XIU', 'ZEB', 'VGRO', 'XGRO', 'VEQT',
@@ -81,7 +87,7 @@ async function seedMarket() {
           // UNLESS the strategy is "Light seed resets everything".
           // Let's assume this is for "Initialization" (Seed).
           // I'll set it to false to be safe as per prompt.
-           isDeepAnalysisLoaded: false,
+          isDeepAnalysisLoaded: false,
         },
         create: {
           ticker: item.ticker,

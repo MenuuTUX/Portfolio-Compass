@@ -45,7 +45,8 @@ call npx prisma db push
 
 REM 5. Seed
 echo 🌱 Seeding initial market data...
-venv\Scripts\python scripts/fetch_prices.py
+REM CHANGED: Use the TypeScript seeder instead of the Python fetch script
+call npx tsx scripts/seed_market.ts
 
 REM 6. Start
 echo 🚀 Launching App...
