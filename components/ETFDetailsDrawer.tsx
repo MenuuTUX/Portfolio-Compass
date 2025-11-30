@@ -221,54 +221,72 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-[300px]">
                     <div className="flex items-center gap-2 mb-4">
                       <PieIcon className="w-5 h-5 text-blue-400" />
-                      <h3 className="text-lg font-bold text-white">Sector Allocation</h3>
+                      <h3 className="text-lg font-bold text-white">
+                        {etf.assetType === 'STOCK' ? 'Sector' : 'Sector Allocation'}
+                      </h3>
                     </div>
-                    <div className="h-[250px]">
-                      {sectorData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={sectorData}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={60}
-                              outerRadius={80}
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {sectorData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                              itemStyle={{ color: '#fff' }}
-                            />
-                            <Legend
-                              layout="vertical"
-                              verticalAlign="middle"
-                              align="right"
-                              iconSize={8}
-                              wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
-                          No sector data available
+
+                    {etf.assetType === 'STOCK' ? (
+                      <div className="h-[250px] flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white mb-2">
+                            {sectorData.length > 0 ? sectorData[0].name : 'Unknown'}
+                          </div>
+                          <div className="text-neutral-400 text-sm">
+                            Sector
+                          </div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="h-[250px]">
+                        {sectorData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={sectorData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                              >
+                                {sectorData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                                itemStyle={{ color: '#fff' }}
+                              />
+                              <Legend
+                                layout="vertical"
+                                verticalAlign="middle"
+                                align="right"
+                                iconSize={8}
+                                wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
+                            No sector data available
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Metrics Grid */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                     <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-xs text-neutral-500 mb-1">MER</div>
-                        <div className="text-xl font-bold text-white">{etf.metrics.mer.toFixed(2)}%</div>
-                      </div>
+                      {etf.assetType !== 'STOCK' && (
+                        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                          <div className="text-xs text-neutral-500 mb-1">MER</div>
+                          <div className="text-xl font-bold text-white">{etf.metrics.mer.toFixed(2)}%</div>
+                        </div>
+                      )}
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                         <div className="text-xs text-neutral-500 mb-1">Yield</div>
                         <div className="text-xl font-bold text-emerald-400">{etf.metrics.yield.toFixed(2)}%</div>

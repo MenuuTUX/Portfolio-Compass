@@ -21,13 +21,6 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // We intentionally ignore 'type' in the DB search so we can find assets
-    // that exist but are in the wrong category (to show a helpful message).
-    // The frontend will handle the filtering.
-    // if (type) {
-    //   whereClause.assetType = type;
-    // }
-
     // 1. Attempt Local DB Fetch
     let etfs = await prisma.etf.findMany({
       where: whereClause,
@@ -40,14 +33,12 @@ export async function GET(request: NextRequest) {
     })
 
     // 2. Live Market Fallback
-    // If local DB returns nothing and we have a valid query, try to fetch it live.
     if (etfs.length === 0 && query && query.length > 1) {
       console.log(`[API] Local miss for "${query}". Attempting live fetch...`);
 
       try {
         const pythonScript = path.join(process.cwd(), 'scripts', 'fetch_market_snapshot.py');
 
-        // Execute the python script with the search query as the ticker
         const liveDataRaw = await new Promise<string>((resolve, reject) => {
           execFile('python3', [pythonScript, query], (error, stdout, stderr) => {
             if (error) reject(error);
@@ -58,10 +49,8 @@ export async function GET(request: NextRequest) {
         const liveData = JSON.parse(liveDataRaw);
 
         if (Array.isArray(liveData) && liveData.length > 0) {
-          const item = liveData[0]; // Take the first result
+          const item = liveData[0];
 
-          // Save the new find to the database so it's instant next time
-          // We set currency to USD default; the "Deep Analysis" sync will fix this later if needed.
           const newEtf = await prisma.etf.create({
             data: {
               ticker: item.ticker,
@@ -70,23 +59,17 @@ export async function GET(request: NextRequest) {
               daily_change: item.daily_change,
               currency: 'USD',
               assetType: item.asset_type || "ETF",
-              isDeepAnalysisLoaded: false, // Marks it as needing a full sync later
+              isDeepAnalysisLoaded: false,
             }
           });
 
-          // Check if the found asset matches the requested type
-          // We no longer filter here to allow the frontend to show "Check the other section"
-          // if (type && newEtf.assetType !== type) {
-          //   return NextResponse.json([]);
-          // }
-
-          // Return this new ETF in the format the frontend expects
-          // We return empty history/sectors/allocation because we haven't done the deep sync yet
+          // Return newly created item with assetType
           return NextResponse.json([{
             ticker: newEtf.ticker,
             name: newEtf.name,
             price: newEtf.price,
             changePercent: newEtf.daily_change,
+            assetType: newEtf.assetType, // <--- ADDED THIS
             isDeepAnalysisLoaded: false,
             history: [],
             metrics: { yield: 0, mer: 0 },
@@ -96,7 +79,6 @@ export async function GET(request: NextRequest) {
         }
       } catch (liveError) {
         console.error('[API] Live fetch failed:', liveError);
-        // Fall through to return empty list if live fetch fails
       }
     }
 
@@ -106,6 +88,7 @@ export async function GET(request: NextRequest) {
       name: etf.name,
       price: etf.price,
       changePercent: etf.daily_change,
+      assetType: etf.assetType, // <--- ADDED THIS
       isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
       history: etf.history.map((h) => ({
         date: h.date.toISOString(),
