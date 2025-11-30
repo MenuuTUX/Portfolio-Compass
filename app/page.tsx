@@ -95,10 +95,10 @@ export default function Home() {
                   />
                 )}
                 {activeTab === 'ETFS' && (
-                  <ComparisonEngine key="etfs" onAddToPortfolio={handleAddToPortfolio} />
+                  <ComparisonEngine key="etfs" onAddToPortfolio={handleAddToPortfolio} assetType="ETF" />
                 )}
                 {activeTab === 'STOCKS' && (
-                  <ComparisonEngine key="stocks" onAddToPortfolio={handleAddToPortfolio} />
+                  <ComparisonEngine key="stocks" onAddToPortfolio={handleAddToPortfolio} assetType="STOCK" />
                 )}
                 {activeTab === 'GROWTH' && (
                   <WealthProjector key="growth" portfolio={portfolio} />

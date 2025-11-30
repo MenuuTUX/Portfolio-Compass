@@ -9,16 +9,21 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query')
+  const type = searchParams.get('type')
 
   try {
-    const whereClause = query
-      ? {
-        OR: [
-          { ticker: { contains: query, mode: 'insensitive' as const } },
-          { name: { contains: query, mode: 'insensitive' as const } },
-        ],
-      }
-      : {};
+    const whereClause: any = {};
+
+    if (query) {
+      whereClause.OR = [
+        { ticker: { contains: query, mode: 'insensitive' as const } },
+        { name: { contains: query, mode: 'insensitive' as const } },
+      ];
+    }
+
+    if (type) {
+      whereClause.assetType = type;
+    }
 
     // 1. Attempt Local DB Fetch
     let etfs = await prisma.etf.findMany({
@@ -61,9 +66,15 @@ export async function GET(request: NextRequest) {
               price: item.price,
               daily_change: item.daily_change,
               currency: 'USD',
+              assetType: item.asset_type || "ETF",
               isDeepAnalysisLoaded: false, // Marks it as needing a full sync later
             }
           });
+
+          // Check if the found asset matches the requested type
+          if (type && newEtf.assetType !== type) {
+            return NextResponse.json([]);
+          }
 
           // Return this new ETF in the format the frontend expects
           // We return empty history/sectors/allocation because we haven't done the deep sync yet

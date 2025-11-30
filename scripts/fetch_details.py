@@ -54,6 +54,8 @@ def fetch_details(ticker_symbol):
     currency = str(info.get("currency", "USD"))
     exchange = str(info.get("exchange", "Unknown"))
     name = str(info.get("shortName", ticker_symbol))
+    quote_type = info.get("quoteType", "ETF")
+    asset_type = "STOCK" if quote_type == "EQUITY" else "ETF"
 
     # History
     history_points = []
@@ -124,6 +126,7 @@ def fetch_details(ticker_symbol):
         "daily_change": daily_change,
         "yield": yield_val,
         "mer": mer,
+        "asset_type": asset_type,
         "history": history_points,
         "sectors": sectors,
         "allocation": allocation

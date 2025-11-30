@@ -62,12 +62,15 @@ def fetch_snapshot(tickers):
                 daily_change = to_py_float(daily_change_raw) * 100
 
                 name = info.get("shortName", ticker)
+                quote_type = info.get("quoteType", "ETF")
+                asset_type = "STOCK" if quote_type == "EQUITY" else "ETF"
 
                 results.append({
                     "ticker": ticker,
                     "name": name,
                     "price": price,
-                    "daily_change": daily_change
+                    "daily_change": daily_change,
+                    "asset_type": asset_type
                 })
             except Exception:
                 # Ignore failures for snapshot

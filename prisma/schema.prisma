@@ -20,6 +20,7 @@ model Etf {
   daily_change   Float
   yield          Float?
   mer            Float?
+  assetType      String          @default("ETF")
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
   sectors        EtfSector[]
