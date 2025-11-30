@@ -6,3 +6,5 @@ python-dotenv
 pandas
 yfinance
 httpx
+meilisearch
+psycopg2-binary
