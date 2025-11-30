@@ -25,15 +25,16 @@ export async function POST(req: NextRequest) {
     const pythonScript = path.join(process.cwd(), 'scripts', 'fetch_details.py');
 
     const result = await new Promise<string>((resolve, reject) => {
-      execFile('python3', [pythonScript, ticker], (error, stdout, stderr) => {
+      execFile('python', [pythonScript, ticker], (error, stdout, stderr) => {
         if (error) {
+          console.error("Python execution error:", error);
           reject(error);
           return;
         }
         if (stderr) {
-           // python might write warnings to stderr, not necessarily failure.
-           // But if stdout is empty/invalid it's an issue.
-           console.warn(`Python stderr: ${stderr}`);
+          // python might write warnings to stderr, not necessarily failure.
+          // But if stdout is empty/invalid it's an issue.
+          console.warn(`Python stderr: ${stderr}`);
         }
         resolve(stdout);
       });
@@ -45,7 +46,12 @@ export async function POST(req: NextRequest) {
     const data = JSON.parse(result);
 
     if (data.error) {
-         return NextResponse.json({ error: data.error }, { status: 404 });
+      if (data.error.includes("Ticker not found")) {
+        console.log(`Ticker ${ticker} not found, deleting from database...`);
+        await prisma.etf.delete({ where: { ticker } });
+        return NextResponse.json({ error: 'Ticker not found', deleted: true }, { status: 404 });
+      }
+      return NextResponse.json({ error: data.error }, { status: 404 });
     }
 
     // Update DB
@@ -55,77 +61,108 @@ export async function POST(req: NextRequest) {
     // 4. Update History (delete old for ticker?, insert new)
 
     await prisma.$transaction(async (tx) => {
-        // Update ETF
-        await tx.etf.update({
-            where: { ticker: data.ticker },
-            data: {
-                name: data.name,
-                currency: data.currency,
-                exchange: data.exchange,
-                price: data.price,
-                daily_change: data.daily_change,
-                yield: data.yield,
-                mer: data.mer,
-                isDeepAnalysisLoaded: true,
-            }
-        });
-
-        // Sectors
-        await tx.etfSector.deleteMany({ where: { etfId: data.ticker } });
-        if (data.sectors && data.sectors.length > 0) {
-            await tx.etfSector.createMany({
-                data: data.sectors.map((s: any) => ({
-                    etfId: data.ticker,
-                    sector_name: s.sector_name,
-                    weight: s.weight
-                }))
-            });
+      // Update ETF
+      await tx.etf.update({
+        where: { ticker: data.ticker },
+        data: {
+          name: data.name,
+          currency: data.currency,
+          exchange: data.exchange,
+          price: data.price,
+          daily_change: data.daily_change,
+          yield: data.yield,
+          mer: data.mer,
+          isDeepAnalysisLoaded: true,
         }
+      });
 
-        // Allocation
-        await tx.etfAllocation.upsert({
-            where: { etfId: data.ticker },
-            update: {
-                stocks_weight: data.allocation.stocks_weight,
-                bonds_weight: data.allocation.bonds_weight,
-                cash_weight: data.allocation.cash_weight,
-            },
-            create: {
-                etfId: data.ticker,
-                stocks_weight: data.allocation.stocks_weight,
-                bonds_weight: data.allocation.bonds_weight,
-                cash_weight: data.allocation.cash_weight,
-            }
+      // Sectors
+      await tx.etfSector.deleteMany({ where: { etfId: data.ticker } });
+      if (data.sectors && data.sectors.length > 0) {
+        await tx.etfSector.createMany({
+          data: data.sectors.map((s: any) => ({
+            etfId: data.ticker,
+            sector_name: s.sector_name,
+            weight: s.weight
+          }))
         });
+      }
 
-        // History
-        // Strategy: Delete all history for this ETF and replace with fresh deep fetch data.
-        // This ensures no stale intervals or duplicates.
-        await tx.etfHistory.deleteMany({ where: { etfId: data.ticker } });
-
-        if (data.history && data.history.length > 0) {
-             await tx.etfHistory.createMany({
-                data: data.history.map((h: any) => ({
-                    etfId: data.ticker,
-                    date: new Date(h.date),
-                    close: h.close,
-                    interval: h.interval
-                }))
-             });
+      // Allocation
+      await tx.etfAllocation.upsert({
+        where: { etfId: data.ticker },
+        update: {
+          stocks_weight: data.allocation.stocks_weight,
+          bonds_weight: data.allocation.bonds_weight,
+          cash_weight: data.allocation.cash_weight,
+        },
+        create: {
+          etfId: data.ticker,
+          stocks_weight: data.allocation.stocks_weight,
+          bonds_weight: data.allocation.bonds_weight,
+          cash_weight: data.allocation.cash_weight,
         }
+      });
+
+      // History
+      // Strategy: Delete all history for this ETF and replace with fresh deep fetch data.
+      // This ensures no stale intervals or duplicates.
+      await tx.etfHistory.deleteMany({ where: { etfId: data.ticker } });
+
+      if (data.history && data.history.length > 0) {
+        await tx.etfHistory.createMany({
+          data: data.history.map((h: any) => ({
+            etfId: data.ticker,
+            date: new Date(h.date),
+            close: h.close,
+            interval: h.interval
+          }))
+        });
+      }
     });
 
     // Return the full ETF object
     const fullEtf = await prisma.etf.findUnique({
-        where: { ticker: data.ticker },
-        include: {
-            history: true,
-            sectors: true,
-            allocation: true
-        }
+      where: { ticker: data.ticker },
+      include: {
+        history: { orderBy: { date: 'asc' } },
+        sectors: true,
+        allocation: true
+      }
     });
 
-    return NextResponse.json(fullEtf);
+    if (!fullEtf) {
+      return NextResponse.json({ error: 'ETF not found after sync' }, { status: 404 });
+    }
+
+    // Map to frontend ETF interface
+    const formattedEtf = {
+      ticker: fullEtf.ticker,
+      name: fullEtf.name,
+      price: fullEtf.price,
+      changePercent: fullEtf.daily_change,
+      isDeepAnalysisLoaded: fullEtf.isDeepAnalysisLoaded,
+      history: fullEtf.history.map((h) => ({
+        date: h.date.toISOString(),
+        price: h.close,
+        interval: h.interval
+      })),
+      metrics: {
+        yield: fullEtf.yield || 0,
+        mer: fullEtf.mer || 0
+      },
+      allocation: {
+        equities: fullEtf.allocation?.stocks_weight || 0,
+        bonds: fullEtf.allocation?.bonds_weight || 0,
+        cash: fullEtf.allocation?.cash_weight || 0,
+      },
+      sectors: fullEtf.sectors.reduce((acc, sector) => {
+        acc[sector.sector_name] = sector.weight
+        return acc
+      }, {} as { [key: string]: number }),
+    };
+
+    return NextResponse.json(formattedEtf);
 
   } catch (error) {
     console.error('Error syncing ETF:', error);

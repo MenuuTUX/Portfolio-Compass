@@ -27,41 +27,54 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
     // Map time range to required interval and cutoff date
     switch (timeRange) {
-        case '1D':
-            targetInterval = '1h';
-            cutoffDate.setDate(now.getDate() - 2); // Fetch logic gets last 2 days for 1D view
-            break;
-        case '1W':
-            targetInterval = '1d';
-            cutoffDate.setDate(now.getDate() - 7);
-            break;
-        case '1M':
-            targetInterval = '1wk';
-            cutoffDate.setMonth(now.getMonth() - 1);
-            break;
-        case '1Y':
-            targetInterval = '1wk';
-            cutoffDate.setFullYear(now.getFullYear() - 1);
-            break;
-        case '5Y':
-            targetInterval = '1mo';
-            cutoffDate.setFullYear(now.getFullYear() - 5);
-            break;
-        default:
-            targetInterval = '1wk';
-            cutoffDate.setMonth(now.getMonth() - 1);
+      case '1D':
+        targetInterval = '1h';
+        cutoffDate.setDate(now.getDate() - 2); // Fetch logic gets last 2 days for 1D view
+        break;
+      case '1W':
+        targetInterval = '1d';
+        cutoffDate.setDate(now.getDate() - 7);
+        break;
+      case '1M':
+        targetInterval = '1wk';
+        cutoffDate.setMonth(now.getMonth() - 1);
+        break;
+      case '1Y':
+        targetInterval = '1wk';
+        cutoffDate.setFullYear(now.getFullYear() - 1);
+        break;
+      case '5Y':
+        targetInterval = '1mo';
+        cutoffDate.setFullYear(now.getFullYear() - 5);
+        break;
+      default:
+        targetInterval = '1wk';
+        cutoffDate.setMonth(now.getMonth() - 1);
     }
 
     // Filter by interval and date range
     return etf.history
-        .filter(h => {
-            // Strict interval match to prevent mixed data granularity
-            // We expect the backend to provide '1h', '1d', '1wk', '1mo' intervals
-            if (h.interval !== targetInterval) return false;
-            return new Date(h.date) >= cutoffDate;
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .filter(h => {
+        // Strict interval match to prevent mixed data granularity
+        // We expect the backend to provide '1h', '1d', '1wk', '1mo' intervals
+        if (h.interval !== targetInterval) return false;
+        return new Date(h.date) >= cutoffDate;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [etf, timeRange]);
+
+  const { percentageChange, isPositive } = useMemo(() => {
+    if (!historyData || historyData.length < 2) return { percentageChange: 0, isPositive: true };
+
+    const startPrice = historyData[0].price;
+    const endPrice = historyData[historyData.length - 1].price;
+    const change = ((endPrice - startPrice) / startPrice) * 100;
+
+    return {
+      percentageChange: change,
+      isPositive: change >= 0
+    };
+  }, [historyData]);
 
   const riskData = useMemo(() => {
     if (!etf) return null;
@@ -106,21 +119,21 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                 <div className="h-8 w-[1px] bg-white/10 mx-2" />
                 <div>
                   <div className="text-2xl font-light text-white">{formatCurrency(etf.price)}</div>
-                  <div className={cn("text-xs font-medium", etf.changePercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                    {etf.changePercent >= 0 ? "+" : ""}{etf.changePercent.toFixed(2)}%
+                  <div className={cn("text-xs font-medium", isPositive ? "text-emerald-400" : "text-rose-400")}>
+                    {isPositive ? "+" : ""}{percentageChange.toFixed(2)}%
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-4">
                 {riskData && (
-                    <div className={cn("px-4 py-2 rounded-full border backdrop-blur-md flex items-center gap-2",
-                        riskData.bgColor,
-                        riskData.borderColor
-                    )}>
-                        <Activity className={cn("w-4 h-4", riskData.color)} />
-                        <span className={cn("font-bold text-sm", riskData.color)}>{riskData.label}</span>
-                    </div>
+                  <div className={cn("px-4 py-2 rounded-full border backdrop-blur-md flex items-center gap-2",
+                    riskData.bgColor,
+                    riskData.borderColor
+                  )}>
+                    <Activity className={cn("w-4 h-4", riskData.color)} />
+                    <span className={cn("font-bold text-sm", riskData.color)}>{riskData.label}</span>
+                  </div>
                 )}
                 <button
                   onClick={onClose}
@@ -138,59 +151,63 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                 <div className="lg:col-span-2 bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col h-full min-h-[400px]">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-emerald-400" />
-                        <h3 className="text-lg font-bold text-white">Price History</h3>
+                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                      <h3 className="text-lg font-bold text-white">Price History</h3>
                     </div>
                     <div className="flex bg-black/20 rounded-lg p-1 gap-1">
-                        {TIME_RANGES.map(range => (
-                            <button
-                                key={range}
-                                onClick={() => setTimeRange(range)}
-                                className={cn(
-                                    "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                                    timeRange === range ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
-                                )}
-                            >
-                                {range}
-                            </button>
-                        ))}
+                      {TIME_RANGES.map(range => (
+                        <button
+                          key={range}
+                          onClick={() => setTimeRange(range)}
+                          className={cn(
+                            "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                            timeRange === range ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
+                          )}
+                        >
+                          {range}
+                        </button>
+                      ))}
                     </div>
                   </div>
                   <div className="flex-1 w-full h-full min-h-0">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={historyData}>
                         <defs>
-                          <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                          <linearGradient id="colorPriceUp" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.5} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorPriceDown" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.5} />
+                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis
-                            dataKey="date"
-                            hide
+                          dataKey="date"
+                          hide
                         />
                         <YAxis
-                            domain={['auto', 'auto']}
-                            orientation="right"
-                            tick={{ fill: '#737373', fontSize: 12 }}
-                            tickFormatter={(value) => `$${value}`}
-                            axisLine={false}
-                            tickLine={false}
+                          domain={['auto', 'auto']}
+                          orientation="right"
+                          tick={{ fill: '#737373', fontSize: 12 }}
+                          tickFormatter={(value) => `$${value}`}
+                          axisLine={false}
+                          tickLine={false}
                         />
                         <Tooltip
-                            contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                            itemStyle={{ color: '#fff' }}
-                            formatter={(value: number) => [formatCurrency(value), 'Price']}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString() + ' ' + new Date(label).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                          itemStyle={{ color: '#fff' }}
+                          formatter={(value: number) => [formatCurrency(value), 'Price']}
+                          labelFormatter={(label) => new Date(label).toLocaleDateString() + ' ' + new Date(label).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         />
                         <Area
-                            type="monotone"
-                            dataKey="price"
-                            stroke="#10b981"
-                            strokeWidth={2}
-                            fillOpacity={1}
-                            fill="url(#colorPrice)"
+                          type="monotone"
+                          dataKey="price"
+                          stroke={isPositive ? "#10b981" : "#f43f5e"}
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill={`url(#${isPositive ? 'colorPriceUp' : 'colorPriceDown'})`}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -202,72 +219,72 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
                   {/* Sector Breakdown */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-[300px]">
-                     <div className="flex items-center gap-2 mb-4">
-                        <PieIcon className="w-5 h-5 text-blue-400" />
-                        <h3 className="text-lg font-bold text-white">Sector Allocation</h3>
-                      </div>
-                      <div className="h-[250px]">
-                        {sectorData.length > 0 ? (
-                             <ResponsiveContainer width="100%" height="100%">
-                             <PieChart>
-                               <Pie
-                                 data={sectorData}
-                                 cx="50%"
-                                 cy="50%"
-                                 innerRadius={60}
-                                 outerRadius={80}
-                                 paddingAngle={5}
-                                 dataKey="value"
-                               >
-                                 {sectorData.map((entry, index) => (
-                                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                 ))}
-                               </Pie>
-                               <Tooltip
-                                 contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                 itemStyle={{ color: '#fff' }}
-                               />
-                               <Legend
-                                 layout="vertical"
-                                 verticalAlign="middle"
-                                 align="right"
-                                 iconSize={8}
-                                 wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }}
-                               />
-                             </PieChart>
-                           </ResponsiveContainer>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
-                                No sector data available
-                            </div>
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <PieIcon className="w-5 h-5 text-blue-400" />
+                      <h3 className="text-lg font-bold text-white">Sector Allocation</h3>
+                    </div>
+                    <div className="h-[250px]">
+                      {sectorData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={sectorData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {sectorData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                              itemStyle={{ color: '#fff' }}
+                            />
+                            <Legend
+                              layout="vertical"
+                              verticalAlign="middle"
+                              align="right"
+                              iconSize={8}
+                              wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
+                          No sector data available
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Metrics Grid */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
-                      <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                            <div className="text-xs text-neutral-500 mb-1">MER</div>
-                            <div className="text-xl font-bold text-white">{etf.metrics.mer.toFixed(2)}%</div>
-                        </div>
-                        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                            <div className="text-xs text-neutral-500 mb-1">Yield</div>
-                            <div className="text-xl font-bold text-emerald-400">{etf.metrics.yield.toFixed(2)}%</div>
-                        </div>
-                         <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className="text-xs text-neutral-500 mb-1">Volatility ({timeRange})</div>
-                                    <div className={cn("text-xl font-bold", riskData?.color)}>{(riskData?.stdDev! * 100).toFixed(2)}%</div>
-                                </div>
-                                {riskData && (
-                                    <AlertTriangle className={cn("w-8 h-8 opacity-50", riskData.color)} />
-                                )}
-                            </div>
+                    <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                        <div className="text-xs text-neutral-500 mb-1">MER</div>
+                        <div className="text-xl font-bold text-white">{etf.metrics.mer.toFixed(2)}%</div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                        <div className="text-xs text-neutral-500 mb-1">Yield</div>
+                        <div className="text-xl font-bold text-emerald-400">{etf.metrics.yield.toFixed(2)}%</div>
+                      </div>
+                      <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-xs text-neutral-500 mb-1">Volatility ({timeRange})</div>
+                            <div className={cn("text-xl font-bold", riskData?.color)}>{(riskData?.stdDev! * 100).toFixed(2)}%</div>
+                          </div>
+                          {riskData && (
+                            <AlertTriangle className={cn("w-8 h-8 opacity-50", riskData.color)} />
+                          )}
                         </div>
                       </div>
+                    </div>
                   </div>
 
                 </div>

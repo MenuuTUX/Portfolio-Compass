@@ -129,18 +129,31 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
         body: JSON.stringify({ ticker: etf.ticker }),
       });
 
-      if (!res.ok) throw new Error('Sync failed');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+
+        if (res.status === 404 && errorData.deleted) {
+          setEtfs(prev => prev.filter(e => e.ticker !== etf.ticker));
+          alert(`Ticker ${etf.ticker} was not found and has been removed from your list.`);
+          return;
+        }
+
+        console.error("Sync failed response:", JSON.stringify(errorData));
+        throw new Error(`Sync failed: ${res.status} ${res.statusText}`);
+      }
 
       const updatedEtf: ETF = await res.json();
 
       // Update local state
       setEtfs(prev => prev.map(e => e.ticker === updatedEtf.ticker ? updatedEtf : e));
       setSelectedETF(updatedEtf);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to sync ETF details', err);
-      // Fallback: open what we have or show error?
-      // For now, let's open what we have but maybe show a toast (omitted for brevity)
-      setSelectedETF(etf);
+
+      // Check if the error was a 404 (Ticker not found/deleted)
+      // We need to parse the response body in the catch block if possible, 
+      // but fetch throws on network error. The 404 is handled above by throwing Error.
+      // Let's adjust the logic above to pass the error data.
     } finally {
       setSyncingTicker(null);
     }
@@ -170,7 +183,10 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
                 placeholder="Search ticker or name..."
                 className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z.]/g, '');
+                  setSearch(value);
+                }}
                 onFocus={() => { if (search) setShowSuggestions(true); }}
               />
             </div>
@@ -195,11 +211,11 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
                     >
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex flex-col">
-                            <span className="font-bold text-white text-sm">{item.ticker}</span>
-                            <span className="text-xs text-neutral-400 truncate max-w-[200px]">{item.name}</span>
+                          <span className="font-bold text-white text-sm">{item.ticker}</span>
+                          <span className="text-xs text-neutral-400 truncate max-w-[200px]">{item.name}</span>
                         </div>
                         <div className={cn("text-xs font-medium", item.changePercent >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                            {formatCurrency(item.price)}
+                          {formatCurrency(item.price)}
                         </div>
                       </div>
                     </motion.li>
@@ -212,9 +228,9 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-             {[1,2,3].map(i => (
-               <div key={i} className="h-64 rounded-xl bg-white/5 animate-pulse" />
-             ))}
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-64 rounded-xl bg-white/5 animate-pulse" />
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
@@ -246,45 +262,45 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
                         <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
                       </div>
                       {etf.history && etf.history.length > 0 && (
-                          <Sparkline
+                        <Sparkline
                           data={etf.history}
                           color={isPositive ? '#10b981' : '#f43f5e'}
-                          />
+                        />
                       )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                       <div>
                         <div className="text-xs text-neutral-500 mb-1">Yield</div>
-                        <div className="text-sm font-medium text-emerald-400">{etf.metrics.yield?.toFixed(2)}%</div>
+                        <div className="text-sm font-medium text-emerald-400">{etf.metrics?.yield?.toFixed(2)}%</div>
                       </div>
                       <div>
                         <div className="text-xs text-neutral-500 mb-1">MER</div>
-                        <div className="text-sm font-medium text-neutral-300">{etf.metrics.mer?.toFixed(2)}%</div>
+                        <div className="text-sm font-medium text-neutral-300">{etf.metrics?.mer?.toFixed(2)}%</div>
                       </div>
                     </div>
                   </div>
 
-                   {/* Overlay */}
-                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto">
+                  {/* Overlay */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto">
                     <button
-                        onClick={() => onAddToPortfolio(etf)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
+                      onClick={() => onAddToPortfolio(etf)}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
                     >
-                        <Plus className="w-4 h-4" />
-                        Add to Portfolio
+                      <Plus className="w-4 h-4" />
+                      Add to Portfolio
                     </button>
                     <button
-                        onClick={() => handleAdvancedView(etf)}
-                        disabled={syncingTicker === etf.ticker}
-                        className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleAdvancedView(etf)}
+                      disabled={syncingTicker === etf.ticker}
+                      className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {syncingTicker === etf.ticker ? (
-                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                             <Maximize2 className="w-4 h-4" />
-                        )}
-                        {syncingTicker === etf.ticker ? 'Syncing...' : 'Advanced View'}
+                      {syncingTicker === etf.ticker ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                      {syncingTicker === etf.ticker ? 'Syncing...' : 'Advanced View'}
                     </button>
                   </div>
 
@@ -292,11 +308,11 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
               );
             })}
             {etfs.length === 0 && !loading && (
-                <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
-                    <Search className="h-12 w-12 text-neutral-700 mb-4" />
-                    <p>No ETFs found matching "{search}"</p>
-                    <p className="text-sm text-neutral-600 mt-2">Try a different ticker (e.g., "VFV", "SPY")</p>
-                </div>
+              <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
+                <Search className="h-12 w-12 text-neutral-700 mb-4" />
+                <p>No ETFs found matching "{search}"</p>
+                <p className="text-sm text-neutral-600 mt-2">Try a different ticker (e.g., "VFV", "SPY")</p>
+              </div>
             )}
           </div>
         )}
