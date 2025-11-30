@@ -80,7 +80,11 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="flex flex-col h-screen"
           >
-            <Navigation activeTab={activeTab} onTabChange={setActiveTab} />
+            <Navigation
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              onBackToLanding={() => setViewMode('LANDING')}
+            />
 
             <div className="flex-1 pt-16 relative">
               <AnimatePresence mode="wait">

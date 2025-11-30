@@ -7,6 +7,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { ETF } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
+import MessageDrawer from './MessageDrawer';
 
 interface SparklineProps {
   data: { date: string; price: number }[];
@@ -56,12 +57,20 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function ComparisonEngine({ onAddToPortfolio, assetType }: ComparisonEngineProps) {
   const [etfs, setEtfs] = useState<ETF[]>([]);
+  const [otherTypeEtfs, setOtherTypeEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
   const [syncingTicker, setSyncingTicker] = useState<string | null>(null);
+  const [messageDrawer, setMessageDrawer] = useState<{ isOpen: boolean; title: string; message: string; type: 'error' | 'info' }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
+
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearch = useDebounce(search, 500);
@@ -83,6 +92,7 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
   const fetchEtfs = useCallback(async (query: string) => {
     setLoading(true);
     try {
+      // We pass the type as a hint to the backend (though backend might search broadly now)
       let url = `/api/etfs/search?query=${encodeURIComponent(query)}`;
       if (assetType) {
         url += `&type=${encodeURIComponent(assetType)}`;
@@ -90,21 +100,58 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch');
       const data: ETF[] = await res.json();
-      setEtfs(data);
-      setSuggestions(data);
+
+      // Filter results on client side
+      if (assetType) {
+        const valid = data.filter(item => item.assetType === assetType);
+        const other = data.filter(item => item.assetType !== assetType);
+
+        setEtfs(valid);
+        setOtherTypeEtfs(other);
+
+        // For suggestions, we might want to show everything but maybe visually distinguish?
+        // Or strictly follow the section rules.
+        // Let's filter suggestions too to avoid confusion in the dropdown,
+        // OR show them but they won't appear in the grid.
+        // Given the requirement "Stocks don't appear in the etf section",
+        // let's filter suggestions to strict matches for now.
+        setSuggestions(valid);
+      } else {
+        setEtfs(data);
+        setSuggestions(data);
+        setOtherTypeEtfs([]);
+      }
+
     } catch (err) {
       console.error("Failed to load ETF data", err);
       setEtfs([]);
       setSuggestions([]);
+      setOtherTypeEtfs([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [assetType]);
 
   // Effect for main search/grid
   useEffect(() => {
     fetchEtfs(debouncedSearch);
   }, [debouncedSearch, fetchEtfs]);
+
+  // Effect to handle "No Results Found" drawer (Search returns 0)
+  // We only trigger this if search is active (debouncedSearch) and both lists are empty.
+  useEffect(() => {
+    if (!loading && debouncedSearch && etfs.length === 0 && otherTypeEtfs.length === 0) {
+      // Only open if not already open to avoid loop/spam
+      // But we can't check 'isOpen' inside the effect dependency easily without cause re-renders.
+      // We'll trust that debouncedSearch changes infrequently.
+      setMessageDrawer({
+        isOpen: true,
+        title: 'No Results Found',
+        message: `No ${assetType === 'STOCK' ? 'Stocks' : 'ETFs'} found matching "${debouncedSearch}".`,
+        type: 'info'
+      });
+    }
+  }, [loading, debouncedSearch, etfs, otherTypeEtfs, assetType]);
 
   // Handle typing to show suggestions
   useEffect(() => {
@@ -139,7 +186,12 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
 
         if (res.status === 404 && errorData.deleted) {
           setEtfs(prev => prev.filter(e => e.ticker !== etf.ticker));
-          alert(`Ticker ${etf.ticker} was not found and has been removed from your list.`);
+          setMessageDrawer({
+            isOpen: true,
+            title: 'Ticker Not Found',
+            message: `Ticker ${etf.ticker} was not found and has been removed from your list.`,
+            type: 'error'
+          });
           return;
         }
 
@@ -154,13 +206,58 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
       setSelectedETF(updatedEtf);
     } catch (err: any) {
       console.error('Failed to sync ETF details', err);
-
-      // Check if the error was a 404 (Ticker not found/deleted)
-      // We need to parse the response body in the catch block if possible, 
-      // but fetch throws on network error. The 404 is handled above by throwing Error.
-      // Let's adjust the logic above to pass the error data.
+      // If network error or other sync error, we could show a message too
     } finally {
       setSyncingTicker(null);
+    }
+  };
+
+  const renderNoResults = () => {
+    if (loading) return null;
+
+    // Case 1: Found items but in the other section
+    if (etfs.length === 0 && otherTypeEtfs.length > 0) {
+      const otherSection = assetType === 'STOCK' ? 'ETFs' : 'Stocks';
+      const sample = otherTypeEtfs[0].ticker;
+      // Fixed phrasing: handle singular vs plural
+      const othersCount = otherTypeEtfs.length - 1;
+      const othersText = othersCount > 0
+        ? `and ${othersCount} other${othersCount === 1 ? '' : 's'}`
+        : '';
+
+      return (
+        <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
+          <Search className="h-12 w-12 text-emerald-400 mb-4" />
+          <p className="text-lg text-white mb-2">Found matches in {otherSection}</p>
+          <p className="text-neutral-400">
+             We found "{sample}"{othersText ? ` ${othersText}` : ''} in the {otherSection} section.
+          </p>
+          <p className="text-sm text-neutral-500 mt-2">
+            Please switch to the {otherSection} tab to view these assets.
+          </p>
+        </div>
+      );
+    }
+
+    // Case 2: No items found anywhere
+    // Now handled by the MessageDrawer via useEffect.
+    // Return null to show empty grid (which will be blurred by drawer backdrop)
+    if (etfs.length === 0) {
+      return null;
+    }
+
+    return null;
+  };
+
+  const handleDrawerClose = () => {
+    setMessageDrawer(prev => ({ ...prev, isOpen: false }));
+    // Optionally clear search to reset view, "Allow users to go back"
+    // "Go Back" usually means return to previous state.
+    // If we leave search text, they see empty grid.
+    // If we clear search, they see the list again.
+    // Let's clear search.
+    if (messageDrawer.type === 'info' && search) {
+      setSearch('');
     }
   };
 
@@ -174,7 +271,7 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div>
             <h2 className="text-3xl font-bold text-white mb-2">Market Engine</h2>
-            <p className="text-neutral-400">Real-time analysis of leading ETFs. Click to add to builder.</p>
+            <p className="text-neutral-400">Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : 'ETFs'}. Click to add to builder.</p>
           </div>
 
           {/* Search Bar with Smart Autocomplete */}
@@ -312,17 +409,18 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
                 </div>
               );
             })}
-            {etfs.length === 0 && !loading && (
-              <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
-                <Search className="h-12 w-12 text-neutral-700 mb-4" />
-                <p>No {assetType === 'STOCK' ? 'Stocks' : 'ETFs'} found matching "{search}"</p>
-                <p className="text-sm text-neutral-600 mt-2">Try a different ticker (e.g., "VFV", "SPY")</p>
-              </div>
-            )}
+            {renderNoResults()}
           </div>
         )}
       </motion.div>
       <ETFDetailsDrawer etf={selectedETF} onClose={() => setSelectedETF(null)} />
+      <MessageDrawer
+        isOpen={messageDrawer.isOpen}
+        onClose={handleDrawerClose}
+        title={messageDrawer.title}
+        message={messageDrawer.message}
+        type={messageDrawer.type}
+      />
     </section>
   );
 }
