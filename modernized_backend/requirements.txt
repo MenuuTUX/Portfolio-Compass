@@ -8,3 +8,5 @@ yfinance
 httpx
 meilisearch
 psycopg2-binary
+tqdm
+lxml
