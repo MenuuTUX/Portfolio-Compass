@@ -48,7 +48,12 @@ def fetch_details(ticker_symbol):
 
     price = to_py_float(price_raw)
     daily_change = to_py_float(daily_change_raw) * 100
-    yield_val = to_py_float(yield_raw) * 100 if yield_raw else 0.0
+    # Heuristic: if yield_raw > 0.4 (40%), assume it's already a percentage (e.g. 0.67 for 0.67%)
+    # Otherwise assume it's a decimal (e.g. 0.015 for 1.5%)
+    if yield_raw and yield_raw > 0.4:
+        yield_val = to_py_float(yield_raw)
+    else:
+        yield_val = to_py_float(yield_raw) * 100 if yield_raw else 0.0
     mer = to_py_float(mer_raw) * 100 if mer_raw else 0.0
 
     currency = str(info.get("currency", "USD"))

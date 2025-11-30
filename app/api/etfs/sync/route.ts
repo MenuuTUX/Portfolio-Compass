@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
         acc[sector.sector_name] = sector.weight
         return acc
       }, {} as { [key: string]: number }),
+      assetType: fullEtf.assetType,
     };
 
     return NextResponse.json(formattedEtf);

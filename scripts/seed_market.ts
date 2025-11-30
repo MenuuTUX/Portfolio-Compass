@@ -35,10 +35,19 @@ async function seedMarket() {
 
   const pythonScript = path.join(process.cwd(), 'scripts', 'fetch_market_snapshot.py');
 
-  // Join tickers with commas
-  const tickersArg = TARGET_TICKERS.join(',');
+  // 1. Get existing tickers from DB to ensure we update everything (including user searches like BABA)
+  const existingEtfs = await prisma.etf.findMany({
+    select: { ticker: true }
+  });
+  const existingTickers = existingEtfs.map(e => e.ticker);
 
-  console.log(`fetching data for: ${tickersArg}`);
+  // 2. Merge with TARGET_TICKERS and deduplicate
+  const allTickers = Array.from(new Set([...TARGET_TICKERS, ...existingTickers]));
+
+  // Join tickers with commas
+  const tickersArg = allTickers.join(',');
+
+  console.log(`fetching data for ${allTickers.length} tickers: ${tickersArg}`);
 
   try {
     const result = await new Promise<string>((resolve, reject) => {
@@ -64,37 +73,16 @@ async function seedMarket() {
           name: item.name,
           price: item.price,
           daily_change: item.daily_change,
-          // Don't overwrite isDeepAnalysisLoaded if it's already true?
-          // The prompt says: "Write these to the Etf table with isDeepAnalysisLoaded = false."
-          // But if we already have deep analysis, maybe we shouldn't reset it?
-          // "Goal: Pre-populate... so search is instant."
-          // If I reset it, they have to fetch details again.
-          // I will default it to false if creating, but maybe keep it if updating?
-          // The prompt says "Write these ... with isDeepAnalysisLoaded = false".
-          // I will follow instructions strictly for new ones, but for existing?
-          // "Replaces the old fetch_prices.py for initialization."
-          // If I run this, I likely want to refresh prices.
-          // If I set isDeepAnalysisLoaded = false, I invalidate the cache.
-          // That might be intended to force a refresh of details if they are old?
-          // But let's assume if we only fetch price, we don't have the deep data in THIS payload.
-          // So strictly speaking, we don't have deep analysis *in this update*.
-          // However, we might still have the history in DB.
-          // I'll keep `isDeepAnalysisLoaded` as is if it exists, or false if new.
-          // Wait, user says: "Write these to the Etf table with isDeepAnalysisLoaded = false."
-          // I will follow this. It implies invalidating or setting initial state.
-          // However, to be safe for "Instant Search" without breaking existing "Advanced View" immediately,
-          // I will only set it to false if I am creating. If updating, I should arguably leave it alone
-          // UNLESS the strategy is "Light seed resets everything".
-          // Let's assume this is for "Initialization" (Seed).
-          // I'll set it to false to be safe as per prompt.
+          assetType: item.asset_type, // <--- ADD THIS to update existing records
           isDeepAnalysisLoaded: false,
         },
         create: {
           ticker: item.ticker,
           name: item.name,
-          currency: 'USD', // Default, fixed later by deep fetch
+          currency: 'USD',
           price: item.price,
           daily_change: item.daily_change,
+          assetType: item.asset_type || "ETF", // <--- ADD THIS to create correctly
           isDeepAnalysisLoaded: false,
         },
       });
