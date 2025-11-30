@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
           daily_change: data.daily_change,
           yield: data.yield,
           mer: data.mer,
+          assetType: data.asset_type,
           isDeepAnalysisLoaded: true,
         }
       });

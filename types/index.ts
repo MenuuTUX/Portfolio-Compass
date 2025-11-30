@@ -3,6 +3,7 @@ export interface ETF {
   name: string;
   price: number;
   changePercent: number;
+  assetType?: string;
   isDeepAnalysisLoaded?: boolean;
   history: { date: string; price: number; interval?: string }[];
   metrics: {
