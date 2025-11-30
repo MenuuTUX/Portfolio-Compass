@@ -34,6 +34,7 @@ const Sparkline = ({ data, color }: SparklineProps) => (
 
 interface ComparisonEngineProps {
   onAddToPortfolio: (etf: ETF) => void;
+  assetType?: string;
 }
 
 // Debounce helper
@@ -53,7 +54,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineProps) {
+export default function ComparisonEngine({ onAddToPortfolio, assetType }: ComparisonEngineProps) {
   const [etfs, setEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
@@ -82,7 +83,11 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
   const fetchEtfs = useCallback(async (query: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/etfs/search?query=${encodeURIComponent(query)}`);
+      let url = `/api/etfs/search?query=${encodeURIComponent(query)}`;
+      if (assetType) {
+        url += `&type=${encodeURIComponent(assetType)}`;
+      }
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch');
       const data: ETF[] = await res.json();
       setEtfs(data);
@@ -310,7 +315,7 @@ export default function ComparisonEngine({ onAddToPortfolio }: ComparisonEngineP
             {etfs.length === 0 && !loading && (
               <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
                 <Search className="h-12 w-12 text-neutral-700 mb-4" />
-                <p>No ETFs found matching "{search}"</p>
+                <p>No {assetType === 'STOCK' ? 'Stocks' : 'ETFs'} found matching "{search}"</p>
                 <p className="text-sm text-neutral-600 mt-2">Try a different ticker (e.g., "VFV", "SPY")</p>
               </div>
             )}
