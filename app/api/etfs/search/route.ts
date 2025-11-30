@@ -21,9 +21,12 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (type) {
-      whereClause.assetType = type;
-    }
+    // We intentionally ignore 'type' in the DB search so we can find assets
+    // that exist but are in the wrong category (to show a helpful message).
+    // The frontend will handle the filtering.
+    // if (type) {
+    //   whereClause.assetType = type;
+    // }
 
     // 1. Attempt Local DB Fetch
     let etfs = await prisma.etf.findMany({
@@ -72,9 +75,10 @@ export async function GET(request: NextRequest) {
           });
 
           // Check if the found asset matches the requested type
-          if (type && newEtf.assetType !== type) {
-            return NextResponse.json([]);
-          }
+          // We no longer filter here to allow the frontend to show "Check the other section"
+          // if (type && newEtf.assetType !== type) {
+          //   return NextResponse.json([]);
+          // }
 
           // Return this new ETF in the format the frontend expects
           // We return empty history/sectors/allocation because we haven't done the deep sync yet

@@ -3,7 +3,10 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 
 const prismaClientSingleton = () => {
-  const connectionString = `${process.env.DATABASE_URL}`
+  // Ensure we have a connection string.
+  // In dev/sandbox, fallback to the default if env is missing to prevent crash.
+  const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/portfolio_compass?schema=public"
+
   const pool = new pg.Pool({ connectionString })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })

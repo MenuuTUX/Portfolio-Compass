@@ -9,9 +9,10 @@ type Tab = 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
 interface NavigationProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  onBackToLanding?: () => void;
 }
 
-export default function Navigation({ activeTab, onTabChange }: NavigationProps) {
+export default function Navigation({ activeTab, onTabChange, onBackToLanding }: NavigationProps) {
   const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: 'ETFS', label: 'ETFs', icon: Activity },
     { id: 'STOCKS', label: 'Stocks', icon: BarChart3 },
@@ -23,7 +24,10 @@ export default function Navigation({ activeTab, onTabChange }: NavigationProps) 
     <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={onBackToLanding}
+          >
             <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
               <Briefcase className="w-4 h-4 text-emerald-400" />
             </div>
