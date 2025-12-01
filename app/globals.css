@@ -1,55 +1,84 @@
 @import "tailwindcss";
 
 @theme {
+  --color-emerald-400: #34d399;
   --color-emerald-500: #10b981;
   --color-emerald-600: #059669;
-  --color-rose-500: #f43f5e;
-  --color-neutral-400: #a3a3a3;
-  --color-neutral-500: #737373;
-  --color-neutral-600: #525252;
+  --color-emerald-900: #064e3b;
 
-  --image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
-  --image-gradient-conic: conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops));
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+  --color-stone-950: #0c0a09;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui;
+  --font-display: var(--font-space), ui-sans-serif, system-ui;
+
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-breathe: breathe 4s ease-in-out infinite;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+  }
 }
 
 :root {
   --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
+  --background-start-rgb: 12, 10, 9; /* Stone 950 */
   --background-end-rgb: 0, 0, 0;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+  background: var(--color-stone-950);
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-black/40 border border-white/10 backdrop-blur-md;
+    @apply bg-stone-900/40 border border-emerald-500/10 backdrop-blur-md shadow-lg shadow-black/20;
+  }
+
+  .glass-card {
+    @apply bg-stone-900/60 border border-white/5 backdrop-blur-md;
   }
 
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Biopunk Textures */
+  .bg-grid-pattern {
+    background-image: linear-gradient(to right, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .organic-glow {
+    box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
+  }
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #000000;
+  background: #0c0a09;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333333;
-  border-radius: 5px;
+  background: #292524;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #555555;
+  background: #10b981;
 }
