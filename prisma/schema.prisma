@@ -25,6 +25,7 @@ model Etf {
   history        EtfHistory[]
   sectors        EtfSector[]
   allocation     EtfAllocation?
+  portfolioItem  PortfolioItem?
 
   updatedAt      DateTime        @updatedAt
 }
@@ -55,4 +56,12 @@ model EtfAllocation {
   bonds_weight  Float
   cash_weight   Float
   etf          Etf    @relation(fields: [etfId], references: [ticker])
+}
+
+model PortfolioItem {
+  id        Int    @id @default(autoincrement())
+  etfId     String @unique
+  weight    Float
+  shares    Float  @default(0)
+  etf       Etf    @relation(fields: [etfId], references: [ticker])
 }

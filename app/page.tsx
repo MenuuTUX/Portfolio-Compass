@@ -10,6 +10,7 @@ import { ETF } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useAddStock } from '@/hooks/useAddStock';
+import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
 import { useQueryClient } from '@tanstack/react-query';
 
 type ViewMode = 'LANDING' | 'APP';
@@ -22,6 +23,7 @@ export default function Home() {
   // Use React Query hooks
   const { data: portfolio = [] } = usePortfolio();
   const addStockMutation = useAddStock();
+  const updatePortfolioItemMutation = useUpdatePortfolioItem();
   const queryClient = useQueryClient();
 
   const handleStart = () => {
@@ -37,7 +39,7 @@ export default function Home() {
   // In a real app, we would have mutations for these as well.
 
   const handleRemoveFromPortfolio = (ticker: string) => {
-     queryClient.setQueryData(['portfolio'], (prev: any[]) => {
+    queryClient.setQueryData(['portfolio'], (prev: any[]) => {
       const newPortfolio = prev.filter(item => item.ticker !== ticker);
       if (newPortfolio.length === 0) return [];
       const evenWeight = 100 / newPortfolio.length;
@@ -46,9 +48,11 @@ export default function Home() {
   };
 
   const handleUpdateWeight = (ticker: string, weight: number) => {
-    queryClient.setQueryData(['portfolio'], (prev: any[]) =>
-      prev.map(item => item.ticker === ticker ? { ...item, weight } : item)
-    );
+    updatePortfolioItemMutation.mutate({ ticker, weight });
+  };
+
+  const handleUpdateShares = (ticker: string, shares: number) => {
+    updatePortfolioItemMutation.mutate({ ticker, shares });
   };
 
   const handleClearPortfolio = () => {
@@ -97,6 +101,7 @@ export default function Home() {
                     portfolio={portfolio}
                     onRemove={handleRemoveFromPortfolio}
                     onUpdateWeight={handleUpdateWeight}
+                    onUpdateShares={handleUpdateShares}
                     onClear={handleClearPortfolio}
                     onViewGrowth={() => setActiveTab('GROWTH')}
                   />
