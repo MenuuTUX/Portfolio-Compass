@@ -7,7 +7,10 @@ const prismaClientSingleton = () => {
   // In dev/sandbox, fallback to the default if env is missing to prevent crash.
   const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/portfolio_compass?schema=public"
 
-  const pool = new pg.Pool({ connectionString })
+  const pool = new pg.Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }
+  })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
 };

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout } from 'lucide-react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import BiopunkSlider from './BiopunkSlider';
 
 interface HeroProps {
@@ -29,8 +29,45 @@ export default function Hero({ onStart }: HeroProps) {
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
   const y2 = useTransform(scrollY, [0, 500], [0, -150]);
 
+  const [marketStatus, setMarketStatus] = useState<'OPEN' | 'CLOSED'>('CLOSED');
+  const [titleIndex, setTitleIndex] = useState(0);
+
+  const titleWords = [
+    { text: "fun", font: "font-display", color: "text-emerald-400" },
+    { text: "stable", font: "font-serif italic", color: "text-blue-400" },
+    { text: "aggressive", font: "font-mono font-bold", color: "text-red-400" },
+    { text: "dynamic", font: "font-sans font-black", color: "text-purple-400" },
+  ];
+
   useEffect(() => {
     setMounted(true);
+
+    // Market Status Logic (US ET: Mon-Fri 9:30-16:00)
+    const checkMarketStatus = () => {
+      const now = new Date();
+      const etTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+      const day = etTime.getDay();
+      const hour = etTime.getHours();
+      const minute = etTime.getMinutes();
+
+      const isWeekday = day >= 1 && day <= 5;
+      const isMarketHours = (hour > 9 || (hour === 9 && minute >= 30)) && hour < 16;
+
+      setMarketStatus(isWeekday && isMarketHours ? 'OPEN' : 'CLOSED');
+    };
+
+    checkMarketStatus();
+    const interval = setInterval(checkMarketStatus, 60000); // Check every minute
+
+    // Title Rotation
+    const titleInterval = setInterval(() => {
+      setTitleIndex((prev) => (prev + 1) % titleWords.length);
+    }, 3000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(titleInterval);
+    };
   }, []);
 
   return (
@@ -79,13 +116,16 @@ export default function Hero({ onStart }: HeroProps) {
             animate="visible"
             custom={0}
             variants={textVariants}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-900/20 border border-emerald-500/20 text-emerald-400 text-xs font-mono tracking-widest backdrop-blur-md"
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${marketStatus === 'OPEN'
+                ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400'
+                : 'bg-red-900/20 border-red-500/20 text-red-400'
+              }`}
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === 'OPEN' ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === 'OPEN' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
             </span>
-            SYSTEM: ONLINE // ORGANIC
+            MARKET: {marketStatus}
           </motion.div>
 
           <motion.h1
@@ -93,10 +133,21 @@ export default function Hero({ onStart }: HeroProps) {
             variants={textVariants}
             className="text-5xl md:text-7xl font-display font-bold leading-tight"
           >
-            Nature <span className="text-stone-600">Reclaims</span> <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-emerald-200 to-emerald-500 animate-pulse-slow">
-              The Market
-            </span>
+            Make your <span className="text-stone-600">portfolio</span> <br />
+            <div className="h-[1.2em] relative overflow-hidden">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={titleIndex}
+                  initial={{ y: 40, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -40, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: "backOut" }}
+                  className={`block ${titleWords[titleIndex].font} ${titleWords[titleIndex].color}`}
+                >
+                  {titleWords[titleIndex].text}
+                </motion.span>
+              </AnimatePresence>
+            </div>
           </motion.h1>
 
           <motion.p
@@ -104,9 +155,9 @@ export default function Hero({ onStart }: HeroProps) {
             variants={textVariants}
             className="text-lg text-stone-400 max-w-xl leading-relaxed"
           >
-            Abandon the sterile machinery of traditional finance.
-            PortfolioCompass merges algorithmic precision with organic growth.
-            Watch your wealth evolve like a living ecosystem.
+            Experience institutional-grade portfolio management.
+            PortfolioCompass merges algorithmic precision with sustainable growth strategies.
+            Watch your wealth evolve with data-driven clarity.
           </motion.p>
 
           <motion.div
@@ -120,7 +171,7 @@ export default function Hero({ onStart }: HeroProps) {
               whileTap={{ scale: 0.95 }}
               className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center gap-2 cursor-pointer relative overflow-hidden"
             >
-              <span className="relative z-10">Initiate Symbiosis</span>
+              <span className="relative z-10">Start Analysis</span>
               <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
             </motion.button>
@@ -145,7 +196,7 @@ export default function Hero({ onStart }: HeroProps) {
             {[
               { label: 'Live Data', val: '24ms', icon: Zap },
               { label: 'Asset Types', val: 'Hybrid', icon: Sprout },
-              { label: 'Security', val: 'Bio-Locked', icon: Activity },
+              { label: 'Security', val: 'Bank-Grade', icon: Activity },
             ].map((item, i) => (
               <div key={i} className="space-y-1">
                 <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
@@ -189,7 +240,7 @@ export default function Hero({ onStart }: HeroProps) {
                 {/* Simulated Chart */}
                 <div className="flex items-end justify-between h-full gap-2 px-2">
                   {[...Array(12)].map((_, i) => {
-                    const height = Math.min(100, 20 + i * 5 + (growthValue / 100) * i * 8 + Math.random() * 10);
+                    const height = Math.min(100, 10 + i * 3 + (growthValue / 50) * i * 12 + Math.random() * 5);
                     return (
                       <motion.div
                         key={i}
@@ -209,15 +260,16 @@ export default function Hero({ onStart }: HeroProps) {
 
               <div className="space-y-4">
                 <BiopunkSlider
-                  label="Time Horizon (Years)"
+                  label="Time Horizon"
                   min={1}
                   max={50}
                   defaultValue={10}
+                  unit=" Years"
                   onChange={(v) => setGrowthValue(v * 2)} // Just for visual feedback
                 />
 
                 <BiopunkSlider
-                  label="Risk Tolerance (Bio-Metric)"
+                  label="Risk Tolerance ( volatility )"
                   min={1}
                   max={100}
                   defaultValue={65}
@@ -226,9 +278,9 @@ export default function Hero({ onStart }: HeroProps) {
               </div>
 
               <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800">
-                 <span>• Encrypted</span>
-                 <span>• Decentralized</span>
-                 <span>• Organic</span>
+                <span>• Institutional</span>
+                <span>• Algorithmic</span>
+                <span>• Sustainable</span>
               </div>
             </div>
 

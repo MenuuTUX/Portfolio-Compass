@@ -10,6 +10,7 @@ interface BiopunkSliderProps {
   defaultValue?: number;
   onChange?: (value: number) => void;
   className?: string;
+  unit?: string;
 }
 
 export default function BiopunkSlider({
@@ -18,31 +19,51 @@ export default function BiopunkSlider({
   max = 100,
   defaultValue = 50,
   onChange,
-  className = ''
+  className = '',
+  unit = '%'
 }: BiopunkSliderProps) {
   const [value, setValue] = useState(defaultValue);
   const constraintsRef = useRef<HTMLDivElement>(null);
+  const [trackWidth, setTrackWidth] = useState(0);
   const x = useMotionValue(0);
-  const trackWidth = 200; // Approximate width, refined by ref
 
   // Calculate percentage for visuals
-  const percentage = useTransform(x, [0, trackWidth], ["0%", "100%"]);
+  const percentage = useTransform(x, [0, trackWidth || 1], ["0%", "100%"]);
   const color = useTransform(
     x,
-    [0, trackWidth / 2, trackWidth],
+    [0, (trackWidth || 1) / 2, trackWidth || 1],
     ['#059669', '#10b981', '#34d399'] // Emerald gradient
   );
 
-  const glowOpacity = useTransform(x, [0, trackWidth], [0.2, 0.8]);
+  const glowOpacity = useTransform(x, [0, trackWidth || 1], [0.2, 0.8]);
+
+  useEffect(() => {
+    if (constraintsRef.current) {
+      setTrackWidth(constraintsRef.current.offsetWidth);
+
+      // Handle resize
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setTrackWidth(entry.contentRect.width);
+        }
+      });
+      observer.observe(constraintsRef.current);
+      return () => observer.disconnect();
+    }
+  }, []);
 
   useEffect(() => {
     // Initialize position based on default value
-    const initialX = ((defaultValue - min) / (max - min)) * trackWidth;
-    x.set(initialX);
-  }, []);
+    if (trackWidth > 0) {
+      const initialX = ((defaultValue - min) / (max - min)) * trackWidth;
+      x.set(initialX);
+    }
+  }, [trackWidth, defaultValue, min, max]);
 
   const handleDrag = () => {
     const currentX = x.get();
+    if (trackWidth === 0) return;
+
     const newPercent = Math.max(0, Math.min(100, (currentX / trackWidth) * 100));
     const newValue = Math.round(((newPercent / 100) * (max - min)) + min);
 
@@ -60,11 +81,11 @@ export default function BiopunkSlider({
           className="text-emerald-400 text-sm font-display font-bold"
           style={{ opacity: glowOpacity }}
         >
-          {value}%
+          {value}{unit}
         </motion.span>
       </div>
 
-      <div className="relative h-12 flex items-center" ref={constraintsRef}>
+      <div className="relative h-12 flex items-center w-full" ref={constraintsRef}>
         {/* Track Background - Organic Vine Look */}
         <div className="absolute top-1/2 left-0 w-full h-1 bg-stone-800/50 rounded-full overflow-hidden -translate-y-1/2 backdrop-blur-sm border border-stone-700/30">
           <motion.div
@@ -74,17 +95,17 @@ export default function BiopunkSlider({
         </div>
 
         {/* Active Fill Track */}
-        <div className="absolute top-1/2 left-0 w-[200px] h-1 -translate-y-1/2 pointer-events-none">
-           <motion.div
+        <div className="absolute top-1/2 left-0 h-1 -translate-y-1/2 pointer-events-none">
+          <motion.div
             className="h-full rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
             style={{ width: x, backgroundColor: color }}
-           />
+          />
         </div>
 
         {/* Thumb - "Seed" */}
         <motion.div
           drag="x"
-          dragConstraints={{ left: 0, right: 200 }} // Hardcoded for demo simplicity, ideally dynamic
+          dragConstraints={{ left: 0, right: trackWidth }}
           dragElastic={0}
           dragMomentum={false}
           onDrag={handleDrag}

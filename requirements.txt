@@ -29,3 +29,4 @@ psycopg2-binary
 greenlet
 SQLAlchemy
 python-dotenv
+lxml
