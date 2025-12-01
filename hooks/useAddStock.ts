@@ -29,7 +29,7 @@ export const useAddStock = () => {
         if (prev.find(item => item.ticker === newStock.ticker)) return prev;
 
         // Auto-balance logic (replicated from backend logic)
-        const newPortfolio = [...prev, { ...newStock, weight: 0 }];
+        const newPortfolio = [...prev, { ...newStock, weight: 0, shares: 0 }];
         const evenWeight = 100 / newPortfolio.length;
         return newPortfolio.map(item => ({ ...item, weight: Number(evenWeight.toFixed(2)) }));
       });

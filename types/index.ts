@@ -22,6 +22,7 @@ export interface ETF {
 
 export interface PortfolioItem extends ETF {
   weight: number;
+  shares: number;
 }
 
 export type Portfolio = PortfolioItem[];

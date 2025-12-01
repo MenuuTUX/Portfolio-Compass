@@ -3,8 +3,9 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Portfolio } from '@/types';
+import { Portfolio, PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -12,22 +13,74 @@ interface PortfolioBuilderProps {
   portfolio: Portfolio;
   onRemove: (ticker: string) => void;
   onUpdateWeight: (ticker: string, weight: number) => void;
+  onUpdateShares: (ticker: string, shares: number) => void;
   onClear: () => void;
   onViewGrowth: () => void;
 }
 
-export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onClear, onViewGrowth }: PortfolioBuilderProps) {
+export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear, onViewGrowth }: PortfolioBuilderProps) {
   // Calculate aggregate metrics
   const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
+  const totalValue = portfolio.reduce((acc, item) => acc + (item.shares || 0) * item.price, 0);
   const isValid = Math.abs(totalWeight - 100) < 0.1;
 
   // Aggregate Sector Allocation
-  const sectorAllocation = portfolio.reduce((acc: {[key: string]: number}, item) => {
+  const sectorAllocation = portfolio.reduce((acc: { [key: string]: number }, item) => {
     Object.entries(item.sectors).forEach(([sector, amount]) => {
       acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
     });
     return acc;
   }, {});
+
+  // Local state for display to handle debounced sorting
+  const [displayPortfolio, setDisplayPortfolio] = useState<Portfolio>(portfolio);
+  const isInteracting = useRef(false);
+  const sortTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync portfolio props to displayPortfolio with debounce logic
+  useEffect(() => {
+    if (isInteracting.current) {
+      // If interacting, update values in place but preserve order
+      setDisplayPortfolio(prev => {
+        const newPortfolio = [...prev];
+        portfolio.forEach(updatedItem => {
+          const index = newPortfolio.findIndex(p => p.ticker === updatedItem.ticker);
+          if (index !== -1) {
+            newPortfolio[index] = updatedItem;
+          } else {
+            // New item added while interacting? Append it.
+            newPortfolio.push(updatedItem);
+          }
+        });
+        // Handle removals
+        return newPortfolio.filter(p => portfolio.some(pi => pi.ticker === p.ticker));
+      });
+    } else {
+      // If not interacting, sort by weight descending
+      setDisplayPortfolio([...portfolio].sort((a, b) => b.weight - a.weight));
+    }
+  }, [portfolio]);
+
+  const handleInteraction = () => {
+    isInteracting.current = true;
+    if (sortTimeout.current) clearTimeout(sortTimeout.current);
+
+    sortTimeout.current = setTimeout(() => {
+      isInteracting.current = false;
+      // Trigger a re-sort by updating from current portfolio
+      setDisplayPortfolio([...portfolio].sort((a, b) => b.weight - a.weight));
+    }, 3000);
+  };
+
+  const handleUpdateShares = (ticker: string, shares: number) => {
+    handleInteraction();
+    onUpdateShares(ticker, shares);
+  };
+
+  const handleUpdateWeight = (ticker: string, weight: number) => {
+    handleInteraction();
+    onUpdateWeight(ticker, weight);
+  };
 
   const pieData = Object.entries(sectorAllocation).map(([name, value]) => ({
     name, value: value * 100
@@ -65,12 +118,12 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
           {/* Holdings List */}
           <div className="lg:col-span-2 space-y-4">
-            {portfolio.length === 0 ? (
+            {displayPortfolio.length === 0 ? (
               <div className="h-64 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500">
                 Select ETFs from the Market Engine to build your portfolio.
               </div>
             ) : (
-              portfolio.map((item) => (
+              displayPortfolio.map((item) => (
                 <div key={item.ticker} className="glass-panel p-4 rounded-lg flex items-center gap-4 bg-white/5 border border-white/5">
                   <div className="w-16">
                     <div className="font-bold text-white">{item.ticker}</div>
@@ -84,13 +137,26 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                     </div>
                   </div>
 
-                  <div className="w-32">
-                    <label className="text-xs text-neutral-500 block mb-1">Weight (%)</label>
+                  <div className="w-24">
+                    <label className="text-xs text-neutral-500 block mb-1">Shares</label>
                     <input
                       type="number"
+                      value={item.shares || 0}
+                      onChange={(e) => handleUpdateShares(item.ticker, parseFloat(e.target.value))}
+                      className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark]"
+                    />
+                  </div>
+
+                  <div className="w-32">
+                    <label className="text-xs text-neutral-500 block mb-1">Weight: {item.weight}%</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
                       value={item.weight}
-                      onChange={(e) => onUpdateWeight(item.ticker, parseFloat(e.target.value))}
-                      className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none"
+                      onChange={(e) => handleUpdateWeight(item.ticker, parseFloat(e.target.value))}
+                      className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                     />
                   </div>
 
@@ -105,13 +171,22 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             )}
 
             {portfolio.length > 0 && (
-               <div className={cn(
-                 "p-4 rounded-lg border flex justify-between items-center",
-                 isValid ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"
-               )}>
-                 <span className="font-medium">Total Allocation</span>
-                 <span className="font-bold text-xl">{totalWeight.toFixed(1)}%</span>
-               </div>
+              <div className="flex flex-col gap-2">
+                <div className="p-4 rounded-lg border border-white/10 bg-white/5 flex justify-between items-center">
+                  <span className="font-medium text-white">Total Portfolio Value</span>
+                  <span className="font-bold text-xl text-emerald-400">
+                    ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                <div className={cn(
+                  "p-4 rounded-lg border flex justify-between items-center",
+                  isValid ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                )}>
+                  <span className="font-medium">Total Allocation</span>
+                  <span className="font-bold text-xl">{totalWeight.toFixed(1)}%</span>
+                </div>
+              </div>
             )}
           </div>
 
@@ -142,21 +217,21 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                 <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
-                   Add holdings to see exposure
-                 </div>
+                <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
+                  Add holdings to see exposure
+                </div>
               )}
             </div>
             {pieData.length > 0 && (
-               <div className="grid grid-cols-2 gap-2 mt-4">
-                 {pieData.map((entry, index) => (
-                   <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
-                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                     <span className="truncate">{entry.name}</span>
-                     <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
-                   </div>
-                 ))}
-               </div>
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {pieData.map((entry, index) => (
+                  <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                    <span className="truncate">{entry.name}</span>
+                    <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
