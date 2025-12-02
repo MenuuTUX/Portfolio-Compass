@@ -5,7 +5,10 @@ import { Trash2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Portfolio, PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { FixedSizeList, ListChildComponentProps } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
+import PortfolioItemRow from './PortfolioItemRow';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -72,29 +75,56 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
     }, 3000);
   };
 
-  const handleUpdateShares = (ticker: string, shares: number) => {
+  const handleUpdateShares = useCallback((ticker: string, shares: number) => {
     handleInteraction();
     onUpdateShares(ticker, shares);
-  };
+  }, [onUpdateShares]);
 
-  const handleUpdateWeight = (ticker: string, weight: number) => {
+  const handleUpdateWeight = useCallback((ticker: string, weight: number) => {
     handleInteraction();
     onUpdateWeight(ticker, weight);
-  };
+  }, [onUpdateWeight]);
 
   const pieData = Object.entries(sectorAllocation).map(([name, value]) => ({
     name, value: value * 100
   })).filter(x => x.value > 0);
 
+  // Row Renderer for react-window
+  const Row = ({ index, style, data }: ListChildComponentProps) => {
+    const { items, onRemove, onUpdateWeight, onUpdateShares } = data;
+    const item = items[index];
+
+    // Safety check
+    if (!item) return null;
+
+    return (
+      <PortfolioItemRow
+        item={item}
+        style={style}
+        onRemove={onRemove}
+        onUpdateWeight={onUpdateWeight}
+        onUpdateShares={onUpdateShares}
+      />
+    );
+  };
+
+  // Memoize itemData for FixedSizeList to prevent unnecessary re-renders of rows
+  const itemData = {
+    items: displayPortfolio,
+    onRemove,
+    onUpdateWeight: handleUpdateWeight,
+    onUpdateShares: handleUpdateShares
+  };
+
   return (
-    <section className="py-12 md:py-24 px-4 h-[calc(100dvh-64px)] overflow-y-auto">
+    <section className="py-12 md:py-24 px-4 h-[calc(100dvh-64px)] flex flex-col">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-7xl mx-auto"
+        className="max-w-7xl mx-auto w-full flex flex-col h-full"
       >
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-12 gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 flex-shrink-0">
           <div>
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Portfolio Builder</h2>
             <p className="text-sm md:text-base text-neutral-400">Construct your custom allocation. Target 100% weight.</p>
@@ -115,71 +145,11 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 overflow-hidden">
           {/* Holdings List */}
-          <div className="lg:col-span-2 space-y-4">
-            {displayPortfolio.length === 0 ? (
-              <div className="h-64 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500 text-center p-4">
-                Select ETFs from the Market Engine to build your portfolio.
-              </div>
-            ) : (
-              displayPortfolio.map((item) => (
-                <div key={item.ticker} className="glass-panel p-4 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4 bg-white/5 border border-white/5">
-                  <div className="flex items-center justify-between w-full md:w-16">
-                    <div className="font-bold text-white">{item.ticker}</div>
-                    <button
-                      onClick={() => onRemove(item.ticker)}
-                      className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer md:hidden"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="flex-1 w-full">
-                    <div className="text-sm text-neutral-400 truncate">{item.name}</div>
-                    <div className="flex gap-4 mt-1 text-xs text-neutral-500">
-                      <span>MER: {item.metrics.mer}%</span>
-                      <span>Yield: {item.metrics.yield}%</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 w-full md:w-auto">
-                    <div className="flex-1 md:w-24">
-                      <label className="text-xs text-neutral-500 block mb-1">Shares</label>
-                      <input
-                        type="number"
-                        value={item.shares || 0}
-                        onChange={(e) => handleUpdateShares(item.ticker, parseFloat(e.target.value))}
-                        className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark]"
-                      />
-                    </div>
-
-                    <div className="flex-1 md:w-32">
-                      <label className="text-xs text-neutral-500 block mb-1">Weight: {item.weight}%</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={item.weight}
-                        onChange={(e) => handleUpdateWeight(item.ticker, parseFloat(e.target.value))}
-                        className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => onRemove(item.ticker)}
-                    className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer hidden md:block"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              ))
-            )}
-
+          <div className="lg:col-span-2 flex flex-col h-full">
             {portfolio.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 mb-4 flex-shrink-0">
                 <div className="p-4 rounded-lg border border-white/10 bg-white/5 flex justify-between items-center">
                   <span className="font-medium text-white">Total Portfolio Value</span>
                   <span className="font-bold text-xl text-emerald-400">
@@ -196,12 +166,34 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                 </div>
               </div>
             )}
+
+            <div className="flex-1 min-h-0 border border-white/5 rounded-xl bg-white/[0.02]">
+               {displayPortfolio.length === 0 ? (
+                <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500 text-center p-4">
+                  Select ETFs from the Market Engine to build your portfolio.
+                </div>
+              ) : (
+                <AutoSizer>
+                  {({ height, width }: { height: number; width: number }) => (
+                    <FixedSizeList
+                      height={height}
+                      width={width}
+                      itemCount={displayPortfolio.length}
+                      itemSize={160}
+                      itemData={itemData}
+                    >
+                      {Row}
+                    </FixedSizeList>
+                  )}
+                </AutoSizer>
+              )}
+            </div>
           </div>
 
           {/* Visualization */}
-          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit">
-            <h3 className="text-lg font-medium text-white mb-6">Sector X-Ray</h3>
-            <div className="flex-1 min-h-[300px]">
+          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit lg:h-full overflow-y-auto">
+            <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
+            <div className="w-full h-[300px] flex-shrink-0">
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -231,7 +223,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
               )}
             </div>
             {pieData.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mt-4">
+              <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
                 {pieData.map((entry, index) => (
                   <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />

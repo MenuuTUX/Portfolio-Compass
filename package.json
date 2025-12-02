@@ -34,6 +34,9 @@
     "pg": "^8.16.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-is": "^19.2.0",
+    "react-virtualized-auto-sizer": "^1.0.26",
+    "react-window": "^1.8.10",
     "recharts": "^3.5.1",
     "tailwind-merge": "^3.4.0",
     "yahoo-finance2": "^3.10.2"
@@ -44,6 +47,8 @@
     "@types/pg": "^8.15.6",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@types/react-virtualized-auto-sizer": "^1.0.4",
+    "@types/react-window": "^1.8.8",
     "baseline-browser-mapping": "^2.8.32",
     "postcss": "^8.5.6",
     "prisma": "^7.0.1",
