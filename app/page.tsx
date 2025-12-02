@@ -6,6 +6,7 @@ import Hero from '@/components/Hero';
 import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import WealthProjector from '@/components/WealthProjector';
+import TrendingTab from '@/components/TrendingTab';
 import { ETF } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
@@ -14,11 +15,11 @@ import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
 import { useQueryClient } from '@tanstack/react-query';
 
 type ViewMode = 'LANDING' | 'APP';
-type Tab = 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
+type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
-  const [activeTab, setActiveTab] = useState<Tab>('ETFS');
+  const [activeTab, setActiveTab] = useState<Tab>('TRENDING');
 
   // Use React Query hooks
   const { data: portfolio = [] } = usePortfolio();
@@ -95,6 +96,9 @@ export default function Home() {
 
             <div className="flex-1 pt-16 relative">
               <AnimatePresence mode="wait">
+                {activeTab === 'TRENDING' && (
+                  <TrendingTab key="trending" onAddToPortfolio={handleAddToPortfolio} />
+                )}
                 {activeTab === 'PORTFOLIO' && (
                   <PortfolioBuilder
                     key="portfolio"

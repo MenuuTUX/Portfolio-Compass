@@ -87,22 +87,22 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   })).filter(x => x.value > 0);
 
   return (
-    <section className="py-24 px-4 h-[calc(100vh-64px)] overflow-y-auto">
+    <section className="py-12 md:py-24 px-4 h-[calc(100dvh-64px)] overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="max-w-7xl mx-auto"
       >
-        <div className="flex justify-between items-center mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 md:mb-12 gap-4">
           <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Portfolio Builder</h2>
-            <p className="text-neutral-400">Construct your custom allocation. Target 100% weight.</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Portfolio Builder</h2>
+            <p className="text-sm md:text-base text-neutral-400">Construct your custom allocation. Target 100% weight.</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
             <button
               onClick={onViewGrowth}
-              className="px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
+              className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
               See Growth Projection
             </button>
@@ -119,50 +119,58 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           {/* Holdings List */}
           <div className="lg:col-span-2 space-y-4">
             {displayPortfolio.length === 0 ? (
-              <div className="h-64 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500">
+              <div className="h-64 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500 text-center p-4">
                 Select ETFs from the Market Engine to build your portfolio.
               </div>
             ) : (
               displayPortfolio.map((item) => (
-                <div key={item.ticker} className="glass-panel p-4 rounded-lg flex items-center gap-4 bg-white/5 border border-white/5">
-                  <div className="w-16">
+                <div key={item.ticker} className="glass-panel p-4 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4 bg-white/5 border border-white/5">
+                  <div className="flex items-center justify-between w-full md:w-16">
                     <div className="font-bold text-white">{item.ticker}</div>
+                    <button
+                      onClick={() => onRemove(item.ticker)}
+                      className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer md:hidden"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
 
-                  <div className="flex-1">
-                    <div className="text-sm text-neutral-400">{item.name}</div>
+                  <div className="flex-1 w-full">
+                    <div className="text-sm text-neutral-400 truncate">{item.name}</div>
                     <div className="flex gap-4 mt-1 text-xs text-neutral-500">
                       <span>MER: {item.metrics.mer}%</span>
                       <span>Yield: {item.metrics.yield}%</span>
                     </div>
                   </div>
 
-                  <div className="w-24">
-                    <label className="text-xs text-neutral-500 block mb-1">Shares</label>
-                    <input
-                      type="number"
-                      value={item.shares || 0}
-                      onChange={(e) => handleUpdateShares(item.ticker, parseFloat(e.target.value))}
-                      className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark]"
-                    />
-                  </div>
+                  <div className="flex gap-4 w-full md:w-auto">
+                    <div className="flex-1 md:w-24">
+                      <label className="text-xs text-neutral-500 block mb-1">Shares</label>
+                      <input
+                        type="number"
+                        value={item.shares || 0}
+                        onChange={(e) => handleUpdateShares(item.ticker, parseFloat(e.target.value))}
+                        className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark]"
+                      />
+                    </div>
 
-                  <div className="w-32">
-                    <label className="text-xs text-neutral-500 block mb-1">Weight: {item.weight}%</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={item.weight}
-                      onChange={(e) => handleUpdateWeight(item.ticker, parseFloat(e.target.value))}
-                      className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                    />
+                    <div className="flex-1 md:w-32">
+                      <label className="text-xs text-neutral-500 block mb-1">Weight: {item.weight}%</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={item.weight}
+                        onChange={(e) => handleUpdateWeight(item.ticker, parseFloat(e.target.value))}
+                        className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                      />
+                    </div>
                   </div>
 
                   <button
                     onClick={() => onRemove(item.ticker)}
-                    className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer"
+                    className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer hidden md:block"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -191,7 +199,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
 
           {/* Visualization */}
-          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5">
+          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit">
             <h3 className="text-lg font-medium text-white mb-6">Sector X-Ray</h3>
             <div className="flex-1 min-h-[300px]">
               {pieData.length > 0 ? (

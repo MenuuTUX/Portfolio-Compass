@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         sectors: true,
         allocation: true,
       },
-      take: 10,
+      take: query ? 10 : 1000,
     })
 
     // 2. Live Market Fallback

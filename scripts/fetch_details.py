@@ -47,10 +47,15 @@ def fetch_details(ticker_symbol):
     mer_raw = info.get("annualReportExpenseRatio", 0.0)
 
     price = to_py_float(price_raw)
-    daily_change = to_py_float(daily_change_raw) * 100
-    # Heuristic: if yield_raw > 0.4 (40%), assume it's already a percentage (e.g. 0.67 for 0.67%)
+    
+    if abs(daily_change_raw) > 0.5:
+        daily_change = to_py_float(daily_change_raw)
+    else:
+        daily_change = to_py_float(daily_change_raw) * 100
+
+    # Heuristic: if yield_raw > 0.5 (50%), assume it's already a percentage (e.g. 0.67 for 0.67%)
     # Otherwise assume it's a decimal (e.g. 0.015 for 1.5%)
-    if yield_raw and yield_raw > 0.4:
+    if yield_raw and yield_raw > 0.5:
         yield_val = to_py_float(yield_raw)
     else:
         yield_val = to_py_float(yield_raw) * 100 if yield_raw else 0.0

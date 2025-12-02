@@ -57,6 +57,12 @@ def get_top_etfs():
         'XLV', 'XLF', 'XLY', 'XLP', 'XLE', 'XLI', 'XLB', 'XLRE', 'XLU', 'SMH'
     ]
 
+def get_mag7_tickers():
+    return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
+
+def get_justbuy_tickers():
+    return ['XEQT.TO', 'VEQT.TO', 'VGRO.TO', 'XGRO.TO', 'VFV.TO', 'VUN.TO', 'ZEB.TO']
+
 def fetch_snapshot(tickers):
     results = []
     
@@ -101,7 +107,14 @@ def fetch_snapshot(tickers):
                 daily_change_raw = info.get("regularMarketChangePercent", 0.0)
                 
                 price = to_py_float(price_raw)
-                daily_change = to_py_float(daily_change_raw) * 100
+                
+                # Daily Change: yfinance usually returns decimal (0.015 for 1.5%)
+                # But sometimes it might be pre-scaled.
+                # Heuristic: if abs(val) > 0.5, assume it's percentage.
+                if abs(daily_change_raw) > 0.5:
+                    daily_change = to_py_float(daily_change_raw)
+                else:
+                    daily_change = to_py_float(daily_change_raw) * 100
                 
                 name = info.get("shortName", info.get("longName", ticker))
                 quote_type = info.get("quoteType", "ETF")
@@ -110,7 +123,11 @@ def fetch_snapshot(tickers):
                 # Yield
                 # dividendYield is usually a decimal (e.g. 0.015 for 1.5%)
                 yield_raw = info.get("dividendYield", info.get("yield", 0.0))
-                yield_val = to_py_float(yield_raw) * 100 if yield_raw else 0.0
+                
+                if yield_raw and yield_raw > 0.5:
+                     yield_val = to_py_float(yield_raw)
+                else:
+                     yield_val = to_py_float(yield_raw) * 100 if yield_raw else 0.0
                 
                 # MER (Expense Ratio)
                 # annualReportExpenseRatio is often available for ETFs
@@ -143,7 +160,9 @@ if __name__ == "__main__":
         if arg == "--get-tickers":
             sp500 = get_sp500_tickers()
             top_etfs = get_top_etfs()
-            all_tickers = list(set(sp500 + top_etfs))
+            mag7 = get_mag7_tickers()
+            justbuy = get_justbuy_tickers()
+            all_tickers = list(set(sp500 + top_etfs + mag7 + justbuy))
             print(json.dumps(all_tickers))
         else:
             # Join all args as they might be space separated

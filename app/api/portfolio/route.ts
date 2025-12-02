@@ -10,7 +10,10 @@ export async function GET() {
             include: {
                 etf: {
                     include: {
-                        history: { orderBy: { date: 'asc' } },
+                        history: {
+                            orderBy: { date: 'desc' },
+                            take: 30
+                        },
                         sectors: true,
                         allocation: true,
                     },
@@ -32,7 +35,7 @@ export async function GET() {
                 date: h.date.toISOString(),
                 price: h.close,
                 interval: h.interval
-            })),
+            })).reverse(), // Reverse to get chronological order
             metrics: { yield: item.etf.yield || 0, mer: item.etf.mer || 0 },
             allocation: {
                 equities: item.etf.allocation?.stocks_weight || 0,

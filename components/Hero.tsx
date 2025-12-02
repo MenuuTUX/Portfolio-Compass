@@ -24,7 +24,8 @@ const textVariants = {
 
 export default function Hero({ onStart }: HeroProps) {
   const [mounted, setMounted] = useState(false);
-  const [growthValue, setGrowthValue] = useState(50);
+  const [riskValue, setRiskValue] = useState(65);
+  const [yearsValue, setYearsValue] = useState(10);
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
   const y2 = useTransform(scrollY, [0, 500], [0, -150]);
@@ -107,18 +108,18 @@ export default function Hero({ onStart }: HeroProps) {
       </div>
 
       {/* 2. Main Content Wrapper */}
-      <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 items-center pt-20">
+      <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 lg:gap-12 items-center pt-24 pb-12 lg:pt-20 lg:pb-0">
 
         {/* Left Column: Text & CTA */}
-        <div className="text-left space-y-8">
+        <div className="text-left space-y-6 lg:space-y-8">
           <motion.div
             initial="hidden"
             animate="visible"
             custom={0}
             variants={textVariants}
             className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${marketStatus === 'OPEN'
-                ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400'
-                : 'bg-red-900/20 border-red-500/20 text-red-400'
+              ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400'
+              : 'bg-red-900/20 border-red-500/20 text-red-400'
               }`}
           >
             <span className="relative flex h-2 w-2">
@@ -131,7 +132,7 @@ export default function Hero({ onStart }: HeroProps) {
           <motion.h1
             custom={1}
             variants={textVariants}
-            className="text-5xl md:text-7xl font-display font-bold leading-tight"
+            className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight"
           >
             Make your <span className="text-stone-600">portfolio</span> <br />
             <div className="h-[1.2em] relative overflow-hidden">
@@ -153,7 +154,7 @@ export default function Hero({ onStart }: HeroProps) {
           <motion.p
             custom={2}
             variants={textVariants}
-            className="text-lg text-stone-400 max-w-xl leading-relaxed"
+            className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed"
           >
             Experience institutional-grade portfolio management.
             PortfolioCompass merges algorithmic precision with sustainable growth strategies.
@@ -163,13 +164,13 @@ export default function Hero({ onStart }: HeroProps) {
           <motion.div
             custom={3}
             variants={textVariants}
-            className="flex flex-wrap gap-4"
+            className="flex flex-col sm:flex-row gap-4"
           >
             <motion.button
               onClick={onStart}
               whileHover={{ scale: 1.05, backgroundColor: '#059669' }} // emerald-600
               whileTap={{ scale: 0.95 }}
-              className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center gap-2 cursor-pointer relative overflow-hidden"
+              className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
             >
               <span className="relative z-10">Start Analysis</span>
               <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
@@ -180,7 +181,7 @@ export default function Hero({ onStart }: HeroProps) {
               onClick={onStart}
               whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.2)' }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center gap-2"
+              className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
             >
               <Cpu className="w-4 h-4" />
               View Documentation
@@ -191,7 +192,7 @@ export default function Hero({ onStart }: HeroProps) {
           <motion.div
             custom={4}
             variants={textVariants}
-            className="grid grid-cols-3 gap-6 pt-8 border-t border-stone-800/50"
+            className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50"
           >
             {[
               { label: 'Live Data', val: '24ms', icon: Zap },
@@ -200,15 +201,15 @@ export default function Hero({ onStart }: HeroProps) {
             ].map((item, i) => (
               <div key={i} className="space-y-1">
                 <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
-                <div className="text-2xl font-display font-bold text-white">{item.val}</div>
-                <div className="text-xs text-stone-500 uppercase tracking-wider">{item.label}</div>
+                <div className="text-xl sm:text-2xl font-display font-bold text-white">{item.val}</div>
+                <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">{item.label}</div>
               </div>
             ))}
           </motion.div>
         </div>
 
         {/* Right Column: Interactive Visuals */}
-        <div className="relative h-[600px] flex items-center justify-center perspective-[1000px]">
+        <div className="relative h-[400px] lg:h-[600px] flex items-center justify-center perspective-[1000px] w-full">
 
           {/* Background Glow */}
           <motion.div
@@ -222,7 +223,7 @@ export default function Hero({ onStart }: HeroProps) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
-            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-8 shadow-2xl shadow-black/50 overflow-hidden"
+            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto"
           >
             {/* Decorative Circuit Lines */}
             <svg className="absolute top-0 right-0 w-32 h-32 opacity-20 pointer-events-none" viewBox="0 0 100 100">
@@ -232,20 +233,68 @@ export default function Hero({ onStart }: HeroProps) {
 
             <div className="space-y-6 relative z-10">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-display font-bold text-emerald-100">Growth Simulation</h3>
+                <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">Growth Simulation</h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
 
-              <div className="h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group">
+              <div className="h-32 sm:h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group">
                 {/* Simulated Chart */}
                 <div className="flex items-end justify-between h-full gap-2 px-2">
                   {[...Array(12)].map((_, i) => {
-                    const height = Math.min(100, 10 + i * 3 + (growthValue / 50) * i * 12 + Math.random() * 5);
+                    // Logic:
+                    // Risk (0-100) -> Annual Return Rate (2% to 15%)
+                    // Years (1-50) -> Duration
+                    // We show a "snapshot" of the curve.
+                    // To make it look dynamic:
+                    // The "steepness" depends on Risk.
+                    // The "end height" depends on Years * Risk.
+
+                    const rate = 0.02 + (riskValue / 100) * 0.13; // 2% to 15%
+                    const maxYears = yearsValue;
+                    const yearForBar = (i / 11) * maxYears;
+
+                    // Compound Interest: (1 + r)^t
+                    const growth = Math.pow(1 + rate, yearForBar);
+
+                    // Normalize for display:
+                    // We want the last bar to be near 100% height if Risk is high and Years is high.
+                    // If Risk is low, it should be lower.
+                    // Let's define a "Max Possible Growth" for normalization (e.g. 15% for 50 years = ~1000x)
+                    // But that's too huge. Let's just make it relative to the current slider settings so it looks good.
+                    // Actually, the user wants "Risk slider to affect graph".
+                    // If I increase Risk, the curve should get steeper (last bar higher relative to first).
+                    // If I increase Years, the curve should also get steeper (more time for compounding).
+
+                    // Let's try a simple visual mapping:
+                    // Height % = Base + (GrowthFactor * i)
+
+                    // Real calculation for visual:
+                    // Let's say max height (100%) represents the terminal value at Max Risk (15%) & Max Years (50).
+                    // Max Growth = (1.15)^50 ~= 1083.
+                    // Min Growth = (1.02)^1 ~= 1.02.
+
+                    // This is too wide a range for a linear chart. Logarithmic?
+                    // Let's just make it look "cool".
+
+                    const normalizedHeight = Math.min(100, 10 + (growth - 1) * 20 + (i * 2));
+                    // This is tricky because growth varies wildly.
+
+                    // Alternative:
+                    // Just map Risk to "Steepness" and Years to "Extension".
+                    // But we have fixed 12 bars.
+
+                    // Let's use a simple exponential curve that reacts to the inputs.
+                    const steepness = (riskValue / 100) * 2 + 0.5; // 0.5 to 2.5
+                    const duration = (yearsValue / 50) * 2 + 0.5; // 0.5 to 2.5
+
+                    const barHeight = 10 + Math.pow(i, steepness * 0.8) * duration * 3;
+                    const finalHeight = Math.min(100, barHeight + Math.random() * 5); // Add jitter
+
                     return (
                       <motion.div
                         key={i}
                         className="w-full bg-emerald-500/80 rounded-t-sm"
-                        animate={{ height: `${height}%` }}
+                        animate={{ height: `${finalHeight}%` }}
                         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                         style={{ opacity: 0.3 + (i / 12) }}
                       />
@@ -254,7 +303,7 @@ export default function Hero({ onStart }: HeroProps) {
                 </div>
                 {/* Overlay Text */}
                 <div className="absolute top-2 left-4 text-xs text-stone-500 font-mono">
-                  PROJECTION: +{(growthValue * 1.2).toFixed(1)}%
+                  PROJECTION: +{((Math.pow(1 + (0.02 + (riskValue / 100) * 0.13), yearsValue) - 1) * 100).toFixed(0)}%
                 </div>
               </div>
 
@@ -265,7 +314,7 @@ export default function Hero({ onStart }: HeroProps) {
                   max={50}
                   defaultValue={10}
                   unit=" Years"
-                  onChange={(v) => setGrowthValue(v * 2)} // Just for visual feedback
+                  onChange={(v) => setYearsValue(v)}
                 />
 
                 <BiopunkSlider
@@ -274,10 +323,11 @@ export default function Hero({ onStart }: HeroProps) {
                   max={100}
                   defaultValue={65}
                   className="pt-2"
+                  onChange={(v) => setRiskValue(v)}
                 />
               </div>
 
-              <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800">
+              <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap">
                 <span>• Institutional</span>
                 <span>• Algorithmic</span>
                 <span>• Sustainable</span>

@@ -230,7 +230,7 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
           <Search className="h-12 w-12 text-emerald-400 mb-4" />
           <p className="text-lg text-white mb-2">Found matches in {otherSection}</p>
           <p className="text-neutral-400">
-             We found "{sample}"{othersText ? ` ${othersText}` : ''} in the {otherSection} section.
+            We found "{sample}"{othersText ? ` ${othersText}` : ''} in the {otherSection} section.
           </p>
           <p className="text-sm text-neutral-500 mt-2">
             Please switch to the {otherSection} tab to view these assets.
@@ -262,16 +262,16 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
   };
 
   return (
-    <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
+    <section className="py-12 md:py-24 px-4 max-w-7xl mx-auto h-[calc(100dvh-64px)] overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Market Engine</h2>
-            <p className="text-neutral-400">Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : 'ETFs'}. Click to add to builder.</p>
+        <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-12 gap-6">
+          <div className="w-full md:w-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Market Engine</h2>
+            <p className="text-sm md:text-base text-neutral-400">Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : 'ETFs'}. Click to add to builder.</p>
           </div>
 
           {/* Search Bar with Smart Autocomplete */}
@@ -341,9 +341,9 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
               return (
                 <div
                   key={etf.ticker}
-                  className="glass-card rounded-xl relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] group"
+                  className="glass-card rounded-xl relative overflow-hidden bg-white/5 border border-white/5 hover:border-emerald-500/30 transition-all hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] group flex flex-col"
                 >
-                  <div className="p-6 transition-all duration-300 group-hover:blur-sm group-hover:opacity-30">
+                  <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
@@ -383,8 +383,30 @@ export default function ComparisonEngine({ onAddToPortfolio, assetType }: Compar
                     </div>
                   </div>
 
-                  {/* Overlay */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto">
+                  {/* Mobile Actions (Visible by default) */}
+                  <div className="flex md:hidden border-t border-white/10 divide-x divide-white/10">
+                    <button
+                      onClick={() => onAddToPortfolio(etf)}
+                      className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"
+                    >
+                      <Plus className="w-4 h-4" /> Add
+                    </button>
+                    <button
+                      onClick={() => handleAdvancedView(etf)}
+                      disabled={syncingTicker === etf.ticker}
+                      className="flex-1 py-3 bg-white/5 text-white font-medium flex items-center justify-center gap-2 active:bg-white/10 disabled:opacity-50"
+                    >
+                      {syncingTicker === etf.ticker ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Maximize2 className="w-4 h-4" />
+                      )}
+                      View
+                    </button>
+                  </div>
+
+                  {/* Desktop Overlay (Hover only) */}
+                  <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-black/60 backdrop-blur-sm">
                     <button
                       onClick={() => onAddToPortfolio(etf)}
                       className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
