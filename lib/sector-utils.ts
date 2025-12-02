@@ -9,7 +9,8 @@ export async function fetchSectorWeightings(ticker: string): Promise<SectorWeigh
   try {
     const queryOptions = { modules: ['fundProfile', 'topHoldings'] };
     // @ts-ignore - yahoo-finance2 types might be tricky with modules
-    const quoteSummary: any = await yahooFinance.quoteSummary(ticker, queryOptions);
+    const yf = new yahooFinance();
+    const quoteSummary: any = await yf.quoteSummary(ticker, queryOptions);
 
     let sectors: SectorWeighting[] = [];
 
