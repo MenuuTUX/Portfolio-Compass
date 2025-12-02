@@ -6,6 +6,7 @@ export interface ETF {
   assetType?: string;
   isDeepAnalysisLoaded?: boolean;
   history: { date: string; price: number; interval?: string }[];
+  dividendHistory?: { date: string; amount: number; exDate?: string }[];
   metrics: {
     mer: number;
     yield: number;

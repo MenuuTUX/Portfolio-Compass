@@ -5,6 +5,7 @@ import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity } from 'luc
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
+import { calculateTTMYield } from '@/lib/finance';
 import { useMemo, useState } from 'react';
 
 interface ETFDetailsDrawerProps {
@@ -288,8 +289,12 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         </div>
                       )}
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-xs text-neutral-500 mb-1">Yield</div>
-                        <div className="text-xl font-bold text-emerald-400">{etf.metrics.yield.toFixed(2)}%</div>
+                        <div className="text-xs text-neutral-500 mb-1">Yield (TTM)</div>
+                        <div className="text-xl font-bold text-emerald-400">
+                          {etf.dividendHistory && etf.dividendHistory.length > 0
+                            ? calculateTTMYield(etf.dividendHistory, etf.price).toFixed(2)
+                            : etf.metrics.yield.toFixed(2)}%
+                        </div>
                       </div>
                       <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
                         <div className="flex items-center justify-between">

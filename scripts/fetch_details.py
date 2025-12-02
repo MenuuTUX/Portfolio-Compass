@@ -67,6 +67,24 @@ def fetch_details(ticker_symbol):
     quote_type = info.get("quoteType", "ETF")
     asset_type = "STOCK" if quote_type == "EQUITY" else "ETF"
 
+    # Dividends (fetch last 2 years to ensure TTM coverage)
+    dividend_points = []
+    try:
+        # For dividends, we just iterate the Series
+        divs = ticker.dividends
+        # Sort by date descending
+        divs = divs.sort_index(ascending=False)
+        # Take last 2 years (approx 12-20 payments if monthly, 8 if quarterly)
+        # We'll return all available, frontend can filter
+        for date, amount in divs.items():
+             dividend_points.append({
+                 "date": date.isoformat(),
+                 "amount": to_py_float(amount)
+             })
+    except Exception as e:
+        # Ignore dividend fetch errors, list will be empty
+        pass
+
     # History
     history_points = []
 
@@ -138,6 +156,7 @@ def fetch_details(ticker_symbol):
         "mer": mer,
         "asset_type": asset_type,
         "history": history_points,
+        "dividendHistory": dividend_points,
         "sectors": sectors,
         "allocation": allocation
     }

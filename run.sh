@@ -1,55 +1,45 @@
-@echo off
-setlocal
+#!/bin/bash
+set -e
 
-echo 🧭 PortfolioCompass Initialization Sequence...
+echo "🧭 PortfolioCompass Initialization Sequence..."
 
-REM 1. Config
-if not exist .env (
-    echo ⚠️  No .env file found. Creating default configuration...
-    echo DATABASE_URL="postgresql://postgres:postgres@localhost:5432/portfolio_compass?schema=public" > .env
-    echo ✅ .env created.
-)
+# 1. Config
+if [ ! -f .env ]; then
+    echo "⚠️  No .env file found. Creating default configuration..."
+    echo 'DATABASE_URL="postgresql://postgres:postgres@localhost:5432/portfolio_compass?schema=public"' > .env
+    echo "✅ .env created."
+fi
 
-REM 2. Python Environment
+# 2. Python Environment
+# Check for uv
+if ! command -v uv &> /dev/null; then
+    echo "⬇️  Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    source $HOME/.cargo/env
+fi
 
-REM Check for uv
-where uv >nul 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo ⬇️  Installing uv...
-    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-    REM uv usually installs to %USERPROFILE%\.cargo\bin
-    set "PATH=%USERPROFILE%\.cargo\bin;%PATH%"
-)
-
-if not exist venv (
-    echo 🔨 Creating Python virtual environment with uv...
+if [ ! -d "venv" ]; then
+    echo "🔨 Creating Python virtual environment with uv..."
     uv venv venv
-)
-call venv\Scripts\activate.bat
-if errorlevel 1 (
-    echo ⚠️  Could not activate venv
-    exit /b 1
-)
+fi
 
-REM 3. Dependencies
-echo 🐍 Installing Python dependencies with uv...
-uv pip install -r requirements.txt
-if errorlevel 1 echo ⚠️  Python dependencies installation warning (check logs if needed)
+source venv/bin/activate
 
-echo 📦 Installing Node.js dependencies...
-call npm install --silent > nul 2>&1
+# 3. Dependencies
+echo "🐍 Installing Python dependencies with uv..."
+uv pip install -r requirements.txt || echo "⚠️  Python dependencies installation warning"
 
-REM 4. Database
-echo 🗄️  Syncing Database Schema...
-call npx prisma db push
+echo "📦 Installing Node.js dependencies..."
+npm install --silent > /dev/null 2>&1
 
-REM 5. Seed
-echo 🌱 Seeding initial market data...
-REM CHANGED: Use the TypeScript seeder instead of the Python fetch script
-call npx tsx scripts/seed_market.ts
+# 4. Database
+echo "🗄️  Syncing Database Schema..."
+npx prisma db push
 
-REM 6. Start
-echo 🚀 Launching App...
-call npm run dev
+# 5. Seed
+echo "🌱 Seeding initial market data..."
+npx tsx scripts/seed_market.ts
 
-endlocal
+# 6. Start
+echo "🚀 Launching App..."
+npm run dev
