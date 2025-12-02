@@ -2,14 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@/lib/generated/prisma';
 import { execFile } from 'child_process';
 import path from 'path';
-
-// Use singleton Prisma instance ideally, but for now importing generated Client
-// If `lib/db.ts` exists, use it. Memory said "Prisma Client ... must be accessed via the singleton instance exported from lib/db.ts".
-// I should check if `lib/db.ts` exists. I'll read it first or just try to import.
-// For now I will assume `lib/db.ts` exists based on memory and use it.
+import { fetchSectorWeightings } from '@/lib/sector-utils';
 import prisma from '@/lib/db';
-
-// Fallback if lib/db doesn't work (I will handle import error if needed, but assuming memory is correct)
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,6 +48,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: data.error }, { status: 404 });
     }
 
+    // Fetch sectors via Node.js helper (yahoo-finance2)
+    // This provides a fallback/better source if Python script fails to get sectors
+    let nodeSectors: any[] = [];
+    try {
+      nodeSectors = await fetchSectorWeightings(ticker);
+      console.log(`Fetched ${nodeSectors.length} sectors via yahoo-finance2`);
+    } catch (e) {
+      console.warn("Failed to fetch sectors via node:", e);
+    }
+
+    // Merge sectors: Prefer Node sectors if available, otherwise fallback to Python sectors
+    const finalSectors = nodeSectors.length > 0 ? nodeSectors : data.sectors;
+
     // Update DB
     // 1. Update ETF basic info & isDeepAnalysisLoaded
     // 2. Update Sectors (delete old, create new)
@@ -79,9 +86,9 @@ export async function POST(req: NextRequest) {
 
       // Sectors
       await tx.etfSector.deleteMany({ where: { etfId: data.ticker } });
-      if (data.sectors && data.sectors.length > 0) {
+      if (finalSectors && finalSectors.length > 0) {
         await tx.etfSector.createMany({
-          data: data.sectors.map((s: any) => ({
+          data: finalSectors.map((s: any) => ({
             etfId: data.ticker,
             sector_name: s.sector_name,
             weight: s.weight

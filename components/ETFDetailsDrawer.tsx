@@ -2,10 +2,11 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
+import SectorPieChart from './SectorPieChart';
 import { useMemo, useState } from 'react';
 
 interface ETFDetailsDrawerProps {
@@ -240,40 +241,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       </div>
                     ) : (
                       <div className="h-[250px]">
-                        {sectorData.length > 0 ? (
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={sectorData}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={80}
-                                paddingAngle={5}
-                                dataKey="value"
-                              >
-                                {sectorData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                              </Pie>
-                              <Tooltip
-                                contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                itemStyle={{ color: '#fff' }}
-                              />
-                              <Legend
-                                layout="vertical"
-                                verticalAlign="middle"
-                                align="right"
-                                iconSize={8}
-                                wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
-                            No sector data available
-                          </div>
-                        )}
+                        <SectorPieChart sectors={etf.sectors} />
                       </div>
                     )}
                   </div>
