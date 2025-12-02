@@ -152,3 +152,34 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const ticker = searchParams.get('ticker');
+
+        if (!ticker) {
+            return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+        }
+
+        // 1. Remove from portfolio
+        await prisma.portfolioItem.delete({
+            where: { etfId: ticker },
+        });
+
+        // 2. Rebalance remaining items
+        const currentCount = await prisma.portfolioItem.count();
+
+        if (currentCount > 0) {
+            const evenWeight = 100 / currentCount;
+            await prisma.portfolioItem.updateMany({
+                data: { weight: evenWeight },
+            });
+        }
+
+        return NextResponse.json({ message: 'Stock removed successfully' });
+    } catch (error) {
+        console.error('[API] Error removing stock from portfolio:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}

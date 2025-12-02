@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useAddStock } from '@/hooks/useAddStock';
 import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
+import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 
 type ViewMode = 'LANDING' | 'APP';
@@ -24,6 +25,7 @@ export default function Home() {
   // Use React Query hooks
   const { data: portfolio = [] } = usePortfolio();
   const addStockMutation = useAddStock();
+  const removeStockMutation = useRemoveStock();
   const updatePortfolioItemMutation = useUpdatePortfolioItem();
   const queryClient = useQueryClient();
 
@@ -35,17 +37,8 @@ export default function Home() {
     addStockMutation.mutate(etf);
   };
 
-  // For other actions, we can just manipulate the cache directly for now since we haven't implemented API endpoints for them
-  // This is a temporary measure to keep the UI functional while we focused on the "Add" task.
-  // In a real app, we would have mutations for these as well.
-
   const handleRemoveFromPortfolio = (ticker: string) => {
-    queryClient.setQueryData(['portfolio'], (prev: any[]) => {
-      const newPortfolio = prev.filter(item => item.ticker !== ticker);
-      if (newPortfolio.length === 0) return [];
-      const evenWeight = 100 / newPortfolio.length;
-      return newPortfolio.map(item => ({ ...item, weight: Number(evenWeight.toFixed(2)) }));
-    });
+    removeStockMutation.mutate(ticker);
   };
 
   const handleUpdateWeight = (ticker: string, weight: number) => {
@@ -97,7 +90,12 @@ export default function Home() {
             <div className="flex-1 pt-16 relative">
               <AnimatePresence mode="wait">
                 {activeTab === 'TRENDING' && (
-                  <TrendingTab key="trending" onAddToPortfolio={handleAddToPortfolio} />
+                  <TrendingTab
+                    key="trending"
+                    onAddToPortfolio={handleAddToPortfolio}
+                    portfolio={portfolio}
+                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                  />
                 )}
                 {activeTab === 'PORTFOLIO' && (
                   <PortfolioBuilder
