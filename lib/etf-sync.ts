@@ -69,12 +69,12 @@ export async function syncEtfDetails(ticker: string) {
         yield: details.dividendYield,
         mer: details.expenseRatio,
         name: details.name,
-        description: details.description,
+        // description: details.description, // Removed: field does not exist in Prisma schema
         currency: 'USD', // defaulting as `market-service` doesn't return currency
         exchange: 'Unknown', // defaulting
         assetType: details.assetType,
         isDeepAnalysisLoaded: true,
-        last_updated: new Date(),
+        // last_updated: new Date(), // Removed: using updatedAt
       },
       create: {
         ticker: details.ticker,
@@ -86,9 +86,9 @@ export async function syncEtfDetails(ticker: string) {
         yield: details.dividendYield,
         mer: details.expenseRatio,
         assetType: details.assetType,
-        description: details.description,
+        // description: details.description, // Removed: field does not exist in Prisma schema
         isDeepAnalysisLoaded: true,
-        last_updated: new Date(),
+        // last_updated: new Date(), // Removed: using updatedAt
       }
     });
 
@@ -96,13 +96,13 @@ export async function syncEtfDetails(ticker: string) {
 
     // 4. Update Sectors
     if (Object.keys(details.sectors).length > 0) {
-      await prisma.sectorAllocation.deleteMany({
-        where: { etfId: etf.id }
+      await prisma.etfSector.deleteMany({
+        where: { etfId: etf.ticker }
       });
 
-      await prisma.sectorAllocation.createMany({
+      await prisma.etfSector.createMany({
         data: Object.entries(details.sectors).map(([sector, weight]) => ({
-          etfId: etf.id,
+          etfId: etf.ticker,
           sector_name: sector,
           weight: weight
         }))
@@ -110,13 +110,13 @@ export async function syncEtfDetails(ticker: string) {
     }
 
     // 5. Update Allocation
-    const existingAlloc = await prisma.assetAllocation.findUnique({
-      where: { etfId: etf.id }
+    const existingAlloc = await prisma.etfAllocation.findUnique({
+      where: { etfId: etf.ticker }
     });
 
     if (existingAlloc) {
-      await prisma.assetAllocation.update({
-        where: { etfId: etf.id },
+      await prisma.etfAllocation.update({
+        where: { etfId: etf.ticker },
         data: {
             stocks_weight,
             bonds_weight,
@@ -124,9 +124,9 @@ export async function syncEtfDetails(ticker: string) {
         }
       });
     } else {
-      await prisma.assetAllocation.create({
+      await prisma.etfAllocation.create({
         data: {
-          etfId: etf.id,
+          etfId: etf.ticker,
           stocks_weight,
           bonds_weight,
           cash_weight
@@ -137,12 +137,12 @@ export async function syncEtfDetails(ticker: string) {
     // 6. Update History
     if (details.history && details.history.length > 0) {
         await prisma.etfHistory.deleteMany({
-            where: { etfId: etf.id }
+            where: { etfId: etf.ticker }
         });
 
         await prisma.etfHistory.createMany({
             data: details.history.map((h: any) => ({
-                etfId: etf.id,
+                etfId: etf.ticker,
                 date: new Date(h.date),
                 close: h.close,
                 interval: h.interval || '1d'
