@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Portfolio, PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { FixedSizeList, ListChildComponentProps } from 'react-window';
+import { List, RowComponentProps } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import PortfolioItemRow from './PortfolioItemRow';
 
@@ -19,6 +19,17 @@ interface PortfolioBuilderProps {
   onUpdateShares: (ticker: string, shares: number) => void;
   onClear: () => void;
   onViewGrowth: () => void;
+}
+
+interface RowData {
+  items: Portfolio;
+  onRemove: (ticker: string) => void;
+  onUpdateWeight: (ticker: string, weight: number) => void;
+  onUpdateShares: (ticker: string, shares: number) => void;
+}
+
+interface CustomRowProps {
+  data: RowData;
 }
 
 export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear, onViewGrowth }: PortfolioBuilderProps) {
@@ -90,12 +101,12 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   })).filter(x => x.value > 0);
 
   // Row Renderer for react-window
-  const Row = ({ index, style, data }: ListChildComponentProps) => {
+  const Row = ({ index, style, data }: { index: number; style: React.CSSProperties; data: RowData }) => {
     const { items, onRemove, onUpdateWeight, onUpdateShares } = data;
     const item = items[index];
 
     // Safety check
-    if (!item) return null;
+    if (!item) return <div style={style} />;
 
     return (
       <PortfolioItemRow
@@ -108,8 +119,8 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
     );
   };
 
-  // Memoize itemData for FixedSizeList to prevent unnecessary re-renders of rows
-  const itemData = {
+  // Memoize itemData for List to prevent unnecessary re-renders of rows
+  const itemData: RowData = {
     items: displayPortfolio,
     onRemove,
     onUpdateWeight: handleUpdateWeight,
@@ -168,22 +179,20 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             )}
 
             <div className="flex-1 min-h-0 border border-white/5 rounded-xl bg-white/[0.02]">
-               {displayPortfolio.length === 0 ? (
+              {displayPortfolio.length === 0 ? (
                 <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500 text-center p-4">
                   Select ETFs from the Market Engine to build your portfolio.
                 </div>
               ) : (
                 <AutoSizer>
                   {({ height, width }: { height: number; width: number }) => (
-                    <FixedSizeList
-                      height={height}
-                      width={width}
-                      itemCount={displayPortfolio.length}
-                      itemSize={160}
-                      itemData={itemData}
-                    >
-                      {Row}
-                    </FixedSizeList>
+                    <List<CustomRowProps>
+                      style={{ height, width }}
+                      rowCount={displayPortfolio.length}
+                      rowHeight={160}
+                      rowProps={{ data: itemData }}
+                      rowComponent={Row}
+                    />
                   )}
                 </AutoSizer>
               )}

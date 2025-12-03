@@ -7,7 +7,7 @@ import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
 import SectorPieChart from './SectorPieChart';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 interface ETFDetailsDrawerProps {
   etf: ETF | null;
@@ -19,6 +19,47 @@ const TIME_RANGES = ['1D', '1W', '1M', '1Y', '5Y'];
 
 export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps) {
   const [timeRange, setTimeRange] = useState('1M');
+  const [showComparison, setShowComparison] = useState(false);
+  const [spyData, setSpyData] = useState<ETF | null>(null);
+
+  // Fetch SPY data when toggle is enabled
+  useEffect(() => {
+    if (showComparison && !spyData) {
+      const fetchSpy = async () => {
+        try {
+          // 1. Try search first
+          const searchRes = await fetch('/api/etfs/search?query=SPY');
+          const searchData = await searchRes.json();
+
+          if (Array.isArray(searchData) && searchData.length > 0) {
+            const spy = searchData[0];
+            // Check if history exists and is sufficient
+            if (spy.history && spy.history.length > 0) {
+              setSpyData(spy);
+              return;
+            }
+          }
+
+          // 2. Fallback to sync if search failed or no history
+          console.log('Fetching full SPY data via sync...');
+          const syncRes = await fetch('/api/etfs/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ticker: 'SPY' })
+          });
+
+          if (syncRes.ok) {
+            const syncData = await syncRes.json();
+            setSpyData(syncData);
+          }
+        } catch (err) {
+          console.error('Failed to fetch SPY data:', err);
+        }
+      };
+
+      fetchSpy();
+    }
+  }, [showComparison, spyData]);
 
   const historyData = useMemo(() => {
     if (!etf || !etf.history) return [];
@@ -31,7 +72,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     switch (timeRange) {
       case '1D':
         targetInterval = '1h';
-        cutoffDate.setDate(now.getDate() - 2); // Fetch logic gets last 2 days for 1D view
+        cutoffDate.setDate(now.getDate() - 2);
         break;
       case '1W':
         targetInterval = '1d';
@@ -54,34 +95,89 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
         cutoffDate.setMonth(now.getMonth() - 1);
     }
 
-    // Filter by interval and date range
-    return etf.history
-      .filter(h => {
-        // Strict interval match to prevent mixed data granularity
-        // We expect the backend to provide '1h', '1d', '1wk', '1mo' intervals
-        if (h.interval !== targetInterval) return false;
-        return new Date(h.date) >= cutoffDate;
-      })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [etf, timeRange]);
+    const filterAndSort = (history: any[]) => {
+      return history
+        .filter(h => {
+          if (h.interval !== targetInterval) return false;
+          return new Date(h.date) >= cutoffDate;
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    };
+
+    const etfHistory = filterAndSort(etf.history);
+
+    if (showComparison && spyData && spyData.history) {
+      const spyHistory = filterAndSort(spyData.history);
+
+      // Create a map of date -> price for SPY
+      const spyMap = new Map(spyHistory.map(h => [new Date(h.date).toISOString(), h.price]));
+
+      if (etfHistory.length > 0) {
+        const etfStart = etfHistory[0].price;
+        // Find closest SPY start price
+        const spyStart = spyHistory.length > 0 ? spyHistory[0].price : 1;
+
+        // Calculate scale factor to make SPY start at the same level as ETF
+        const scaleFactor = etfStart / spyStart;
+
+        return etfHistory.map(h => {
+          const dateStr = new Date(h.date).toISOString();
+          const rawSpyPrice = spyMap.get(dateStr);
+
+          return {
+            date: h.date,
+            price: h.price,
+            spyPrice: rawSpyPrice ? rawSpyPrice * scaleFactor : null,
+            originalSpyPrice: rawSpyPrice // Store original for tooltip
+          };
+        });
+      }
+    }
+
+    return etfHistory;
+  }, [etf, timeRange, showComparison, spyData]);
 
   const { percentageChange, isPositive } = useMemo(() => {
-    if (!historyData || historyData.length < 2) return { percentageChange: 0, isPositive: true };
+    if (!etf || !etf.history || etf.history.length < 2) return { percentageChange: 0, isPositive: true };
+    // Use raw history for the header metric, not the chart data
+    // We need to filter raw history by the current time range to match the chart's "view"
+    // Re-using the logic from historyData but strictly for the main ETF
 
+    // ... (logic duplicated for simplicity, or we could extract it)
+    // For now, let's just use the last known price vs first known price in the filtered set
+    // But wait, historyData is already filtered!
+    // If showComparison is true, historyData is percentages. If false, it's prices.
+
+    if (historyData.length < 2) return { percentageChange: 0, isPositive: true };
+
+    // Always calculate percentage change based on price difference of the main ETF
+    // In comparison mode, 'price' is still the dollar value now.
     const startPrice = historyData[0].price;
     const endPrice = historyData[historyData.length - 1].price;
     const change = ((endPrice - startPrice) / startPrice) * 100;
-
-    return {
-      percentageChange: change,
-      isPositive: change >= 0
-    };
-  }, [historyData]);
+    return { percentageChange: change, isPositive: change >= 0 };
+  }, [historyData, showComparison, etf]);
 
   const riskData = useMemo(() => {
     if (!etf) return null;
+    // Risk metric should probably stay based on the ETF's raw data
+    // We can pass the raw filtered history if we want to be precise, 
+    // but for now passing the potentially transformed historyData might be misleading if it's normalized.
+    // Let's assume calculateRiskMetric handles raw prices. 
+    // If showComparison is on, historyData is percentages. calculateRiskMetric likely expects prices.
+    // So we should probably disable or ignore risk calculation on the transformed data, 
+    // OR re-calculate it based on raw data. 
+    // For simplicity, let's just use the ETF's raw history for the risk metric display, 
+    // ignoring the time range filter for the *overall* risk label if that's acceptable, 
+    // OR we filter it again. 
+    // Let's just use the full history for the risk label as it was before (likely).
+    // Actually, the previous code used `historyData` which was filtered.
+    // If we want to keep it simple, we can just hide risk data in comparison mode or re-compute.
+    // Let's re-compute using raw filtered data if needed, but for now let's just return null if comparing to avoid confusion/errors.
+    if (showComparison) return null;
+
     return calculateRiskMetric(historyData);
-  }, [etf, historyData]);
+  }, [etf, historyData, showComparison]);
 
   const sectorData = useMemo(() => {
     if (!etf || !etf.sectors) return [];
@@ -156,19 +252,39 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       <TrendingUp className="w-5 h-5 text-emerald-400" />
                       <h3 className="text-lg font-bold text-white">Price History</h3>
                     </div>
-                    <div className="flex bg-black/20 rounded-lg p-1 gap-1">
-                      {TIME_RANGES.map(range => (
+
+                    <div className="flex items-center gap-4">
+                      {/* Comparison Toggle */}
+                      <div className="flex items-center gap-2 bg-black/20 rounded-lg p-1 px-2">
+                        <span className={cn("text-xs font-medium transition-colors", showComparison ? "text-white" : "text-neutral-500")}>vs SPY</span>
                         <button
-                          key={range}
-                          onClick={() => setTimeRange(range)}
+                          onClick={() => setShowComparison(!showComparison)}
                           className={cn(
-                            "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                            timeRange === range ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
+                            "w-8 h-4 rounded-full relative transition-colors duration-300 focus:outline-none",
+                            showComparison ? "bg-emerald-500" : "bg-neutral-700"
                           )}
                         >
-                          {range}
+                          <div className={cn(
+                            "absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform duration-300",
+                            showComparison ? "translate-x-4" : "translate-x-0"
+                          )} />
                         </button>
-                      ))}
+                      </div>
+
+                      <div className="flex bg-black/20 rounded-lg p-1 gap-1">
+                        {TIME_RANGES.map(range => (
+                          <button
+                            key={range}
+                            onClick={() => setTimeRange(range)}
+                            className={cn(
+                              "px-3 py-1 rounded-md text-xs font-medium transition-colors",
+                              timeRange === range ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
+                            )}
+                          >
+                            {range}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex-1 w-full h-full min-h-0">
@@ -183,6 +299,10 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                             <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.5} />
                             <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
                           </linearGradient>
+                          <linearGradient id="colorSpy" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.5} />
+                            <stop offset="95%" stopColor="#94a3b8" stopOpacity={0} />
+                          </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                         <XAxis
@@ -193,14 +313,21 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                           domain={['auto', 'auto']}
                           orientation="right"
                           tick={{ fill: '#737373', fontSize: 12 }}
-                          tickFormatter={(value) => `$${value}`}
+                          tickFormatter={(value) => formatCurrency(value)}
                           axisLine={false}
                           tickLine={false}
                         />
                         <Tooltip
                           contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                           itemStyle={{ color: '#fff' }}
-                          formatter={(value: number) => [formatCurrency(value), 'Price']}
+                          formatter={(value: number, name: string, item: any) => {
+                            if (name === 'spyPrice') {
+                              // Show original SPY price if available
+                              const original = item.payload.originalSpyPrice;
+                              return [original ? formatCurrency(original) : 'N/A', 'SPY'];
+                            }
+                            return [formatCurrency(value), etf.ticker];
+                          }}
                           labelFormatter={(label) => new Date(label).toLocaleDateString() + ' ' + new Date(label).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         />
                         <Area
@@ -211,6 +338,18 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                           fillOpacity={1}
                           fill={`url(#${isPositive ? 'colorPriceUp' : 'colorPriceDown'})`}
                         />
+                        {showComparison && (
+                          <Area
+                            type="monotone"
+                            dataKey="spyPrice"
+                            stroke="#94a3b8"
+                            strokeWidth={2}
+                            strokeDasharray="4 4"
+                            strokeOpacity={0.7}
+                            fillOpacity={0.1}
+                            fill="url(#colorSpy)"
+                          />
+                        )}
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -268,7 +407,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="text-xs text-neutral-500 mb-1">Volatility ({timeRange})</div>
-                            <div className={cn("text-xl font-bold", riskData?.color)}>{(riskData?.stdDev! * 100).toFixed(2)}%</div>
+                            <div className={cn("text-xl font-bold", riskData?.color)}>{riskData ? (riskData.stdDev! * 100).toFixed(2) : 'N/A'}%</div>
                           </div>
                           {riskData && (
                             <AlertTriangle className={cn("w-8 h-8 opacity-50", riskData.color)} />

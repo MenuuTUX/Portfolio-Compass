@@ -2,12 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout } from 'lucide-react';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import BiopunkSlider from './BiopunkSlider';
-
-interface HeroProps {
-  onStart: () => void;
-}
 
 const textVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -16,63 +12,60 @@ const textVariants = {
     y: 0,
     transition: {
       delay: i * 0.1,
-      duration: 0.8,
-      ease: [0.2, 0.65, 0.3, 0.9] as any,
-    },
-  }),
+      duration: 0.5,
+      ease: "easeOut" as const
+    }
+  })
 };
 
-export default function Hero({ onStart }: HeroProps) {
+const titleWords = [
+  { text: "fun", font: "font-cursive", color: "text-emerald-400" },
+  { text: "stable", font: "font-sans", color: "text-blue-400" },
+  { text: "aggressive", font: "font-serif", color: "text-red-400" }
+];
+
+export default function Hero({ onStart }: { onStart?: () => void }) {
   const [mounted, setMounted] = useState(false);
+  const [marketStatus, setMarketStatus] = useState('OPEN');
+  const [titleIndex, setTitleIndex] = useState(0);
   const [riskValue, setRiskValue] = useState(65);
   const [yearsValue, setYearsValue] = useState(10);
-  const { scrollY } = useScroll();
-  const y1 = useTransform(scrollY, [0, 500], [0, 200]);
-  const y2 = useTransform(scrollY, [0, 500], [0, -150]);
 
-  const [marketStatus, setMarketStatus] = useState<'OPEN' | 'CLOSED'>('CLOSED');
-  const [titleIndex, setTitleIndex] = useState(0);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
 
-  const titleWords = [
-    { text: "fun", font: "font-display", color: "text-emerald-400" },
-    { text: "stable", font: "font-serif italic", color: "text-blue-400" },
-    { text: "aggressive", font: "font-mono font-bold", color: "text-red-400" },
-    { text: "dynamic", font: "font-sans font-black", color: "text-purple-400" },
-  ];
+  const mouseX = useSpring(x, { stiffness: 50, damping: 20 });
+  const mouseY = useSpring(y, { stiffness: 50, damping: 20 });
+
+  const rotateX = useTransform(mouseY, [-0.5, 0.5], ["7deg", "-7deg"]);
+  const rotateY = useTransform(mouseX, [-0.5, 0.5], ["-7deg", "7deg"]);
+
+  const y1 = useTransform(mouseY, [-0.5, 0.5], [-20, 20]);
+  const y2 = useTransform(mouseY, [-0.5, 0.5], [20, -20]);
 
   useEffect(() => {
     setMounted(true);
-
-    // Market Status Logic (US ET: Mon-Fri 9:30-16:00)
-    const checkMarketStatus = () => {
-      const now = new Date();
-      const etTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-      const day = etTime.getDay();
-      const hour = etTime.getHours();
-      const minute = etTime.getMinutes();
-
-      const isWeekday = day >= 1 && day <= 5;
-      const isMarketHours = (hour > 9 || (hour === 9 && minute >= 30)) && hour < 16;
-
-      setMarketStatus(isWeekday && isMarketHours ? 'OPEN' : 'CLOSED');
-    };
-
-    checkMarketStatus();
-    const interval = setInterval(checkMarketStatus, 60000); // Check every minute
-
-    // Title Rotation
-    const titleInterval = setInterval(() => {
+    const interval = setInterval(() => {
       setTitleIndex((prev) => (prev + 1) % titleWords.length);
     }, 3000);
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(titleInterval);
-    };
+    return () => clearInterval(interval);
   }, []);
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    const mouseXFromCenter = e.clientX - rect.left - width / 2;
+    const mouseYFromCenter = e.clientY - rect.top - height / 2;
+    x.set(mouseXFromCenter / width);
+    y.set(mouseYFromCenter / height);
+  };
+
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-stone-950 text-stone-100 font-sans selection:bg-emerald-500/30">
+    <div
+      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-stone-950 text-stone-100 font-sans selection:bg-emerald-500/30"
+      onMouseMove={handleMouseMove}
+    >
 
       {/* 1. Organic Background Layer - "The Overgrowth" */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
@@ -111,105 +104,107 @@ export default function Hero({ onStart }: HeroProps) {
       <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 lg:gap-12 items-center pt-24 pb-12 lg:pt-20 lg:pb-0">
 
         {/* Left Column: Text & CTA */}
-        <div className="text-left space-y-6 lg:space-y-8">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            custom={0}
-            variants={textVariants}
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${marketStatus === 'OPEN'
-              ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400'
-              : 'bg-red-900/20 border-red-500/20 text-red-400'
-              }`}
-          >
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === 'OPEN' ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === 'OPEN' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-            </span>
-            MARKET: {marketStatus}
-          </motion.div>
-
-          <motion.h1
-            custom={1}
-            variants={textVariants}
-            className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight"
-          >
-            Make your <span className="text-stone-600">portfolio</span> <br />
-            <div className="h-[1.2em] relative overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={titleIndex}
-                  initial={{ y: 40, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={{ y: -40, opacity: 0 }}
-                  transition={{ duration: 0.5, ease: "backOut" }}
-                  className={`block ${titleWords[titleIndex].font} ${titleWords[titleIndex].color}`}
-                >
-                  {titleWords[titleIndex].text}
-                </motion.span>
-              </AnimatePresence>
-            </div>
-          </motion.h1>
-
-          <motion.p
-            custom={2}
-            variants={textVariants}
-            className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed"
-          >
-            Experience institutional-grade portfolio management.
-            PortfolioCompass merges algorithmic precision with sustainable growth strategies.
-            Watch your wealth evolve with data-driven clarity.
-          </motion.p>
-
-          <motion.div
-            custom={3}
-            variants={textVariants}
-            className="flex flex-col sm:flex-row gap-4"
-          >
-            <motion.button
-              onClick={onStart}
-              whileHover={{ scale: 1.05, backgroundColor: '#059669' }} // emerald-600
-              whileTap={{ scale: 0.95 }}
-              className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+        <div className="text-left space-y-6 lg:space-y-8 pointer-events-none">
+          <div className="pointer-events-auto">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              custom={0}
+              variants={textVariants}
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${marketStatus === 'OPEN'
+                ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400'
+                : 'bg-red-900/20 border-red-500/20 text-red-400'
+                }`}
             >
-              <span className="relative z-10">Start Analysis</span>
-              <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-            </motion.button>
+              <span className="relative flex h-2 w-2">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === 'OPEN' ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === 'OPEN' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+              </span>
+              MARKET: {marketStatus}
+            </motion.div>
 
-            <motion.button
-              onClick={onStart}
-              whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.2)' }}
-              whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
+            <motion.h1
+              custom={1}
+              variants={textVariants}
+              className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight mt-6"
             >
-              <Cpu className="w-4 h-4" />
-              View Documentation
-            </motion.button>
-          </motion.div>
-
-          {/* Metrics / Trust Indicators */}
-          <motion.div
-            custom={4}
-            variants={textVariants}
-            className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50"
-          >
-            {[
-              { label: 'Live Data', val: '24ms', icon: Zap },
-              { label: 'Asset Types', val: 'Hybrid', icon: Sprout },
-              { label: 'Security', val: 'Bank-Grade', icon: Activity },
-            ].map((item, i) => (
-              <div key={i} className="space-y-1">
-                <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
-                <div className="text-xl sm:text-2xl font-display font-bold text-white">{item.val}</div>
-                <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">{item.label}</div>
+              Make your <span className="text-stone-600">portfolio</span> <br />
+              <div className="h-[1.2em] relative overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={titleIndex}
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -40, opacity: 0 }}
+                    transition={{ duration: 0.5, ease: "backOut" }}
+                    className={`block ${titleWords[titleIndex].font} ${titleWords[titleIndex].color}`}
+                  >
+                    {titleWords[titleIndex].text}
+                  </motion.span>
+                </AnimatePresence>
               </div>
-            ))}
-          </motion.div>
+            </motion.h1>
+
+            <motion.p
+              custom={2}
+              variants={textVariants}
+              className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
+            >
+              Experience institutional-grade portfolio management.
+              PortfolioCompass merges algorithmic precision with sustainable growth strategies.
+              Watch your wealth evolve with data-driven clarity.
+            </motion.p>
+
+            <motion.div
+              custom={3}
+              variants={textVariants}
+              className="flex flex-col sm:flex-row gap-4 mt-8"
+            >
+              <motion.button
+                onClick={onStart}
+                whileHover={{ scale: 1.05, backgroundColor: '#059669' }} // emerald-600
+                whileTap={{ scale: 0.95 }}
+                className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+              >
+                <span className="relative z-10">Start Analysis</span>
+                <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+              </motion.button>
+
+              <motion.button
+                onClick={onStart}
+                whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.2)' }}
+                whileTap={{ scale: 0.95 }}
+                className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <Cpu className="w-4 h-4" />
+                View Documentation
+              </motion.button>
+            </motion.div>
+
+            {/* Metrics / Trust Indicators */}
+            <motion.div
+              custom={4}
+              variants={textVariants}
+              className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50 mt-12"
+            >
+              {[
+                { label: 'Live Data', val: '24ms', icon: Zap },
+                { label: 'Asset Types', val: 'Hybrid', icon: Sprout },
+                { label: 'Security', val: 'Bank-Grade', icon: Activity },
+              ].map((item, i) => (
+                <div key={i} className="space-y-1">
+                  <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
+                  <div className="text-xl sm:text-2xl font-display font-bold text-white">{item.val}</div>
+                  <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">{item.label}</div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
         </div>
 
         {/* Right Column: Interactive Visuals */}
-        <div className="relative h-[400px] lg:h-[600px] flex items-center justify-center perspective-[1000px] w-full">
+        <div className="relative h-[400px] lg:h-[600px] flex items-center justify-center perspective-[1000px] w-full pointer-events-none">
 
           {/* Background Glow */}
           <motion.div
@@ -219,25 +214,29 @@ export default function Hero({ onStart }: HeroProps) {
 
           {/* The "Artifact" - Glassmorphism Card + Interactive Slider */}
           <motion.div
-            style={{ y: y1, rotateX: 5, rotateY: -5 }}
+            style={{
+              y: y1,
+              rotateX,
+              rotateY,
+              transformStyle: "preserve-3d"
+            }}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
-            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto"
+            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto pointer-events-auto"
           >
-            {/* Decorative Circuit Lines */}
-            <svg className="absolute top-0 right-0 w-32 h-32 opacity-20 pointer-events-none" viewBox="0 0 100 100">
-              <path d="M100 0 L50 0 L50 50 L0 50" fill="none" stroke="#10b981" strokeWidth="2" />
-              <circle cx="50" cy="50" r="3" fill="#10b981" />
-            </svg>
 
-            <div className="space-y-6 relative z-10">
+
+            <div className="space-y-6 relative z-10" style={{ transform: "translateZ(30px)" }}>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">Growth Simulation</h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
 
-              <div className="h-32 sm:h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group">
+              <div
+                className="h-32 sm:h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group"
+                style={{ transform: "translateZ(20px)" }}
+              >
                 {/* Simulated Chart */}
                 <div className="flex items-end justify-between h-full gap-2 px-2">
                   {[...Array(12)].map((_, i) => {
@@ -307,7 +306,7 @@ export default function Hero({ onStart }: HeroProps) {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4" style={{ transform: "translateZ(40px)" }}>
                 <BiopunkSlider
                   label="Time Horizon"
                   min={1}
@@ -327,7 +326,7 @@ export default function Hero({ onStart }: HeroProps) {
                 />
               </div>
 
-              <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap">
+              <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap" style={{ transform: "translateZ(10px)" }}>
                 <span>• Institutional</span>
                 <span>• Algorithmic</span>
                 <span>• Sustainable</span>
@@ -335,7 +334,7 @@ export default function Hero({ onStart }: HeroProps) {
             </div>
 
             {/* Glass Shine Effect */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" style={{ transform: "translateZ(50px)" }} />
           </motion.div>
         </div>
 
