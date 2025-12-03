@@ -87,7 +87,7 @@ export const fetchMarketSnapshot = async (tickers: string[]): Promise<MarketSnap
     // If `yahoo-finance2` throws on partial failure, we need to handle it.
     // Typically it returns what it finds.
 
-    const quotes = await yahooFinance.quote(uniqueTickers, { validateResult: false });
+    const quotes = await yahooFinance.quote(uniqueTickers);
     // validateResult: false might be safer if we expect missing fields
 
     const results: MarketSnapshotItem[] = quotes.map((q: any) => {
@@ -247,8 +247,8 @@ export const fetchEtfDetails = async (tickerSymbol: string): Promise<EtfDetails 
         // [ { real_estate: 0.02 }, { consumer_cyclical: 0.1 } ]
         // So we need to parse keys.
         return {
-           sector_name: formatSectorName(n),
-           weight: w
+          sector_name: formatSectorName(n),
+          weight: w
         };
       });
     } else if (assetType === 'STOCK' && assetProfile?.sector) {
@@ -262,11 +262,15 @@ export const fetchEtfDetails = async (tickerSymbol: string): Promise<EtfDetails 
     twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
     const period1 = twoYearsAgo.toISOString().split('T')[0];
 
+    const period2 = new Date().toISOString().split('T')[0];
     const divEvents = await yahooFinance.historical(tickerSymbol, {
       period1,
+      period2,
       events: 'dividends',
       interval: '1d' // Interval doesn't matter much for events only?
     });
+
+
     // divEvents returns array of prices if events not specified?
     // With events: 'dividends', it returns only dividends?
     // Actually `historical` returns mixed if not careful, but usually dividends are separate query or filtered.
@@ -302,14 +306,14 @@ export const fetchEtfDetails = async (tickerSymbol: string): Promise<EtfDetails 
 
     const cat = (summary.fundProfile?.categoryName || "").toLowerCase();
     if (cat.includes("bond") || cat.includes("fixed income")) {
-        allocStocks = 0.0;
-        allocBonds = 100.0;
+      allocStocks = 0.0;
+      allocBonds = 100.0;
     }
 
     const allocation = {
-        stocks_weight: allocStocks,
-        bonds_weight: allocBonds,
-        cash_weight: allocCash
+      stocks_weight: allocStocks,
+      bonds_weight: allocBonds,
+      cash_weight: allocCash
     };
 
     // History
@@ -323,11 +327,12 @@ export const fetchEtfDetails = async (tickerSymbol: string): Promise<EtfDetails 
 
     const fetchHist = async (p: string, i: any, tag: string) => {
       try {
-        const data = await yahooFinance.historical(tickerSymbol, { period1: getDateForPeriod(p), interval: i });
+        const period2 = new Date().toISOString().split('T')[0];
+        const data = await yahooFinance.historical(tickerSymbol, { period1: getDateForPeriod(p), period2, interval: i });
         return data.map((d: any) => ({
-           date: d.date.toISOString(),
-           close: d.close,
-           interval: tag
+          date: d.date.toISOString(),
+          close: d.close,
+          interval: tag
         }));
       } catch (e) {
         return [];
@@ -367,8 +372,8 @@ export const fetchEtfDetails = async (tickerSymbol: string): Promise<EtfDetails 
 };
 
 function formatSectorName(key: string): string {
-    // e.g. "real_estate" -> "Real Estate"
-    return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  // e.g. "real_estate" -> "Real Estate"
+  return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 function getDateForPeriod(period: string): string {

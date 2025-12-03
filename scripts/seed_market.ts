@@ -94,6 +94,7 @@ async function seedMarket() {
     process.exit(1);
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 
