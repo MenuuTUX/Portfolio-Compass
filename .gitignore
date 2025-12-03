@@ -13,3 +13,7 @@ out/
 .env.production.local
 venv/
 __pycache__/
+
+# Lockfiles
+package-lock.json
+yarn.lock
