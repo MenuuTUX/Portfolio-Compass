@@ -7,10 +7,9 @@ export interface SectorWeighting {
 
 export async function fetchSectorWeightings(ticker: string): Promise<SectorWeighting[]> {
   try {
-    const queryOptions = { modules: ['fundProfile', 'topHoldings'] };
+    const queryOptions = { modules: ['fundProfile', 'topHoldings', 'summaryProfile'] as const };
     // @ts-ignore - yahoo-finance2 types might be tricky with modules
-    const yf = new yahooFinance();
-    const quoteSummary: any = await yf.quoteSummary(ticker, queryOptions);
+    const quoteSummary: any = await yahooFinance.quoteSummary(ticker, queryOptions);
 
     let sectors: SectorWeighting[] = [];
 
@@ -27,6 +26,13 @@ export async function fetchSectorWeightings(ticker: string): Promise<SectorWeigh
         sector_name: s.sector,
         weight: (s.weight || 0) * 100
       }));
+    }
+    // Try summaryProfile (Stocks)
+    else if (quoteSummary.summaryProfile && quoteSummary.summaryProfile.sector) {
+      sectors = [{
+        sector_name: quoteSummary.summaryProfile.sector,
+        weight: 100
+      }];
     }
 
     // Filter out zero weights

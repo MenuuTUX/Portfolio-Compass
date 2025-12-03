@@ -1,4 +1,4 @@
-import { fetchSectorWeightings } from './lib/sector-utils';
+import { fetchSectorWeightings } from '../lib/sector-utils';
 
 async function test() {
     try {

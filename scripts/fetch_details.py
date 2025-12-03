@@ -125,6 +125,13 @@ def fetch_details(ticker_symbol):
              s_weight = to_py_float(s.get('weight', 0)) * 100
              if s_weight > 0:
                  sectors.append({"sector_name": s_name, "weight": s_weight})
+    
+    # Fallback for stocks (no sectorWeightings, but have 'sector' field)
+    if not sectors and 'sector' in info:
+        sectors.append({
+            "sector_name": info['sector'],
+            "weight": 100.0
+        })
 
     # Allocation
     # Simple logic from old script
