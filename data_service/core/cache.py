@@ -7,7 +7,7 @@ import hashlib
 import logging
 from typing import Callable, Any, Optional
 
-from modernized_backend.core.redis_client import redis_client
+from data_service.core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 

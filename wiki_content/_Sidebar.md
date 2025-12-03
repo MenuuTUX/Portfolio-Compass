@@ -1,5 +1,0 @@
-- [Home](Home)
-- [Getting Started](Getting-Started)
-- [Features](Features)
-- [Architecture](Architecture)
-- [Design System](Design-System)
