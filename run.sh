@@ -12,16 +12,16 @@ fi
 
 # 2. Dependencies
 echo "📦 Installing Node.js dependencies..."
-npm install --silent > /dev/null 2>&1
+bun install --silent > /dev/null 2>&1
 
 # 3. Database
 echo "🗄️  Syncing Database Schema..."
-npx prisma db push
+bun run prisma db push
 
 # 4. Seed
 echo "🌱 Seeding initial market data..."
-npx tsx scripts/seed_market.ts
+bun run scripts/seed_market.ts
 
 # 5. Start
 echo "🚀 Launching App..."
-npm run dev
+bun run dev
