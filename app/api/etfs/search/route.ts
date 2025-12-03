@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ETF } from '@/types'
 import prisma from '@/lib/db'
-import { fetchMarketSnapshot } from '@/lib/yahoo-client'
+import { fetchMarketSnapshot } from '@/lib/market-service'
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query')
-  const type = searchParams.get('type')
 
   try {
     const whereClause: any = {};
@@ -46,9 +45,9 @@ export async function GET(request: NextRequest) {
               ticker: item.ticker,
               name: item.name,
               price: item.price,
-              daily_change: item.daily_change,
+              daily_change: item.dailyChangePercent, // Storing percent as daily_change
               currency: 'USD',
-              assetType: item.asset_type || "ETF",
+              assetType: item.assetType || "ETF",
               isDeepAnalysisLoaded: false,
             }
           });
@@ -59,7 +58,7 @@ export async function GET(request: NextRequest) {
             name: newEtf.name,
             price: newEtf.price,
             changePercent: newEtf.daily_change,
-            assetType: newEtf.assetType, // <--- ADDED THIS
+            assetType: newEtf.assetType,
             isDeepAnalysisLoaded: false,
             history: [],
             metrics: { yield: 0, mer: 0 },
@@ -78,7 +77,7 @@ export async function GET(request: NextRequest) {
       name: etf.name,
       price: etf.price,
       changePercent: etf.daily_change,
-      assetType: etf.assetType, // <--- ADDED THIS
+      assetType: etf.assetType,
       isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
       history: etf.history.map((h) => ({
         date: h.date.toISOString(),

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { syncEtf } from '@/lib/etf-sync';
+import { syncEtfDetails } from '@/lib/etf-sync';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    const fullEtf = await syncEtf(ticker);
+    const fullEtf = await syncEtfDetails(ticker);
 
     // Map to frontend ETF interface
     const formattedEtf = {

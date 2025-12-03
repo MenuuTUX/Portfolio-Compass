@@ -12,18 +12,18 @@ if not exist .env (
 
 REM 2. Dependencies
 echo 📦 Installing Node.js dependencies...
-call npm install --silent > nul 2>&1
+call bun install --silent > nul 2>&1
 
 REM 3. Database
 echo 🗄️  Syncing Database Schema...
-call npx prisma db push
+call bun run prisma db push
 
 REM 4. Seed
 echo 🌱 Seeding initial market data...
-call npx tsx scripts/seed_market.ts
+call bun run scripts/seed_market.ts
 
 REM 5. Start
 echo 🚀 Launching App...
-call npm run dev
+call bun run dev
 
 endlocal
