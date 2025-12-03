@@ -1,53 +1,28 @@
-import { execFile } from 'child_process';
-import path from 'path';
-import { fetchSectorWeightings } from '@/lib/sector-utils';
 import prisma from '@/lib/db';
+import { fetchEtfDetails } from '@/lib/yahoo-client';
 
 export async function syncEtf(ticker: string) {
     console.log(`Syncing details for ${ticker}...`);
 
-    const pythonScript = path.join(process.cwd(), 'scripts', 'fetch_details.py');
+    const data = await fetchEtfDetails(ticker);
 
-    const result = await new Promise<string>((resolve, reject) => {
-        execFile('python', [pythonScript, ticker], (error, stdout, stderr) => {
-            if (error) {
-                console.error("Python execution error:", error);
-                reject(error);
-                return;
-            }
-            if (stderr) {
-                // python might write warnings to stderr, not necessarily failure.
-                // But if stdout is empty/invalid it's an issue.
-                console.warn(`Python stderr: ${stderr}`);
-            }
-            resolve(stdout);
-        });
-    });
-
-    // Parse JSON
-    const data = JSON.parse(result);
-
-    if (data.error) {
-        if (data.error.includes("Ticker not found")) {
-            console.log(`Ticker ${ticker} not found, deleting from database...`);
-            await prisma.etf.delete({ where: { ticker } });
-            throw new Error('Ticker not found');
-        }
-        throw new Error(data.error);
+    if (!data) {
+        // If fetch returns null/error, consider it "not found" or "error"
+        // If it was meant to be deleted if not found:
+        // We can check if we should delete it.
+        // The old script threw "Ticker not found" if it failed.
+        // Let's assume if it returns null, it failed.
+        console.error(`Failed to fetch details for ${ticker}`);
+        throw new Error('Ticker not found or API error');
     }
 
-    // Fetch sectors via Node.js helper (yahoo-finance2)
-    // This provides a fallback/better source if Python script fails to get sectors
-    let nodeSectors: any[] = [];
-    try {
-        nodeSectors = await fetchSectorWeightings(ticker);
-        console.log(`Fetched ${nodeSectors.length} sectors via yahoo-finance2`);
-    } catch (e) {
-        console.warn("Failed to fetch sectors via node:", e);
-    }
+    // The logic to "fetchSectorWeightings" from sector-utils seems redundant now
+    // because fetchEtfDetails already handles sectors (using yahoo-finance2).
+    // The old code did a "merge" preferring node sectors.
+    // Our new `fetchEtfDetails` IS the node sectors logic.
+    // So we can just use `data.sectors`.
 
-    // Merge sectors: Prefer Node sectors if available, otherwise fallback to Python sectors
-    const finalSectors = nodeSectors.length > 0 ? nodeSectors : data.sectors;
+    const finalSectors = data.sectors;
 
     // Update DB
     await prisma.$transaction(async (tx) => {
@@ -97,7 +72,6 @@ export async function syncEtf(ticker: string) {
 
         // History
         // Strategy: Delete all history for this ETF and replace with fresh deep fetch data.
-        // This ensures no stale intervals or duplicates.
         await tx.etfHistory.deleteMany({ where: { etfId: data.ticker } });
 
         if (data.history && data.history.length > 0) {

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ETF } from '@/types'
 import prisma from '@/lib/db'
-import { execFile } from 'child_process'
-import path from 'path'
+import { fetchMarketSnapshot } from '@/lib/yahoo-client'
 
 export const dynamic = 'force-dynamic';
 
@@ -37,16 +36,7 @@ export async function GET(request: NextRequest) {
       console.log(`[API] Local miss for "${query}". Attempting live fetch...`);
 
       try {
-        const pythonScript = path.join(process.cwd(), 'scripts', 'fetch_market_snapshot.py');
-
-        const liveDataRaw = await new Promise<string>((resolve, reject) => {
-          execFile('python3', [pythonScript, query], (error, stdout, stderr) => {
-            if (error) reject(error);
-            else resolve(stdout);
-          });
-        });
-
-        const liveData = JSON.parse(liveDataRaw);
+        const liveData = await fetchMarketSnapshot([query]);
 
         if (Array.isArray(liveData) && liveData.length > 0) {
           const item = liveData[0];

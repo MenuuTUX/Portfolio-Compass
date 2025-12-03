@@ -10,36 +10,18 @@ if [ ! -f .env ]; then
     echo "✅ .env created."
 fi
 
-# 2. Python Environment
-# Check for uv
-if ! command -v uv &> /dev/null; then
-    echo "⬇️  Installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    source $HOME/.cargo/env
-fi
-
-if [ ! -d "venv" ]; then
-    echo "🔨 Creating Python virtual environment with uv..."
-    uv venv venv
-fi
-
-source venv/bin/activate
-
-# 3. Dependencies
-echo "🐍 Installing Python dependencies with uv..."
-uv pip install -r requirements.txt || echo "⚠️  Python dependencies installation warning"
-
+# 2. Dependencies
 echo "📦 Installing Node.js dependencies..."
 npm install --silent > /dev/null 2>&1
 
-# 4. Database
+# 3. Database
 echo "🗄️  Syncing Database Schema..."
 npx prisma db push
 
-# 5. Seed
+# 4. Seed
 echo "🌱 Seeding initial market data..."
 npx tsx scripts/seed_market.ts
 
-# 6. Start
+# 5. Start
 echo "🚀 Launching App..."
 npm run dev
