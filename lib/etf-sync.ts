@@ -33,12 +33,12 @@ export async function syncEtfDetails(ticker: string) {
     let cash_weight = 0;
 
     if (details.assetType === 'ETF') {
-       // Heuristic: check name or category if available (but I didn't expose category in EtfDetails)
-       // I exposed `description`.
-       if (details.name.toLowerCase().includes('bond') || details.description.toLowerCase().includes('bond')) {
-         stocks_weight = 0;
-         bonds_weight = 100;
-       }
+      // Heuristic: check name or category if available (but I didn't expose category in EtfDetails)
+      // I exposed `description`.
+      if (details.name.toLowerCase().includes('bond') || details.description.toLowerCase().includes('bond')) {
+        stocks_weight = 0;
+        bonds_weight = 100;
+      }
     }
 
     // 3. Upsert ETF Record
@@ -118,9 +118,9 @@ export async function syncEtfDetails(ticker: string) {
       await prisma.etfAllocation.update({
         where: { etfId: etf.ticker },
         data: {
-            stocks_weight,
-            bonds_weight,
-            cash_weight
+          stocks_weight,
+          bonds_weight,
+          cash_weight
         }
       });
     } else {
@@ -136,27 +136,36 @@ export async function syncEtfDetails(ticker: string) {
 
     // 6. Update History
     if (details.history && details.history.length > 0) {
-        await prisma.etfHistory.deleteMany({
-            where: { etfId: etf.ticker }
-        });
+      await prisma.etfHistory.deleteMany({
+        where: { etfId: etf.ticker }
+      });
 
-        await prisma.etfHistory.createMany({
-            data: details.history.map((h: any) => ({
-                etfId: etf.ticker,
-                date: new Date(h.date),
-                close: h.close,
-                interval: h.interval || '1d'
-            })),
-            skipDuplicates: true
-        });
+      await prisma.etfHistory.createMany({
+        data: details.history.map((h: any) => ({
+          etfId: etf.ticker,
+          date: new Date(h.date),
+          close: h.close,
+          interval: h.interval || '1d'
+        })),
+        skipDuplicates: true
+      });
     }
 
     // 7. Update Dividends (Not returned by my new service yet)
     // I omitted dividendHistory in `EtfDetails`.
     // So this part will be skipped.
 
+    const fullEtf = await prisma.etf.findUnique({
+      where: { ticker: etf.ticker },
+      include: {
+        history: { orderBy: { date: 'asc' } },
+        sectors: true,
+        allocation: true,
+      }
+    });
+
     console.log(`[EtfSync] Sync complete for ${etf.ticker}`);
-    return etf;
+    return fullEtf;
 
   } catch (error) {
     console.error(`[EtfSync] Failed to sync ${ticker}:`, error);
