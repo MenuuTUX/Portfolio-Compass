@@ -7,6 +7,7 @@ import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import WealthProjector from '@/components/WealthProjector';
 import TrendingTab from '@/components/TrendingTab';
+import SettingsDrawer from '@/components/SettingsDrawer';
 import { ETF } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
@@ -21,6 +22,7 @@ type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
 export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
   const [activeTab, setActiveTab] = useState<Tab>('TRENDING');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Use React Query hooks
   const { data: portfolio = [] } = usePortfolio();
@@ -85,6 +87,12 @@ export default function Home() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onBackToLanding={() => setViewMode('LANDING')}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+
+            <SettingsDrawer
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
             />
 
             <div className="flex-1 pt-16 relative">
@@ -109,10 +117,22 @@ export default function Home() {
                   />
                 )}
                 {activeTab === 'ETFS' && (
-                  <ComparisonEngine key="etfs" onAddToPortfolio={handleAddToPortfolio} assetType="ETF" />
+                  <ComparisonEngine
+                    key="etfs"
+                    onAddToPortfolio={handleAddToPortfolio}
+                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                    portfolio={portfolio}
+                    assetType="ETF"
+                  />
                 )}
                 {activeTab === 'STOCKS' && (
-                  <ComparisonEngine key="stocks" onAddToPortfolio={handleAddToPortfolio} assetType="STOCK" />
+                  <ComparisonEngine
+                    key="stocks"
+                    onAddToPortfolio={handleAddToPortfolio}
+                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                    portfolio={portfolio}
+                    assetType="STOCK"
+                  />
                 )}
                 {activeTab === 'GROWTH' && (
                   <WealthProjector key="growth" portfolio={portfolio} />

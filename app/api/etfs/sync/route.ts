@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@/lib/generated/prisma';
-import { execFile } from 'child_process';
-import path from 'path';
-import { fetchSectorWeightings } from '@/lib/sector-utils';
-import prisma from '@/lib/db';
+import { syncEtf } from '@/lib/etf-sync';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,134 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    console.log(`Syncing details for ${ticker}...`);
-
-    const pythonScript = path.join(process.cwd(), 'scripts', 'fetch_details.py');
-
-    const result = await new Promise<string>((resolve, reject) => {
-      execFile('python', [pythonScript, ticker], (error, stdout, stderr) => {
-        if (error) {
-          console.error("Python execution error:", error);
-          reject(error);
-          return;
-        }
-        if (stderr) {
-          // python might write warnings to stderr, not necessarily failure.
-          // But if stdout is empty/invalid it's an issue.
-          console.warn(`Python stderr: ${stderr}`);
-        }
-        resolve(stdout);
-      });
-    });
-
-    // Parse JSON
-    // Note: Python script might print multiple lines? It should just print one JSON blob.
-    // If warnings in stderr, stdout should still be clean if python script is good.
-    const data = JSON.parse(result);
-
-    if (data.error) {
-      if (data.error.includes("Ticker not found")) {
-        console.log(`Ticker ${ticker} not found, deleting from database...`);
-        await prisma.etf.delete({ where: { ticker } });
-        return NextResponse.json({ error: 'Ticker not found', deleted: true }, { status: 404 });
-      }
-      return NextResponse.json({ error: data.error }, { status: 404 });
-    }
-
-    // Fetch sectors via Node.js helper (yahoo-finance2)
-    // This provides a fallback/better source if Python script fails to get sectors
-    let nodeSectors: any[] = [];
-    try {
-      nodeSectors = await fetchSectorWeightings(ticker);
-      console.log(`Fetched ${nodeSectors.length} sectors via yahoo-finance2`);
-    } catch (e) {
-      console.warn("Failed to fetch sectors via node:", e);
-    }
-
-    // Merge sectors: Prefer Node sectors if available, otherwise fallback to Python sectors
-    const finalSectors = nodeSectors.length > 0 ? nodeSectors : data.sectors;
-
-    // Update DB
-    // 1. Update ETF basic info & isDeepAnalysisLoaded
-    // 2. Update Sectors (delete old, create new)
-    // 3. Update Allocation (upsert)
-    // 4. Update History (delete old for ticker?, insert new)
-
-    await prisma.$transaction(async (tx) => {
-      // Update ETF
-      await tx.etf.update({
-        where: { ticker: data.ticker },
-        data: {
-          name: data.name,
-          currency: data.currency,
-          exchange: data.exchange,
-          price: data.price,
-          daily_change: data.daily_change,
-          yield: data.yield,
-          mer: data.mer,
-          assetType: data.asset_type,
-          isDeepAnalysisLoaded: true,
-        }
-      });
-
-      // Sectors
-      await tx.etfSector.deleteMany({ where: { etfId: data.ticker } });
-      if (finalSectors && finalSectors.length > 0) {
-        await tx.etfSector.createMany({
-          data: finalSectors.map((s: any) => ({
-            etfId: data.ticker,
-            sector_name: s.sector_name,
-            weight: s.weight
-          }))
-        });
-      }
-
-      // Allocation
-      await tx.etfAllocation.upsert({
-        where: { etfId: data.ticker },
-        update: {
-          stocks_weight: data.allocation.stocks_weight,
-          bonds_weight: data.allocation.bonds_weight,
-          cash_weight: data.allocation.cash_weight,
-        },
-        create: {
-          etfId: data.ticker,
-          stocks_weight: data.allocation.stocks_weight,
-          bonds_weight: data.allocation.bonds_weight,
-          cash_weight: data.allocation.cash_weight,
-        }
-      });
-
-      // History
-      // Strategy: Delete all history for this ETF and replace with fresh deep fetch data.
-      // This ensures no stale intervals or duplicates.
-      await tx.etfHistory.deleteMany({ where: { etfId: data.ticker } });
-
-      if (data.history && data.history.length > 0) {
-        await tx.etfHistory.createMany({
-          data: data.history.map((h: any) => ({
-            etfId: data.ticker,
-            date: new Date(h.date),
-            close: h.close,
-            interval: h.interval
-          }))
-        });
-      }
-    });
-
-    // Return the full ETF object
-    const fullEtf = await prisma.etf.findUnique({
-      where: { ticker: data.ticker },
-      include: {
-        history: { orderBy: { date: 'asc' } },
-        sectors: true,
-        allocation: true
-      }
-    });
-
-    if (!fullEtf) {
-      return NextResponse.json({ error: 'ETF not found after sync' }, { status: 404 });
-    }
+    const fullEtf = await syncEtf(ticker);
 
     // Map to frontend ETF interface
     const formattedEtf = {
@@ -173,8 +42,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(formattedEtf);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing ETF:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    if (error.message === 'Ticker not found') {
+      return NextResponse.json({ error: 'Ticker not found', deleted: true }, { status: 404 });
+    }
+    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
