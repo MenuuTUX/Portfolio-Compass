@@ -1,5 +1,5 @@
 import redis.asyncio as redis
-from modernized_backend.core.config import settings
+from data_service.core.config import settings
 
 # Configure a ConnectionPool with a maximum of 20 connections and a timeout of 5 seconds
 connection_pool = redis.ConnectionPool(

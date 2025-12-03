@@ -2,7 +2,7 @@ import asyncio
 import logging
 import yfinance as yf
 from typing import Dict, Any, Optional
-from modernized_backend.core.cache import stale_while_revalidate
+from data_service.core.cache import stale_while_revalidate
 
 logger = logging.getLogger(__name__)
 
