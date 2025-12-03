@@ -4,8 +4,10 @@ import pg from 'pg'
 
 const prismaClientSingleton = () => {
   // Ensure we have a connection string.
-  // In dev/sandbox, fallback to the default if env is missing to prevent crash.
-  const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/portfolio_compass?schema=public"
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not defined in environment variables");
+  }
+  const connectionString = process.env.DATABASE_URL;
 
   const pool = new pg.Pool({
     connectionString,
