@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ETF } from '@/types'
 import prisma from '@/lib/db'
 import { fetchMarketSnapshot } from '@/lib/market-service'
+import { syncEtfDetails } from '@/lib/etf-sync'
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,52 @@ export async function GET(request: NextRequest) {
       },
       take: query ? 10 : 1000,
     })
+
+    // 1.5 Check for Stale Data (Auto-Sync)
+    // If we have a specific query and found results, check if they are stale.
+    // Only do this for small result sets to avoid massive sync storms.
+    if (query && etfs.length > 0 && etfs.length < 5) {
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+
+      const staleEtfs = etfs.filter(e => {
+        // 1. Check if the record itself hasn't been updated in 1 hour
+        if (e.updatedAt < oneHourAgo) return true;
+
+        // 2. Check if the latest history data point is older than 2 days
+        // This catches cases where sync ran but didn't get recent data, or market was closed
+        if (e.history && e.history.length > 0) {
+          const lastHistoryDate = e.history[e.history.length - 1].date;
+          if (new Date(lastHistoryDate) < twoDaysAgo) return true;
+        } else {
+          // No history implies stale/incomplete data
+          return true;
+        }
+
+        return false;
+      });
+
+      if (staleEtfs.length > 0) {
+        console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}". Syncing...`);
+
+        // Sync in parallel
+        await Promise.all(staleEtfs.map(async (staleEtf) => {
+          try {
+            const updated = await syncEtfDetails(staleEtf.ticker);
+            if (updated) {
+              // Update the local object in the array so we return fresh data
+              const index = etfs.findIndex(e => e.ticker === staleEtf.ticker);
+              if (index !== -1) {
+                etfs[index] = updated;
+              }
+            }
+          } catch (err) {
+            console.error(`[API] Failed to auto-sync ${staleEtf.ticker}:`, err);
+          }
+        }));
+      }
+    }
 
     // 2. Live Market Fallback
     if (etfs.length === 0 && query && query.length > 1) {

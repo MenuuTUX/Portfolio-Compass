@@ -117,7 +117,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   // I will try to fetch a standard set: 1d (1y), 1wk (5y), 1mo (max).
   // Omitting '1h' to save time/requests unless critical, but `etf-sync.ts` had it.
 
-  const fetchHistoryInterval = async (interval: '1d' | '1wk' | '1mo', period1: Date) => {
+  const fetchHistoryInterval = async (interval: '1h' | '1d' | '1wk' | '1mo', period1: Date) => {
     try {
       const res = await yf.chart(resolvedTicker, {
         period1,
@@ -144,14 +144,16 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   const d1y = new Date(); d1y.setFullYear(now.getFullYear() - 1);
   const d5y = new Date(); d5y.setFullYear(now.getFullYear() - 5);
   const dMax = new Date(0); // 1970
+  const d7d = new Date(); d7d.setDate(now.getDate() - 7); // 7 days for 1h data
 
-  const [h1d, h1wk, h1mo] = await Promise.all([
+  const [h1h, h1d, h1wk, h1mo] = await Promise.all([
+    fetchHistoryInterval('1h', d7d), // Fetch 1h data
     fetchHistoryInterval('1d', d1y),
     fetchHistoryInterval('1wk', d5y),
     fetchHistoryInterval('1mo', dMax)
   ]);
 
-  const history = [...h1d, ...h1wk, ...h1mo];
+  const history = [...h1h, ...h1d, ...h1wk, ...h1mo];
 
   const price = quoteSummary.price;
   const profile = quoteSummary.summaryProfile;
@@ -181,10 +183,10 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
 
   let dividendYield = summaryDetail?.dividendYield;
   if (!dividendYield && defaultKeyStatistics?.yield) {
-      dividendYield = defaultKeyStatistics.yield;
+    dividendYield = defaultKeyStatistics.yield;
   }
   if (dividendYield !== undefined && dividendYield < 1) {
-      dividendYield = dividendYield * 100;
+    dividendYield = dividendYield * 100;
   }
 
   let expenseRatio = fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;

@@ -21,6 +21,41 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   const [timeRange, setTimeRange] = useState('1M');
   const [showComparison, setShowComparison] = useState(false);
   const [spyData, setSpyData] = useState<ETF | null>(null);
+  const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
+
+  // Use fresh data if available, otherwise fall back to prop
+  const displayEtf = freshEtf || etf;
+
+  // Reset freshEtf when etf prop changes
+  useEffect(() => {
+    setFreshEtf(null);
+  }, [etf]);
+
+  // Fetch fresh data for the current ETF to ensure it's up to date
+  useEffect(() => {
+    if (!etf) return;
+
+    const fetchFreshData = async () => {
+      try {
+        // This call will trigger the backend auto-sync if data is stale (>24h)
+        const res = await fetch(`/api/etfs/search?query=${etf.ticker}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            // Find the exact match
+            const match = data.find(item => item.ticker === etf.ticker);
+            if (match) {
+              setFreshEtf(match);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch fresh ETF data:', err);
+      }
+    };
+
+    fetchFreshData();
+  }, [etf]);
 
   // Fetch SPY data when toggle is enabled
   useEffect(() => {
@@ -28,15 +63,23 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
       const fetchSpy = async () => {
         try {
           // 1. Try search first
-          const searchRes = await fetch('/api/etfs/search?query=SPY');
+          const searchRes = await fetch('/api/etfs/search?query=SPY', { cache: 'no-store' });
           const searchData = await searchRes.json();
 
           if (Array.isArray(searchData) && searchData.length > 0) {
             const spy = searchData[0];
             // Check if history exists and is sufficient
             if (spy.history && spy.history.length > 0) {
-              setSpyData(spy);
-              return;
+              // Check freshness (client-side double check)
+              const lastDate = new Date(spy.history[spy.history.length - 1].date);
+              const now = new Date();
+              const isStale = (now.getTime() - lastDate.getTime()) > 60 * 60 * 1000; // > 1 hour
+
+              if (!isStale) {
+                setSpyData(spy);
+                return;
+              }
+              console.log('SPY data found but stale (>1h). Forcing sync...');
             }
           }
 
@@ -62,7 +105,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   }, [showComparison, spyData]);
 
   const historyData = useMemo(() => {
-    if (!etf || !etf.history) return [];
+    if (!displayEtf || !displayEtf.history) return [];
 
     let targetInterval = '1wk'; // Default fallback
     const now = new Date();
@@ -104,25 +147,55 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     };
 
-    const etfHistory = filterAndSort(etf.history);
+    const etfHistory = filterAndSort(displayEtf.history);
 
     if (showComparison && spyData && spyData.history) {
       const spyHistory = filterAndSort(spyData.history);
 
-      // Create a map of date -> price for SPY
-      const spyMap = new Map(spyHistory.map(h => [new Date(h.date).toISOString(), h.price]));
+      // Helper to find closest SPY price within tolerance
+      const getSpyPriceAt = (targetDate: Date) => {
+        if (spyHistory.length === 0) return null;
+
+        const targetTime = targetDate.getTime();
+        // Tolerance: 30 minutes for 1h/1d, 1 day for 1w/1m/1y
+        const tolerance = (timeRange === '1D' || timeRange === '1W')
+          ? 30 * 60 * 1000
+          : 24 * 60 * 60 * 1000;
+
+        // Find closest data point
+        // Optimization: spyHistory is sorted. We could use binary search or just find.
+        // Given array size is small (<1000), a simple reduce or find is acceptable.
+
+        let closest = spyHistory[0];
+        let minDiff = Math.abs(new Date(closest.date).getTime() - targetTime);
+
+        for (let i = 1; i < spyHistory.length; i++) {
+          const current = spyHistory[i];
+          const diff = Math.abs(new Date(current.date).getTime() - targetTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closest = current;
+          }
+        }
+
+        if (minDiff <= tolerance) {
+          return closest.price;
+        }
+        return null;
+      };
 
       if (etfHistory.length > 0) {
         const etfStart = etfHistory[0].price;
-        // Find closest SPY start price
-        const spyStart = spyHistory.length > 0 ? spyHistory[0].price : 1;
+
+        // Find closest SPY start price to align the charts
+        const spyStartPrice = getSpyPriceAt(new Date(etfHistory[0].date));
+        const spyStart = spyStartPrice || (spyHistory.length > 0 ? spyHistory[0].price : 1);
 
         // Calculate scale factor to make SPY start at the same level as ETF
         const scaleFactor = etfStart / spyStart;
 
         return etfHistory.map(h => {
-          const dateStr = new Date(h.date).toISOString();
-          const rawSpyPrice = spyMap.get(dateStr);
+          const rawSpyPrice = getSpyPriceAt(new Date(h.date));
 
           return {
             date: h.date,
@@ -135,10 +208,10 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     }
 
     return etfHistory;
-  }, [etf, timeRange, showComparison, spyData]);
+  }, [displayEtf, timeRange, showComparison, spyData]);
 
   const { percentageChange, isPositive } = useMemo(() => {
-    if (!etf || !etf.history || etf.history.length < 2) return { percentageChange: 0, isPositive: true };
+    if (!displayEtf || !displayEtf.history || displayEtf.history.length < 2) return { percentageChange: 0, isPositive: true };
     // Use raw history for the header metric, not the chart data
     // We need to filter raw history by the current time range to match the chart's "view"
     // Re-using the logic from historyData but strictly for the main ETF
@@ -156,10 +229,10 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     const endPrice = historyData[historyData.length - 1].price;
     const change = ((endPrice - startPrice) / startPrice) * 100;
     return { percentageChange: change, isPositive: change >= 0 };
-  }, [historyData, showComparison, etf]);
+  }, [historyData, showComparison, displayEtf]);
 
   const riskData = useMemo(() => {
-    if (!etf) return null;
+    if (!displayEtf) return null;
     // Risk metric should probably stay based on the ETF's raw data
     // We can pass the raw filtered history if we want to be precise, 
     // but for now passing the potentially transformed historyData might be misleading if it's normalized.
@@ -177,19 +250,19 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     if (showComparison) return null;
 
     return calculateRiskMetric(historyData);
-  }, [etf, historyData, showComparison]);
+  }, [displayEtf, historyData, showComparison]);
 
   const sectorData = useMemo(() => {
-    if (!etf || !etf.sectors) return [];
-    return Object.entries(etf.sectors).map(([name, value]) => ({
+    if (!displayEtf || !displayEtf.sectors) return [];
+    return Object.entries(displayEtf.sectors).map(([name, value]) => ({
       name,
       value
     })).sort((a, b) => b.value - a.value);
-  }, [etf]);
+  }, [displayEtf]);
 
   return (
     <AnimatePresence>
-      {etf && (
+      {displayEtf && (
         <>
           <motion.div
             key="backdrop"
@@ -211,12 +284,12 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
             <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 backdrop-blur-md">
               <div className="flex items-center gap-4">
                 <div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight">{etf.ticker}</h2>
-                  <p className="text-neutral-400 text-sm">{etf.name}</p>
+                  <h2 className="text-3xl font-bold text-white tracking-tight">{displayEtf.ticker}</h2>
+                  <p className="text-neutral-400 text-sm">{displayEtf.name}</p>
                 </div>
                 <div className="h-8 w-[1px] bg-white/10 mx-2" />
                 <div>
-                  <div className="text-2xl font-light text-white">{formatCurrency(etf.price)}</div>
+                  <div className="text-2xl font-light text-white">{formatCurrency(displayEtf.price)}</div>
                   <div className={cn("text-xs font-medium", isPositive ? "text-emerald-400" : "text-rose-400")}>
                     {isPositive ? "+" : ""}{percentageChange.toFixed(2)}%
                   </div>
@@ -326,7 +399,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                               const original = item.payload.originalSpyPrice;
                               return [original ? formatCurrency(original) : 'N/A', 'SPY'];
                             }
-                            return [formatCurrency(value), etf.ticker];
+                            return [formatCurrency(value), displayEtf.ticker];
                           }}
                           labelFormatter={(label) => new Date(label).toLocaleDateString() + ' ' + new Date(label).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         />
@@ -363,11 +436,11 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                     <div className="flex items-center gap-2 mb-4">
                       <PieIcon className="w-5 h-5 text-blue-400" />
                       <h3 className="text-lg font-bold text-white">
-                        {etf.assetType === 'STOCK' ? 'Sector' : 'Sector Allocation'}
+                        {displayEtf.assetType === 'STOCK' ? 'Sector' : 'Sector Allocation'}
                       </h3>
                     </div>
 
-                    {etf.assetType === 'STOCK' ? (
+                    {displayEtf.assetType === 'STOCK' ? (
                       <div className="h-[250px] flex items-center justify-center">
                         <div className="text-center">
                           <div className="text-3xl font-bold text-white mb-2">
@@ -380,7 +453,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       </div>
                     ) : (
                       <div className="h-[250px]">
-                        <SectorPieChart sectors={etf.sectors} />
+                        <SectorPieChart sectors={displayEtf.sectors} />
                       </div>
                     )}
                   </div>
@@ -389,18 +462,18 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                     <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
                     <div className="grid grid-cols-2 gap-4">
-                      {etf.assetType !== 'STOCK' && (
+                      {displayEtf.assetType !== 'STOCK' && (
                         <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                           <div className="text-xs text-neutral-500 mb-1">MER</div>
-                          <div className="text-xl font-bold text-white">{etf.metrics.mer.toFixed(2)}%</div>
+                          <div className="text-xl font-bold text-white">{displayEtf.metrics.mer.toFixed(2)}%</div>
                         </div>
                       )}
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                         <div className="text-xs text-neutral-500 mb-1">Yield (TTM)</div>
                         <div className="text-xl font-bold text-emerald-400">
-                          {etf.dividendHistory && etf.dividendHistory.length > 0
-                            ? calculateTTMYield(etf.dividendHistory, etf.price).toFixed(2)
-                            : etf.metrics.yield.toFixed(2)}%
+                          {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
+                            ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
+                            : displayEtf.metrics.yield.toFixed(2)}%
                         </div>
                       </div>
                       <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
