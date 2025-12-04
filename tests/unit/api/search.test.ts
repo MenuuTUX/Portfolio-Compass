@@ -18,7 +18,8 @@ mock.module('@/lib/db', () => {
 
 mock.module('@/lib/market-service', () => {
   return {
-    fetchMarketSnapshot: mockFetchMarketSnapshot
+    fetchMarketSnapshot: mockFetchMarketSnapshot,
+    fetchEtfDetails: mock(() => Promise.resolve({}))
   };
 });
 
