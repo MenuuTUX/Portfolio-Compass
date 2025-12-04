@@ -4,6 +4,8 @@ import prisma from '@/lib/db'
 import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 
+import { Prisma } from '@prisma/client'
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
@@ -11,7 +13,7 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get('query')
 
   try {
-    const whereClause: any = {};
+    const whereClause: Prisma.EtfWhereInput = {};
 
     if (query) {
       whereClause.OR = [
@@ -67,7 +69,7 @@ export async function GET(request: NextRequest) {
               // Update the local object in the array so we return fresh data
               const index = etfs.findIndex(e => e.ticker === staleEtf.ticker);
               if (index !== -1) {
-                etfs[index] = updated;
+                etfs[index] = updated as any;
               }
             }
           } catch (err) {
@@ -137,7 +139,7 @@ export async function GET(request: NextRequest) {
         bonds: etf.allocation?.bonds_weight || 0,
         cash: etf.allocation?.cash_weight || 0,
       },
-      sectors: etf.sectors.reduce((acc, sector) => {
+      sectors: etf.sectors.reduce((acc: { [key: string]: number }, sector) => {
         acc[sector.sector_name] = sector.weight
         return acc
       }, {} as { [key: string]: number }),

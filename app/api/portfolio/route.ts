@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { EtfHistory } from '@prisma/client';
 import { ETF, PortfolioItem } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export async function GET() {
 
             weight: item.weight,
             shares: item.shares,
-            history: item.etf.history.map((h) => ({
+            history: item.etf.history.map((h: EtfHistory) => ({
                 date: h.date.toISOString(),
                 price: h.close,
                 interval: h.interval

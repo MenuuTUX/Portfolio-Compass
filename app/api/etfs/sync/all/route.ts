@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { syncEtf } from '@/lib/etf-sync';
+import { syncEtfDetails } from '@/lib/etf-sync';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes timeout for bulk sync
@@ -27,7 +27,7 @@ export async function POST() {
         // or we could do small batches. Let's do sequential for safety first.
         for (const etf of allEtfs) {
             try {
-                await syncEtf(etf.ticker);
+                await syncEtfDetails(etf.ticker);
                 results.push({ ticker: etf.ticker, status: 'success' });
                 successCount++;
             } catch (error: any) {

@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
 
-    serverExternalPackages: ['yahoo-finance2', 'crypto', 'node:crypto'],
+    serverExternalPackages: ['yahoo-finance2', 'crypto', 'node:crypto', 'prisma', '@prisma/client'],
 };
 
 export default nextConfig;
