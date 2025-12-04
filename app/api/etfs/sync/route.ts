@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncEtfDetails } from '@/lib/etf-sync';
+import { EtfHistory } from '@prisma/client';
+
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +15,10 @@ export async function POST(req: NextRequest) {
 
     const fullEtf = await syncEtfDetails(ticker);
 
+    if (!fullEtf) {
+      return NextResponse.json({ error: 'Failed to sync ETF' }, { status: 404 });
+    }
+
     // Map to frontend ETF interface
     const formattedEtf = {
       ticker: fullEtf.ticker,
@@ -19,7 +26,7 @@ export async function POST(req: NextRequest) {
       price: fullEtf.price,
       changePercent: fullEtf.daily_change,
       isDeepAnalysisLoaded: fullEtf.isDeepAnalysisLoaded,
-      history: fullEtf.history.map((h) => ({
+      history: fullEtf.history.map((h: EtfHistory) => ({
         date: h.date.toISOString(),
         price: h.close,
         interval: h.interval
@@ -33,7 +40,7 @@ export async function POST(req: NextRequest) {
         bonds: fullEtf.allocation?.bonds_weight || 0,
         cash: fullEtf.allocation?.cash_weight || 0,
       },
-      sectors: fullEtf.sectors.reduce((acc, sector) => {
+      sectors: fullEtf.sectors.reduce((acc: { [key: string]: number }, sector: { sector_name: string; weight: number }) => {
         acc[sector.sector_name] = sector.weight
         return acc
       }, {} as { [key: string]: number }),

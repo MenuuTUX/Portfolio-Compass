@@ -10,7 +10,8 @@
     "start": "bun --bun next start --webpack",
     "lint": "next lint",
     "seed": "bun scripts/seed_market.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "postinstall": "prisma generate"
   },
   "repository": {
     "type": "git",
