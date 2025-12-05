@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: portfolio-compass-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/portfolio_db
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+    depends_on:
+      - db
+    networks:
+      - portfolio-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: portfolio-compass-db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=portfolio_db
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - portfolio-network
+    ports:
+      - "5432:5432"
+
+networks:
+  portfolio-network:
+    driver: bridge
+
+volumes:
+  db-data:
