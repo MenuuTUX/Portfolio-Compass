@@ -233,24 +233,14 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
   const riskData = useMemo(() => {
     if (!displayEtf) return null;
-    // Risk metric should probably stay based on the ETF's raw data
-    // We can pass the raw filtered history if we want to be precise, 
-    // but for now passing the potentially transformed historyData might be misleading if it's normalized.
-    // Let's assume calculateRiskMetric handles raw prices. 
-    // If showComparison is on, historyData is percentages. calculateRiskMetric likely expects prices.
-    // So we should probably disable or ignore risk calculation on the transformed data, 
-    // OR re-calculate it based on raw data. 
-    // For simplicity, let's just use the ETF's raw history for the risk metric display, 
-    // ignoring the time range filter for the *overall* risk label if that's acceptable, 
-    // OR we filter it again. 
-    // Let's just use the full history for the risk label as it was before (likely).
-    // Actually, the previous code used `historyData` which was filtered.
-    // If we want to keep it simple, we can just hide risk data in comparison mode or re-compute.
-    // Let's re-compute using raw filtered data if needed, but for now let's just return null if comparing to avoid confusion/errors.
-    if (showComparison) return null;
+
+    // Always use the raw history for risk calculation, regardless of comparison mode or time range filter if we want "overall" risk
+    // Or use historyData which respects time range. The user said "keep the volatility and risk" when comparing.
+    // If we use historyData in comparison mode, `price` is still the ETF price (not scaled relative to SPY, unless we scaled it? No we scaled SPY).
+    // Let's check: `price: h.price`. Yes, it's the raw price. So historyData is safe to use.
 
     return calculateRiskMetric(historyData);
-  }, [displayEtf, historyData, showComparison]);
+  }, [displayEtf, historyData]);
 
   const sectorData = useMemo(() => {
     if (!displayEtf || !displayEtf.sectors) return [];
