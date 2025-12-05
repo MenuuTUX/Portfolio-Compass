@@ -101,7 +101,12 @@ export async function GET(request: NextRequest) {
     // 2. Live Market Fallback
     // Only if searching for a specific query/ticker and we found nothing locally.
     // If searching by "Best" (no query, just sort), we don't fetch live.
-    if (page === 1 && etfs.length === 0 && (query || tickers) && (query?.length || 0) > 1) {
+    // Fix: We also check if tickers list is provided, not just query length.
+    const shouldFallback = page === 1 && etfs.length === 0 && (
+      (query && query.length > 1) || (tickers && tickers.length > 0)
+    );
+
+    if (shouldFallback) {
        // Logic for fallback is mainly for single query. Multi-ticker fallback is complex.
        // We'll stick to single query fallback for now or simple ticker list.
        const targets = tickers ? tickers.split(',') : [query!];
