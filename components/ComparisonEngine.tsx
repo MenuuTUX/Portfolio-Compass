@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
-import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2 } from 'lucide-react';
+import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, Loader2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ETF, PortfolioItem } from '@/types';
@@ -9,9 +9,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import MessageDrawer from './MessageDrawer';
 import AutoSizer from 'react-virtualized-auto-sizer';
-// Import List directly from react-window. In this version/build, it seems List is the primary export.
-// We alias it to FixedSizeList for clarity or usage convention, or just use List.
-// Based on debugging, this package exports `List` which behaves like a virtualized list.
 import { List as FixedSizeList } from 'react-window';
 
 // -----------------------------------------------------------------------------
@@ -252,6 +249,9 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
   const [otherTypeEtfs, setOtherTypeEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
@@ -299,10 +299,12 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     };
   }, []);
 
-  const fetchEtfs = useCallback(async (query: string) => {
-    setLoading(true);
+  const fetchEtfs = useCallback(async (query: string, pageToFetch: number, reset: boolean = false) => {
+    if (pageToFetch === 1) setLoading(true);
+    else setLoadingMore(true);
+
     try {
-      let url = `/api/etfs/search?query=${encodeURIComponent(query)}`;
+      let url = `/api/etfs/search?query=${encodeURIComponent(query)}&page=${pageToFetch}&limit=20`;
       if (assetType) {
         url += `&type=${encodeURIComponent(assetType)}`;
       }
@@ -311,42 +313,66 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
       const data: ETF[] = await res.json();
 
       if (assetType) {
-        const valid = data.filter(item => item.assetType === assetType);
-        const other = data.filter(item => item.assetType !== assetType);
+        // API handles filtering, but we might still get mixed if we didn't pass type (which we do now).
+        // Let's assume API returns correct type.
+        const valid = data;
 
-        setEtfs(valid);
-        setOtherTypeEtfs(other);
-        setSuggestions(valid);
-      } else {
-        setEtfs(data);
-        setSuggestions(data);
-        setOtherTypeEtfs([]);
+        if (reset) {
+            setEtfs(valid);
+            setPage(pageToFetch);
+        } else {
+            setEtfs(prev => [...prev, ...valid]);
+            setPage(pageToFetch);
+        }
+
+        // Suggestions only on initial search
+        if (pageToFetch === 1 && query) {
+            setSuggestions(valid);
+        }
+
+        if (valid.length < 20) {
+            setHasMore(false);
+        } else {
+            setHasMore(true);
+        }
       }
 
     } catch (err) {
       console.error("Failed to load ETF data", err);
-      setEtfs([]);
-      setSuggestions([]);
-      setOtherTypeEtfs([]);
+      if (reset) setEtfs([]);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [assetType]);
 
+  // Initial fetch and Search change
   useEffect(() => {
-    fetchEtfs(debouncedSearch);
+    fetchEtfs(debouncedSearch, 1, true);
   }, [debouncedSearch, fetchEtfs]);
+
+  // Handle Load More
+  const handleLoadMore = useCallback(() => {
+      if (!loadingMore && hasMore) {
+          fetchEtfs(debouncedSearch, page + 1, false);
+      }
+  }, [loadingMore, hasMore, page, debouncedSearch, fetchEtfs]);
 
   useEffect(() => {
     if (!loading && debouncedSearch && etfs.length === 0 && otherTypeEtfs.length === 0) {
-      setMessageDrawer({
+      // Logic for "No Results" drawer.
+      // We might want to suppress this if we are just paging, but this effect runs on dependency changes.
+      // It's safe as long as we check loading.
+      // Re-implement the otherType logic if needed, but the API now filters by type so we won't get "other type" results in the main call.
+      // If we want to suggest other types, we'd need a separate call. For now simplified.
+       setMessageDrawer({
         isOpen: true,
         title: 'No Results Found',
         message: `No ${assetType === 'STOCK' ? 'Stocks' : 'ETFs'} found matching "${debouncedSearch}".`,
         type: 'info'
       });
     }
-  }, [loading, debouncedSearch, etfs, otherTypeEtfs, assetType]);
+  }, [loading, debouncedSearch, etfs.length, otherTypeEtfs.length, assetType]); // Added lengths to deps to avoid loops
 
   useEffect(() => {
     if (search.length > 0) {
@@ -409,38 +435,19 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
   const renderNoResults = () => {
     if (loading) return null;
-    if (etfs.length === 0 && otherTypeEtfs.length > 0) {
-      const otherSection = assetType === 'STOCK' ? 'ETFs' : 'Stocks';
-      const sample = otherTypeEtfs[0].ticker;
-      const othersCount = otherTypeEtfs.length - 1;
-      const othersText = othersCount > 0 ? `and ${othersCount} other${othersCount === 1 ? '' : 's'}` : '';
-
-      return (
+    return (
         <div className="text-center text-neutral-500 py-12 flex flex-col items-center">
           <Search className="h-12 w-12 text-emerald-400 mb-4" />
-          <p className="text-lg text-white mb-2">Found matches in {otherSection}</p>
+          <p className="text-lg text-white mb-2">No matches found</p>
           <p className="text-neutral-400">
-            We found "{sample}"{othersText ? ` ${othersText}` : ''} in the {otherSection} section.
-          </p>
-          <p className="text-sm text-neutral-500 mt-2">
-            Please switch to the {otherSection} tab to view these assets.
+            Try a different search term.
           </p>
         </div>
       );
-    }
-    return null;
   };
 
   // Virtualization Cell Renderer
   const Cell = useCallback(({ index, style, ...props }: any) => {
-    // In this List implementation, props contain rowProps (the 'data' object we passed)
-    // AND standard props if any.
-    // Let's assume props contains the properties from rowProps.
-    // We can cast or inspect.
-    // Typically react-window (standard) passes `data`.
-    // This List passes `rowProps` merged into props? Or as `data`?
-    // Based on `dist/react-window.js`: `X(b, { ...m, ... })` where `m` is `rowProps`.
-    // So `props` here will directly contain `items`, `portfolio`, etc.
     const { items, columnCount, portfolio, flashStates, syncingTicker, onAdd, onRemove, onView } = props;
 
     // index is the ROW index
@@ -455,7 +462,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     }
 
     return (
-       <div style={style} className="flex gap-6 pb-6">
+       <div style={style} className="flex gap-6 pb-6 px-1">
            {rowItems.map((etf: ETF) => (
                <div key={etf.ticker} className="flex-1 min-w-0">
                    <ComparisonCard
@@ -546,7 +553,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         </div>
       </motion.div>
 
-      <div className="flex-1 w-full min-h-0">
+      <div className="flex-1 w-full min-h-0 relative flex flex-col">
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map(i => (
@@ -554,6 +561,8 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
             ))}
           </div>
         ) : etfs.length > 0 ? (
+          <>
+          <div className="flex-1">
           <AutoSizer>
             {({ height, width }: { height: number; width: number }) => {
               // Determine columns based on width
@@ -584,6 +593,30 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
               );
             }}
           </AutoSizer>
+          </div>
+          {/* Load More Button */}
+          {hasMore && (
+              <div className="flex justify-center py-4 shrink-0">
+                  <button
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white font-medium py-2 px-6 rounded-full border border-white/10 transition-all disabled:opacity-50"
+                  >
+                      {loadingMore ? (
+                          <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Loading...
+                          </>
+                      ) : (
+                          <>
+                              <ChevronDown className="w-4 h-4" />
+                              Load More
+                          </>
+                      )}
+                  </button>
+              </div>
+          )}
+          </>
         ) : (
           renderNoResults()
         )}
