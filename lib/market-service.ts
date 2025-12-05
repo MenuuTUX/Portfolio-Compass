@@ -30,7 +30,12 @@ export interface EtfDetails {
   expenseRatio?: number;
   dividendYield?: number;
   sectors: Record<string, number>;
-  topHoldings?: Record<string, number>;
+  topHoldings?: Record<string, number>; // Legacy support but likely unused now
+  holdings: {
+    symbol: string;
+    name: string;
+    weight: number;
+  }[];
   history: {
     date: string;
     close: number;
@@ -108,15 +113,6 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   });
 
   // Fetch History for multiple intervals
-  // 1d (1 month range - wait, typically we want 1 year for 1d?)
-  // The app likely expects:
-  // '1h' -> 5d range?
-  // '1d' -> 1mo or 1y range?
-  // '1wk' -> 2y range?
-  // '1mo' -> max range?
-  // I will try to fetch a standard set: 1d (1y), 1wk (5y), 1mo (max).
-  // Omitting '1h' to save time/requests unless critical, but `etf-sync.ts` had it.
-
   const fetchHistoryInterval = async (interval: '1h' | '1d' | '1wk' | '1mo', period1: Date) => {
     try {
       const res = await yf.chart(resolvedTicker, {
@@ -147,7 +143,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   const d7d = new Date(); d7d.setDate(now.getDate() - 7); // 7 days for 1h data
 
   const [h1h, h1d, h1wk, h1mo] = await Promise.all([
-    fetchHistoryInterval('1h', d7d), // Fetch 1h data
+    fetchHistoryInterval('1h', d7d),
     fetchHistoryInterval('1d', d1y),
     fetchHistoryInterval('1wk', d5y),
     fetchHistoryInterval('1mo', dMax)
@@ -165,18 +161,30 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   const assetType = determineAssetType(price?.quoteType);
 
   let sectors: Record<string, number> = {};
+  let holdings: { symbol: string; name: string; weight: number }[] = [];
 
-  if (assetType === 'ETF' && topHoldings?.sectorWeightings) {
-    topHoldings.sectorWeightings.forEach((w: any) => {
-      const keys = Object.keys(w);
-      if (keys.length > 0) {
-        const sectorKey = keys[0];
-        const weight = w[sectorKey];
-        if (typeof weight === 'number') {
-          sectors[sectorKey] = weight;
+  if (assetType === 'ETF') {
+    if (topHoldings?.sectorWeightings) {
+      topHoldings.sectorWeightings.forEach((w: any) => {
+        const keys = Object.keys(w);
+        if (keys.length > 0) {
+          const sectorKey = keys[0];
+          const weight = w[sectorKey];
+          if (typeof weight === 'number') {
+            sectors[sectorKey] = weight;
+          }
         }
-      }
-    });
+      });
+    }
+
+    // Extract Holdings
+    if (topHoldings?.holdings) {
+      holdings = topHoldings.holdings.map((h: any) => ({
+        symbol: h.symbol,
+        name: h.holdingName || h.symbol,
+        weight: h.holdingPercent || 0
+      }));
+    }
   } else if (assetType === 'STOCK' && profile?.sector) {
     sectors[profile.sector] = 1.0;
   }
@@ -203,6 +211,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
     expenseRatio,
     dividendYield,
     sectors,
+    holdings,
     history
   };
 }
