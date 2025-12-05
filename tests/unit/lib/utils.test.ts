@@ -24,7 +24,7 @@ describe('calculateRiskMetric', () => {
     ];
     const result = calculateRiskMetric(history);
     expect(result.stdDev).toBeGreaterThan(0);
-    expect(result.label).toBe("Very Safe");
+    expect(result.label).toBe("Low Risk");
   });
 
   it('should calculate risk correctly for high volatility', () => {
@@ -36,7 +36,9 @@ describe('calculateRiskMetric', () => {
       { date: '2023-01-04', price: 120 }
     ];
     const result = calculateRiskMetric(history);
-    expect(result.stdDev).toBeGreaterThan(0.025); // > 2.5%
+    // Annualized Volatility check
+    // Daily returns approx +/- 10-20%. Annualized is huge.
+    expect(result.stdDev).toBeGreaterThan(0.25); // > 25%
     expect(result.label).toBe("Very High Risk");
   });
 });
