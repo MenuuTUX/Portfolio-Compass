@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
         history: { orderBy: { date: 'asc' } },
         sectors: true,
         allocation: true,
+        holdings: true,
       },
       take: query ? 10 : 1000,
     })
@@ -113,6 +114,7 @@ export async function GET(request: NextRequest) {
             metrics: { yield: 0, mer: 0 },
             allocation: { equities: 0, bonds: 0, cash: 0 },
             sectors: {},
+            holdings: [],
           }]);
         }
       } catch (liveError) {
@@ -143,6 +145,11 @@ export async function GET(request: NextRequest) {
         acc[sector.sector_name] = sector.weight
         return acc
       }, {} as { [key: string]: number }),
+      holdings: etf.holdings ? etf.holdings.map(h => ({
+        symbol: h.symbol,
+        name: h.name,
+        weight: h.weight
+      })) : []
     }))
 
     return NextResponse.json(formattedEtfs)

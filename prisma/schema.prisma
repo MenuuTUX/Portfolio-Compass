@@ -8,6 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // url      = env("DATABASE_URL")
 }
 
 model Etf {
@@ -23,6 +24,7 @@ model Etf {
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
   sectors        EtfSector[]
+  holdings       EtfHolding[]
   allocation     EtfAllocation?
   portfolioItem  PortfolioItem?
 
@@ -44,6 +46,15 @@ model EtfSector {
   id          Int    @id @default(autoincrement())
   etfId       String
   sector_name String
+  weight      Float
+  etf         Etf    @relation(fields: [etfId], references: [ticker])
+}
+
+model EtfHolding {
+  id          Int    @id @default(autoincrement())
+  etfId       String
+  symbol      String
+  name        String
   weight      Float
   etf         Etf    @relation(fields: [etfId], references: [ticker])
 }
