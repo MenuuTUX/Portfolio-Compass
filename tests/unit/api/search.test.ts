@@ -3,6 +3,8 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 // Mocks
 const mockPrismaFindMany = mock(() => Promise.resolve([]));
 const mockPrismaCreate = mock(() => Promise.resolve({}));
+const mockPrismaFindUnique = mock(() => Promise.resolve(null));
+const mockPrismaUpsert = mock(() => Promise.resolve({}));
 const mockFetchMarketSnapshot = mock(() => Promise.resolve([]));
 
 mock.module('@/lib/db', () => {
@@ -10,7 +12,9 @@ mock.module('@/lib/db', () => {
     default: {
       etf: {
         findMany: mockPrismaFindMany,
-        create: mockPrismaCreate
+        create: mockPrismaCreate,
+        findUnique: mockPrismaFindUnique,
+        upsert: mockPrismaUpsert
       }
     }
   };
