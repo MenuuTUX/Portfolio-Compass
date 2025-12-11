@@ -438,9 +438,11 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     return (
         <div className="text-center text-neutral-500 py-12 flex flex-col items-center">
           <Search className="h-12 w-12 text-emerald-400 mb-4" />
-          <p className="text-lg text-white mb-2">No matches found</p>
+          <p className="text-lg text-white mb-2">
+            {search ? 'No matches found' : 'No Market Data'}
+          </p>
           <p className="text-neutral-400">
-            Try a different search term.
+            {search ? 'Try a different search term.' : 'Please ensure the database is seeded.'}
           </p>
         </div>
       );
