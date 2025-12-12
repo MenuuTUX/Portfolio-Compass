@@ -94,6 +94,23 @@ export default function SectorPieChart({ sectors, isLoading = false }: SectorPie
           />
         </PieChart>
       </ResponsiveContainer>
+      <table className="sr-only">
+        <caption>Sector Allocation</caption>
+        <thead>
+          <tr>
+            <th scope="col">Sector</th>
+            <th scope="col">Weight</th>
+          </tr>
+        </thead>
+        <tbody>
+          {processedData.map((item, index) => (
+            <tr key={index}>
+              <td>{item.name}</td>
+              <td>{item.value.toFixed(2)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </motion.div>
   );
 }

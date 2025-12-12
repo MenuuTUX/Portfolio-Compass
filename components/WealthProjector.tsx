@@ -165,6 +165,25 @@ export default function WealthProjector({ portfolio }: WealthProjectorProps) {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              <table className="sr-only">
+                <caption>Wealth Projection</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Year</th>
+                    <th scope="col">Projected Balance</th>
+                    <th scope="col">Total Invested</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectionData.map((item, index) => (
+                    <tr key={index}>
+                      <td>{item.year}</td>
+                      <td>{formatCurrency(item.balance)}</td>
+                      <td>{formatCurrency(item.invested)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
