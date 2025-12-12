@@ -1,34 +1,37 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { Decimal } from "./decimal"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(value: number) {
+export function formatCurrency(value: number | Decimal) {
+  const val = typeof value === 'number' ? value : value.toNumber();
   return new Intl.NumberFormat('en-CA', {
     style: 'currency',
     currency: 'CAD',
-  }).format(value)
+  }).format(val)
 }
 
-export function formatPercentage(value: number) {
+export function formatPercentage(value: number | Decimal) {
+  const val = typeof value === 'number' ? value : value.toNumber();
   return new Intl.NumberFormat('en-CA', {
     style: 'percent',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value / 100)
+  }).format(val / 100)
 }
 
 export interface RiskMetric {
-  stdDev: number;
+  stdDev: number; // Keep result as number for UI/logic consumption
   label: string;
-  color: string;      // Text color class (e.g. text-rose-500)
-  bgColor: string;    // Background color class (e.g. bg-rose-500/10)
-  borderColor: string; // Border color class (e.g. border-rose-500/20)
+  color: string;
+  bgColor: string;
+  borderColor: string;
 }
 
-export function calculateRiskMetric(history: { date: string; price: number }[]): RiskMetric {
+export function calculateRiskMetric(history: { date: string; price: number | Decimal }[]): RiskMetric {
   if (!history || history.length < 2) {
     return {
       stdDev: 0,
@@ -39,13 +42,14 @@ export function calculateRiskMetric(history: { date: string; price: number }[]):
     };
   }
 
-  // 1. Calculate daily percent changes
-  const changes: number[] = [];
+  // 1. Calculate daily percent changes using Decimal for precision in calc
+  const changes: Decimal[] = [];
   for (let i = 1; i < history.length; i++) {
-    const prev = history[i - 1].price;
-    const curr = history[i].price;
-    if (prev !== 0) {
-      changes.push((curr - prev) / prev);
+    const prev = new Decimal(history[i - 1].price);
+    const curr = new Decimal(history[i].price);
+    if (!prev.isZero()) {
+      // (curr - prev) / prev
+      changes.push(curr.minus(prev).dividedBy(prev));
     }
   }
 
@@ -60,10 +64,22 @@ export function calculateRiskMetric(history: { date: string; price: number }[]):
   }
 
   // 2. Calculate Standard Deviation
-  const mean = changes.reduce((sum, val) => sum + val, 0) / changes.length;
-  const variance = changes.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / changes.length;
-  const stdDev = Math.sqrt(variance);
-  const stdDevPercent = stdDev * 100;
+  const count = new Decimal(changes.length);
+  const sum = changes.reduce((acc, val) => acc.plus(val), new Decimal(0));
+  const mean = sum.dividedBy(count);
+
+  const sumSquaredDiffs = changes.reduce((acc, val) => {
+    const diff = val.minus(mean);
+    return acc.plus(diff.pow(2));
+  }, new Decimal(0));
+
+  const variance = sumSquaredDiffs.dividedBy(count);
+  const stdDev = variance.sqrt();
+  const stdDevPercent = stdDev.times(100);
+
+  // Convert to number for comparison and return
+  const stdDevVal = stdDev.toNumber();
+  const stdDevPercentVal = stdDevPercent.toNumber();
 
   // 3. Categorize Risk
   let label = "";
@@ -71,22 +87,22 @@ export function calculateRiskMetric(history: { date: string; price: number }[]):
   let bgColor = "";
   let borderColor = "";
 
-  if (stdDevPercent > 2.5) {
+  if (stdDevPercentVal > 2.5) {
     label = "Very High Risk";
     color = "text-rose-500";
     bgColor = "bg-rose-500/10";
     borderColor = "border-rose-500/20";
-  } else if (stdDevPercent > 1.5) {
+  } else if (stdDevPercentVal > 1.5) {
     label = "Risky";
     color = "text-orange-500";
     bgColor = "bg-orange-500/10";
     borderColor = "border-orange-500/20";
-  } else if (stdDevPercent > 1.0) {
+  } else if (stdDevPercentVal > 1.0) {
     label = "Neutral";
     color = "text-yellow-400";
     bgColor = "bg-yellow-400/10";
     borderColor = "border-yellow-400/20";
-  } else if (stdDevPercent > 0.5) {
+  } else if (stdDevPercentVal > 0.5) {
     label = "Safe";
     color = "text-emerald-500";
     bgColor = "bg-emerald-500/10";
@@ -98,5 +114,5 @@ export function calculateRiskMetric(history: { date: string; price: number }[]):
     borderColor = "border-blue-500/20";
   }
 
-  return { stdDev, label, color, bgColor, borderColor };
+  return { stdDev: stdDevVal, label, color, bgColor, borderColor };
 }
