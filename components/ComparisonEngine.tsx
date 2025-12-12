@@ -30,6 +30,23 @@ const Sparkline = ({ data, color }: SparklineProps) => (
         />
       </LineChart>
     </ResponsiveContainer>
+    <table className="sr-only">
+      <caption>Price History Sparkline</caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Price</th>
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((item, i) => (
+          <tr key={i}>
+            <td>{new Date(item.date).toLocaleDateString()}</td>
+            <td>{formatCurrency(item.price)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   </div>
 );
 
