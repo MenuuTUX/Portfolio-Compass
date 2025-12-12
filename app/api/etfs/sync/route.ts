@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { syncEtfDetails } from '@/lib/etf-sync';
 import { EtfHistory } from '@prisma/client';
-
+import { Decimal } from 'decimal.js';
 
 
 export async function POST(req: NextRequest) {
@@ -20,28 +20,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Map to frontend ETF interface
+    // Convert all Decimals to numbers for frontend (Option A)
     const formattedEtf = {
       ticker: fullEtf.ticker,
       name: fullEtf.name,
-      price: fullEtf.price,
-      changePercent: fullEtf.daily_change,
+      price: Number(fullEtf.price),
+      changePercent: Number(fullEtf.daily_change),
       isDeepAnalysisLoaded: fullEtf.isDeepAnalysisLoaded,
       history: fullEtf.history.map((h: EtfHistory) => ({
         date: h.date.toISOString(),
-        price: h.close,
+        price: Number(h.close),
         interval: h.interval
       })),
       metrics: {
-        yield: fullEtf.yield || 0,
-        mer: fullEtf.mer || 0
+        yield: fullEtf.yield ? Number(fullEtf.yield) : 0,
+        mer: fullEtf.mer ? Number(fullEtf.mer) : 0
       },
       allocation: {
-        equities: fullEtf.allocation?.stocks_weight || 0,
-        bonds: fullEtf.allocation?.bonds_weight || 0,
-        cash: fullEtf.allocation?.cash_weight || 0,
+        equities: fullEtf.allocation?.stocks_weight ? Number(fullEtf.allocation.stocks_weight) : 0,
+        bonds: fullEtf.allocation?.bonds_weight ? Number(fullEtf.allocation.bonds_weight) : 0,
+        cash: fullEtf.allocation?.cash_weight ? Number(fullEtf.allocation.cash_weight) : 0,
       },
-      sectors: fullEtf.sectors.reduce((acc: { [key: string]: number }, sector: { sector_name: string; weight: number }) => {
-        acc[sector.sector_name] = sector.weight
+      sectors: fullEtf.sectors.reduce((acc: { [key: string]: number }, sector) => {
+        acc[sector.sector_name] = Number(sector.weight)
         return acc
       }, {} as { [key: string]: number }),
       assetType: fullEtf.assetType,
