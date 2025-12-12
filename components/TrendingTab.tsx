@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, ShoppingBag, Tag, Zap, Sprout, Trash2, Check, Pickaxe, Coins } from 'lucide-react';
 import { ETF, PortfolioItem } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
+import { ETFSchema } from '@/schemas/assetSchema';
+import { z } from 'zod';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 
@@ -40,7 +42,19 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 // Fetch all data to sort client-side for now
                 const res = await fetch('/api/etfs/search?query=');
                 if (!res.ok) throw new Error('Failed to fetch data');
-                const data: ETF[] = await res.json();
+                const rawData = await res.json();
+
+                let data: ETF[] = [];
+                try {
+                    data = z.array(ETFSchema).parse(rawData);
+                } catch (e) {
+                     if (e instanceof z.ZodError) {
+                        console.warn('API response validation failed for trending items:', e.errors);
+                    } else {
+                        console.warn('API response validation failed for trending items:', e);
+                    }
+                    data = rawData as ETF[];
+                }
 
                 // Sort by changePercent for "BEST" (Top Gainers)
                 const sortedByGain = [...data].sort((a, b) => b.changePercent - a.changePercent);
@@ -89,6 +103,18 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                         sectors: {},
                     };
                 });
+
+                // Validate the Mapped Crypto Items
+                try {
+                   z.array(ETFSchema).parse(cryptos);
+                } catch (e) {
+                   if (e instanceof z.ZodError) {
+                        console.warn('API response validation failed for crypto items:', e.errors);
+                    } else {
+                        console.warn('API response validation failed for crypto items:', e);
+                    }
+                }
+
                 setCryptoItems(cryptos);
 
             } catch (error) {

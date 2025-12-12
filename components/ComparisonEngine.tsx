@@ -5,6 +5,8 @@ import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2 } 
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ETF, PortfolioItem } from '@/types';
+import { ETFSchema } from '@/schemas/assetSchema';
+import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import MessageDrawer from './MessageDrawer';
@@ -138,7 +140,19 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
       }
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch');
-      const data: ETF[] = await res.json();
+      const rawData = await res.json();
+
+      let data: ETF[] = [];
+      try {
+        data = z.array(ETFSchema).parse(rawData);
+      } catch (e) {
+         if (e instanceof z.ZodError) {
+          console.warn('API response validation failed:', e.errors);
+        } else {
+            console.warn('API response validation failed:', e);
+        }
+        data = rawData as ETF[];
+      }
 
       // Filter results on client side
       if (assetType) {
@@ -238,7 +252,18 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         throw new Error(`Sync failed: ${res.status} ${res.statusText}`);
       }
 
-      const updatedEtf: ETF = await res.json();
+      const rawUpdatedEtf = await res.json();
+      let updatedEtf: ETF;
+      try {
+        updatedEtf = ETFSchema.parse(rawUpdatedEtf);
+      } catch (e) {
+         if (e instanceof z.ZodError) {
+          console.warn('API response validation failed:', e.errors);
+        } else {
+            console.warn('API response validation failed:', e);
+        }
+        updatedEtf = rawUpdatedEtf as ETF;
+      }
 
       // Update local state
       setEtfs(prev => prev.map(e => e.ticker === updatedEtf.ticker ? updatedEtf : e));
