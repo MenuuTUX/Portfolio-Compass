@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, ShoppingBag, Tag, Zap, Sprout, Trash2, Check, Pickaxe } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, ShoppingBag, Tag, Zap, Sprout, Trash2, Check, Pickaxe, Coins } from 'lucide-react';
 import { ETF, PortfolioItem } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
@@ -20,6 +20,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     const [mag7Items, setMag7Items] = useState<ETF[]>([]);
     const [justBuyItems, setJustBuyItems] = useState<ETF[]>([]);
     const [naturalResourcesItems, setNaturalResourcesItems] = useState<ETF[]>([]);
+    const [cryptoItems, setCryptoItems] = useState<ETF[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
 
@@ -63,12 +64,42 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
             } catch (error) {
                 console.error('Failed to fetch trending data:', error);
-            } finally {
-                setLoading(false);
             }
         };
 
-        fetchData();
+        const fetchCrypto = async () => {
+            try {
+                const ids = 'bitcoin,ethereum,solana,cardano,ripple';
+                const res = await fetch(`/api/proxy?path=simple/price&ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+                if (!res.ok) throw new Error('Failed to fetch crypto data');
+                const data = await res.json();
+
+                const cryptos: ETF[] = Object.keys(data).map(key => {
+                    const item = data[key];
+                    // Map CoinGecko data to ETF interface
+                    return {
+                        ticker: key.toUpperCase(),
+                        name: key.charAt(0).toUpperCase() + key.slice(1),
+                        price: item.usd,
+                        changePercent: item.usd_24h_change || 0,
+                        assetType: 'CRYPTO',
+                        history: [],
+                        metrics: { yield: 0, mer: 0 },
+                        allocation: { equities: 0, bonds: 0, cash: 0 },
+                        sectors: {},
+                    };
+                });
+                setCryptoItems(cryptos);
+
+            } catch (error) {
+                console.error('Failed to fetch crypto data:', error);
+            }
+        };
+
+        // Run both fetches
+        Promise.all([fetchData(), fetchCrypto()]).finally(() => {
+            setLoading(false);
+        });
     }, []);
 
     if (loading) {
@@ -85,6 +116,16 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar">
+            <TrendingSection
+                title="Crypto"
+                items={cryptoItems}
+                Icon={Coins}
+                theme="rose" // Using rose for high volatility/risk visual cue
+                onAddToPortfolio={onAddToPortfolio}
+                portfolio={portfolio}
+                onRemoveFromPortfolio={onRemoveFromPortfolio}
+                onSelectItem={setSelectedItem}
+            />
             <TrendingSection
                 title="MAG-7"
                 items={mag7Items}
