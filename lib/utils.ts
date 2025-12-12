@@ -59,49 +59,44 @@ export function calculateRiskMetric(history: { date: string; price: number }[]):
     };
   }
 
-  // 2. Calculate Standard Deviation of Daily Returns
+  // 2. Calculate Standard Deviation
   const mean = changes.reduce((sum, val) => sum + val, 0) / changes.length;
   const variance = changes.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / changes.length;
-  const dailyStdDev = Math.sqrt(variance);
+  const stdDev = Math.sqrt(variance);
+  const stdDevPercent = stdDev * 100;
 
-  // 3. Annualize Volatility
-  // Annualized Volatility = Daily Std Dev * sqrt(252 trading days)
-  const annualizedVolatility = dailyStdDev * Math.sqrt(252);
-  const volatilityPercent = annualizedVolatility * 100;
-
-  // 4. Categorize Risk (Based on Annualized Volatility)
-  // Low: < 15%
-  // Medium: 15% - 25%
-  // High: 25% - 35%
-  // Very High: > 35%
-
+  // 3. Categorize Risk
   let label = "";
   let color = "";
   let bgColor = "";
   let borderColor = "";
 
-  if (volatilityPercent > 35) {
+  if (stdDevPercent > 2.5) {
     label = "Very High Risk";
     color = "text-rose-500";
     bgColor = "bg-rose-500/10";
     borderColor = "border-rose-500/20";
-  } else if (volatilityPercent > 25) {
-    label = "High Risk";
+  } else if (stdDevPercent > 1.5) {
+    label = "Risky";
     color = "text-orange-500";
     bgColor = "bg-orange-500/10";
     borderColor = "border-orange-500/20";
-  } else if (volatilityPercent > 15) {
-    label = "Medium Risk";
+  } else if (stdDevPercent > 1.0) {
+    label = "Neutral";
     color = "text-yellow-400";
     bgColor = "bg-yellow-400/10";
     borderColor = "border-yellow-400/20";
-  } else {
-    label = "Low Risk";
+  } else if (stdDevPercent > 0.5) {
+    label = "Safe";
     color = "text-emerald-500";
     bgColor = "bg-emerald-500/10";
     borderColor = "border-emerald-500/20";
+  } else {
+    label = "Very Safe";
+    color = "text-blue-500";
+    bgColor = "bg-blue-500/10";
+    borderColor = "border-blue-500/20";
   }
 
-  // Return the annualized volatility as the stdDev value
-  return { stdDev: annualizedVolatility, label, color, bgColor, borderColor };
+  return { stdDev, label, color, bgColor, borderColor };
 }

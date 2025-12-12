@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, ShoppingBag, Tag, Zap, Sprout, Trash2, Check, Pickaxe, ChevronDown, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, ShoppingBag, Tag, Zap, Sprout, Trash2, Check, Pickaxe, ChevronDown } from 'lucide-react';
 import { ETF, PortfolioItem } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
 
@@ -15,8 +15,6 @@ interface TrendingSectionProps {
     portfolio?: PortfolioItem[];
     onRemoveFromPortfolio?: (ticker: string) => void;
     onSelectItem: (etf: ETF) => void;
-    onLoadMoreExternal?: () => Promise<void>;
-    hasMoreExternal?: boolean;
 }
 
 export default function TrendingSection({
@@ -27,12 +25,9 @@ export default function TrendingSection({
     onAddToPortfolio,
     portfolio = [],
     onRemoveFromPortfolio,
-    onSelectItem,
-    onLoadMoreExternal,
-    hasMoreExternal = false
+    onSelectItem
 }: TrendingSectionProps) {
     const [visibleCount, setVisibleCount] = useState(10);
-    const [loadingMore, setLoadingMore] = useState(false);
 
     const container = {
         hidden: { opacity: 0 },
@@ -79,20 +74,10 @@ export default function TrendingSection({
 
     const styles = getThemeStyles(theme);
     const visibleItems = items.slice(0, visibleCount);
-    // Show load more if we have hidden items locally OR if we can fetch more remotely
-    const showLoadMore = visibleCount < items.length || hasMoreExternal;
+    const hasMore = visibleCount < items.length;
 
-    const handleLoadMore = async () => {
-        const nextVisible = visibleCount + 8;
-
-        // If we need more items than we have, trigger external load
-        if (nextVisible > items.length && hasMoreExternal && onLoadMoreExternal) {
-            setLoadingMore(true);
-            await onLoadMoreExternal();
-            setLoadingMore(false);
-        }
-
-        setVisibleCount(nextVisible);
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + 10);
     };
 
     return (
@@ -103,7 +88,7 @@ export default function TrendingSection({
                 </div>
                 <h2 className="text-3xl font-bold text-white tracking-tight">{title}</h2>
                 <span className="text-neutral-500 text-sm font-medium ml-2">
-                    ({visibleItems.length} of {hasMoreExternal ? `${items.length}+` : items.length})
+                    ({visibleItems.length} of {items.length})
                 </span>
             </div>
 
@@ -207,24 +192,14 @@ export default function TrendingSection({
                 })}
             </motion.div>
 
-            {showLoadMore && (
+            {hasMore && (
                 <div className="flex justify-center mt-8">
                     <button
                         onClick={handleLoadMore}
-                        disabled={loadingMore}
-                        className="group flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white font-medium transition-all duration-300 disabled:opacity-50"
+                        className="group flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white font-medium transition-all duration-300"
                     >
-                        {loadingMore ? (
-                            <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Loading...
-                            </>
-                        ) : (
-                            <>
-                                <span>Load More</span>
-                                <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
-                            </>
-                        )}
+                        <span>Load More</span>
+                        <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
                     </button>
                 </div>
             )}
