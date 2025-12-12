@@ -425,6 +425,25 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         )}
                       </AreaChart>
                     </ResponsiveContainer>
+                    <table className="sr-only">
+                      <caption>Price History for {displayEtf.ticker}</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Date</th>
+                          <th scope="col">Price</th>
+                          {showComparison && <th scope="col">SPY Price</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyData.map((item, index) => (
+                          <tr key={index}>
+                            <td>{new Date(item.date).toLocaleDateString()}</td>
+                            <td>{formatCurrency(item.price)}</td>
+                            {showComparison && <td>{item.spyPrice ? formatCurrency(item.spyPrice) : 'N/A'}</td>}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 

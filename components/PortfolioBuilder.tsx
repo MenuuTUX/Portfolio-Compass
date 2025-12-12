@@ -230,6 +230,25 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                   Add holdings to see exposure
                 </div>
               )}
+              {pieData.length > 0 && (
+                <table className="sr-only">
+                  <caption>Portfolio Sector Allocation</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Sector</th>
+                      <th scope="col">Allocation</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pieData.map((entry, index) => (
+                      <tr key={index}>
+                        <td>{entry.name}</td>
+                        <td>{entry.value.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
             {pieData.length > 0 && (
               <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
