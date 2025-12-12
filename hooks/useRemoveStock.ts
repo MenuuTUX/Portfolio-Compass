@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Portfolio } from '@/types';
 
+// The DELETE endpoint returns { message: string }, not financial data.
+// So we don't validate against PortfolioSchema.
+// We keep this file as is.
+
 export const useRemoveStock = () => {
     const queryClient = useQueryClient();
 

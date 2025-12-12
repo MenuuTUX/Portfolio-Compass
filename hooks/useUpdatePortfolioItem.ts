@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PortfolioItem } from '@/types';
+import { PortfolioItemSchema } from '@/schemas/assetSchema';
+import { z } from 'zod';
 
 interface UpdatePortfolioItemParams {
     ticker: string;
@@ -24,7 +26,18 @@ export function useUpdatePortfolioItem() {
                 throw new Error('Failed to update portfolio item');
             }
 
-            return response.json();
+            const data = await response.json();
+
+            try {
+                return PortfolioItemSchema.parse(data);
+            } catch (error) {
+                 if (error instanceof z.ZodError) {
+                    console.warn('API response validation failed for update item:', error.errors);
+                } else {
+                    console.warn('API response validation failed for update item:', error);
+                }
+                return data as PortfolioItem;
+            }
         },
         onMutate: async ({ ticker, weight, shares }) => {
             await queryClient.cancelQueries({ queryKey: ['portfolio'] });
