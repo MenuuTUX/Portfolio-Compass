@@ -11,11 +11,7 @@ const prismaClientSingleton = () => {
 
   const pool = new pg.Pool({
     connectionString,
-    ssl: { rejectUnauthorized: false },
-    // Limit connection pool for serverless environments to prevent "MaxClientsInSessionMode"
-    max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 1,
-    idleTimeoutMillis: 20000,
-    connectionTimeoutMillis: 10000,
+    ssl: { rejectUnauthorized: false }
   })
   const adapter = new PrismaPg(pool)
   return new PrismaClient({ adapter })
