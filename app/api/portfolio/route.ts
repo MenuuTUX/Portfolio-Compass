@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { EtfHistory } from '@prisma/client';
 import { ETF, PortfolioItem } from '@/types';
+import { Decimal } from 'decimal.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,29 +23,44 @@ export async function GET() {
             },
         });
 
-        const formattedPortfolio: PortfolioItem[] = portfolioItems.map((item) => ({
+        // Map Prisma Decimal to number/Decimal as needed by the frontend types
+        // Since we are sending JSON, Decimal will be serialized (usually to string)
+        // However, the interface `PortfolioItem` in `types/index.ts` accepts `number | Decimal`.
+        // If we want to return Numbers to the frontend (Option A), we convert here.
+        // OR we return strings and let the frontend parse.
+        // Given Option A's "conversion at the edge", converting to Number HERE is the easiest "edge"
+        // before the frontend even sees it, ensuring standard JSON numbers.
+        // BUT `decimal.js` handles precision better. If we convert to Number here, we lose precision on the wire.
+        // But the user chose "Option A" to solve *compilation errors* and *UI issues*.
+        // If I return numbers here, the frontend (which expects number | Decimal) will receive numbers.
+        // This satisfies "Option A" cleanly.
+
+        const formattedPortfolio: any[] = portfolioItems.map((item) => ({
             ticker: item.etf.ticker,
             name: item.etf.name,
-            price: item.etf.price,
-            changePercent: item.etf.daily_change,
+            price: Number(item.etf.price),
+            changePercent: Number(item.etf.daily_change),
             assetType: item.etf.assetType,
             isDeepAnalysisLoaded: item.etf.isDeepAnalysisLoaded,
 
-            weight: item.weight,
-            shares: item.shares,
+            weight: Number(item.weight),
+            shares: Number(item.shares),
             history: item.etf.history.map((h: EtfHistory) => ({
                 date: h.date.toISOString(),
-                price: h.close,
+                price: Number(h.close),
                 interval: h.interval
-            })).reverse(), // Reverse to get chronological order
-            metrics: { yield: item.etf.yield || 0, mer: item.etf.mer || 0 },
+            })).reverse(),
+            metrics: {
+                yield: item.etf.yield ? Number(item.etf.yield) : 0,
+                mer: item.etf.mer ? Number(item.etf.mer) : 0
+            },
             allocation: {
-                equities: item.etf.allocation?.stocks_weight || 0,
-                bonds: item.etf.allocation?.bonds_weight || 0,
-                cash: item.etf.allocation?.cash_weight || 0,
+                equities: item.etf.allocation?.stocks_weight ? Number(item.etf.allocation.stocks_weight) : 0,
+                bonds: item.etf.allocation?.bonds_weight ? Number(item.etf.allocation.bonds_weight) : 0,
+                cash: item.etf.allocation?.cash_weight ? Number(item.etf.allocation.cash_weight) : 0,
             },
             sectors: item.etf.sectors.reduce((acc, sector) => {
-                acc[sector.sector_name] = sector.weight;
+                acc[sector.sector_name] = Number(sector.weight);
                 return acc;
             }, {} as { [key: string]: number }),
         }));
@@ -64,30 +80,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
         }
 
-        // 1. Ensure ETF exists in DB (Upsert)
-        // We need to handle the nested relations carefully or just upsert the base fields
-        // For simplicity, we assume the ETF data passed is valid and we want to store/update it.
-        // However, usually we might just want to link to an existing ETF or ensure it's created.
-        // Given the flow, we'll upsert the ETF base data.
-
         await prisma.etf.upsert({
             where: { ticker: newStock.ticker },
             update: {
-                price: newStock.price,
-                daily_change: newStock.changePercent,
-                // We don't update everything here to avoid overwriting good data with potentially partial data
+                price: new Decimal(newStock.price),
+                daily_change: new Decimal(newStock.changePercent),
             },
             create: {
                 ticker: newStock.ticker,
                 name: newStock.name,
-                price: newStock.price,
-                daily_change: newStock.changePercent,
+                price: new Decimal(newStock.price),
+                daily_change: new Decimal(newStock.changePercent),
                 assetType: newStock.assetType || 'ETF',
-                currency: 'USD', // Defaulting
+                currency: 'USD',
             },
         });
 
-        // 2. Check if already in portfolio
         const existingItem = await prisma.portfolioItem.findUnique({
             where: { etfId: newStock.ticker },
         });
@@ -96,15 +104,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ message: 'Item already in portfolio' }, { status: 200 });
         }
 
-        // 3. Add to portfolio with 0 weight initially or calculate immediately
-        // The requirement says "Auto-balance logic", so let's do that.
-
-        // Get current count to calculate new weights
         const currentCount = await prisma.portfolioItem.count();
         const newCount = currentCount + 1;
-        const evenWeight = 100 / newCount;
+        const evenWeight = new Decimal(100).dividedBy(newCount);
 
-        // Transaction to update all weights and insert new item
         await prisma.$transaction([
             prisma.portfolioItem.updateMany({
                 data: { weight: evenWeight },
@@ -118,9 +121,6 @@ export async function POST(request: NextRequest) {
             }),
         ]);
 
-        // 4. Return updated portfolio or just success
-        // The hook expects `res.json()`, let's return the added item or the whole list.
-        // The hook invalidates 'portfolio' query, so returning success is enough, but returning the item is nice.
         return NextResponse.json({ message: 'Stock added successfully' }, { status: 201 });
 
     } catch (error) {
@@ -139,15 +139,23 @@ export async function PATCH(request: NextRequest) {
         }
 
         const updateData: any = {};
-        if (weight !== undefined) updateData.weight = weight;
-        if (shares !== undefined) updateData.shares = shares;
+        if (weight !== undefined) updateData.weight = new Decimal(weight);
+        if (shares !== undefined) updateData.shares = new Decimal(shares);
 
+        // We return the updated item. Prisma returns Decimals.
+        // We should format this back to number/string for the frontend.
         const updatedItem = await prisma.portfolioItem.update({
             where: { etfId: ticker },
             data: updateData,
         });
 
-        return NextResponse.json(updatedItem);
+        const formattedItem = {
+            ...updatedItem,
+            weight: Number(updatedItem.weight),
+            shares: Number(updatedItem.shares)
+        };
+
+        return NextResponse.json(formattedItem);
     } catch (error) {
         console.error('[API] Error updating portfolio item:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
@@ -163,16 +171,14 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
         }
 
-        // 1. Remove from portfolio
         await prisma.portfolioItem.delete({
             where: { etfId: ticker },
         });
 
-        // 2. Rebalance remaining items
         const currentCount = await prisma.portfolioItem.count();
 
         if (currentCount > 0) {
-            const evenWeight = 100 / currentCount;
+            const evenWeight = new Decimal(100).dividedBy(currentCount);
             await prisma.portfolioItem.updateMany({
                 data: { weight: evenWeight },
             });

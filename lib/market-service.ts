@@ -1,4 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
+import { Decimal } from './decimal';
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -14,26 +15,26 @@ const yf = new YahooFinance({
 
 export interface MarketSnapshot {
   ticker: string;
-  price: number;
-  dailyChange: number;
-  dailyChangePercent: number;
+  price: Decimal;
+  dailyChange: Decimal;
+  dailyChangePercent: Decimal;
   name: string;
   assetType: 'STOCK' | 'ETF';
 }
 
 export interface EtfDetails {
   ticker: string;
-  price: number;
+  price: Decimal;
   name: string;
   description: string;
   assetType: 'STOCK' | 'ETF';
-  expenseRatio?: number;
-  dividendYield?: number;
-  sectors: Record<string, number>;
-  topHoldings?: Record<string, number>;
+  expenseRatio?: Decimal;
+  dividendYield?: Decimal;
+  sectors: Record<string, Decimal>;
+  topHoldings?: Record<string, Decimal>;
   history: {
     date: string;
-    close: number;
+    close: Decimal;
     interval?: string;
   }[];
 }
@@ -42,9 +43,9 @@ export interface EtfDetails {
 // Helper Functions
 // -----------------------------------------------------------------------------
 
-function normalizePercent(val: number | undefined): number {
-  if (val === undefined || val === null) return 0;
-  return val;
+function normalizePercent(val: number | undefined): Decimal {
+  if (val === undefined || val === null) return new Decimal(0);
+  return new Decimal(val);
 }
 
 function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' {
@@ -84,8 +85,8 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
 
     return results.map(quote => ({
       ticker: quote.symbol,
-      price: quote.regularMarketPrice || 0,
-      dailyChange: quote.regularMarketChange || 0,
+      price: new Decimal(quote.regularMarketPrice || 0),
+      dailyChange: new Decimal(quote.regularMarketChange || 0),
       dailyChangePercent: normalizePercent(quote.regularMarketChangePercent),
       name: quote.shortName || quote.longName || quote.symbol,
       assetType: determineAssetType(quote.quoteType)
@@ -107,16 +108,6 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
     return data;
   });
 
-  // Fetch History for multiple intervals
-  // 1d (1 month range - wait, typically we want 1 year for 1d?)
-  // The app likely expects:
-  // '1h' -> 5d range?
-  // '1d' -> 1mo or 1y range?
-  // '1wk' -> 2y range?
-  // '1mo' -> max range?
-  // I will try to fetch a standard set: 1d (1y), 1wk (5y), 1mo (max).
-  // Omitting '1h' to save time/requests unless critical, but `etf-sync.ts` had it.
-
   const fetchHistoryInterval = async (interval: '1h' | '1d' | '1wk' | '1mo', period1: Date) => {
     try {
       const res = await yf.chart(resolvedTicker, {
@@ -128,7 +119,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
           .filter(q => q.close !== null && q.close !== undefined)
           .map(q => ({
             date: q.date.toISOString(),
-            close: q.close!,
+            close: new Decimal(q.close!),
             interval
           }));
       }
@@ -147,7 +138,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   const d7d = new Date(); d7d.setDate(now.getDate() - 7); // 7 days for 1h data
 
   const [h1h, h1d, h1wk, h1mo] = await Promise.all([
-    fetchHistoryInterval('1h', d7d), // Fetch 1h data
+    fetchHistoryInterval('1h', d7d),
     fetchHistoryInterval('1d', d1y),
     fetchHistoryInterval('1wk', d5y),
     fetchHistoryInterval('1mo', dMax)
@@ -164,7 +155,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
 
   const assetType = determineAssetType(price?.quoteType);
 
-  let sectors: Record<string, number> = {};
+  let sectors: Record<string, Decimal> = {};
 
   if (assetType === 'ETF' && topHoldings?.sectorWeightings) {
     topHoldings.sectorWeightings.forEach((w: any) => {
@@ -173,30 +164,38 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
         const sectorKey = keys[0];
         const weight = w[sectorKey];
         if (typeof weight === 'number') {
-          sectors[sectorKey] = weight;
+          sectors[sectorKey] = new Decimal(weight);
         }
       }
     });
   } else if (assetType === 'STOCK' && profile?.sector) {
-    sectors[profile.sector] = 1.0;
+    sectors[profile.sector] = new Decimal(1.0);
   }
 
-  let dividendYield = summaryDetail?.dividendYield;
-  if (!dividendYield && defaultKeyStatistics?.yield) {
-    dividendYield = defaultKeyStatistics.yield;
+  let dividendYield: Decimal | undefined;
+  let rawDividendYield = summaryDetail?.dividendYield;
+  if (!rawDividendYield && defaultKeyStatistics?.yield) {
+    rawDividendYield = defaultKeyStatistics.yield;
   }
-  if (dividendYield !== undefined && dividendYield < 1) {
-    dividendYield = dividendYield * 100;
+  if (rawDividendYield !== undefined) {
+      if (rawDividendYield < 1) {
+          rawDividendYield = rawDividendYield * 100;
+      }
+      dividendYield = new Decimal(rawDividendYield);
   }
 
-  let expenseRatio = fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
-  if (expenseRatio !== undefined && expenseRatio < 1) {
-    expenseRatio = expenseRatio * 100;
+  let expenseRatio: Decimal | undefined;
+  let rawExpenseRatio = fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
+  if (rawExpenseRatio !== undefined) {
+      if (rawExpenseRatio < 1) {
+          rawExpenseRatio = rawExpenseRatio * 100;
+      }
+      expenseRatio = new Decimal(rawExpenseRatio);
   }
 
   return {
     ticker: resolvedTicker,
-    price: price?.regularMarketPrice || 0,
+    price: new Decimal(price?.regularMarketPrice || 0),
     name: price?.shortName || price?.longName || resolvedTicker,
     description: profile?.longBusinessSummary || "No description available.",
     assetType,

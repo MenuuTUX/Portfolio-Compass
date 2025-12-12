@@ -15,10 +15,10 @@ model Etf {
   name           String
   currency       String
   exchange       String?
-  price          Float
-  daily_change   Float
-  yield          Float?
-  mer            Float?
+  price          Decimal
+  daily_change   Decimal
+  yield          Decimal?
+  mer            Decimal?
   assetType      String          @default("ETF")
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
@@ -33,7 +33,7 @@ model EtfHistory {
   id        Int      @id @default(autoincrement())
   etfId     String
   date      DateTime
-  close     Float
+  close     Decimal
   interval  String   @default("daily")
   etf       Etf      @relation(fields: [etfId], references: [ticker])
 
@@ -44,23 +44,23 @@ model EtfSector {
   id          Int    @id @default(autoincrement())
   etfId       String
   sector_name String
-  weight      Float
+  weight      Decimal
   etf         Etf    @relation(fields: [etfId], references: [ticker])
 }
 
 model EtfAllocation {
   id           Int    @id @default(autoincrement())
   etfId        String @unique
-  stocks_weight Float
-  bonds_weight  Float
-  cash_weight   Float
+  stocks_weight Decimal
+  bonds_weight  Decimal
+  cash_weight   Decimal
   etf          Etf    @relation(fields: [etfId], references: [ticker])
 }
 
 model PortfolioItem {
   id        Int    @id @default(autoincrement())
   etfId     String @unique
-  weight    Float
-  shares    Float  @default(0)
+  weight    Decimal
+  shares    Decimal  @default(0)
   etf       Etf    @relation(fields: [etfId], references: [ticker])
 }

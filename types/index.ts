@@ -1,7 +1,9 @@
+import { Decimal } from 'decimal.js';
+
 export interface ETF {
   ticker: string;
   name: string;
-  price: number;
+  price: number; // We converted back to number in API for now (Option A)
   changePercent: number;
   assetType?: string;
   isDeepAnalysisLoaded?: boolean;

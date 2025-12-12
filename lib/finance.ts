@@ -1,13 +1,19 @@
+import { Decimal } from './decimal';
 
 export interface DividendHistoryItem {
   date: string;
-  amount: number;
+  amount: number | Decimal; // Allow both
   exDate?: string;
 }
 
-export function calculateTTMYield(dividendHistory: DividendHistoryItem[], currentPrice: number): number {
-  if (!dividendHistory || dividendHistory.length === 0 || currentPrice === 0) {
-    return 0;
+export function calculateTTMYield(dividendHistory: DividendHistoryItem[], currentPrice: number | Decimal): Decimal {
+  if (!dividendHistory || dividendHistory.length === 0) {
+    return new Decimal(0);
+  }
+
+  const price = new Decimal(currentPrice);
+  if (price.isZero()) {
+      return new Decimal(0);
   }
 
   const oneYearAgo = new Date();
@@ -21,7 +27,7 @@ export function calculateTTMYield(dividendHistory: DividendHistoryItem[], curren
     return date >= oneYearAgo && date <= now;
   });
 
-  const annualPayout = ttmDividends.reduce((sum, item) => sum + item.amount, 0);
+  const annualPayout = ttmDividends.reduce((sum, item) => sum.plus(new Decimal(item.amount)), new Decimal(0));
 
-  return (annualPayout / currentPrice) * 100; // Return as percentage
+  return annualPayout.dividedBy(price).times(100); // Return as percentage
 }
