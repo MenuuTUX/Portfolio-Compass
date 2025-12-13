@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout } from 'lucide-react';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "framer-motion";
 import BiopunkSlider from './BiopunkSlider';
+import { getMarketStatus } from '@/lib/market-status';
 
 const textVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -45,10 +46,20 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
 
   useEffect(() => {
     setMounted(true);
+    setMarketStatus(getMarketStatus());
+
+    const statusInterval = setInterval(() => {
+        setMarketStatus(getMarketStatus());
+    }, 60000);
+
     const interval = setInterval(() => {
       setTitleIndex((prev) => (prev + 1) % titleWords.length);
     }, 3000);
-    return () => clearInterval(interval);
+
+    return () => {
+        clearInterval(interval);
+        clearInterval(statusInterval);
+    };
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
