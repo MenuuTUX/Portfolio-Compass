@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, ChevronDown } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ETF, PortfolioItem } from '@/types';
 import { ETFSchema } from '@/schemas/assetSchema';
@@ -17,40 +17,50 @@ interface SparklineProps {
 }
 
 // Sparkline component
-const Sparkline = ({ data, color }: SparklineProps) => (
-  <div className="h-16 w-32">
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data}>
-        <YAxis domain={['dataMin', 'dataMax']} hide />
-        <Line
-          type="monotone"
-          dataKey="price"
-          stroke={color}
-          strokeWidth={2}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-    <table className="sr-only">
-      <caption>Price History Sparkline</caption>
-      <thead>
-        <tr>
-          <th scope="col">Date</th>
-          <th scope="col">Price</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((item, i) => (
-          <tr key={i}>
-            <td>{new Date(item.date).toLocaleDateString()}</td>
-            <td>{formatCurrency(item.price)}</td>
+const Sparkline = ({ data, color }: SparklineProps) => {
+  const gradientId = `gradient-${color.replace('#', '')}`;
+
+  return (
+    <div className="h-16 w-32">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <YAxis domain={['dataMin', 'dataMax']} hide />
+          <Area
+            type="monotone"
+            dataKey="price"
+            stroke={color}
+            fill={`url(#${gradientId})`}
+            strokeWidth={2}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+      <table className="sr-only">
+        <caption>Price History Sparkline</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Price</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-);
+        </thead>
+        <tbody>
+          {data.map((item, i) => (
+            <tr key={i}>
+              <td>{new Date(item.date).toLocaleDateString()}</td>
+              <td>{formatCurrency(item.price)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 interface ComparisonEngineProps {
   onAddToPortfolio: (etf: ETF) => void;
@@ -455,6 +465,14 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
               const inPortfolio = isInPortfolio(etf.ticker);
               const flashState = flashStates[etf.ticker];
 
+              // Determine graph color based on history trend if available
+              let isGraphPositive = isPositive;
+              if (etf.history && etf.history.length > 0) {
+                const firstPrice = etf.history[0].price;
+                const lastPrice = etf.history[etf.history.length - 1].price;
+                isGraphPositive = lastPrice >= firstPrice;
+              }
+
               return (
                 <div
                   key={etf.ticker}
@@ -501,7 +519,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
                         )}
                         <div className={cn(
                           "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
-                          isPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                          isGraphPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
                         )}>
                           {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
                           {Math.abs(etf.changePercent).toFixed(2)}%
@@ -517,7 +535,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
                       {etf.history && etf.history.length > 0 && (
                         <Sparkline
                           data={etf.history}
-                          color={isPositive ? '#10b981' : '#f43f5e'}
+                          color={isGraphPositive ? '#10b981' : '#f43f5e'}
                         />
                       )}
                     </div>
