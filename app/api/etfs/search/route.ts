@@ -27,13 +27,18 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Conditional include object
+    const includeObj: any = {
+      sectors: true,
+      allocation: true,
+    };
+    if (includeHistory) {
+      includeObj.history = { orderBy: { date: 'asc' } };
+    }
+
     let etfs = await prisma.etf.findMany({
       where: whereClause,
-      include: {
-        history: includeHistory ? { orderBy: { date: 'asc' } } : false,
-        sectors: true,
-        allocation: true,
-      },
+      include: includeObj,
       take: query ? 10 : 1000,
     })
 
