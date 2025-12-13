@@ -49,7 +49,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                     data = z.array(ETFSchema).parse(rawData);
                 } catch (e) {
                      if (e instanceof z.ZodError) {
-                        console.warn('API response validation failed for trending items:', e.errors);
+                        console.warn('API response validation failed for trending items:', e.issues);
                     } else {
                         console.warn('API response validation failed for trending items:', e);
                     }
@@ -109,7 +109,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                    z.array(ETFSchema).parse(cryptos);
                 } catch (e) {
                    if (e instanceof z.ZodError) {
-                        console.warn('API response validation failed for crypto items:', e.errors);
+                        console.warn('API response validation failed for crypto items:', e.issues);
                     } else {
                         console.warn('API response validation failed for crypto items:', e);
                     }
