@@ -14,8 +14,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query')
+  const isFullHistoryRequested = searchParams.get('full') === 'true';
   // Default to false for performance, client must explicitly request history if needed
-  const includeHistory = searchParams.get('includeHistory') === 'true'
+  // If full history is requested, we force includeHistory to true
+  const includeHistory = searchParams.get('includeHistory') === 'true' || isFullHistoryRequested
 
   try {
     const whereClause: Prisma.EtfWhereInput = {};
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     let etfs = await prisma.etf.findMany({
       where: whereClause,
       include: includeObj,
-      take: query ? 10 : 1000,
+      take: isFullHistoryRequested ? 1 : (query ? 10 : 50),
     })
 
     if (query && etfs.length > 0 && etfs.length < 5) {
@@ -126,32 +128,43 @@ export async function GET(request: NextRequest) {
 
     // Format & Return Local Data with Number conversion
     // We let TS infer the type from map, or explicit annotation.
-    const formattedEtfs = etfs.map((etf: any) => ({
-      ticker: etf.ticker,
-      name: etf.name,
-      price: Number(etf.price),
-      changePercent: Number(etf.daily_change),
-      assetType: etf.assetType,
-      isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
-      history: etf.history ? etf.history.map((h: any) => ({
+    const formattedEtfs = etfs.map((etf: any) => {
+      let history = etf.history ? etf.history.map((h: any) => ({
         date: h.date.toISOString(),
         price: Number(h.close),
         interval: h.interval
-      })) : [],
-      metrics: {
-          yield: etf.yield ? Number(etf.yield) : 0,
-          mer: etf.mer ? Number(etf.mer) : 0
-      },
-      allocation: {
-        equities: etf.allocation?.stocks_weight ? Number(etf.allocation.stocks_weight) : 0,
-        bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
-        cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
-      },
-      sectors: etf.sectors.reduce((acc: { [key: string]: number }, sector: any) => {
-        acc[sector.sector_name] = Number(sector.weight)
-        return acc
-      }, {} as { [key: string]: number }),
-    }))
+      })) : [];
+
+      // Downsampling Logic: If not requesting full history and we have a lot of points,
+      // reduce to ~30 points for performance (Sparklines)
+      if (!isFullHistoryRequested && history.length > 50) {
+        const step = Math.ceil(history.length / 30);
+        history = history.filter((_: any, index: number) => index % step === 0 || index === history.length - 1);
+      }
+
+      return {
+        ticker: etf.ticker,
+        name: etf.name,
+        price: Number(etf.price),
+        changePercent: Number(etf.daily_change),
+        assetType: etf.assetType,
+        isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
+        history: history,
+        metrics: {
+            yield: etf.yield ? Number(etf.yield) : 0,
+            mer: etf.mer ? Number(etf.mer) : 0
+        },
+        allocation: {
+          equities: etf.allocation?.stocks_weight ? Number(etf.allocation.stocks_weight) : 0,
+          bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
+          cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
+        },
+        sectors: etf.sectors.reduce((acc: { [key: string]: number }, sector: any) => {
+          acc[sector.sector_name] = Number(sector.weight)
+          return acc
+        }, {} as { [key: string]: number }),
+      };
+    })
 
     return NextResponse.json(formattedEtfs)
   } catch (error) {
