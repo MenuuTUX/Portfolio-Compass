@@ -2,81 +2,105 @@ import { memo } from 'react';
 import { Trash2 } from 'lucide-react';
 import { PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
+import { VirtualItem } from '@tanstack/react-virtual';
 
 interface PortfolioItemRowProps {
   item: PortfolioItem;
-  style?: React.CSSProperties;
+  virtualRow: VirtualItem;
+  measureElement: (element: Element | null) => void;
   onRemove: (ticker: string) => void;
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
 }
 
-const PortfolioItemRow = memo(({ item, style, onRemove, onUpdateWeight, onUpdateShares }: PortfolioItemRowProps) => {
+const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onUpdateWeight, onUpdateShares }: PortfolioItemRowProps) => {
   return (
-    <div style={style} className="px-1 py-2">
-      <div className="glass-panel p-4 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-4 bg-white/5 border border-white/5 h-full">
-        <div className="flex items-center justify-between w-full md:w-16">
-          <div className="font-bold text-white">{item.ticker}</div>
-          <button
-            onClick={() => onRemove(item.ticker)}
-            className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer md:hidden"
-            aria-label={`Remove ${item.ticker}`}
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+    <tr
+      key={item.ticker}
+      data-index={virtualRow.index}
+      ref={measureElement}
+      className="group bg-white/5 border-b border-white/5 hover:bg-white/10 transition-colors"
+      // Removed transform and fixed height to allow dynamic sizing and correct positioning via spacer rows
+    >
+      <td className="p-4 align-top">
+        <div className="flex flex-col">
+          <span className="font-bold text-white text-lg">{item.ticker}</span>
+          <span className="text-xs text-neutral-400 truncate max-w-[150px]" title={item.name}>{item.name}</span>
         </div>
+      </td>
 
-        <div className="flex-1 w-full">
-          <div className="text-sm text-neutral-400 truncate">{item.name}</div>
-          <div className="flex gap-4 mt-1 text-xs text-neutral-500">
-            <span>MER: {item.metrics.mer}%</span>
-            <span>Yield: {item.metrics.yield}%</span>
+      <td className="p-4 align-top hidden md:table-cell">
+        <div className="flex flex-col gap-1 text-xs text-neutral-400">
+          <div className="flex justify-between w-24">
+            <span>MER:</span>
+            <span className="text-neutral-300">{item.metrics.mer}%</span>
+          </div>
+          <div className="flex justify-between w-24">
+            <span>Yield:</span>
+            <span className="text-emerald-400">{item.metrics.yield}%</span>
           </div>
         </div>
+      </td>
 
-        <div className="flex gap-4 w-full md:w-auto">
-          <div className="flex-1 md:w-24">
-            <label className="text-xs text-neutral-500 block mb-1">Shares</label>
-            <input
+      <td className="p-4 align-top">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+             <label className="text-xs text-neutral-500 w-12 md:hidden">Shares</label>
+             <input
               type="number"
               value={item.shares || 0}
               onChange={(e) => onUpdateShares(item.ticker, parseFloat(e.target.value))}
-              className="w-full bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark]"
+              className="w-24 bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark] text-sm"
+              aria-label={`Shares for ${item.ticker}`}
             />
           </div>
-
-          <div className="flex-1 md:w-32">
-            <label className="text-xs text-neutral-500 block mb-1">Weight: {item.weight}%</label>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={item.weight}
-              onChange={(e) => onUpdateWeight(item.ticker, parseFloat(e.target.value))}
-              className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-            />
+          <div className="flex items-center gap-2 md:hidden">
+             <label className="text-xs text-neutral-500 w-12">Weight</label>
+             <span className="text-xs text-white">{item.weight}%</span>
           </div>
         </div>
+      </td>
 
+      <td className="p-4 align-top hidden md:table-cell">
+        <div className="w-32">
+          <div className="flex justify-between text-xs text-neutral-500 mb-1">
+            <span>Weight</span>
+            <span>{item.weight}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={item.weight}
+            onChange={(e) => onUpdateWeight(item.ticker, parseFloat(e.target.value))}
+            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+            aria-label={`Weight for ${item.ticker}`}
+          />
+        </div>
+      </td>
+
+      <td className="p-4 align-middle text-right">
         <button
           onClick={() => onRemove(item.ticker)}
-          className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer hidden md:block"
+          className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer rounded-full hover:bg-rose-500/10"
           aria-label={`Remove ${item.ticker}`}
         >
           <Trash2 className="w-5 h-5" />
         </button>
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }, (prevProps, nextProps) => {
-  // Custom equality check for performance
   return (
     prevProps.item.ticker === nextProps.item.ticker &&
     prevProps.item.shares === nextProps.item.shares &&
     prevProps.item.weight === nextProps.item.weight &&
     prevProps.item.price === nextProps.item.price &&
-    prevProps.style === nextProps.style // vital for virtualization
+    // Check virtualRow properties relevant for rendering/sizing
+    prevProps.virtualRow.index === nextProps.virtualRow.index &&
+    prevProps.virtualRow.size === nextProps.virtualRow.size &&
+    prevProps.virtualRow.start === nextProps.virtualRow.start
   );
 });
 
