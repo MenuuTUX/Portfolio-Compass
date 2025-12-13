@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Navigation from '@/components/Navigation';
 import Hero from '@/components/Hero';
 import ComparisonEngine from '@/components/ComparisonEngine';
@@ -23,6 +23,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
   const [activeTab, setActiveTab] = useState<Tab>('TRENDING');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   // Use React Query hooks
   const { data: portfolio = [] } = usePortfolio();
@@ -85,7 +86,7 @@ export default function Home() {
           >
             <Navigation
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={(tab) => startTransition(() => setActiveTab(tab))}
               onBackToLanding={() => setViewMode('LANDING')}
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
