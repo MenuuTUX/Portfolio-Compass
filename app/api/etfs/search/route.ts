@@ -50,11 +50,13 @@ export async function GET(request: NextRequest) {
       const staleEtfs = etfs.filter((e: any) => {
         if (e.updatedAt < oneHourAgo) return true;
 
-        if (e.history && e.history.length > 0) {
+        // Only check history staleness if history was actually requested/loaded
+        if (includeHistory && e.history && e.history.length > 0) {
           const lastHistoryDate = e.history[e.history.length - 1].date;
           if (new Date(lastHistoryDate) < twoDaysAgo) return true;
-        } else {
-          return true;
+        } else if (includeHistory && (!e.history || e.history.length === 0)) {
+           // If we wanted history but don't have it, it's stale
+           return true;
         }
 
         return false;
@@ -63,7 +65,11 @@ export async function GET(request: NextRequest) {
       if (staleEtfs.length > 0) {
         console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}". Syncing...`);
 
-        await Promise.all(staleEtfs.map(async (staleEtf: any) => {
+        // Limit concurrency to avoid database/API saturation
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < staleEtfs.length; i += BATCH_SIZE) {
+            const batch = staleEtfs.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(async (staleEtf: any) => {
           try {
             const updated = await syncEtfDetails(staleEtf.ticker);
             if (updated) {
@@ -80,6 +86,7 @@ export async function GET(request: NextRequest) {
             console.error(`[API] Failed to auto-sync ${staleEtf.ticker}:`, err);
           }
         }));
+      }
       }
     }
 
