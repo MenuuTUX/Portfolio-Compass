@@ -14,6 +14,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query')
+  const assetType = searchParams.get('type')
   const isFullHistoryRequested = searchParams.get('full') === 'true';
   // Default to false for performance, client must explicitly request history if needed
   // If full history is requested, we force includeHistory to true
@@ -27,6 +28,10 @@ export async function GET(request: NextRequest) {
         { ticker: { contains: query, mode: 'insensitive' as const } },
         { name: { contains: query, mode: 'insensitive' as const } },
       ];
+    }
+
+    if (assetType) {
+      whereClause.assetType = assetType;
     }
 
     // Conditional include object
