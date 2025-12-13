@@ -38,7 +38,8 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     const fetchFreshData = async () => {
       try {
         // This call will trigger the backend auto-sync if data is stale (>24h)
-        const res = await fetch(`/api/etfs/search?query=${etf.ticker}`);
+        // Request full history for the detailed chart
+        const res = await fetch(`/api/etfs/search?query=${etf.ticker}&full=true`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
