@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, ChevronDown } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ETF, PortfolioItem } from '@/types';
@@ -92,6 +92,34 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     type: 'info'
   });
   const [flashStates, setFlashStates] = useState<Record<string, 'success' | 'error' | null>>({});
+
+  // Pagination and sorting state
+  const [visibleCount, setVisibleCount] = useState(12);
+  const [recentTickers, setRecentTickers] = useState<string[]>([]);
+
+  // Load recent tickers on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('recent_tickers');
+      if (stored) {
+        setRecentTickers(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error("Failed to load recent tickers", e);
+    }
+  }, []);
+
+  const addToRecent = useCallback((ticker: string) => {
+    setRecentTickers(prev => {
+      const newRecent = [ticker, ...prev.filter(t => t !== ticker)].slice(0, 50);
+      try {
+        localStorage.setItem('recent_tickers', JSON.stringify(newRecent));
+      } catch (e) {
+        console.error("Failed to save recent tickers", e);
+      }
+      return newRecent;
+    });
+  }, []);
 
   const triggerFlash = (ticker: string, type: 'success' | 'error') => {
     setFlashStates(prev => ({ ...prev, [ticker]: type }));
@@ -190,6 +218,11 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     fetchEtfs(debouncedSearch);
   }, [debouncedSearch, fetchEtfs]);
 
+  // Reset pagination when search or asset type changes
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [debouncedSearch, assetType]);
+
   // Effect to handle "No Results Found" drawer (Search returns 0)
   // We only trigger this if search is active (debouncedSearch) and both lists are empty.
   useEffect(() => {
@@ -221,6 +254,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
   };
 
   const handleAdvancedView = async (etf: ETF) => {
+    addToRecent(etf.ticker);
     if (etf.isDeepAnalysisLoaded) {
       setSelectedETF(etf);
       return;
@@ -325,6 +359,21 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     }
   };
 
+  // Sort ETFs: Recent first, then original order
+  const sortedEtfs = useMemo(() => {
+    if (recentTickers.length === 0) return etfs;
+    return [...etfs].sort((a, b) => {
+      const indexA = recentTickers.indexOf(a.ticker);
+      const indexB = recentTickers.indexOf(b.ticker);
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return 0;
+    });
+  }, [etfs, recentTickers]);
+
+  const displayedEtfs = sortedEtfs.slice(0, visibleCount);
+
   return (
     <section className="py-12 md:py-24 px-4 max-w-7xl mx-auto h-[calc(100dvh-64px)] overflow-y-auto">
       <motion.div
@@ -400,7 +449,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
-            {etfs.map((etf) => {
+            {displayedEtfs.map((etf) => {
               const isPositive = etf.changePercent >= 0;
               const inPortfolio = isInPortfolio(etf.ticker);
               const flashState = flashStates[etf.ticker];
@@ -552,6 +601,19 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
               );
             })}
             {renderNoResults()}
+
+            {/* Load More Button */}
+            {displayedEtfs.length < etfs.length && (
+              <div className="col-span-full flex justify-center mt-8">
+                <button
+                  onClick={() => setVisibleCount(prev => prev + 12)}
+                  className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/10 hover:border-emerald-500/50"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  Load More ({etfs.length - displayedEtfs.length} remaining)
+                </button>
+              </div>
+            )}
           </div>
         )}
       </motion.div>

@@ -4,6 +4,8 @@ import prisma from '@/lib/db'
 import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 import { Decimal } from 'decimal.js'
+// Import explicit types from Prisma to avoid 'any'
+import { Prisma } from '@prisma/client'
 
 // import { EtfWhereInput } from '@prisma/client'
 
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get('query')
 
   try {
-    const whereClause: any = {};
+    const whereClause: Prisma.EtfWhereInput = {};
 
     if (query) {
       whereClause.OR = [
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
-      const staleEtfs = etfs.filter(e => {
+      const staleEtfs = etfs.filter((e) => {
         if (e.updatedAt < oneHourAgo) return true;
 
         if (e.history && e.history.length > 0) {
@@ -58,8 +60,12 @@ export async function GET(request: NextRequest) {
           try {
             const updated = await syncEtfDetails(staleEtf.ticker);
             if (updated) {
-              const index = etfs.findIndex(e => e.ticker === staleEtf.ticker);
+              const index = etfs.findIndex((e) => e.ticker === staleEtf.ticker);
               if (index !== -1) {
+                // We use type assertion here because `updated` from syncEtfDetails (EtfDetails)
+                // might strictly differ from Prisma's result type (specifically included relations),
+                // but at runtime we are merging compatible structures.
+                // However, directly assigning prevents type errors if shapes mismatch slightly.
                 etfs[index] = updated as any;
               }
             }
@@ -112,7 +118,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Format & Return Local Data with Number conversion
-    const formattedEtfs: any[] = etfs.map((etf) => ({
+    // We let TS infer the type from map, or explicit annotation.
+    const formattedEtfs = etfs.map((etf) => ({
       ticker: etf.ticker,
       name: etf.name,
       price: Number(etf.price),
