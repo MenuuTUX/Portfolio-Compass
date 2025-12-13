@@ -32,7 +32,7 @@ export function useUpdatePortfolioItem() {
                 return PortfolioItemSchema.parse(data);
             } catch (error) {
                  if (error instanceof z.ZodError) {
-                    console.warn('API response validation failed for update item:', error.errors);
+                    console.warn('API response validation failed for update item:', error.issues);
                 } else {
                     console.warn('API response validation failed for update item:', error);
                 }

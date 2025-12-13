@@ -147,7 +147,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         data = z.array(ETFSchema).parse(rawData);
       } catch (e) {
          if (e instanceof z.ZodError) {
-          console.warn('API response validation failed:', e.errors);
+          console.warn('API response validation failed:', e.issues);
         } else {
             console.warn('API response validation failed:', e);
         }
@@ -258,7 +258,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         updatedEtf = ETFSchema.parse(rawUpdatedEtf);
       } catch (e) {
          if (e instanceof z.ZodError) {
-          console.warn('API response validation failed:', e.errors);
+          console.warn('API response validation failed:', e.issues);
         } else {
             console.warn('API response validation failed:', e);
         }

@@ -15,7 +15,7 @@ export const usePortfolio = () => {
         return PortfolioSchema.parse(data);
       } catch (error) {
         if (error instanceof z.ZodError) {
-          console.warn('API response validation failed:', error.errors);
+          console.warn('API response validation failed:', error.issues);
         } else {
             console.warn('API response validation failed:', error);
         }
