@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
-      const staleEtfs = etfs.filter((e) => {
+      const staleEtfs = etfs.filter((e: any) => {
         if (e.updatedAt < oneHourAgo) return true;
 
         if (e.history && e.history.length > 0) {
@@ -63,11 +63,11 @@ export async function GET(request: NextRequest) {
       if (staleEtfs.length > 0) {
         console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}". Syncing...`);
 
-        await Promise.all(staleEtfs.map(async (staleEtf) => {
+        await Promise.all(staleEtfs.map(async (staleEtf: any) => {
           try {
             const updated = await syncEtfDetails(staleEtf.ticker);
             if (updated) {
-              const index = etfs.findIndex((e) => e.ticker === staleEtf.ticker);
+              const index = etfs.findIndex((e: any) => e.ticker === staleEtf.ticker);
               if (index !== -1) {
                 // We use type assertion here because `updated` from syncEtfDetails (EtfDetails)
                 // might strictly differ from Prisma's result type (specifically included relations),
@@ -126,14 +126,14 @@ export async function GET(request: NextRequest) {
 
     // Format & Return Local Data with Number conversion
     // We let TS infer the type from map, or explicit annotation.
-    const formattedEtfs = etfs.map((etf) => ({
+    const formattedEtfs = etfs.map((etf: any) => ({
       ticker: etf.ticker,
       name: etf.name,
       price: Number(etf.price),
       changePercent: Number(etf.daily_change),
       assetType: etf.assetType,
       isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
-      history: etf.history ? etf.history.map((h) => ({
+      history: etf.history ? etf.history.map((h: any) => ({
         date: h.date.toISOString(),
         price: Number(h.close),
         interval: h.interval
@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
         bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
         cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
       },
-      sectors: etf.sectors.reduce((acc: { [key: string]: number }, sector) => {
+      sectors: etf.sectors.reduce((acc: { [key: string]: number }, sector: any) => {
         acc[sector.sector_name] = Number(sector.weight)
         return acc
       }, {} as { [key: string]: number }),
