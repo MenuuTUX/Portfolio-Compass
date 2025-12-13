@@ -455,6 +455,14 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
               const inPortfolio = isInPortfolio(etf.ticker);
               const flashState = flashStates[etf.ticker];
 
+              // Determine graph color based on history trend if available
+              let isGraphPositive = isPositive;
+              if (etf.history && etf.history.length > 0) {
+                const firstPrice = etf.history[0].price;
+                const lastPrice = etf.history[etf.history.length - 1].price;
+                isGraphPositive = lastPrice >= firstPrice;
+              }
+
               return (
                 <div
                   key={etf.ticker}
@@ -517,7 +525,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
                       {etf.history && etf.history.length > 0 && (
                         <Sparkline
                           data={etf.history}
-                          color={isPositive ? '#10b981' : '#f43f5e'}
+                          color={isGraphPositive ? '#10b981' : '#f43f5e'}
                         />
                       )}
                     </div>
