@@ -1,16 +1,17 @@
 import { describe, it, expect } from 'bun:test';
 import { calculateTTMYield, type DividendHistoryItem } from '../../../lib/finance';
+import { Decimal } from 'decimal.js';
 
 describe('calculateTTMYield', () => {
   it('should return 0 if dividend history is empty', () => {
     const yieldValue = calculateTTMYield([], 100);
-    expect(yieldValue).toBe(0);
+    expect(yieldValue.toNumber()).toBe(0);
   });
 
   it('should return 0 if current price is 0', () => {
     const history: DividendHistoryItem[] = [{ date: '2023-01-01', amount: 1 }];
     const yieldValue = calculateTTMYield(history, 0);
-    expect(yieldValue).toBe(0);
+    expect(yieldValue.toNumber()).toBe(0);
   });
 
   it('should calculate correct TTM yield', () => {
@@ -25,7 +26,7 @@ describe('calculateTTMYield', () => {
 
     // Total dividend = 5. Price = 100. Yield = 5%
     const yieldValue = calculateTTMYield(history, 100);
-    expect(yieldValue).toBe(5);
+    expect(yieldValue.toNumber()).toBe(5);
   });
 
   it('should ignore dividends older than one year', () => {
@@ -43,7 +44,7 @@ describe('calculateTTMYield', () => {
 
     // Total dividend = 5. Price = 100. Yield = 5%
     const yieldValue = calculateTTMYield(history, 100);
-    expect(yieldValue).toBe(5);
+    expect(yieldValue.toNumber()).toBe(5);
   });
 
   it('should prefer exDate over date', () => {
@@ -69,6 +70,6 @@ describe('calculateTTMYield', () => {
 
     // Total dividend = 5. Price = 100. Yield = 5%
     const yieldValue = calculateTTMYield(history, 100);
-    expect(yieldValue).toBe(5);
+    expect(yieldValue.toNumber()).toBe(5);
   });
 });

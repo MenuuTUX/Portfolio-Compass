@@ -5,7 +5,7 @@ import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 import { Decimal } from 'decimal.js'
 
-import { Prisma } from '@prisma/client'
+// import { EtfWhereInput } from '@prisma/client'
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const query = searchParams.get('query')
 
   try {
-    const whereClause: Prisma.EtfWhereInput = {};
+    const whereClause: any = {};
 
     if (query) {
       whereClause.OR = [
