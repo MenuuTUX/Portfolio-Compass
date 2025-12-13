@@ -162,7 +162,8 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     setLoading(true);
     try {
       // We pass the type as a hint to the backend (though backend might search broadly now)
-      let url = `/api/etfs/search?query=${encodeURIComponent(query)}`;
+      // ComparisonEngine requires history for Sparklines, so we explicitly request it.
+      let url = `/api/etfs/search?query=${encodeURIComponent(query)}&includeHistory=true`;
       if (assetType) {
         url += `&type=${encodeURIComponent(assetType)}`;
       }

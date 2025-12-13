@@ -14,6 +14,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query')
+  // Default to false for performance, client must explicitly request history if needed
+  const includeHistory = searchParams.get('includeHistory') === 'true'
 
   try {
     const whereClause: Prisma.EtfWhereInput = {};
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
     let etfs = await prisma.etf.findMany({
       where: whereClause,
       include: {
-        history: { orderBy: { date: 'asc' } },
+        history: includeHistory ? { orderBy: { date: 'asc' } } : false,
         sectors: true,
         allocation: true,
       },
@@ -126,11 +128,11 @@ export async function GET(request: NextRequest) {
       changePercent: Number(etf.daily_change),
       assetType: etf.assetType,
       isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
-      history: etf.history.map((h) => ({
+      history: etf.history ? etf.history.map((h) => ({
         date: h.date.toISOString(),
         price: Number(h.close),
         interval: h.interval
-      })),
+      })) : [],
       metrics: {
           yield: etf.yield ? Number(etf.yield) : 0,
           mer: etf.mer ? Number(etf.mer) : 0
