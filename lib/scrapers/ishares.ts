@@ -12,6 +12,8 @@ interface ISharesHolding {
 const PRODUCT_IDS: Record<string, string> = {
   'XEQT': '308188',
   'XIC': '239837',
+  'XIU': '239832',
+  'XIU.TO': '239832',
 };
 
 export function isSupportedIShares(ticker: string): boolean {
