@@ -25,6 +25,7 @@ export interface MarketSnapshot {
 export interface EtfDetails {
   ticker: string;
   price: Decimal;
+  dailyChange: Decimal;
   name: string;
   description: string;
   assetType: 'STOCK' | 'ETF';
@@ -196,6 +197,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   return {
     ticker: resolvedTicker,
     price: new Decimal(price?.regularMarketPrice || 0),
+    dailyChange: normalizePercent(price?.regularMarketChangePercent),
     name: price?.shortName || price?.longName || resolvedTicker,
     description: profile?.longBusinessSummary || "No description available.",
     assetType,

@@ -23,6 +23,13 @@ mock.module('@/lib/market-service', () => {
   };
 });
 
+// Mock etf-sync so we don't actually trigger syncing logic during API tests
+mock.module('@/lib/etf-sync', () => {
+    return {
+        syncEtfDetails: mock(() => Promise.resolve({}))
+    };
+});
+
 // We need to mock NextRequest and NextResponse
 // Simple mocks for the purpose of testing the logic
 const mockJson = mock((data: any) => ({

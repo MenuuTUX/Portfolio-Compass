@@ -32,7 +32,7 @@ export async function syncEtfDetails(ticker: string) {
       where: { ticker: details.ticker },
       update: {
         price: details.price, // Decimal
-        daily_change: new Decimal(0), // Decimal
+        daily_change: details.dailyChange, // Decimal
         yield: details.dividendYield || null, // Decimal | null
         mer: details.expenseRatio || null, // Decimal | null
         name: details.name,
@@ -47,7 +47,7 @@ export async function syncEtfDetails(ticker: string) {
         currency: 'USD',
         exchange: 'Unknown',
         price: details.price, // Decimal
-        daily_change: new Decimal(0), // Decimal
+        daily_change: details.dailyChange, // Decimal
         yield: details.dividendYield || null,
         mer: details.expenseRatio || null,
         assetType: details.assetType,
@@ -121,11 +121,11 @@ export async function syncEtfDetails(ticker: string) {
             const holdings = await fetchISharesHoldings(etf.ticker);
 
             if (holdings.length > 0) {
-                await prisma.holding.deleteMany({
+                await prisma.$transaction([
+                  prisma.holding.deleteMany({
                     where: { etfId: etf.ticker }
-                });
-
-                await prisma.holding.createMany({
+                  }),
+                  prisma.holding.createMany({
                     data: holdings.map(h => ({
                         etfId: etf.ticker,
                         ticker: h.ticker,
@@ -134,7 +134,8 @@ export async function syncEtfDetails(ticker: string) {
                         weight: h.weight,
                         shares: h.shares
                     }))
-                });
+                  })
+                ]);
                 console.log(`[EtfSync] Synced ${holdings.length} holdings for ${etf.ticker}`);
             }
         } catch (holdingsError) {
