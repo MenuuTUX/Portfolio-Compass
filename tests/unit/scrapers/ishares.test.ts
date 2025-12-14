@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, beforeAll } from 'bun:test';
-import { fetchISharesHoldings } from '../../lib/scrapers/ishares';
+import { fetchISharesHoldings } from '@/lib/scrapers/ishares';
 import { Decimal } from 'decimal.js';
 
 describe('fetchISharesHoldings', () => {

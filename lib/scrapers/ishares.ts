@@ -14,6 +14,10 @@ const PRODUCT_IDS: Record<string, string> = {
   'XIC': '239837',
 };
 
+export function isSupportedIShares(ticker: string): boolean {
+  return ticker.toUpperCase() in PRODUCT_IDS;
+}
+
 // Map to normalize CSV headers to our expected keys
 const HEADER_MAP: Record<string, string> = {
   'Ticker': 'ticker',
