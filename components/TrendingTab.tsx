@@ -39,41 +39,68 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch all data to sort client-side for now
-                const res = await fetch('/api/etfs/search?query=');
-                if (!res.ok) throw new Error('Failed to fetch data');
-                const rawData = await res.json();
+                // Collect all specific tickers to fetch
+                const allSpecificTickers = [
+                    ...MAG7_TICKERS,
+                    ...JUSTBUY_TICKERS,
+                    ...NATURAL_RESOURCES_TICKERS
+                ];
 
-                let data: ETF[] = [];
-                try {
-                    data = z.array(ETFSchema).parse(rawData);
-                } catch (e) {
-                     if (e instanceof z.ZodError) {
-                        console.warn('API response validation failed for trending items:', e.issues);
-                    } else {
-                        console.warn('API response validation failed for trending items:', e);
+                // Fetch specific tickers
+                const specificRes = await fetch(`/api/etfs/search?tickers=${allSpecificTickers.join(',')}`);
+                let specificData: ETF[] = [];
+                if (specificRes.ok) {
+                    const rawSpecificData = await specificRes.json();
+                    try {
+                        specificData = z.array(ETFSchema).parse(rawSpecificData);
+                    } catch (e) {
+                        console.warn('API response validation failed for specific items:', e);
+                        specificData = rawSpecificData as ETF[];
                     }
-                    data = rawData as ETF[];
                 }
 
+                // Fetch general trending items (limit 100 to get a good spread)
+                const generalRes = await fetch('/api/etfs/search?query=&limit=100');
+                let generalData: ETF[] = [];
+                if (generalRes.ok) {
+                    const rawGeneralData = await generalRes.json();
+                     try {
+                        generalData = z.array(ETFSchema).parse(rawGeneralData);
+                    } catch (e) {
+                        console.warn('API response validation failed for general items:', e);
+                        generalData = rawGeneralData as ETF[];
+                    }
+                }
+
+                // Combine data, preferring specific data if duplicates exist
+                // (though they should be same source of truth)
+                const combinedMap = new Map<string, ETF>();
+                [...generalData, ...specificData].forEach(item => {
+                    combinedMap.set(item.ticker, item);
+                });
+                const allData = Array.from(combinedMap.values());
+
                 // Sort by changePercent for "BEST" (Top Gainers)
-                const sortedByGain = [...data].sort((a, b) => b.changePercent - a.changePercent);
+                // Filter out 0 price items just in case
+                const validData = allData.filter(d => d.price > 0);
+
+                const sortedByGain = [...validData].sort((a, b) => b.changePercent - a.changePercent).slice(0, 50);
                 setTrendingItems(sortedByGain);
 
                 // Sort by changePercent for "Discounted" (Top Losers)
-                const sortedByLoss = [...data].sort((a, b) => a.changePercent - b.changePercent);
+                const sortedByLoss = [...validData].sort((a, b) => a.changePercent - b.changePercent).slice(0, 50);
                 setDiscountedItems(sortedByLoss);
 
                 // Filter for MAG 7
-                const mag7 = data.filter(item => MAG7_TICKERS.includes(item.ticker));
+                const mag7 = validData.filter(item => MAG7_TICKERS.includes(item.ticker));
                 setMag7Items(mag7);
 
                 // Filter for Just Buy
-                const justBuy = data.filter(item => JUSTBUY_TICKERS.includes(item.ticker));
+                const justBuy = validData.filter(item => JUSTBUY_TICKERS.includes(item.ticker));
                 setJustBuyItems(justBuy);
 
                 // Filter for Natural Resources
-                const naturalResources = data.filter(item => NATURAL_RESOURCES_TICKERS.includes(item.ticker));
+                const naturalResources = validData.filter(item => NATURAL_RESOURCES_TICKERS.includes(item.ticker));
                 setNaturalResourcesItems(naturalResources);
 
             } catch (error) {
