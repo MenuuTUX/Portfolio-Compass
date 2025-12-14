@@ -197,7 +197,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
   return {
     ticker: resolvedTicker,
     price: new Decimal(price?.regularMarketPrice || 0),
-    dailyChange: normalizePercent(price?.regularMarketChangePercent),
+    dailyChange: new Decimal(price?.regularMarketChangePercent || 0),
     name: price?.shortName || price?.longName || resolvedTicker,
     description: profile?.longBusinessSummary || "No description available.",
     assetType,
