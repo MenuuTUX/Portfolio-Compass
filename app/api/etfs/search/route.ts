@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query')
   const assetType = searchParams.get('type')
+  const tickersParam = searchParams.get('tickers')
+  const limitParam = searchParams.get('limit')
   const isFullHistoryRequested = searchParams.get('full') === 'true';
   // Default to false for performance, client must explicitly request history if needed
   // If full history is requested, we force includeHistory to true
@@ -22,6 +24,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const whereClause: Prisma.EtfWhereInput = {};
+
+    let requestedTickers: string[] = [];
+    if (tickersParam) {
+        requestedTickers = tickersParam.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+        if (requestedTickers.length > 0) {
+            whereClause.ticker = { in: requestedTickers, mode: 'insensitive' as const };
+        }
+    }
 
     if (query) {
       whereClause.OR = [
@@ -43,11 +53,60 @@ export async function GET(request: NextRequest) {
       includeObj.history = { orderBy: { date: 'asc' } };
     }
 
+    let takeLimit = isFullHistoryRequested ? 1 : (query ? 10 : 50);
+    if (limitParam) {
+        takeLimit = parseInt(limitParam, 10);
+    } else if (tickersParam) {
+        // If specific tickers are requested, allow fetching all of them plus some buffer
+        takeLimit = requestedTickers.length;
+    }
+
     let etfs = await prisma.etf.findMany({
       where: whereClause,
       include: includeObj,
-      take: isFullHistoryRequested ? 1 : (query ? 10 : 50),
+      take: takeLimit,
     })
+
+    // Handle missing tickers if a specific list was requested
+    if (requestedTickers.length > 0) {
+        const foundTickers = new Set(etfs.map((e: any) => e.ticker.toUpperCase()));
+        const missingTickers = requestedTickers.filter(t => !foundTickers.has(t));
+
+        if (missingTickers.length > 0) {
+            console.log(`[API] Missing tickers found: ${missingTickers.join(', ')}. Attempting live fetch...`);
+            try {
+                const liveData = await fetchMarketSnapshot(missingTickers);
+
+                // Create missing ETFs in DB
+                for (const item of liveData) {
+                    try {
+                        // Check if it exists to avoid race conditions
+                        const exists = await prisma.etf.findUnique({ where: { ticker: item.ticker } });
+                        if (!exists) {
+                             const newEtf = await prisma.etf.create({
+                                data: {
+                                    ticker: item.ticker,
+                                    name: item.name,
+                                    price: item.price,
+                                    daily_change: item.dailyChangePercent,
+                                    currency: 'USD',
+                                    assetType: item.assetType || "ETF",
+                                    isDeepAnalysisLoaded: false,
+                                },
+                                include: includeObj
+                            });
+                            // Add to the list of etfs to return
+                            etfs.push(newEtf as any);
+                        }
+                    } catch (createError) {
+                         console.error(`[API] Failed to create ETF ${item.ticker}:`, createError);
+                    }
+                }
+            } catch (liveFetchError) {
+                console.error('[API] Failed to fetch missing tickers live:', liveFetchError);
+            }
+        }
+    }
 
     if (query && etfs.length > 0 && etfs.length < 5) {
       const now = new Date();
