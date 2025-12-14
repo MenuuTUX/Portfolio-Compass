@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
           bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
           cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
         },
-        sectors: etf.sectors.reduce((acc: { [key: string]: number }, sector: any) => {
+        sectors: (etf.sectors || []).reduce((acc: { [key: string]: number }, sector: any) => {
           acc[sector.sector_name] = Number(sector.weight)
           return acc
         }, {} as { [key: string]: number }),
