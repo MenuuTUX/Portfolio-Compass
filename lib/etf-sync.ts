@@ -121,6 +121,25 @@ export async function syncEtfDetails(ticker: string) {
             const holdings = await fetchISharesHoldings(etf.ticker);
 
             if (holdings.length > 0) {
+                // Calculate sector weights from holdings
+                const sectorMap = new Map<string, Decimal>();
+
+                for (const h of holdings) {
+                  const sectorName = h.sector || 'Other';
+
+                  if (sectorMap.has(sectorName)) {
+                    sectorMap.set(sectorName, sectorMap.get(sectorName)!.plus(h.weight));
+                  } else {
+                    sectorMap.set(sectorName, h.weight);
+                  }
+                }
+
+                const newSectors = Array.from(sectorMap.entries()).map(([name, weight]) => ({
+                  etfId: etf.ticker,
+                  sector_name: name,
+                  weight: weight
+                }));
+
                 await prisma.$transaction([
                   prisma.holding.deleteMany({
                     where: { etfId: etf.ticker }
@@ -134,9 +153,16 @@ export async function syncEtfDetails(ticker: string) {
                         weight: h.weight,
                         shares: h.shares
                     }))
+                  }),
+                  // Overwrite sectors with calculated data from holdings
+                  prisma.etfSector.deleteMany({
+                    where: { etfId: etf.ticker }
+                  }),
+                  prisma.etfSector.createMany({
+                    data: newSectors
                   })
                 ]);
-                console.log(`[EtfSync] Synced ${holdings.length} holdings for ${etf.ticker}`);
+                console.log(`[EtfSync] Synced ${holdings.length} holdings and updated sectors for ${etf.ticker}`);
             }
         } catch (holdingsError) {
             console.error(`[EtfSync] Failed to sync holdings for ${etf.ticker}`, holdingsError);
