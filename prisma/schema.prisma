@@ -23,6 +23,7 @@ model Etf {
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
   sectors        EtfSector[]
+  holdings       Holding[]
   allocation     EtfAllocation?
   portfolioItem  PortfolioItem?
 
@@ -46,6 +47,19 @@ model EtfSector {
   sector_name String
   weight      Decimal
   etf         Etf    @relation(fields: [etfId], references: [ticker])
+}
+
+model Holding {
+  id        String   @id @default(cuid())
+  etfId     String
+  ticker    String
+  name      String
+  sector    String?
+  weight    Decimal
+  shares    Decimal?
+  etf       Etf      @relation(fields: [etfId], references: [ticker])
+
+  @@index([etfId, ticker])
 }
 
 model EtfAllocation {
