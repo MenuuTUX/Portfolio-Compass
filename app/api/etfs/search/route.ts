@@ -185,43 +185,36 @@ export async function GET(request: NextRequest) {
     }
 
     if (etfs.length === 0 && query && query.length > 1) {
-      console.log(`[API] Local miss for "${query}". Attempting live fetch...`);
+      console.log(`[API] Local miss for "${query}". Attempting deep sync...`);
 
       try {
-        const liveData = await fetchMarketSnapshot([query]);
+        const syncedEtf = await syncEtfDetails(query);
 
-        if (Array.isArray(liveData) && liveData.length > 0) {
-          const item = liveData[0];
+        if (syncedEtf) {
+           etfs.push(syncedEtf as any);
+        } else {
+           console.log(`[API] Deep sync failed for "${query}". Falling back to snapshot...`);
+           const liveData = await fetchMarketSnapshot([query]);
 
-          // create returns Decimal for price/daily_change
-          const newEtf = await prisma.etf.create({
-            data: {
-              ticker: item.ticker,
-              name: item.name,
-              price: item.price.toString(), // Decimal
-              daily_change: item.dailyChangePercent.toString(), // Decimal
-              currency: 'USD',
-              assetType: item.assetType || "ETF",
-              isDeepAnalysisLoaded: false,
-            }
-          });
-
-          // Return newly created item with formatting
-          return NextResponse.json([{
-            ticker: newEtf.ticker,
-            name: newEtf.name,
-            price: Number(newEtf.price),
-            changePercent: Number(newEtf.daily_change),
-            assetType: newEtf.assetType,
-            isDeepAnalysisLoaded: false,
-            history: [],
-            metrics: { yield: 0, mer: 0 },
-            allocation: { equities: 0, bonds: 0, cash: 0 },
-            sectors: {},
-          }]);
+           if (Array.isArray(liveData) && liveData.length > 0) {
+              const item = liveData[0];
+              const newEtf = await prisma.etf.create({
+                data: {
+                  ticker: item.ticker,
+                  name: item.name,
+                  price: item.price.toString(),
+                  daily_change: item.dailyChangePercent.toString(),
+                  currency: 'USD',
+                  assetType: item.assetType || "ETF",
+                  isDeepAnalysisLoaded: false,
+                },
+                include: includeObj
+              });
+              etfs.push(newEtf as any);
+           }
         }
       } catch (liveError) {
-        console.error('[API] Live fetch failed:', liveError);
+        console.error('[API] Live fetch/sync failed:', liveError);
       }
     }
 
