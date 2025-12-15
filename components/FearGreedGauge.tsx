@@ -53,93 +53,112 @@ export default function FearGreedGauge() {
     );
   }
 
-  // Semi-circle gauge calculations
+  // Visualization Constants
   const score = data.score;
-  const clampedScore = Math.max(0, Math.min(100, score));
-  // Angle: 0 = left (-90 deg visually), 100 = right (90 deg visually)
-  const angle = (clampedScore / 100) * 180 - 90;
+  const radius = 80;
+  const strokeWidth = 12; // Thinner stroke as per new image
+  const center = { x: 100, y: 100 };
 
-  // Determine color based on score
-  let colorClass = 'text-gray-400';
-  if (score < 25) colorClass = 'text-rose-500';      // Extreme Fear
-  else if (score < 45) colorClass = 'text-orange-500'; // Fear
-  else if (score < 55) colorClass = 'text-yellow-500'; // Neutral
-  else if (score < 75) colorClass = 'text-lime-500';   // Greed
-  else colorClass = 'text-emerald-500';                // Extreme Greed
+  // Calculate indicator position
+  // Score 0 -> -180 degrees (Left)
+  // Score 100 -> 0 degrees (Right)
+  // Note: SVG 0 is 3 o'clock. We want -180 to 0.
+  const angleDeg = -180 + (score / 100) * 180;
+  const angleRad = (angleDeg * Math.PI) / 180;
+
+  const indicatorX = center.x + radius * Math.cos(angleRad);
+  const indicatorY = center.y + radius * Math.sin(angleRad);
+
+  // Generate Segment Paths
+  // Total span 180 degrees. 5 segments.
+  // Gap of 4 degrees between segments.
+  // Segment span = (180 - 4*4) / 5 = 164 / 5 = 32.8 degrees.
+  const totalSpan = 180;
+  const gap = 4;
+  const segmentCount = 5;
+  const segmentSpan = (totalSpan - (segmentCount - 1) * gap) / segmentCount;
+
+  const colors = [
+    '#f43f5e', // Red (Extreme Fear)
+    '#f97316', // Orange (Fear)
+    '#eab308', // Yellow (Neutral)
+    '#84cc16', // Lime (Greed)
+    '#10b981', // Green (Extreme Greed)
+  ];
+
+  const createSegmentPath = (index: number) => {
+    // Start angle for this segment
+    // Index 0 starts at -180.
+    const startAngleDeg = -180 + index * (segmentSpan + gap);
+    const endAngleDeg = startAngleDeg + segmentSpan;
+
+    // Convert to Radians
+    const startRad = (startAngleDeg * Math.PI) / 180;
+    const endRad = (endAngleDeg * Math.PI) / 180;
+
+    const x1 = center.x + radius * Math.cos(startRad);
+    const y1 = center.y + radius * Math.sin(startRad);
+    const x2 = center.x + radius * Math.cos(endRad);
+    const y2 = center.y + radius * Math.sin(endRad);
+
+    // SVG Path Command
+    // M startX startY A radius radius 0 largeArcFlag sweepFlag endX endY
+    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
+  };
 
   return (
     <div className="w-full bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
-      <h3 className="text-white/60 font-medium mb-6 z-10 text-lg">Fear & Greed Index</h3>
+
+      <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center">
+        <h3 className="text-white/90 font-bold text-lg">Fear & Greed</h3>
+      </div>
 
       {/* Gauge Container */}
-      <div className="relative w-64 h-32 z-10 flex justify-center">
-
+      <div className="relative w-64 h-32 z-10 flex justify-center mb-2">
         <svg viewBox="0 0 200 110" className="w-full h-full overflow-visible">
-            {/* Defs for gradient */}
-            <defs>
-                <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#f43f5e" /> {/* Red */}
-                    <stop offset="25%" stopColor="#f97316" /> {/* Orange */}
-                    <stop offset="50%" stopColor="#eab308" /> {/* Yellow */}
-                    <stop offset="75%" stopColor="#84cc16" /> {/* Lime */}
-                    <stop offset="100%" stopColor="#10b981" /> {/* Green */}
-                </linearGradient>
-            </defs>
+            {/* Segments */}
+            {colors.map((color, i) => (
+                <path
+                    key={i}
+                    d={createSegmentPath(i)}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                    className="opacity-90"
+                />
+            ))}
 
-            {/* Background Arc */}
-            <path
-                d="M 20 100 A 80 80 0 0 1 180 100"
-                fill="none"
-                stroke="#333"
-                strokeWidth="20"
-                strokeLinecap="round"
-                className="opacity-50"
-            />
-
-            {/* Colored Arc */}
-            <path
-                d="M 20 100 A 80 80 0 0 1 180 100"
-                fill="none"
-                stroke="url(#gaugeGradient)"
-                strokeWidth="20"
-                strokeLinecap="round"
-            />
-
-            {/* Labels 0 and 100 inside the arc ends */}
-            <text x="25" y="95" fill="white" fontSize="10" className="opacity-50 font-mono" textAnchor="middle">0</text>
-            <text x="175" y="95" fill="white" fontSize="10" className="opacity-50 font-mono" textAnchor="middle">100</text>
-
-            {/* Needle */}
-            {/* Pivot at 100, 100 */}
-            <motion.g
-                initial={{ rotate: -90 }}
-                animate={{ rotate: angle }}
+            {/* Indicator Circle */}
+            <motion.circle
+                cx={0} // We animate x/y via transform or just animate the values
+                cy={0}
+                r="8"
+                fill="white"
+                initial={{ x: center.x - radius, y: center.y }} // Start at left
+                animate={{ x: indicatorX, y: indicatorY }}
                 transition={{ type: "spring", stiffness: 50, damping: 15 }}
-                style={{ originX: "100px", originY: "100px" }}
-            >
-                {/* Needle Line */}
-                <line x1="100" y1="100" x2="100" y2="30" stroke="white" strokeWidth="4" strokeLinecap="round" />
-                {/* Center Pivot Circle */}
-                <circle cx="100" cy="100" r="6" fill="white" />
-            </motion.g>
-
-            {/* Score Text (Inside Arc) */}
-             <text x="100" y="80" textAnchor="middle" className={`text-4xl font-bold font-space fill-current ${colorClass}`} style={{ fontSize: '40px', fontWeight: 'bold' }}>
-                {score}
-            </text>
+                className="drop-shadow-lg"
+                stroke="#1c1917" // match bg for "cutout" effect if needed, or just shadow
+                strokeWidth="2"
+            />
         </svg>
 
+        {/* Score & Rating Text - Positioned absolutely to center within the semi-circle */}
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-4 pointer-events-none">
+            <div className="text-4xl font-bold font-space text-white tracking-tight leading-none drop-shadow-md">
+                {score}
+            </div>
+            <div className="text-sm text-white/60 font-medium capitalize mt-1">
+                {data.rating}
+            </div>
+        </div>
       </div>
 
-      {/* Rating and Date */}
-      <div className="text-center z-10 mt-[-10px]">
-        <div className="text-lg text-white/80 font-medium capitalize">
-            {data.rating}
-        </div>
-        <div className="text-xs text-white/30 mt-1">
-            Updated: {new Date(data.updatedAt).toLocaleDateString()}
-        </div>
-      </div>
+       <div className="text-[10px] text-white/20 mt-[-5px] z-10">
+          Updated: {new Date(data.updatedAt).toLocaleDateString()}
+       </div>
+
     </div>
   );
 }
