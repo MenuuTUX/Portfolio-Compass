@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo, useId } from 'react';
 import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, ChevronDown } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -16,9 +16,11 @@ interface SparklineProps {
   color: string;
 }
 
-// Sparkline component
-const Sparkline = ({ data, color }: SparklineProps) => {
-  const gradientId = `gradient-${color.replace('#', '')}`;
+// Sparkline component - Memoized to prevent re-renders on parent updates
+const Sparkline = memo(({ data, color }: SparklineProps) => {
+  const uniqueId = useId();
+  // Using a unique ID ensures gradient definitions don't collide between multiple charts
+  const gradientId = `gradient-${uniqueId}`;
 
   return (
     <div className="h-16 w-32">
@@ -60,7 +62,187 @@ const Sparkline = ({ data, color }: SparklineProps) => {
       </table>
     </div>
   );
-};
+});
+
+Sparkline.displayName = 'Sparkline';
+
+interface ETFCardProps {
+  etf: ETF;
+  inPortfolio: boolean;
+  flashState: 'success' | 'error' | null;
+  syncingTicker: string | null;
+  onAdd: (etf: ETF) => void;
+  onRemove: (ticker: string) => void;
+  onView: (etf: ETF) => void;
+}
+
+// ETFCard component - Memoized to isolate state updates (like flash animations)
+const ETFCard = memo(({
+  etf,
+  inPortfolio,
+  flashState,
+  syncingTicker,
+  onAdd,
+  onRemove,
+  onView
+}: ETFCardProps) => {
+  const isPositive = etf.changePercent >= 0;
+
+  // Determine graph color based on history trend if available
+  let isGraphPositive = isPositive;
+  if (etf.history && etf.history.length > 0) {
+    const firstPrice = etf.history[0].price;
+    const lastPrice = etf.history[etf.history.length - 1].price;
+    isGraphPositive = lastPrice >= firstPrice;
+  }
+
+  return (
+    <div
+      className={cn(
+        "glass-card rounded-xl relative overflow-hidden bg-white/5 border transition-all group flex flex-col",
+        inPortfolio
+          ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]"
+          : "border-white/5 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
+      )}
+    >
+      {/* Flash Overlay */}
+      <AnimatePresence>
+        {flashState && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={cn(
+              "absolute inset-0 z-20 pointer-events-none backdrop-blur-[2px]",
+              flashState === 'success' ? "bg-emerald-500/20" : "bg-rose-500/20"
+            )}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Green Blur Overlay for Owned Items */}
+      {inPortfolio && (
+        <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />
+      )}
+
+      <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
+            <p className="text-sm text-neutral-400 line-clamp-1" title={etf.name}>{etf.name}</p>
+          </div>
+          <div className="flex flex-col items-end gap-2">
+            {/* Owned Indicator */}
+            {inPortfolio && (
+              <div className="flex items-center gap-1 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                <Check className="w-3 h-3" />
+                OWNED
+              </div>
+            )}
+            <div className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
+              isGraphPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+            )}>
+              {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+              {Math.abs(etf.changePercent).toFixed(2)}%
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-end mb-6">
+          <div>
+            <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
+            <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
+          </div>
+          {etf.history && etf.history.length > 0 && (
+            <Sparkline
+              data={etf.history}
+              color={isGraphPositive ? '#10b981' : '#f43f5e'}
+            />
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+          <div>
+            <div className="text-xs text-neutral-500 mb-1">Yield</div>
+            <div className="text-sm font-medium text-emerald-400">{etf.metrics?.yield?.toFixed(2)}%</div>
+          </div>
+          <div>
+            <div className="text-xs text-neutral-500 mb-1">MER</div>
+            <div className="text-sm font-medium text-neutral-300">{etf.metrics?.mer?.toFixed(2)}%</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Actions (Visible by default) */}
+      <div className="flex md:hidden border-t border-white/10 divide-x divide-white/10">
+        {inPortfolio ? (
+          <button
+            onClick={() => onRemove(etf.ticker)}
+            className="flex-1 py-3 bg-rose-500/10 text-rose-400 font-medium flex items-center justify-center gap-2 active:bg-rose-500/20"
+          >
+            <Trash2 className="w-4 h-4" /> Remove
+          </button>
+        ) : (
+          <button
+            onClick={() => onAdd(etf)}
+            className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"
+          >
+            <Plus className="w-4 h-4" /> Add
+          </button>
+        )}
+        <button
+          onClick={() => onView(etf)}
+          disabled={syncingTicker === etf.ticker}
+          className="flex-1 py-3 bg-white/5 text-white font-medium flex items-center justify-center gap-2 active:bg-white/10 disabled:opacity-50"
+        >
+          {syncingTicker === etf.ticker ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+          View
+        </button>
+      </div>
+
+      {/* Desktop Overlay (Hover only) */}
+      <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-black/60 backdrop-blur-sm">
+        {inPortfolio ? (
+          <button
+            onClick={() => onRemove(etf.ticker)}
+            className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-rose-500/20"
+          >
+            <Trash2 className="w-4 h-4" />
+            Remove
+          </button>
+        ) : (
+          <button
+            onClick={() => onAdd(etf)}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
+          >
+            <Plus className="w-4 h-4" />
+            Add to Portfolio
+          </button>
+        )}
+        <button
+          onClick={() => onView(etf)}
+          disabled={syncingTicker === etf.ticker}
+          className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {syncingTicker === etf.ticker ? (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+          {syncingTicker === etf.ticker ? 'Syncing...' : 'Advanced View'}
+        </button>
+      </div>
+
+    </div>
+  );
+});
+
+ETFCard.displayName = 'ETFCard';
 
 interface ComparisonEngineProps {
   onAddToPortfolio: (etf: ETF) => void;
@@ -131,22 +313,22 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     });
   }, []);
 
-  const triggerFlash = (ticker: string, type: 'success' | 'error') => {
+  const triggerFlash = useCallback((ticker: string, type: 'success' | 'error') => {
     setFlashStates(prev => ({ ...prev, [ticker]: type }));
     setTimeout(() => {
       setFlashStates(prev => ({ ...prev, [ticker]: null }));
     }, 500);
-  };
+  }, []);
 
-  const handleAdd = (etf: ETF) => {
+  const handleAdd = useCallback((etf: ETF) => {
     onAddToPortfolio(etf);
     triggerFlash(etf.ticker, 'success');
-  };
+  }, [onAddToPortfolio, triggerFlash]);
 
-  const handleRemove = (ticker: string) => {
+  const handleRemove = useCallback((ticker: string) => {
     onRemoveFromPortfolio(ticker);
     triggerFlash(ticker, 'error');
-  };
+  }, [onRemoveFromPortfolio, triggerFlash]);
 
   const isInPortfolio = (ticker: string) => portfolio.some(item => item.ticker === ticker);
 
@@ -203,10 +385,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
         // For suggestions, we might want to show everything but maybe visually distinguish?
         // Or strictly follow the section rules.
-        // Let's filter suggestions too to avoid confusion in the dropdown,
-        // OR show them but they won't appear in the grid.
-        // Given the requirement "Stocks don't appear in the etf section",
-        // let's filter suggestions to strict matches for now.
+        // Let's filter suggestions to strict matches for now.
         setSuggestions(valid);
       } else {
         setEtfs(data);
@@ -264,7 +443,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     setShowSuggestions(false);
   };
 
-  const handleAdvancedView = async (etf: ETF) => {
+  const handleAdvancedView = useCallback(async (etf: ETF) => {
     addToRecent(etf.ticker);
     if (etf.isDeepAnalysisLoaded) {
       setSelectedETF(etf);
@@ -319,7 +498,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     } finally {
       setSyncingTicker(null);
     }
-  };
+  }, [addToRecent]); // addToRecent is stable (useCallback)
 
   const renderNoResults = () => {
     if (loading) return null;
@@ -460,165 +639,18 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
-            {displayedEtfs.map((etf) => {
-              const isPositive = etf.changePercent >= 0;
-              const inPortfolio = isInPortfolio(etf.ticker);
-              const flashState = flashStates[etf.ticker];
-
-              // Determine graph color based on history trend if available
-              let isGraphPositive = isPositive;
-              if (etf.history && etf.history.length > 0) {
-                const firstPrice = etf.history[0].price;
-                const lastPrice = etf.history[etf.history.length - 1].price;
-                isGraphPositive = lastPrice >= firstPrice;
-              }
-
-              return (
-                <div
-                  key={etf.ticker}
-                  className={cn(
-                    "glass-card rounded-xl relative overflow-hidden bg-white/5 border transition-all group flex flex-col",
-                    inPortfolio
-                      ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]"
-                      : "border-white/5 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]"
-                  )}
-                >
-                  {/* Flash Overlay */}
-                  <AnimatePresence>
-                    {flashState && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className={cn(
-                          "absolute inset-0 z-20 pointer-events-none backdrop-blur-[2px]",
-                          flashState === 'success' ? "bg-emerald-500/20" : "bg-rose-500/20"
-                        )}
-                      />
-                    )}
-                  </AnimatePresence>
-
-                  {/* Green Blur Overlay for Owned Items */}
-                  {inPortfolio && (
-                    <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />
-                  )}
-
-                  <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
-                        <p className="text-sm text-neutral-400 line-clamp-1" title={etf.name}>{etf.name}</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        {/* Owned Indicator */}
-                        {inPortfolio && (
-                          <div className="flex items-center gap-1 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                            <Check className="w-3 h-3" />
-                            OWNED
-                          </div>
-                        )}
-                        <div className={cn(
-                          "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
-                          isGraphPositive ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
-                        )}>
-                          {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                          {Math.abs(etf.changePercent).toFixed(2)}%
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-end mb-6">
-                      <div>
-                        <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
-                        <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
-                      </div>
-                      {etf.history && etf.history.length > 0 && (
-                        <Sparkline
-                          data={etf.history}
-                          color={isGraphPositive ? '#10b981' : '#f43f5e'}
-                        />
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-                      <div>
-                        <div className="text-xs text-neutral-500 mb-1">Yield</div>
-                        <div className="text-sm font-medium text-emerald-400">{etf.metrics?.yield?.toFixed(2)}%</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-neutral-500 mb-1">MER</div>
-                        <div className="text-sm font-medium text-neutral-300">{etf.metrics?.mer?.toFixed(2)}%</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mobile Actions (Visible by default) */}
-                  <div className="flex md:hidden border-t border-white/10 divide-x divide-white/10">
-                    {inPortfolio ? (
-                      <button
-                        onClick={() => handleRemove(etf.ticker)}
-                        className="flex-1 py-3 bg-rose-500/10 text-rose-400 font-medium flex items-center justify-center gap-2 active:bg-rose-500/20"
-                      >
-                        <Trash2 className="w-4 h-4" /> Remove
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleAdd(etf)}
-                        className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"
-                      >
-                        <Plus className="w-4 h-4" /> Add
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleAdvancedView(etf)}
-                      disabled={syncingTicker === etf.ticker}
-                      className="flex-1 py-3 bg-white/5 text-white font-medium flex items-center justify-center gap-2 active:bg-white/10 disabled:opacity-50"
-                    >
-                      {syncingTicker === etf.ticker ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <Maximize2 className="w-4 h-4" />
-                      )}
-                      View
-                    </button>
-                  </div>
-
-                  {/* Desktop Overlay (Hover only) */}
-                  <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-black/60 backdrop-blur-sm">
-                    {inPortfolio ? (
-                      <button
-                        onClick={() => handleRemove(etf.ticker)}
-                        className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-rose-500/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Remove
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleAdd(etf)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Add to Portfolio
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleAdvancedView(etf)}
-                      disabled={syncingTicker === etf.ticker}
-                      className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {syncingTicker === etf.ticker ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <Maximize2 className="w-4 h-4" />
-                      )}
-                      {syncingTicker === etf.ticker ? 'Syncing...' : 'Advanced View'}
-                    </button>
-                  </div>
-
-                </div>
-              );
-            })}
+            {displayedEtfs.map((etf) => (
+              <ETFCard
+                key={etf.ticker}
+                etf={etf}
+                inPortfolio={isInPortfolio(etf.ticker)}
+                flashState={flashStates[etf.ticker]}
+                syncingTicker={syncingTicker}
+                onAdd={handleAdd}
+                onRemove={handleRemove}
+                onView={handleAdvancedView}
+              />
+            ))}
             {renderNoResults()}
 
             {/* Load More Button */}
