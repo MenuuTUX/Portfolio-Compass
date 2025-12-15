@@ -87,8 +87,9 @@ export async function GET(request: NextRequest) {
                                 data: {
                                     ticker: item.ticker,
                                     name: item.name,
-                                    price: item.price,
-                                    daily_change: item.dailyChangePercent,
+                                    // Explicitly convert Decimal to string/number for Prisma compatibility
+                                    price: item.price.toString(),
+                                    daily_change: item.dailyChangePercent.toString(),
                                     currency: 'USD',
                                     assetType: item.assetType || "ETF",
                                     isDeepAnalysisLoaded: false,
@@ -105,6 +106,40 @@ export async function GET(request: NextRequest) {
             } catch (liveFetchError) {
                 console.error('[API] Failed to fetch missing tickers live:', liveFetchError);
             }
+        }
+    }
+
+    // Fallback for empty DB on general search (landing page scenario)
+    if (etfs.length === 0 && !query && !tickersParam) {
+        const DEFAULT_TICKERS = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+        console.log('[API] Empty DB detected for general search. seeding default tickers...');
+
+        try {
+            const liveData = await fetchMarketSnapshot(DEFAULT_TICKERS);
+             for (const item of liveData) {
+                try {
+                    const exists = await prisma.etf.findUnique({ where: { ticker: item.ticker } });
+                    if (!exists) {
+                         const newEtf = await prisma.etf.create({
+                            data: {
+                                ticker: item.ticker,
+                                name: item.name,
+                                price: item.price.toString(),
+                                daily_change: item.dailyChangePercent.toString(),
+                                currency: 'USD',
+                                assetType: item.assetType || "ETF",
+                                isDeepAnalysisLoaded: false,
+                            },
+                            include: includeObj
+                        });
+                        etfs.push(newEtf as any);
+                    }
+                } catch (e) {
+                    console.error(`[API] Failed to auto-seed ${item.ticker}:`, e);
+                }
+            }
+        } catch (e) {
+            console.error('[API] Failed to fetch default tickers:', e);
         }
     }
 
@@ -163,8 +198,8 @@ export async function GET(request: NextRequest) {
             data: {
               ticker: item.ticker,
               name: item.name,
-              price: item.price, // Decimal
-              daily_change: item.dailyChangePercent, // Decimal
+              price: item.price.toString(), // Decimal
+              daily_change: item.dailyChangePercent.toString(), // Decimal
               currency: 'USD',
               assetType: item.assetType || "ETF",
               isDeepAnalysisLoaded: false,
