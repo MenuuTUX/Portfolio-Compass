@@ -10,7 +10,8 @@ mock.module('@/lib/db', () => {
     default: {
       etf: {
         findMany: mockPrismaFindMany,
-        create: mockPrismaCreate
+        create: mockPrismaCreate,
+        findUnique: mock(() => Promise.resolve(null)) // Added for fallback checks
       }
     }
   };
@@ -68,15 +69,46 @@ describe('API: /api/etfs/search', () => {
     mockPrismaFindMany.mockResolvedValue([]);
   });
 
-  it('should return empty list if no query and no local data', async () => {
+  it('should seed default tickers if no query and no local data', async () => {
+    // 1. Setup empty DB
     mockPrismaFindMany.mockResolvedValue([]);
 
-    const request = new NextRequest('http://localhost/api/etfs/search');
+    // 2. Setup mock live data for default tickers
+    const defaultTickersMock = [{
+        ticker: 'SPY',
+        name: 'SPDR S&P 500',
+        price: 500,
+        dailyChangePercent: 0.5,
+        assetType: 'ETF'
+    }];
+    mockFetchMarketSnapshot.mockResolvedValue(defaultTickersMock);
+
+    // 3. Setup mock create return
+    mockPrismaCreate.mockImplementation((args: any) => Promise.resolve({
+        ticker: args.data.ticker,
+        name: args.data.name,
+        price: Number(args.data.price),
+        daily_change: Number(args.data.daily_change),
+        assetType: args.data.assetType,
+        isDeepAnalysisLoaded: false,
+        updatedAt: new Date(),
+        history: [],
+        sectors: [],
+        allocation: null
+    }));
+
+    const request = new NextRequest('http://localhost/api/etfs/search?limit=100');
     const response: any = await GET(request);
 
+    // Should call fetchMarketSnapshot with default tickers (we won't check exact list, but that it was called)
+    expect(mockFetchMarketSnapshot).toHaveBeenCalled();
+    // Should create
+    expect(mockPrismaCreate).toHaveBeenCalled();
+
     expect(response.status).toBe(200);
-    expect(response._data).toEqual([]);
-    expect(mockPrismaFindMany).toHaveBeenCalled();
+    // Since we push to etfs array in the logic, it should return the seeded items
+    expect(response._data).toHaveLength(1);
+    expect(response._data[0].ticker).toBe('SPY');
   });
 
   it('should return local data if found', async () => {
@@ -87,7 +119,8 @@ describe('API: /api/etfs/search', () => {
       daily_change: 1.5,
       assetType: 'ETF',
       isDeepAnalysisLoaded: true,
-      history: [],
+      updatedAt: new Date(), // Not stale
+      history: [{ date: new Date(), close: 200, interval: 'daily' }], // Has history
       sectors: [{ sector_name: 'Tech', weight: 20 }],
       allocation: { stocks_weight: 99, bonds_weight: 1, cash_weight: 0 }
     };
@@ -121,7 +154,8 @@ describe('API: /api/etfs/search', () => {
       price: 100,
       daily_change: 2.0,
       assetType: 'STOCK',
-      isDeepAnalysisLoaded: false
+      isDeepAnalysisLoaded: false,
+      updatedAt: new Date()
     };
     mockPrismaCreate.mockResolvedValue(createdEtf);
 
@@ -130,6 +164,11 @@ describe('API: /api/etfs/search', () => {
 
     expect(mockFetchMarketSnapshot).toHaveBeenCalledWith(['NEW']);
     expect(mockPrismaCreate).toHaveBeenCalled();
+    // Check if created with string values
+    const createCall = mockPrismaCreate.mock.calls[0][0];
+    expect(typeof createCall.data.price).toBe('string');
+    expect(typeof createCall.data.daily_change).toBe('string');
+
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('NEW');
     expect(response._data[0].assetType).toBe('STOCK');
