@@ -56,23 +56,24 @@ export default function FearGreedGauge() {
   // Visualization Constants
   const score = data.score;
   const radius = 80;
-  const strokeWidth = 12; // Thinner stroke as per new image
+  const strokeWidth = 12;
   const center = { x: 100, y: 100 };
 
   // Calculate indicator position
   // Score 0 -> -180 degrees (Left)
+  // Score 50 -> -90 degrees (Top)
   // Score 100 -> 0 degrees (Right)
-  // Note: SVG 0 is 3 o'clock. We want -180 to 0.
   const angleDeg = -180 + (score / 100) * 180;
   const angleRad = (angleDeg * Math.PI) / 180;
 
   const indicatorX = center.x + radius * Math.cos(angleRad);
   const indicatorY = center.y + radius * Math.sin(angleRad);
 
+  // Position for 50% (Top Center) for initial animation
+  const topX = center.x; // 100
+  const topY = center.y - radius; // 20
+
   // Generate Segment Paths
-  // Total span 180 degrees. 5 segments.
-  // Gap of 4 degrees between segments.
-  // Segment span = (180 - 4*4) / 5 = 164 / 5 = 32.8 degrees.
   const totalSpan = 180;
   const gap = 4;
   const segmentCount = 5;
@@ -86,13 +87,17 @@ export default function FearGreedGauge() {
     '#10b981', // Green (Extreme Greed)
   ];
 
+  // Determine active color for text and gradient based on score
+  let activeColor = colors[2]; // Default Neutral
+  if (score < 25) activeColor = colors[0];
+  else if (score < 45) activeColor = colors[1];
+  else if (score < 55) activeColor = colors[2];
+  else if (score < 75) activeColor = colors[3];
+  else activeColor = colors[4];
+
   const createSegmentPath = (index: number) => {
-    // Start angle for this segment
-    // Index 0 starts at -180.
     const startAngleDeg = -180 + index * (segmentSpan + gap);
     const endAngleDeg = startAngleDeg + segmentSpan;
-
-    // Convert to Radians
     const startRad = (startAngleDeg * Math.PI) / 180;
     const endRad = (endAngleDeg * Math.PI) / 180;
 
@@ -101,13 +106,17 @@ export default function FearGreedGauge() {
     const x2 = center.x + radius * Math.cos(endRad);
     const y2 = center.y + radius * Math.sin(endRad);
 
-    // SVG Path Command
-    // M startX startY A radius radius 0 largeArcFlag sweepFlag endX endY
     return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
   };
 
   return (
-    <div className="w-full bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
+    <div className="w-full bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+
+      {/* Bottom Gradient Glow */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 pointer-events-none transition-colors duration-500"
+        style={{ background: `linear-gradient(to top, ${activeColor}, transparent)` }}
+      />
 
       <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center">
         <h3 className="text-white/90 font-bold text-lg">Fear & Greed</h3>
@@ -129,27 +138,31 @@ export default function FearGreedGauge() {
                 />
             ))}
 
-            {/* Indicator Circle */}
+            {/* Indicator Circle (Outline) */}
             <motion.circle
-                cx={0} // We animate x/y via transform or just animate the values
+                cx={0}
                 cy={0}
                 r="8"
-                fill="white"
-                initial={{ x: center.x - radius, y: center.y }} // Start at left
-                animate={{ x: indicatorX, y: indicatorY }}
-                transition={{ type: "spring", stiffness: 50, damping: 15 }}
+                fill="none" // Just the outline
+                stroke="white"
+                strokeWidth="3"
+                initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
+                animate={{ x: indicatorX, y: indicatorY, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 40, damping: 20, delay: 0.2 }}
                 className="drop-shadow-lg"
-                stroke="#1c1917" // match bg for "cutout" effect if needed, or just shadow
-                strokeWidth="2"
             />
         </svg>
 
-        {/* Score & Rating Text - Positioned absolutely to center within the semi-circle */}
+        {/* Score & Rating Text */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-4 pointer-events-none">
             <div className="text-4xl font-bold font-space text-white tracking-tight leading-none drop-shadow-md">
                 {score}
             </div>
-            <div className="text-sm text-white/60 font-medium capitalize mt-1">
+            {/* Rating text follows active color */}
+            <div
+                className="text-sm font-medium capitalize mt-1 transition-colors duration-300"
+                style={{ color: activeColor }}
+            >
                 {data.rating}
             </div>
         </div>
