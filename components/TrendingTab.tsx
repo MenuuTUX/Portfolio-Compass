@@ -9,6 +9,7 @@ import { ETFSchema } from '@/schemas/assetSchema';
 import { z } from 'zod';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
+import FearGreedGauge from './FearGreedGauge';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => void;
@@ -169,6 +170,11 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar">
+
+            <div className="mb-8">
+                <FearGreedGauge />
+            </div>
+
             <TrendingSection
                 title="Crypto"
                 items={cryptoItems}
