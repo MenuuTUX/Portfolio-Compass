@@ -2,6 +2,7 @@ import prisma from '@/lib/db'
 import { fetchEtfDetails } from '@/lib/market-service'
 import { Decimal } from 'decimal.js';
 import { fetchISharesHoldings, isSupportedIShares } from '@/lib/scrapers/ishares';
+import { scrapeETFDBHoldings } from '@/lib/scrapers/etfdb';
 
 export async function syncEtfDetails(ticker: string) {
   try {
@@ -114,34 +115,60 @@ export async function syncEtfDetails(ticker: string) {
       });
     }
 
-    // 7. Update Holdings (iShares specific)
-    if (isSupportedIShares(etf.ticker)) {
-        try {
-            console.log(`[EtfSync] Fetching holdings for iShares ETF ${etf.ticker}...`);
-            const holdings = await fetchISharesHoldings(etf.ticker);
+    // 7. Update Holdings
+    try {
+      let holdings: any[] = [];
 
-            if (holdings.length > 0) {
-                await prisma.$transaction([
-                  prisma.holding.deleteMany({
-                    where: { etfId: etf.ticker }
-                  }),
-                  prisma.holding.createMany({
-                    data: holdings.map(h => ({
-                        etfId: etf.ticker,
-                        ticker: h.ticker,
-                        name: h.name,
-                        sector: h.sector,
-                        weight: h.weight,
-                        shares: h.shares
-                    }))
-                  })
-                ]);
-                console.log(`[EtfSync] Synced ${holdings.length} holdings for ${etf.ticker}`);
-            }
-        } catch (holdingsError) {
-            console.error(`[EtfSync] Failed to sync holdings for ${etf.ticker}`, holdingsError);
-            // Non-blocking: continue with the rest of the sync
+      // Strategy 1: iShares Direct Scraper (High Fidelity)
+      if (isSupportedIShares(etf.ticker)) {
+        console.log(`[EtfSync] Fetching holdings for iShares ETF ${etf.ticker}...`);
+        try {
+           holdings = await fetchISharesHoldings(etf.ticker);
+        } catch (err) {
+           console.warn(`[EtfSync] iShares scrape failed for ${etf.ticker}, falling back...`);
         }
+      }
+
+      // Strategy 2: ETFDB Scraper (General Coverage)
+      if (holdings.length === 0) {
+         console.log(`[EtfSync] Fetching holdings from ETFDB for ${etf.ticker}...`);
+         const scraped = await scrapeETFDBHoldings(etf.ticker);
+         if (scraped.length > 0) {
+            holdings = scraped.map(s => ({
+              ticker: s.symbol,
+              name: s.name,
+              weight: s.weight,
+              sector: 'Unknown',
+              shares: null
+            }));
+         }
+      }
+
+      // Persist if we found anything
+      if (holdings.length > 0) {
+          await prisma.$transaction([
+            prisma.holding.deleteMany({
+              where: { etfId: etf.ticker }
+            }),
+            prisma.holding.createMany({
+              data: holdings.map(h => ({
+                  etfId: etf.ticker,
+                  ticker: h.ticker,
+                  name: h.name,
+                  sector: h.sector || null,
+                  weight: h.weight,
+                  shares: h.shares || null
+              }))
+            })
+          ]);
+          console.log(`[EtfSync] Synced ${holdings.length} holdings for ${etf.ticker}`);
+      } else {
+          console.log(`[EtfSync] No holdings found for ${etf.ticker}`);
+      }
+
+    } catch (holdingsError) {
+      console.error(`[EtfSync] Failed to sync holdings for ${etf.ticker}`, holdingsError);
+      // Non-blocking
     }
 
     const fullEtf = await prisma.etf.findUnique({

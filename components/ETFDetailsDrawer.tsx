@@ -7,6 +7,7 @@ import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
 import SectorPieChart from './SectorPieChart';
+import TopHoldingsList from './TopHoldingsList';
 import { useMemo, useState, useEffect } from 'react';
 
 interface ETFDetailsDrawerProps {
@@ -451,12 +452,12 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                 {/* Right Col */}
                 <div className="flex flex-col gap-6 h-full">
 
-                  {/* Sector Breakdown */}
+                  {/* Top Holdings or Sector Breakdown */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-[300px]">
                     <div className="flex items-center gap-2 mb-4">
                       <PieIcon className="w-5 h-5 text-blue-400" />
                       <h3 className="text-lg font-bold text-white">
-                        {displayEtf.assetType === 'STOCK' ? 'Sector' : 'Sector Allocation'}
+                        {displayEtf.assetType === 'STOCK' ? 'Sector' : 'Top Holdings'}
                       </h3>
                     </div>
 
@@ -472,8 +473,15 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         </div>
                       </div>
                     ) : (
-                      <div className="h-[250px]">
-                        <SectorPieChart sectors={displayEtf.sectors} />
+                      <div className="h-[300px]">
+                         {/* Replace SectorPieChart with TopHoldingsList if holdings exist, otherwise fallback or show empty */}
+                         {displayEtf.holdings && displayEtf.holdings.length > 0 ? (
+                           <TopHoldingsList holdings={displayEtf.holdings} />
+                         ) : (
+                           <div className="flex items-center justify-center h-full text-neutral-500">
+                             No holdings data available
+                           </div>
+                         )}
                       </div>
                     )}
                   </div>
