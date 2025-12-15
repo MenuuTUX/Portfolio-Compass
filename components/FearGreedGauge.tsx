@@ -54,9 +54,9 @@ export default function FearGreedGauge() {
   }
 
   // Semi-circle gauge calculations
-  // Angle range: -90 (left/red) to 90 (right/green)
   const score = data.score;
   const clampedScore = Math.max(0, Math.min(100, score));
+  // Angle: 0 = left (-90 deg visually), 100 = right (90 deg visually)
   const angle = (clampedScore / 100) * 180 - 90;
 
   // Determine color based on score
@@ -69,73 +69,74 @@ export default function FearGreedGauge() {
 
   return (
     <div className="w-full bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Background Glow */}
-      <div className={`absolute inset-0 opacity-10 blur-3xl ${colorClass.replace('text-', 'bg-')}`} />
-
-      <h3 className="text-white/60 font-medium mb-4 z-10">Fear & Greed Index</h3>
+      <h3 className="text-white/60 font-medium mb-6 z-10 text-lg">Fear & Greed Index</h3>
 
       {/* Gauge Container */}
-      <div className="relative w-48 h-24 mb-2 z-10">
-        {/* Semi-Circle Gradient Background */}
-        <div className="absolute inset-0 w-full h-48 rounded-full border-[12px] border-white/5 border-b-0 overflow-hidden box-border" style={{ clipPath: 'polygon(0 0, 100% 0, 100% 50%, 0 50%)' }}></div>
+      <div className="relative w-64 h-32 z-10 flex justify-center">
 
-        <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible">
+        <svg viewBox="0 0 200 110" className="w-full h-full overflow-visible">
             {/* Defs for gradient */}
             <defs>
                 <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#f43f5e" /> {/* Red */}
+                    <stop offset="25%" stopColor="#f97316" /> {/* Orange */}
                     <stop offset="50%" stopColor="#eab308" /> {/* Yellow */}
+                    <stop offset="75%" stopColor="#84cc16" /> {/* Lime */}
                     <stop offset="100%" stopColor="#10b981" /> {/* Green */}
                 </linearGradient>
             </defs>
 
             {/* Background Arc */}
             <path
-                d="M 10 50 A 40 40 0 0 1 90 50"
+                d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
                 stroke="#333"
-                strokeWidth="12"
+                strokeWidth="20"
                 strokeLinecap="round"
-                className="opacity-30"
+                className="opacity-50"
             />
 
             {/* Colored Arc */}
-            {/* We want the gradient to be static, so we draw the full arc with gradient stroke */}
             <path
-                d="M 10 50 A 40 40 0 0 1 90 50"
+                d="M 20 100 A 80 80 0 0 1 180 100"
                 fill="none"
                 stroke="url(#gaugeGradient)"
-                strokeWidth="12"
+                strokeWidth="20"
                 strokeLinecap="round"
             />
 
+            {/* Labels 0 and 100 inside the arc ends */}
+            <text x="25" y="95" fill="white" fontSize="10" className="opacity-50 font-mono" textAnchor="middle">0</text>
+            <text x="175" y="95" fill="white" fontSize="10" className="opacity-50 font-mono" textAnchor="middle">100</text>
+
             {/* Needle */}
+            {/* Pivot at 100, 100 */}
             <motion.g
                 initial={{ rotate: -90 }}
                 animate={{ rotate: angle }}
-                transition={{ type: "spring", stiffness: 60, damping: 15 }}
-                style={{ originX: "50px", originY: "50px" }}
+                transition={{ type: "spring", stiffness: 50, damping: 15 }}
+                style={{ originX: "100px", originY: "100px" }}
             >
-                {/* Needle Shape */}
-                <path d="M 50 50 L 50 15" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="50" cy="50" r="3" fill="white" />
+                {/* Needle Line */}
+                <line x1="100" y1="100" x2="100" y2="30" stroke="white" strokeWidth="4" strokeLinecap="round" />
+                {/* Center Pivot Circle */}
+                <circle cx="100" cy="100" r="6" fill="white" />
             </motion.g>
+
+            {/* Score Text (Inside Arc) */}
+             <text x="100" y="80" textAnchor="middle" className={`text-4xl font-bold font-space fill-current ${colorClass}`} style={{ fontSize: '40px', fontWeight: 'bold' }}>
+                {score}
+            </text>
         </svg>
 
-        {/* Min/Max Labels */}
-        <div className="absolute bottom-0 left-2 text-[10px] text-white/40 font-mono">0</div>
-        <div className="absolute bottom-0 right-2 text-[10px] text-white/40 font-mono">100</div>
       </div>
 
-      {/* Score and Rating */}
+      {/* Rating and Date */}
       <div className="text-center z-10 mt-[-10px]">
-        <div className={`text-4xl font-bold font-space tracking-tight ${colorClass}`}>
-            {score}
-        </div>
-        <div className="text-sm text-white/60 font-medium mt-1">
+        <div className="text-lg text-white/80 font-medium capitalize">
             {data.rating}
         </div>
-        <div className="text-[10px] text-white/20 mt-2">
+        <div className="text-xs text-white/30 mt-1">
             Updated: {new Date(data.updatedAt).toLocaleDateString()}
         </div>
       </div>
