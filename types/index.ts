@@ -21,6 +21,7 @@ export interface ETF {
   sectors: {
     [key: string]: number;
   };
+  holdings?: any[];
 }
 
 export interface PortfolioItem extends ETF {
