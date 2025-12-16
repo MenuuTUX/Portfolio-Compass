@@ -31,6 +31,7 @@
     "@vercel/analytics"
   ],
   "dependencies": {
+    "@happy-dom/global-registrator": "^20.0.11",
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.1.0",
     "@tanstack/react-query": "^5.90.11",
