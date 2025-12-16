@@ -243,10 +243,6 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
                     // Logic:
                     // Risk (0-100) -> Annual Return Rate (2% to 15%)
                     // Years (1-50) -> Duration
-                    // We show a "snapshot" of the curve.
-                    // To make it look dynamic:
-                    // The "steepness" depends on Risk.
-                    // The "end height" depends on Years * Risk.
 
                     const rate = 0.02 + (riskValue / 100) * 0.13; // 2% to 15%
                     const maxYears = yearsValue;
@@ -255,39 +251,18 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
                     // Compound Interest: (1 + r)^t
                     const growth = Math.pow(1 + rate, yearForBar);
 
-                    // Normalize for display:
-                    // We want the last bar to be near 100% height if Risk is high and Years is high.
-                    // If Risk is low, it should be lower.
-                    // Let's define a "Max Possible Growth" for normalization (e.g. 15% for 50 years = ~1000x)
-                    // But that's too huge. Let's just make it relative to the current slider settings so it looks good.
-                    // Actually, the user wants "Risk slider to affect graph".
-                    // If I increase Risk, the curve should get steeper (last bar higher relative to first).
-                    // If I increase Years, the curve should also get steeper (more time for compounding).
+                    // Use Logarithmic scale to handle the wide range of growth (1.02x to 1000x+)
+                    // Log10(1) = 0
+                    // Log10(1000) = 3
+                    const logGrowth = Math.log10(growth);
 
-                    // Let's try a simple visual mapping:
-                    // Height % = Base + (GrowthFactor * i)
+                    // Normalize against a "Reasonable Max" (e.g., ~316x growth = 2.5 log)
+                    // to ensure typical values (2x-20x) are visible.
+                    // Using 2.5 allows 100x return to be at 80% height, while 1000x clips at 100%.
+                    const maxLogScale = 2.5;
 
-                    // Real calculation for visual:
-                    // Let's say max height (100%) represents the terminal value at Max Risk (15%) & Max Years (50).
-                    // Max Growth = (1.15)^50 ~= 1083.
-                    // Min Growth = (1.02)^1 ~= 1.02.
-
-                    // This is too wide a range for a linear chart. Logarithmic?
-                    // Let's just make it look "cool".
-
-                    const normalizedHeight = Math.min(100, 10 + (growth - 1) * 20 + (i * 2));
-                    // This is tricky because growth varies wildly.
-
-                    // Alternative:
-                    // Just map Risk to "Steepness" and Years to "Extension".
-                    // But we have fixed 12 bars.
-
-                    // Let's use a simple exponential curve that reacts to the inputs.
-                    const steepness = (riskValue / 100) * 2 + 0.5; // 0.5 to 2.5
-                    const duration = (yearsValue / 50) * 2 + 0.5; // 0.5 to 2.5
-
-                    const barHeight = 10 + Math.pow(i, steepness * 0.8) * duration * 3;
-                    const finalHeight = Math.min(100, barHeight + Math.random() * 5); // Add jitter
+                    const barHeight = 10 + (logGrowth / maxLogScale) * 90;
+                    const finalHeight = Math.min(100, barHeight + Math.random() * 2); // Add subtle jitter
 
                     return (
                       <motion.div
