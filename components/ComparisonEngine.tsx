@@ -131,7 +131,7 @@ const ETFCard = memo(({
           <div className="flex gap-3">
              {/* Provider Logo */}
              {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
-              <div className="w-10 h-10 rounded-lg bg-white p-1.5 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 flex items-center justify-center shrink-0">
                 <img
                   src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!}
                   alt={`${etf.ticker} logo`}

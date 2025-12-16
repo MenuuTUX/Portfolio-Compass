@@ -132,7 +132,7 @@ export default function TrendingSection({
 
                                 <div className="flex items-start gap-3 mb-4">
                                     {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
-                                        <div className="w-10 h-10 rounded-lg bg-white p-1.5 flex items-center justify-center shrink-0">
+                                        <div className="w-10 h-10 flex items-center justify-center shrink-0">
                                             <img
                                                 src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!}
                                                 alt={`${etf.ticker} logo`}
