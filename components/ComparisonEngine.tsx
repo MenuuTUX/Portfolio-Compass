@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, memo, useId } from '
 import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, ChevronDown } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
+import { getProviderLogo } from '@/lib/etf-providers';
 import { ETF, PortfolioItem } from '@/types';
 import { ETFSchema } from '@/schemas/assetSchema';
 import { z } from 'zod';
@@ -127,9 +128,22 @@ const ETFCard = memo(({
 
       <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
         <div className="flex justify-between items-start mb-4">
-          <div>
-            <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
-            <p className="text-sm text-neutral-400 line-clamp-1" title={etf.name}>{etf.name}</p>
+          <div className="flex gap-3">
+             {/* Provider Logo */}
+             {getProviderLogo(etf.name) && (
+              <div className="w-10 h-10 rounded-lg bg-white p-1.5 flex items-center justify-center shrink-0">
+                <img
+                  src={getProviderLogo(etf.name)!}
+                  alt={`${etf.name} logo`}
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                />
+              </div>
+            )}
+            <div>
+              <h3 className="text-2xl font-bold text-white tracking-tight">{etf.ticker}</h3>
+              <p className="text-sm text-neutral-400 line-clamp-1" title={etf.name}>{etf.name}</p>
+            </div>
           </div>
           <div className="flex flex-col items-end gap-2">
             {/* Owned Indicator */}
