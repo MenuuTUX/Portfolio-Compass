@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
+import { getProviderLogo } from '@/lib/etf-providers';
 import SectorPieChart from './SectorPieChart';
 import { useMemo, useState, useEffect } from 'react';
 
@@ -284,6 +285,16 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 backdrop-blur-md">
               <div className="flex items-center gap-4">
+                {/* Provider Logo */}
+                {getProviderLogo(displayEtf.name) && (
+                  <div className="w-12 h-12 rounded-xl bg-white p-2 flex items-center justify-center shrink-0">
+                    <img
+                      src={getProviderLogo(displayEtf.name)!}
+                      alt={`${displayEtf.name} logo`}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
                 <div>
                   <h2 className="text-3xl font-bold text-white tracking-tight">{displayEtf.ticker}</h2>
                   <p className="text-neutral-400 text-sm">{displayEtf.name}</p>
