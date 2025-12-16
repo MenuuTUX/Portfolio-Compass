@@ -185,36 +185,92 @@ export async function GET(request: NextRequest) {
     }
 
     if (etfs.length === 0 && query && query.length > 1) {
-      console.log(`[API] Local miss for "${query}". Attempting deep sync...`);
+      console.log(`[API] Local miss for "${query}". Processing fallback strategy...`);
 
-      try {
-        const syncedEtf = await syncEtfDetails(query);
+      const targets = query.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0);
+      // Limit to 5 to prevent abuse
+      const limitedTargets = targets.slice(0, 5);
 
-        if (syncedEtf) {
-           etfs.push(syncedEtf as any);
-        } else {
-           console.log(`[API] Deep sync failed for "${query}". Falling back to snapshot...`);
-           const liveData = await fetchMarketSnapshot([query]);
+      if (limitedTargets.length > 0) {
+        try {
+          // 1. Check DB for these tickers (in case they exist but 'contains' query failed on the combined string)
+          const existingInDb = await prisma.etf.findMany({
+            where: { ticker: { in: limitedTargets } },
+            include: includeObj
+          });
 
-           if (Array.isArray(liveData) && liveData.length > 0) {
-              const item = liveData[0];
-              const newEtf = await prisma.etf.create({
-                data: {
-                  ticker: item.ticker,
-                  name: item.name,
-                  price: item.price.toString(),
-                  daily_change: item.dailyChangePercent.toString(),
-                  currency: 'USD',
-                  assetType: item.assetType || "ETF",
-                  isDeepAnalysisLoaded: false,
-                },
-                include: includeObj
-              });
-              etfs.push(newEtf as any);
-           }
+          // Add found ones
+          existingInDb.forEach((e: any) => {
+            if (!etfs.find((existing: any) => existing.ticker === e.ticker)) {
+              etfs.push(e);
+            }
+          });
+
+          // Identify what's still missing
+          const foundTickerSet = new Set(etfs.map((e: any) => e.ticker));
+          const missingTargets = limitedTargets.filter(t => !foundTickerSet.has(t));
+
+          if (missingTargets.length > 0) {
+            console.log(`[API] Attempting deep sync for missing: ${missingTargets.join(', ')}`);
+
+            await Promise.all(missingTargets.map(async (ticker) => {
+              try {
+                const synced = await syncEtfDetails(ticker);
+                if (synced) {
+                  etfs.push(synced as any);
+                }
+              } catch (err) {
+                console.error(`[API] Sync failed for ${ticker}`, err);
+              }
+            }));
+
+            // Re-check what is still missing after sync attempts
+            const foundAfterSync = new Set(etfs.map((e: any) => e.ticker));
+            const stillMissing = limitedTargets.filter(t => !foundAfterSync.has(t));
+
+            if (stillMissing.length > 0) {
+              console.log(`[API] Deep sync failed for ${stillMissing.join(', ')}. Falling back to snapshot...`);
+              try {
+                const liveData = await fetchMarketSnapshot(stillMissing);
+                for (const item of liveData) {
+                  try {
+                    // Double check existence
+                    const exists = await prisma.etf.findUnique({ where: { ticker: item.ticker } });
+                    if (!exists) {
+                      const newEtf = await prisma.etf.create({
+                        data: {
+                          ticker: item.ticker,
+                          name: item.name,
+                          price: item.price.toString(),
+                          daily_change: item.dailyChangePercent.toString(),
+                          currency: 'USD',
+                          assetType: item.assetType || "ETF",
+                          isDeepAnalysisLoaded: false,
+                        },
+                        include: includeObj
+                      });
+                      etfs.push(newEtf as any);
+                    } else {
+                      // If it was created in race condition, try to fetch it with include
+                      const existing = await prisma.etf.findUnique({
+                        where: { ticker: item.ticker },
+                        include: includeObj
+                      });
+                      if (existing) etfs.push(existing as any);
+                    }
+                  } catch (createErr) {
+                    console.error(`[API] Failed to create snapshot ETF ${item.ticker}`, createErr);
+                  }
+                }
+              } catch (snapshotErr) {
+                console.error('[API] Snapshot fallback failed', snapshotErr);
+              }
+            }
+          }
+
+        } catch (fallbackError) {
+          console.error('[API] Fallback strategy failed:', fallbackError);
         }
-      } catch (liveError) {
-        console.error('[API] Live fetch/sync failed:', liveError);
       }
     }
 
