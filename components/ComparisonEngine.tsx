@@ -137,6 +137,11 @@ const ETFCard = memo(({
                   alt={`${etf.ticker} logo`}
                   className="w-full h-full object-contain"
                   loading="lazy"
+                  onError={(e) => {
+                    // Hide the image container if loading fails
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.style.display = 'none';
+                  }}
                 />
               </div>
             )}
