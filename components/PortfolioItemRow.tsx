@@ -32,6 +32,10 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
                 alt={`${item.ticker} logo`}
                 className="w-full h-full object-contain"
                 loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement!.style.display = 'none';
+                }}
               />
             </div>
           )}

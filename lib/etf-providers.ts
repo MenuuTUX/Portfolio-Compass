@@ -40,12 +40,9 @@ const providers = [
   { name: 'VanEck', keywords: ['VanEck'], slug: 'vaneck' },
   { name: 'Vanguard', keywords: ['Vanguard'], slug: 'vanguard' },
   { name: 'VictoryShares', keywords: ['VictoryShares'], slug: 'victoryshares' },
-  { name: 'WisdomTree', keywords: ['WisdomTree'], slug: 'wisdomtree', stockTicker: 'WT' }, // WT is defunct? WETF is WisdomTree. Wait.
-  { name: 'Xtrackers', keywords: ['Xtrackers', 'DWS'], slug: 'xtrackers', stockTicker: 'DWS' }, // DWS Group (DWS.DE), maybe not in US repo?
+  { name: 'WisdomTree', keywords: ['WisdomTree'], slug: 'wisdomtree', stockTicker: 'WT' },
+  { name: 'Xtrackers', keywords: ['Xtrackers', 'DWS'], slug: 'xtrackers', stockTicker: 'DWS' },
 ];
-
-// Fallback for WisdomTree: WETF was the ticker, now WT.
-// Checking WisdomTree ticker: Currently WT.
 
 export function getProviderLogo(etfName: string): string | null {
   const normalizedName = etfName.toLowerCase();
@@ -61,22 +58,41 @@ export function getProviderLogo(etfName: string): string | null {
   return null;
 }
 
-const ICON_BASE_URL = 'https://raw.githubusercontent.com/nvstly/icons/main';
+// Using jsDelivr for faster, cached delivery
+const ICON_BASE_URL = 'https://cdn.jsdelivr.net/gh/nvstly/icons@main';
+
+const CRYPTO_MAP: Record<string, string> = {
+  'BITCOIN': 'BTC',
+  'ETHEREUM': 'ETH',
+  'SOLANA': 'SOL',
+  'CARDANO': 'ADA',
+  'RIPPLE': 'XRP',
+  'DOGECOIN': 'DOGE',
+  'POLKADOT': 'DOT',
+  'CHAINLINK': 'LINK',
+  'LITECOIN': 'LTC',
+  'STELLAR': 'XLM'
+};
 
 export function getAssetIconUrl(ticker: string, name: string, assetType: string = 'ETF'): string | null {
+  const upperTicker = ticker.toUpperCase();
+
   // STOCK logic
   if (assetType === 'STOCK') {
-    return `${ICON_BASE_URL}/ticker_icons/${ticker.toUpperCase()}.png`;
+    return `${ICON_BASE_URL}/ticker_icons/${upperTicker}.png`;
   }
 
   // CRYPTO logic
   if (assetType === 'CRYPTO') {
-    // Crypto logic: try crypto_icons, fallback to ticker_icons or just return crypto path
-    // The repo has crypto_icons/{SYMBOL}.png
-    return `${ICON_BASE_URL}/crypto_icons/${ticker.toUpperCase()}.png`;
+    // Map full names/IDs (which might be used as tickers in some contexts) to symbols
+    // If the ticker is already a symbol (e.g. BTC), this map check won't hurt if we don't match,
+    // but ideally we should handle both.
+    // The current app uses IDs as tickers (BITCOIN).
+    const symbol = CRYPTO_MAP[upperTicker] || upperTicker;
+    return `${ICON_BASE_URL}/crypto_icons/${symbol}.png`;
   }
 
-  // ETF logic: Try to find provider ticker icon, fallback to local logo
+  // ETF logic
   if (assetType === 'ETF') {
     const normalizedName = name.toLowerCase();
     const match = providers.find(p =>
@@ -84,18 +100,12 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
     );
 
     if (match) {
-        // If provider has a known stock ticker, use it for high-res icon
         if (match.stockTicker) {
-            // Check for specific exclusions if we know they don't exist in the repo?
-            // For now assume they exist if we added them.
-            // WT (WisdomTree) was 404 in my test. So let's exclude it or fix it.
-            // I'll leave it out if I'm not sure. I tested WT and it failed.
+             // Exclude WT if known missing, but try CDN anyway
             if (match.stockTicker === 'WT') return `/logos/${match.slug}.png`;
-
             return `${ICON_BASE_URL}/ticker_icons/${match.stockTicker}.png`;
         }
 
-        // Fallback to local logo
         const missing = ['agfiq', 'advisorshares', 'alpha-architect', 'american-century-investments', 'cibc-asset-management'];
         if (missing.includes(match.slug)) return null;
         return `/logos/${match.slug}.png`;
