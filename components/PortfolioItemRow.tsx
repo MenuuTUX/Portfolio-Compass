@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Trash2 } from 'lucide-react';
+import { getAssetIconUrl } from '@/lib/etf-providers';
 import { PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
 import { VirtualItem } from '@tanstack/react-virtual';
@@ -23,9 +24,21 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
       // Removed transform and fixed height to allow dynamic sizing and correct positioning via spacer rows
     >
       <td className="p-4 align-top">
-        <div className="flex flex-col">
-          <span className="font-bold text-white text-lg">{item.ticker}</span>
-          <span className="text-xs text-neutral-400 truncate max-w-[150px]" title={item.name}>{item.name}</span>
+        <div className="flex gap-3 items-center">
+          {getAssetIconUrl(item.ticker, item.name, item.assetType) && (
+            <div className="w-8 h-8 rounded bg-white p-1 flex items-center justify-center shrink-0">
+              <img
+                src={getAssetIconUrl(item.ticker, item.name, item.assetType)!}
+                alt={`${item.ticker} logo`}
+                className="w-full h-full object-contain"
+                loading="lazy"
+              />
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="font-bold text-white text-lg">{item.ticker}</span>
+            <span className="text-xs text-neutral-400 truncate max-w-[150px]" title={item.name}>{item.name}</span>
+          </div>
         </div>
       </td>
 

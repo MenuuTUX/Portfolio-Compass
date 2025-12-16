@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Plus, ArrowUpRight, ArrowDownRight, ShoppingBag, Tag, Zap, Sprout, Trash2, Check, Pickaxe, ChevronDown } from 'lucide-react';
 import { ETF, PortfolioItem } from '@/types';
 import { cn, formatCurrency } from '@/lib/utils';
+import { getAssetIconUrl } from '@/lib/etf-providers';
 
 interface TrendingSectionProps {
     title: string;
@@ -129,8 +130,18 @@ export default function TrendingSection({
                                     </div>
                                 )}
 
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
+                                <div className="flex items-start gap-3 mb-4">
+                                    {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
+                                        <div className="w-10 h-10 rounded-lg bg-white p-1.5 flex items-center justify-center shrink-0">
+                                            <img
+                                                src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!}
+                                                alt={`${etf.ticker} logo`}
+                                                className="w-full h-full object-contain"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
                                         <h3 className="text-xl font-bold text-white mb-1">{etf.ticker}</h3>
                                         <p className="text-xs text-neutral-400 line-clamp-1">{etf.name}</p>
                                     </div>
