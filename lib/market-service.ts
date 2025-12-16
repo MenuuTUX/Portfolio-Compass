@@ -81,20 +81,43 @@ async function fetchWithFallback<T>(
 export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnapshot[]> {
   if (tickers.length === 0) return [];
 
-  try {
-    const results = await yf.quote(tickers);
+  const mapQuoteToSnapshot = (quote: any) => ({
+    ticker: quote.symbol,
+    price: new Decimal(quote.regularMarketPrice || 0),
+    dailyChange: new Decimal(quote.regularMarketChange || 0),
+    dailyChangePercent: normalizePercent(quote.regularMarketChangePercent),
+    name: quote.shortName || quote.longName || quote.symbol,
+    assetType: determineAssetType(quote.quoteType)
+  });
 
-    return results.map(quote => ({
-      ticker: quote.symbol,
-      price: new Decimal(quote.regularMarketPrice || 0),
-      dailyChange: new Decimal(quote.regularMarketChange || 0),
-      dailyChangePercent: normalizePercent(quote.regularMarketChangePercent),
-      name: quote.shortName || quote.longName || quote.symbol,
-      assetType: determineAssetType(quote.quoteType)
-    }));
+  try {
+    // Attempt to fetch all tickers in one batch
+    const results = await yf.quote(tickers);
+    // Ensure we always return an array, even if yf returns something else (though for list input it returns list)
+    if (Array.isArray(results)) {
+        return results.map(mapQuoteToSnapshot);
+    } else {
+        return [mapQuoteToSnapshot(results)];
+    }
   } catch (error) {
-    console.error("Error fetching market snapshot:", error);
-    return [];
+    console.warn("Bulk fetch failed in fetchMarketSnapshot, attempting individual fallbacks:", error);
+
+    // If bulk fetch fails, try fetching individually or in smaller batches.
+    // We use individual fetches here for maximum resilience.
+    const promises = tickers.map(async (t) => {
+        try {
+            const q = await yf.quote(t);
+            return q;
+        } catch (e) {
+            console.error(`Failed to fetch individual ticker ${t}:`, e);
+            return null;
+        }
+    });
+
+    const individualResults = await Promise.all(promises);
+    const validQuotes = individualResults.filter(q => q !== null);
+
+    return validQuotes.map(mapQuoteToSnapshot);
   }
 }
 
