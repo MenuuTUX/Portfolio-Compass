@@ -30,8 +30,8 @@ describe('fetchSectorWeightings', () => {
     const mockResponse = {
       fundProfile: {
         sectorWeightings: [
-          { sector: 'Technology', weight: 0.5 },
-          { sector: 'Healthcare', weight: 0.3 }
+          { Technology: 0.5 },
+          { Healthcare: 0.3 }
         ]
       }
     };
@@ -49,7 +49,7 @@ describe('fetchSectorWeightings', () => {
     const mockResponse = {
       topHoldings: {
         sectorWeightings: [
-          { sector: 'Financial Services', weight: 0.2 }
+          { 'Financial Services': 0.2 }
         ]
       }
     };

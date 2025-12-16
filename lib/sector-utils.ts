@@ -7,27 +7,49 @@ export interface SectorWeighting {
   weight: number;
 }
 
+interface QuoteSummaryResponse {
+  fundProfile?: {
+    sectorWeightings?: Record<string, number>[];
+  };
+  topHoldings?: {
+    sectorWeightings?: Record<string, number>[];
+  };
+  summaryProfile?: {
+    sector?: string;
+  };
+}
+
 export async function fetchSectorWeightings(ticker: string): Promise<SectorWeighting[]> {
   try {
     const queryOptions = { modules: ['fundProfile', 'topHoldings', 'summaryProfile'] as const };
-    // @ts-ignore - yahoo-finance2 types might be tricky with modules
-    const quoteSummary: any = await yahooFinance.quoteSummary(ticker, queryOptions);
+
+    const quoteSummary = await yahooFinance.quoteSummary(ticker, queryOptions) as QuoteSummaryResponse;
 
     let sectors: SectorWeighting[] = [];
 
+    // Helper to parse sector weightings from the array of objects format
+    // format: [{ realestate: 0.0187 }, { technology: 0.3529 }, ...]
+    const parseSectorWeightings = (weightings: Record<string, number>[]) => {
+      return weightings
+        .map(w => {
+          const keys = Object.keys(w);
+          if (keys.length === 0) return null;
+          const sectorName = keys[0];
+          return {
+            sector_name: sectorName,
+            weight: (w[sectorName] || 0) * 100
+          };
+        })
+        .filter((s): s is SectorWeighting => s !== null);
+    };
+
     // Try fundProfile (most ETFs)
     if (quoteSummary.fundProfile && quoteSummary.fundProfile.sectorWeightings) {
-      sectors = quoteSummary.fundProfile.sectorWeightings.map((s: any) => ({
-        sector_name: s.sector,
-        weight: (s.weight || 0) * 100 // Convert decimal to percent
-      }));
+      sectors = parseSectorWeightings(quoteSummary.fundProfile.sectorWeightings);
     }
     // Try topHoldings (sometimes contains sector weightings)
     else if (quoteSummary.topHoldings && quoteSummary.topHoldings.sectorWeightings) {
-      sectors = quoteSummary.topHoldings.sectorWeightings.map((s: any) => ({
-        sector_name: s.sector,
-        weight: (s.weight || 0) * 100
-      }));
+      sectors = parseSectorWeightings(quoteSummary.topHoldings.sectorWeightings);
     }
     // Try summaryProfile (Stocks)
     else if (quoteSummary.summaryProfile && quoteSummary.summaryProfile.sector) {
