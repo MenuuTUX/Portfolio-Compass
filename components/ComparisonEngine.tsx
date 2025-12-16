@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, memo, useId } from '
 import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, ChevronDown } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
-import { getProviderLogo } from '@/lib/etf-providers';
+import { getAssetIconUrl } from '@/lib/etf-providers';
 import { ETF, PortfolioItem } from '@/types';
 import { ETFSchema } from '@/schemas/assetSchema';
 import { z } from 'zod';
@@ -130,11 +130,11 @@ const ETFCard = memo(({
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-3">
              {/* Provider Logo */}
-             {getProviderLogo(etf.name) && (
+             {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
               <div className="w-10 h-10 rounded-lg bg-white p-1.5 flex items-center justify-center shrink-0">
                 <img
-                  src={getProviderLogo(etf.name)!}
-                  alt={`${etf.name} logo`}
+                  src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!}
+                  alt={`${etf.ticker} logo`}
                   className="w-full h-full object-contain"
                   loading="lazy"
                 />
