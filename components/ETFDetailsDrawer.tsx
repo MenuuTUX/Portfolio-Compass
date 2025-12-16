@@ -106,7 +106,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     }
   }, [showComparison, spyData]);
 
-  const historyData = useMemo(() => {
+  const filteredEtfHistory = useMemo(() => {
     if (!displayEtf || !displayEtf.history) return [];
 
     let targetInterval = '1wk'; // Default fallback
@@ -149,10 +149,36 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     };
 
-    const etfHistory = filterAndSort(displayEtf.history);
+    return filterAndSort(displayEtf.history);
+  }, [displayEtf, timeRange]);
+
+  const historyData = useMemo(() => {
+    if (filteredEtfHistory.length === 0) return [];
 
     if (showComparison && spyData && spyData.history) {
-      const spyHistory = filterAndSort(spyData.history);
+      // Re-implement filter logic for SPY to match ETF
+      // We can't reuse the exact function scope but we can replicate the logic
+      // Ideally we would extract filterAndSort but for now let's duplicate the simple logic or find a way to share
+      // Let's just create a helper inside since we need targetInterval/cutoffDate
+
+      let targetInterval = '1wk';
+      const now = new Date();
+      const cutoffDate = new Date();
+      switch (timeRange) {
+        case '1D': targetInterval = '1h'; cutoffDate.setDate(now.getDate() - 2); break;
+        case '1W': targetInterval = '1d'; cutoffDate.setDate(now.getDate() - 7); break;
+        case '1M': targetInterval = '1wk'; cutoffDate.setMonth(now.getMonth() - 1); break;
+        case '1Y': targetInterval = '1wk'; cutoffDate.setFullYear(now.getFullYear() - 1); break;
+        case '5Y': targetInterval = '1mo'; cutoffDate.setFullYear(now.getFullYear() - 5); break;
+        default: targetInterval = '1wk'; cutoffDate.setMonth(now.getMonth() - 1);
+      }
+
+      const spyHistory = spyData.history
+        .filter((h: any) => {
+          if (h.interval !== targetInterval) return false;
+          return new Date(h.date) >= cutoffDate;
+        })
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       // Helper to find closest SPY price within tolerance
       const getSpyPriceAt = (targetDate: Date) => {
@@ -163,10 +189,6 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
         const tolerance = (timeRange === '1D' || timeRange === '1W')
           ? 30 * 60 * 1000
           : 24 * 60 * 60 * 1000;
-
-        // Find closest data point
-        // Optimization: spyHistory is sorted. We could use binary search or just find.
-        // Given array size is small (<1000), a simple reduce or find is acceptable.
 
         let closest = spyHistory[0];
         let minDiff = Math.abs(new Date(closest.date).getTime() - targetTime);
@@ -186,73 +208,44 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
         return null;
       };
 
-      if (etfHistory.length > 0) {
-        const etfStart = etfHistory[0].price;
-
+      if (filteredEtfHistory.length > 0) {
+        const etfStart = filteredEtfHistory[0].price;
         // Find closest SPY start price to align the charts
-        const spyStartPrice = getSpyPriceAt(new Date(etfHistory[0].date));
+        const spyStartPrice = getSpyPriceAt(new Date(filteredEtfHistory[0].date));
         const spyStart = spyStartPrice || (spyHistory.length > 0 ? spyHistory[0].price : 1);
 
-        // Calculate scale factor to make SPY start at the same level as ETF
-        const scaleFactor = etfStart / spyStart;
-
-        return etfHistory.map(h => {
+        return filteredEtfHistory.map(h => {
           const rawSpyPrice = getSpyPriceAt(new Date(h.date));
+          const spyPct = rawSpyPrice ? ((rawSpyPrice - spyStart) / spyStart) * 100 : null;
+          const etfPct = ((h.price - etfStart) / etfStart) * 100;
 
           return {
             date: h.date,
-            price: h.price,
-            spyPrice: rawSpyPrice ? rawSpyPrice * scaleFactor : null,
-            originalSpyPrice: rawSpyPrice // Store original for tooltip
+            price: etfPct,
+            originalPrice: h.price,
+            spyPrice: spyPct,
+            originalSpyPrice: rawSpyPrice
           };
         });
       }
     }
 
-    return etfHistory;
-  }, [displayEtf, timeRange, showComparison, spyData]);
+    return filteredEtfHistory;
+  }, [filteredEtfHistory, showComparison, spyData, timeRange]);
 
   const { percentageChange, isPositive } = useMemo(() => {
-    if (!displayEtf || !displayEtf.history || displayEtf.history.length < 2) return { percentageChange: 0, isPositive: true };
-    // Use raw history for the header metric, not the chart data
-    // We need to filter raw history by the current time range to match the chart's "view"
-    // Re-using the logic from historyData but strictly for the main ETF
+    if (filteredEtfHistory.length < 2) return { percentageChange: 0, isPositive: true };
 
-    // ... (logic duplicated for simplicity, or we could extract it)
-    // For now, let's just use the last known price vs first known price in the filtered set
-    // But wait, historyData is already filtered!
-    // If showComparison is true, historyData is percentages. If false, it's prices.
-
-    if (historyData.length < 2) return { percentageChange: 0, isPositive: true };
-
-    // Always calculate percentage change based on price difference of the main ETF
-    // In comparison mode, 'price' is still the dollar value now.
-    const startPrice = historyData[0].price;
-    const endPrice = historyData[historyData.length - 1].price;
+    const startPrice = filteredEtfHistory[0].price;
+    const endPrice = filteredEtfHistory[filteredEtfHistory.length - 1].price;
     const change = ((endPrice - startPrice) / startPrice) * 100;
     return { percentageChange: change, isPositive: change >= 0 };
-  }, [historyData, showComparison, displayEtf]);
+  }, [filteredEtfHistory]);
 
   const riskData = useMemo(() => {
     if (!displayEtf) return null;
-    // Risk metric should probably stay based on the ETF's raw data
-    // We can pass the raw filtered history if we want to be precise,
-    // but for now passing the potentially transformed historyData might be misleading if it's normalized.
-    // Let's assume calculateRiskMetric handles raw prices.
-    // If showComparison is on, historyData is percentages. calculateRiskMetric likely expects prices.
-    // So we should probably disable or ignore risk calculation on the transformed data,
-    // OR re-calculate it based on raw data.
-    // For simplicity, let's just use the ETF's raw history for the risk metric display,
-    // ignoring the time range filter for the *overall* risk label if that's acceptable,
-    // OR we filter it again.
-    // Let's just use the full history for the risk label as it was before (likely).
-    // Actually, the previous code used `historyData` which was filtered.
-    // If we want to keep it simple, we can just hide risk data in comparison mode or re-compute.
-    // Let's re-compute using raw filtered data if needed, but for now let's just return null if comparing to avoid confusion/errors.
-    if (showComparison) return null;
-
-    return calculateRiskMetric(historyData);
-  }, [displayEtf, historyData, showComparison]);
+    return calculateRiskMetric(filteredEtfHistory);
+  }, [displayEtf, filteredEtfHistory]);
 
   const sectorData = useMemo(() => {
     if (!displayEtf || !displayEtf.sectors) return [];
@@ -398,7 +391,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                           domain={['auto', 'auto']}
                           orientation="right"
                           tick={{ fill: '#737373', fontSize: 12 }}
-                          tickFormatter={(value) => formatCurrency(value)}
+                          tickFormatter={(value) => showComparison ? `${value.toFixed(2)}%` : formatCurrency(value)}
                           axisLine={false}
                           tickLine={false}
                         />
@@ -406,6 +399,12 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                           contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                           itemStyle={{ color: '#fff' }}
                           formatter={(value: number, name: string, item: any) => {
+                            if (showComparison) {
+                              if (name === 'spyPrice') {
+                                return [`${value != null ? value.toFixed(2) : '0.00'}%`, 'SPY'];
+                              }
+                              return [`${value.toFixed(2)}%`, displayEtf.ticker];
+                            }
                             if (name === 'spyPrice') {
                               // Show original SPY price if available
                               const original = item.payload.originalSpyPrice;
@@ -450,8 +449,8 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         {historyData.map((item, index) => (
                           <tr key={index}>
                             <td>{new Date(item.date).toLocaleDateString()}</td>
-                            <td>{formatCurrency(item.price)}</td>
-                            {showComparison && <td>{item.spyPrice ? formatCurrency(item.spyPrice) : 'N/A'}</td>}
+                            <td>{showComparison ? `${item.price.toFixed(2)}%` : formatCurrency(item.price)}</td>
+                            {showComparison && <td>{item.spyPrice ? `${item.spyPrice.toFixed(2)}%` : 'N/A'}</td>}
                           </tr>
                         ))}
                       </tbody>
