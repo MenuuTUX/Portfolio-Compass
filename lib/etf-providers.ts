@@ -1,4 +1,3 @@
-
 const providers = [
   { name: 'AGFiQ', keywords: ['AGFiQ'], slug: 'agfiq' },
   { name: 'AdvisorShares', keywords: ['AdvisorShares'], slug: 'advisorshares' },
@@ -61,18 +60,25 @@ export function getProviderLogo(etfName: string): string | null {
 // Using jsDelivr for faster, cached delivery
 const ICON_BASE_URL = 'https://cdn.jsdelivr.net/gh/nvstly/icons@main';
 
-const CRYPTO_MAP: Record<string, string> = {
-  'BITCOIN': 'BTC',
-  'ETHEREUM': 'ETH',
-  'SOLANA': 'SOL',
-  'CARDANO': 'ADA',
-  'RIPPLE': 'XRP',
-  'DOGECOIN': 'DOGE',
-  'POLKADOT': 'DOT',
-  'CHAINLINK': 'LINK',
-  'LITECOIN': 'LTC',
-  'STELLAR': 'XLM'
-};
+const CRYPTO_ASSETS = [
+  { id: 'BITCOIN', symbol: 'BTC' },
+  { id: 'ETHEREUM', symbol: 'ETH' },
+  { id: 'SOLANA', symbol: 'SOL' },
+  { id: 'CARDANO', symbol: 'ADA' },
+  { id: 'RIPPLE', symbol: 'XRP' },
+  { id: 'DOGECOIN', symbol: 'DOGE' },
+  { id: 'POLKADOT', symbol: 'DOT' },
+  { id: 'CHAINLINK', symbol: 'LINK' },
+  { id: 'LITECOIN', symbol: 'LTC' },
+  { id: 'STELLAR', symbol: 'XLM' }
+];
+
+// Create a lookup map that handles both IDs and Symbols
+const CRYPTO_RESOLVER = CRYPTO_ASSETS.reduce((acc, { id, symbol }) => {
+  acc[id] = symbol;
+  acc[symbol] = symbol;
+  return acc;
+}, {} as Record<string, string>);
 
 export function getAssetIconUrl(ticker: string, name: string, assetType: string = 'ETF'): string | null {
   const upperTicker = ticker.toUpperCase();
@@ -84,12 +90,10 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
 
   // CRYPTO logic
   if (assetType === 'CRYPTO') {
-    // Map full names/IDs (which might be used as tickers in some contexts) to symbols
-    // If the ticker is already a symbol (e.g. BTC), this map check won't hurt if we don't match,
-    // but ideally we should handle both.
-    // The current app uses IDs as tickers (BITCOIN).
-    const symbol = CRYPTO_MAP[upperTicker] || upperTicker;
-    return `${ICON_BASE_URL}/crypto_icons/${symbol}.png`;
+    // Explicitly check our known crypto assets map which supports both IDs (BITCOIN) and Symbols (BTC).
+    // If not found, fall back to using the ticker as-is (e.g. for unlisted cryptos that might have an icon).
+    const symbol = CRYPTO_RESOLVER[upperTicker];
+    return `${ICON_BASE_URL}/crypto_icons/${symbol || upperTicker}.png`;
   }
 
   // ETF logic
