@@ -76,20 +76,24 @@ describe('API: /api/etfs/search', () => {
     }];
     mockFetchMarketSnapshot.mockResolvedValue(defaultTickersMock);
 
-    // Mock create to return something valid but SCALARS ONLY to simulate real Prisma behavior
-    mockPrismaCreate.mockImplementation((args: any) => Promise.resolve({
-        ...args.data,
-        price: Number(args.data.price),
-        daily_change: Number(args.data.daily_change),
-        updatedAt: new Date(),
-        // Note: No relations here, as Prisma doesn't return them unless included.
-        // But since we added 'include: includeObj', the mock SHOULD return them if we want to be accurate to "successful include".
-        // However, if we want to test robustness against missing relations, we can omit them.
-        // BUT, the code now requests include, so Prisma WOULD return them (as empty arrays/null).
-        history: [],
-        sectors: [],
-        allocation: null
-    }));
+    // Mock create to return valid object, including relations if requested
+    mockPrismaCreate.mockImplementation((args: any) => {
+        const result: any = {
+            ...args.data,
+            price: Number(args.data.price),
+            daily_change: Number(args.data.daily_change),
+            updatedAt: new Date(),
+        };
+
+        // Accurate Prisma mock: return empty relations if 'include' is present
+        if (args.include) {
+            if (args.include.history) result.history = [];
+            if (args.include.sectors) result.sectors = [];
+            if (args.include.allocation) result.allocation = null;
+        }
+
+        return Promise.resolve(result);
+    });
 
     const request = new NextRequest('http://localhost/api/etfs/search?limit=100');
     const response: any = await GET(request);
