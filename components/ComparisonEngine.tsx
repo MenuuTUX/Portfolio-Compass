@@ -98,7 +98,9 @@ const ETFCard = memo(({
   }
 
   return (
-    <div
+    <motion.div
+      animate={flashState ? { x: [0, -5, 5, -5, 5, 0] } : {}}
+      transition={{ duration: 0.4 }}
       className={cn(
         "glass-card rounded-xl relative overflow-hidden bg-white/5 border transition-all group flex flex-col",
         inPortfolio
@@ -257,7 +259,7 @@ const ETFCard = memo(({
         </button>
       </div>
 
-    </div>
+    </motion.div>
   );
 });
 

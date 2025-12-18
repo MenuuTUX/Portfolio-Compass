@@ -141,6 +141,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
     try {
       const res = await yf.chart(resolvedTicker, {
         period1,
+        period2: new Date(), // Force up to now
         interval,
       });
       if (res && res.quotes) {
@@ -172,6 +173,31 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
     fetchHistoryInterval('1wk', d5y),
     fetchHistoryInterval('1mo', dMax)
   ]);
+
+  // Ensure the latest price is represented in the history
+  const currentPrice = quoteSummary.price?.regularMarketPrice;
+  if (currentPrice) {
+    const cpDecimal = new Decimal(currentPrice);
+    const nowForCheck = new Date();
+    const nowIso = nowForCheck.toISOString();
+
+    // Check h1d and append if necessary
+    if (h1d.length > 0) {
+       const lastDate = new Date(h1d[h1d.length - 1].date);
+       // If last date is not from today (using simple day comparison), append current price
+       const isSameDay = lastDate.getDate() === nowForCheck.getDate() &&
+                         lastDate.getMonth() === nowForCheck.getMonth() &&
+                         lastDate.getFullYear() === nowForCheck.getFullYear();
+
+       if (!isSameDay) {
+           h1d.push({
+             date: nowIso,
+             close: cpDecimal,
+             interval: '1d'
+           });
+       }
+    }
+  }
 
   const history = [...h1h, ...h1d, ...h1wk, ...h1mo];
 
