@@ -21,9 +21,10 @@ interface QuoteSummaryResponse {
 
 export async function fetchSectorWeightings(ticker: string): Promise<SectorWeighting[]> {
   try {
-    const queryOptions = { modules: ['fundProfile', 'topHoldings', 'summaryProfile'] as const };
+    // Cast modules to any to satisfy the strict union type requirement of yahoo-finance2
+    const queryOptions = { modules: ['fundProfile', 'topHoldings', 'summaryProfile'] as any };
 
-    const quoteSummary = await yahooFinance.quoteSummary(ticker, queryOptions) as QuoteSummaryResponse;
+    const quoteSummary = await yahooFinance.quoteSummary(ticker, queryOptions) as unknown as QuoteSummaryResponse;
 
     let sectors: SectorWeighting[] = [];
 

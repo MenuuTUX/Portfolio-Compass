@@ -1,6 +1,5 @@
 import dns from 'dns';
 import net from 'net';
-import 'dotenv/config';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
