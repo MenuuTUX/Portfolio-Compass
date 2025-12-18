@@ -2,8 +2,7 @@
   "bunVersion": "1.x",
   "crons": [
     {
-      "path": "/api/cron/sync-best",
-      "schedule": "*/10 * * * *"
+      "path": "/api/cron/sync-best"
     }
   ]
 }
