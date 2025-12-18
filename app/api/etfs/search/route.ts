@@ -162,25 +162,14 @@ export async function GET(request: NextRequest) {
       });
 
       if (staleEtfs.length > 0) {
-        console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}". Syncing...`);
+        console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}". Syncing in background...`);
 
-        await Promise.all(staleEtfs.map(async (staleEtf: any) => {
-          try {
-            const updated = await syncEtfDetails(staleEtf.ticker);
-            if (updated) {
-              const index = etfs.findIndex((e: any) => e.ticker === staleEtf.ticker);
-              if (index !== -1) {
-                // We use type assertion here because `updated` from syncEtfDetails (EtfDetails)
-                // might strictly differ from Prisma's result type (specifically included relations),
-                // but at runtime we are merging compatible structures.
-                // However, directly assigning prevents type errors if shapes mismatch slightly.
-                etfs[index] = updated as any;
-              }
-            }
-          } catch (err) {
-            console.error(`[API] Failed to auto-sync ${staleEtf.ticker}:`, err);
-          }
-        }));
+        // Fire-and-forget background sync
+        Promise.all(staleEtfs.map((staleEtf: any) =>
+          syncEtfDetails(staleEtf.ticker).catch(err =>
+            console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
+          )
+        ));
       }
     }
 

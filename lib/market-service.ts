@@ -31,8 +31,13 @@ export interface EtfDetails {
   assetType: 'STOCK' | 'ETF';
   expenseRatio?: Decimal;
   dividendYield?: Decimal;
+  beta5Y?: Decimal;
+  peRatio?: Decimal;
+  forwardPe?: Decimal;
+  fiftyTwoWeekHigh?: Decimal;
+  fiftyTwoWeekLow?: Decimal;
   sectors: Record<string, Decimal>;
-  topHoldings?: Record<string, Decimal>;
+  topHoldings?: { ticker: string; name: string; sector: string | null; weight: Decimal }[];
   history: {
     date: string;
     close: Decimal;
@@ -217,6 +222,34 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
       expenseRatio = new Decimal(rawExpenseRatio);
   }
 
+  // Extract Top Holdings
+  let holdingsList: { ticker: string; name: string; sector: string | null; weight: Decimal }[] | undefined;
+  if (topHoldings?.holdings && Array.isArray(topHoldings.holdings)) {
+    holdingsList = topHoldings.holdings.map((h: any) => ({
+      ticker: h.symbol,
+      name: h.holdingName || h.symbol,
+      sector: null, // Yahoo doesn't provide sector in this list
+      weight: new Decimal(h.holdingPercent ? h.holdingPercent * 100 : 0)
+    }));
+  }
+
+  // Extract Key Statistics
+  // Prefer 5Y beta (defaultKeyStatistics.beta), fallback to beta3Year for ETFs if strictly necessary or keep null if 5Y is required.
+  // The task specifically asked for "Beta (5Y Monthly)".
+  // Yahoo often provides 'beta' in defaultKeyStatistics for stocks (which is 5Y) and 'beta3Year' for funds.
+  // We will check for 'beta' first.
+  let rawBeta = defaultKeyStatistics?.beta;
+  // If beta is missing and it's an ETF, we might want to use beta3Year as a proxy,
+  // but the requirement was specific about 5Y.
+  // However, for ETFs, 5Y beta might be stored in 'beta3Year' field mistakenly by Yahoo or just not available as 5Y.
+  // Given the "Beta 5Y" field name, we should stick to 'beta' if possible.
+
+  const beta5Y = rawBeta ? new Decimal(rawBeta) : undefined;
+  const peRatio = summaryDetail?.trailingPE ? new Decimal(summaryDetail.trailingPE) : undefined;
+  const forwardPe = summaryDetail?.forwardPE ? new Decimal(summaryDetail.forwardPE) : (defaultKeyStatistics?.forwardPE ? new Decimal(defaultKeyStatistics.forwardPE) : undefined);
+  const fiftyTwoWeekHigh = summaryDetail?.fiftyTwoWeekHigh ? new Decimal(summaryDetail.fiftyTwoWeekHigh) : undefined;
+  const fiftyTwoWeekLow = summaryDetail?.fiftyTwoWeekLow ? new Decimal(summaryDetail.fiftyTwoWeekLow) : undefined;
+
   return {
     ticker: resolvedTicker,
     price: new Decimal(price?.regularMarketPrice || 0),
@@ -226,7 +259,13 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
     assetType,
     expenseRatio,
     dividendYield,
+    beta5Y,
+    peRatio,
+    forwardPe,
+    fiftyTwoWeekHigh,
+    fiftyTwoWeekLow,
     sectors,
+    topHoldings: holdingsList,
     history
   };
 }
