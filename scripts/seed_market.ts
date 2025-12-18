@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import prisma from '../lib/db';
 import { fetchMarketSnapshot } from '../lib/market-service';
 
