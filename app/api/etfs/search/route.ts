@@ -61,11 +61,17 @@ export async function GET(request: NextRequest) {
         takeLimit = requestedTickers.length;
     }
 
-    let etfs = await prisma.etf.findMany({
-      where: whereClause,
-      include: includeObj,
-      take: takeLimit,
-    })
+    let etfs: any[] = [];
+    try {
+        etfs = await prisma.etf.findMany({
+            where: whereClause,
+            include: includeObj,
+            take: takeLimit,
+        });
+    } catch (dbError) {
+        console.error('[API] DB Read Failed:', dbError);
+        etfs = [];
+    }
 
     // Handle missing tickers if a specific list was requested
     if (requestedTickers.length > 0) {
@@ -80,27 +86,47 @@ export async function GET(request: NextRequest) {
                 // Create missing ETFs in DB
                 for (const item of liveData) {
                     try {
-                        // Check if it exists to avoid race conditions
-                        const exists = await prisma.etf.findUnique({ where: { ticker: item.ticker } });
-                        if (!exists) {
-                             const newEtf = await prisma.etf.create({
-                                data: {
-                                    ticker: item.ticker,
-                                    name: item.name,
-                                    // Explicitly convert Decimal to string/number for Prisma compatibility
-                                    price: item.price.toString(),
-                                    daily_change: item.dailyChangePercent.toString(),
-                                    currency: 'USD',
-                                    assetType: item.assetType || "ETF",
-                                    isDeepAnalysisLoaded: false,
-                                },
-                                include: includeObj
-                            });
-                            // Add to the list of etfs to return
-                            etfs.push(newEtf as any);
-                        }
+                        const newEtf = await prisma.etf.upsert({
+                            where: { ticker: item.ticker },
+                            update: {
+                                price: item.price.toString(),
+                                daily_change: item.dailyChangePercent.toString(),
+                                // Don't update name/assetType to prevent overwrites if user edited them
+                            },
+                            create: {
+                                ticker: item.ticker,
+                                name: item.name,
+                                // Explicitly convert Decimal to string/number for Prisma compatibility
+                                price: item.price.toString(),
+                                daily_change: item.dailyChangePercent.toString(),
+                                currency: 'USD',
+                                assetType: item.assetType || "ETF",
+                                isDeepAnalysisLoaded: false,
+                            },
+                            include: includeObj
+                        });
+                        // Add to the list of etfs to return
+                        etfs.push(newEtf as any);
                     } catch (createError) {
-                         console.error(`[API] Failed to create ETF ${item.ticker}:`, createError);
+                         console.error(`[API] Failed to upsert ETF ${item.ticker}:`, createError);
+
+                         // Fallback: Use live data directly if DB write fails
+                         // Construct an object matching the Prisma Etf shape expected by formattedEtfs
+                         const fallbackEtf = {
+                             ticker: item.ticker,
+                             name: item.name,
+                             price: item.price, // Decimal
+                             daily_change: item.dailyChangePercent, // Decimal
+                             assetType: item.assetType || "ETF",
+                             isDeepAnalysisLoaded: false,
+                             yield: new Decimal(0),
+                             mer: new Decimal(0),
+                             history: [],
+                             sectors: [],
+                             allocation: null,
+                             updatedAt: new Date()
+                         };
+                         etfs.push(fallbackEtf as any);
                     }
                 }
             } catch (liveFetchError) {
@@ -118,24 +144,42 @@ export async function GET(request: NextRequest) {
             const liveData = await fetchMarketSnapshot(DEFAULT_TICKERS);
              for (const item of liveData) {
                 try {
-                    const exists = await prisma.etf.findUnique({ where: { ticker: item.ticker } });
-                    if (!exists) {
-                         const newEtf = await prisma.etf.create({
-                            data: {
-                                ticker: item.ticker,
-                                name: item.name,
-                                price: item.price.toString(),
-                                daily_change: item.dailyChangePercent.toString(),
-                                currency: 'USD',
-                                assetType: item.assetType || "ETF",
-                                isDeepAnalysisLoaded: false,
-                            },
-                            include: includeObj
-                        });
-                        etfs.push(newEtf as any);
-                    }
+                     const newEtf = await prisma.etf.upsert({
+                        where: { ticker: item.ticker },
+                        update: {
+                            price: item.price.toString(),
+                            daily_change: item.dailyChangePercent.toString(),
+                        },
+                        create: {
+                            ticker: item.ticker,
+                            name: item.name,
+                            price: item.price.toString(),
+                            daily_change: item.dailyChangePercent.toString(),
+                            currency: 'USD',
+                            assetType: item.assetType || "ETF",
+                            isDeepAnalysisLoaded: false,
+                        },
+                        include: includeObj
+                    });
+                    etfs.push(newEtf as any);
                 } catch (e) {
                     console.error(`[API] Failed to auto-seed ${item.ticker}:`, e);
+                     // Fallback: Use live data directly if DB write fails
+                     const fallbackEtf = {
+                         ticker: item.ticker,
+                         name: item.name,
+                         price: item.price,
+                         daily_change: item.dailyChangePercent,
+                         assetType: item.assetType || "ETF",
+                         isDeepAnalysisLoaded: false,
+                         yield: new Decimal(0),
+                         mer: new Decimal(0),
+                         history: [],
+                         sectors: [],
+                         allocation: null,
+                         updatedAt: new Date()
+                     };
+                     etfs.push(fallbackEtf as any);
                 }
             }
         } catch (e) {
@@ -149,6 +193,7 @@ export async function GET(request: NextRequest) {
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
       const staleEtfs = etfs.filter((e: any) => {
+        if (!e.updatedAt) return true; // Handle fallback objects without updatedAt (though we added it)
         if (e.updatedAt < oneHourAgo) return true;
 
         if (e.history && e.history.length > 0) {
@@ -182,11 +227,16 @@ export async function GET(request: NextRequest) {
 
       if (limitedTargets.length > 0) {
         try {
-          // 1. Check DB for these tickers (in case they exist but 'contains' query failed on the combined string)
-          const existingInDb = await prisma.etf.findMany({
-            where: { ticker: { in: limitedTargets } },
-            include: includeObj
-          });
+          // 1. Check DB for these tickers
+           let existingInDb: any[] = [];
+           try {
+              existingInDb = await prisma.etf.findMany({
+                where: { ticker: { in: limitedTargets } },
+                include: includeObj
+              });
+           } catch (e) {
+               console.error('[API] Fallback DB read failed', e);
+           }
 
           // Add found ones
           existingInDb.forEach((e: any) => {
@@ -223,11 +273,13 @@ export async function GET(request: NextRequest) {
                 const liveData = await fetchMarketSnapshot(stillMissing);
                 for (const item of liveData) {
                   try {
-                    // Double check existence
-                    const exists = await prisma.etf.findUnique({ where: { ticker: item.ticker } });
-                    if (!exists) {
-                      const newEtf = await prisma.etf.create({
-                        data: {
+                      const newEtf = await prisma.etf.upsert({
+                        where: { ticker: item.ticker },
+                        update: {
+                            price: item.price.toString(),
+                            daily_change: item.dailyChangePercent.toString(),
+                        },
+                        create: {
                           ticker: item.ticker,
                           name: item.name,
                           price: item.price.toString(),
@@ -239,16 +291,24 @@ export async function GET(request: NextRequest) {
                         include: includeObj
                       });
                       etfs.push(newEtf as any);
-                    } else {
-                      // If it was created in race condition, try to fetch it with include
-                      const existing = await prisma.etf.findUnique({
-                        where: { ticker: item.ticker },
-                        include: includeObj
-                      });
-                      if (existing) etfs.push(existing as any);
-                    }
                   } catch (createErr) {
                     console.error(`[API] Failed to create snapshot ETF ${item.ticker}`, createErr);
+                    // Fallback
+                     const fallbackEtf = {
+                         ticker: item.ticker,
+                         name: item.name,
+                         price: item.price,
+                         daily_change: item.dailyChangePercent,
+                         assetType: item.assetType || "ETF",
+                         isDeepAnalysisLoaded: false,
+                         yield: new Decimal(0),
+                         mer: new Decimal(0),
+                         history: [],
+                         sectors: [],
+                         allocation: null,
+                         updatedAt: new Date()
+                     };
+                     etfs.push(fallbackEtf as any);
                   }
                 }
               } catch (snapshotErr) {
@@ -267,7 +327,7 @@ export async function GET(request: NextRequest) {
     // We let TS infer the type from map, or explicit annotation.
     const formattedEtfs = etfs.map((etf: any) => {
       let history = etf.history ? etf.history.map((h: any) => ({
-        date: h.date.toISOString(),
+        date: h.date instanceof Date ? h.date.toISOString() : h.date, // Handle non-Date mocks/fallbacks if any
         price: Number(h.close),
         interval: h.interval
       })) : [];
@@ -279,25 +339,33 @@ export async function GET(request: NextRequest) {
         history = history.filter((_: any, index: number) => index % step === 0 || index === history.length - 1);
       }
 
+      // Handle Decimal conversion safely for potential fallback objects or DB objects
+      const safeDecimal = (val: any) => {
+          if (Decimal.isDecimal(val)) return val.toNumber();
+          if (typeof val === 'string') return parseFloat(val);
+          if (typeof val === 'number') return val;
+          return 0;
+      };
+
       return {
         ticker: etf.ticker,
         name: etf.name,
-        price: Number(etf.price),
-        changePercent: Number(etf.daily_change),
+        price: safeDecimal(etf.price),
+        changePercent: safeDecimal(etf.daily_change),
         assetType: etf.assetType,
         isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
         history: history,
         metrics: {
-            yield: etf.yield ? Number(etf.yield) : 0,
-            mer: etf.mer ? Number(etf.mer) : 0
+            yield: etf.yield ? safeDecimal(etf.yield) : 0,
+            mer: etf.mer ? safeDecimal(etf.mer) : 0
         },
         allocation: {
-          equities: etf.allocation?.stocks_weight ? Number(etf.allocation.stocks_weight) : 0,
-          bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
-          cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
+          equities: etf.allocation?.stocks_weight ? safeDecimal(etf.allocation.stocks_weight) : 0,
+          bonds: etf.allocation?.bonds_weight ? safeDecimal(etf.allocation.bonds_weight) : 0,
+          cash: etf.allocation?.cash_weight ? safeDecimal(etf.allocation.cash_weight) : 0,
         },
         sectors: (etf.sectors || []).reduce((acc: { [key: string]: number }, sector: any) => {
-          acc[sector.sector_name] = Number(sector.weight)
+          acc[sector.sector_name] = safeDecimal(sector.weight)
           return acc
         }, {} as { [key: string]: number }),
       };
