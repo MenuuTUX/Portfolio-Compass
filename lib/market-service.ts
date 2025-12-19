@@ -127,7 +127,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
   }
 }
 
-export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetails> {
+export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): Promise<EtfDetails> {
   const { data: quoteSummary, resolvedTicker } = await fetchWithFallback(originalTicker, async (t) => {
     const data = await yf.quoteSummary(t, {
       modules: ['price', 'summaryProfile', 'topHoldings', 'fundProfile', 'defaultKeyStatistics', 'summaryDetail']
@@ -170,7 +170,7 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
 
   const [h1h, h1d, h1wk, h1mo] = await Promise.all([
     fetchHistoryInterval('1h', d7d),
-    fetchHistoryInterval('1d', d1y),
+    fetchHistoryInterval('1d', fromDate || d1y),
     fetchHistoryInterval('1wk', d5y),
     fetchHistoryInterval('1mo', dMax)
   ]);
