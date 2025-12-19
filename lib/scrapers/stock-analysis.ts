@@ -36,27 +36,27 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
 
   let sector = '';
   let industry = '';
-
+  
   // Strategy: Find text node "Sector" or "Industry" in the overview section
   // Usually presented as "Sector: [Link]" or in a grid
   // We want to avoid navigation links like "By Industry"
-
+  
   // Refined Strategy:
   // Look for text nodes that exactly start with "Sector" or "Industry" followed by a colon or are separate labels.
   // Or look for known containers if possible, but generic is better if careful.
-
+  
   $('div, li, tr').each((_, el) => {
     // Avoid checking massive containers, check for leaf-ish nodes
     if ($(el).children().length > 5) return;
 
     const text = $(el).text().trim();
-
+    
     // Check for "Sector"
     // Use regex to be more specific: ^Sector\b or similar
     if (!sector && (text === 'Sector' || text.startsWith('Sector:'))) {
         // Case 1: "Sector: Technology" (text only)
         // Case 2: "Sector" [Link "Technology"] (sibling or child)
-
+        
         let value = '';
         const link = $(el).find('a').first();
         if (link.length > 0 && link.attr('href')?.includes('/sector/')) {
@@ -71,10 +71,10 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
                  value = next.text().trim();
              }
         }
-
+        
         if (value) sector = value;
     }
-
+    
     // Check for "Industry"
     if (!industry && (text === 'Industry' || text.startsWith('Industry:'))) {
          let value = '';
@@ -89,7 +89,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
                  value = next.text().trim();
              }
         }
-
+        
         if (value) industry = value;
     }
   });
@@ -97,7 +97,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   // Description
   // Look for "About {Ticker}" header
   let description = '';
-
+  
   // 1. Try "About {Ticker}" header
   $('h2, h3').each((_, el) => {
       const headerText = $(el).text().trim();
@@ -109,7 +109,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
           while (next.length && (next.is('br') || next.text().trim() === '')) {
               next = next.next();
           }
-
+          
           if (next.is('p')) {
               description = next.text().trim();
           } else if (next.is('div')) {
