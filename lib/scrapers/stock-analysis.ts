@@ -4,6 +4,12 @@ export interface StockProfile {
   sector: string;
   industry: string;
   description: string;
+  analyst?: {
+    summary: string;
+    consensus: string;
+    targetPrice: number | null;
+    targetUpside: number | null; // as percentage
+  };
 }
 
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
@@ -142,9 +148,133 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       }
   }
 
+  // Analyst Data
+  // Look for "Analyst Summary" section
+  let analyst: StockProfile['analyst'] | undefined;
+
+  $('h2, h3').each((_, el) => {
+      const headerText = $(el).text().trim();
+      if (headerText === 'Analyst Summary') {
+          // The summary text is usually the next paragraph
+          let summary = '';
+          let next = $(el).next();
+          while (next.length && (next.is('br') || next.text().trim() === '')) {
+              next = next.next();
+          }
+          if (next.is('p')) {
+              summary = next.text().trim();
+          }
+
+          // Price Target and Consensus often in a card or sibling structure
+          // "Analyst Consensus: Buy"
+          // "Price Target $288.62 (6.32% upside)"
+
+          let consensus = '';
+          let targetPrice: number | null = null;
+          let targetUpside: number | null = null;
+
+          // Try to find text within the section
+          // Looking for specific strings in next siblings or a container
+          // The structure seen in image/text:
+          // P: According to ...
+          // DIV (card)
+          //   Price Target $X
+          //   (Y% upside)
+          //   Analyst Consensus: Z
+
+          // Let's traverse downwards or search in subsequent siblings until next header
+          let container = next.next();
+          // It might be a div container right after paragraph
+
+          // Helper to parse text content from this section
+          const sectionText = $(el).parent().text() + $(el).parent().next().text(); // Assuming it might be grouped
+
+          // Regex approach on the whole section text might be easier if structure varies
+          // But safer to find elements.
+
+          // Look for "Analyst Consensus: [Value]"
+          // In the image, it's text "Analyst Consensus: Buy"
+          const consensusMatch = $('div').filter((_, e) => $(e).text().includes('Analyst Consensus:')).last();
+          if (consensusMatch.length) {
+              const text = consensusMatch.text();
+              const match = text.match(/Analyst Consensus:\s*([A-Za-z\s]+)/);
+              if (match) {
+                  consensus = match[1].trim();
+                  // Clean up if it captures too much (e.g. from chart labels)
+                  // Usually it's short like "Buy", "Strong Buy", "Hold"
+                  // Remove any trailing newlines or extra text if any
+                  consensus = consensus.split('\n')[0].trim();
+              }
+          }
+
+          // Look for Price Target
+          // Often displayed as large text "$288.62"
+          // Or searched via text "Price Target"
+          const targetLabel = $('div').filter((_, e) => $(e).text().trim() === 'Price Target').last();
+          if (targetLabel.length) {
+              // The value is likely the next sibling or close by
+              const valEl = targetLabel.next();
+              const valText = valEl.text().trim();
+              // Remove $ and parse
+              const valMatch = valText.match(/\$([\d,.]+)/);
+              if (valMatch) {
+                  targetPrice = parseFloat(valMatch[1].replace(/,/g, ''));
+              }
+
+              // Upside/Downside is usually next
+              const upsideEl = valEl.next(); // or nested
+              // If not direct sibling, look in parent text
+              // The text might be "(6.32% upside)"
+
+              const upsideText = upsideEl.text().trim() || valEl.text().trim(); // sometimes in same line?
+              const upMatch = upsideText.match(/\(([\d.-]+)%\s*(upside|downside)\)/i);
+              if (upMatch) {
+                  let pct = parseFloat(upMatch[1]);
+                  if (upMatch[2].toLowerCase() === 'downside') {
+                      pct = -pct;
+                  }
+                  targetUpside = pct;
+              }
+          } else {
+             // Fallback: search for text in the summary area if specific elements not found
+             // "Price Target $288.62"
+             // Using Cheerio context around the header
+             const container = $(el).nextAll('div').first();
+             const text = container.text();
+
+             if (!consensus) {
+                 const cMatch = text.match(/Analyst Consensus:\s*([A-Za-z\s]+)/);
+                 if (cMatch) consensus = cMatch[1].trim();
+             }
+             if (!targetPrice) {
+                 const pMatch = text.match(/Price Target\s*\$([\d,.]+)/);
+                 if (pMatch) targetPrice = parseFloat(pMatch[1].replace(/,/g, ''));
+             }
+             if (targetUpside === null) {
+                  const uMatch = text.match(/\(([\d.-]+)%\s*(upside|downside)\)/i);
+                  if (uMatch) {
+                      let pct = parseFloat(uMatch[1]);
+                      if (uMatch[2].toLowerCase() === 'downside') pct = -pct;
+                      targetUpside = pct;
+                  }
+             }
+          }
+
+          if (summary || consensus || targetPrice) {
+            analyst = {
+                summary,
+                consensus,
+                targetPrice,
+                targetUpside
+            };
+          }
+      }
+  });
+
   return {
     sector,
     industry,
-    description
+    description,
+    analyst
   };
 }
