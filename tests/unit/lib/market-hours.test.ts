@@ -4,7 +4,7 @@ import { isMarketOpen } from '@/lib/market-hours';
 describe('isMarketOpen', () => {
   it('should return true during market hours on a regular weekday', () => {
     // Wednesday, Jan 15, 2025 (Regular day) at 10:00 AM ET
-    const date = new Date('2025-01-15T10:00:00-05:00');
+    const date = new Date('2025-01-15T10:00:00-05:00'); 
     expect(isMarketOpen(date)).toBe(true);
   });
 

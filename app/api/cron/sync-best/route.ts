@@ -57,7 +57,10 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Cron] Syncing stale ETFs: ${tickersToSync.join(', ')}`);
 
-    const results = await Promise.allSettled(tickersToSync.map(ticker => syncEtfDetails(ticker)));
+    const results = await Promise.allSettled(tickersToSync.map(ticker => {
+      console.log(`Incremental sync: ${ticker}`);
+      return syncEtfDetails(ticker);
+    }));
 
     const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
     const failedCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value)).length;
