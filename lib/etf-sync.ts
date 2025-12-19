@@ -7,8 +7,28 @@ export async function syncEtfDetails(ticker: string) {
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
 
+    // 0. Check Existing Data to determine fromDate
+    const latestHistory = await prisma.etfHistory.findFirst({
+      where: {
+        etfId: ticker,
+        interval: '1d'
+      },
+      orderBy: {
+        date: 'desc'
+      }
+    });
+
+    let fromDate: Date | undefined;
+    if (latestHistory) {
+      fromDate = new Date(latestHistory.date);
+      fromDate.setDate(fromDate.getDate() + 1); // Start from next day
+      console.log(`[EtfSync] Found existing history for ${ticker}, fetching from ${fromDate.toISOString()}`);
+    } else {
+        console.log(`[EtfSync] No existing history for ${ticker}, fetching full history`);
+    }
+
     // 1. Fetch deep details from Yahoo
-    const details = await fetchEtfDetails(ticker);
+    const details = await fetchEtfDetails(ticker, fromDate);
 
     if (!details) {
       console.error(`[EtfSync] No details found for ${ticker}`);
@@ -101,16 +121,42 @@ export async function syncEtfDetails(ticker: string) {
       // 6. Update History
       (async () => {
         if (details.history && details.history.length > 0) {
-          await prisma.etfHistory.deleteMany({ where: { etfId: etf.ticker } });
-          await prisma.etfHistory.createMany({
-            data: details.history.map((h: any) => ({
-              etfId: etf.ticker,
-              date: new Date(h.date),
-              close: h.close, // Decimal
-              interval: h.interval || '1d'
-            })),
-            skipDuplicates: true
+          // Separate daily from others
+          const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
+          const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
+
+          // Delete non-daily history (replace strategy)
+          await prisma.etfHistory.deleteMany({
+            where: {
+                etfId: etf.ticker,
+                interval: { not: '1d' }
+            }
           });
+
+          // Insert non-daily history
+          if (otherHistory.length > 0) {
+              await prisma.etfHistory.createMany({
+                data: otherHistory.map((h: any) => ({
+                    etfId: etf.ticker,
+                    date: new Date(h.date),
+                    close: h.close,
+                    interval: h.interval
+                }))
+              });
+          }
+
+          // Append daily history (skip duplicates)
+          if (dailyHistory.length > 0) {
+              await prisma.etfHistory.createMany({
+                data: dailyHistory.map((h: any) => ({
+                    etfId: etf.ticker,
+                    date: new Date(h.date),
+                    close: h.close,
+                    interval: '1d'
+                })),
+                skipDuplicates: true
+              });
+          }
         }
       })(),
 
