@@ -1,7 +1,6 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Trash2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Portfolio, PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
@@ -9,8 +8,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
 import { Decimal } from 'decimal.js';
-
-const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
+import StockInfoCard from './StockInfoCard';
 
 interface PortfolioBuilderProps {
   portfolio: Portfolio;
@@ -103,9 +101,13 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
     onUpdateWeight(ticker, weight);
   }, [onUpdateWeight]);
 
-  const pieData = Object.entries(sectorAllocation).map(([name, value]) => ({
-    name, value: value * 100
-  })).filter(x => x.value > 0);
+  // Determine top holding for StockInfoCard
+  const topHoldingTicker = useMemo(() => {
+    if (portfolio.length === 0) return 'SPY';
+    // Find item with highest weight
+    const topItem = portfolio.reduce((max, item) => item.weight > max.weight ? item : max, portfolio[0]);
+    return topItem.ticker;
+  }, [portfolio]);
 
   // Virtualizer setup
   const rowVirtualizer = useVirtualizer({
@@ -228,68 +230,9 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             </div>
           </div>
 
-          {/* Visualization */}
-          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit lg:h-full overflow-y-auto">
-            <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
-            <div className="w-full h-[300px] flex-shrink-0">
-              {pieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0.5)" />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
-                  Add holdings to see exposure
-                </div>
-              )}
-              {pieData.length > 0 && (
-                <table className="sr-only">
-                  <caption>Portfolio Sector Allocation</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Sector</th>
-                      <th scope="col">Allocation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pieData.map((entry, index) => (
-                      <tr key={index}>
-                        <td>{entry.name}</td>
-                        <td>{entry.value.toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            {pieData.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
-                {pieData.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="truncate">{entry.name}</span>
-                    <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Visualization - Stock Info Card */}
+          <div className="glass-panel rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit lg:h-full overflow-hidden">
+            <StockInfoCard ticker={topHoldingTicker} />
           </div>
         </div>
       </motion.div>
