@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { syncEtfDetails } from '@/lib/etf-sync';
+import { isMarketOpen } from '@/lib/market-hours';
 
 // Force dynamic to ensure we don't cache the result of the stale check
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,12 @@ export async function GET(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if market is open
+    if (!isMarketOpen()) {
+      console.log('[Cron] Market is closed. Skipping sync.');
+      return NextResponse.json({ message: 'Market Closed', synced: [] });
     }
 
     // 1. Check Default Tickers for Staleness
