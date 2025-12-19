@@ -526,7 +526,15 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
     // Case 1: Found items but in the other section
     if (etfs.length === 0 && otherTypeEtfs.length > 0) {
-      const otherSection = assetType === 'STOCK' ? 'ETFs' : 'Stocks';
+      let otherSection = 'ETFs';
+      if (assetType === 'STOCK') otherSection = 'ETFs';
+      else if (assetType === 'ETF') otherSection = 'Stocks';
+      // Determine correct other section based on actual returned item type
+      const firstOther = otherTypeEtfs[0];
+      if (firstOther.assetType === 'STOCK') otherSection = 'Stocks';
+      else if (firstOther.assetType === 'ETF') otherSection = 'ETFs';
+      else if (firstOther.assetType === 'CRYPTO') otherSection = 'Crypto';
+
       const sample = otherTypeEtfs[0].ticker;
       // Fixed phrasing: handle singular vs plural
       const othersCount = otherTypeEtfs.length - 1;
@@ -595,7 +603,9 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-12 gap-6">
           <div className="w-full md:w-auto">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Market Engine</h2>
-            <p className="text-sm md:text-base text-neutral-400">Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : 'ETFs'}. Click to add to builder.</p>
+            <p className="text-sm md:text-base text-neutral-400">
+              Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : (assetType === 'CRYPTO' ? 'Crypto Assets' : 'ETFs')}. Click to add to builder.
+            </p>
           </div>
 
           {/* Search Bar with Smart Autocomplete */}

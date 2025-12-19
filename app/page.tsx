@@ -17,7 +17,7 @@ import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 
 type ViewMode = 'LANDING' | 'APP';
-type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
+type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO' | 'GROWTH';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
@@ -133,6 +133,15 @@ export default function Home() {
                     onRemoveFromPortfolio={handleRemoveFromPortfolio}
                     portfolio={portfolio}
                     assetType="STOCK"
+                  />
+                )}
+                {activeTab === 'CRYPTO' && (
+                  <ComparisonEngine
+                    key="crypto"
+                    onAddToPortfolio={handleAddToPortfolio}
+                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                    portfolio={portfolio}
+                    assetType="CRYPTO"
                   />
                 )}
                 {activeTab === 'GROWTH' && (
