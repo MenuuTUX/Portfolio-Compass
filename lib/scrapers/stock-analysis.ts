@@ -1,139 +1,134 @@
 import * as cheerio from 'cheerio';
 
 export interface StockProfile {
-  ticker: string;
-  sector?: string;
-  industry?: string;
-  description?: string;
+  sector: string;
+  industry: string;
+  description: string;
 }
 
-export async function getStockProfile(ticker: string): Promise<StockProfile> {
-  const stockUrl = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/company/`;
-  const etfUrl = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
+export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
+  const upperTicker = ticker.toUpperCase();
+  // Try stock URL first
+  let url = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/`;
+  let response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    }
+  });
 
-  let html = '';
-
-  try {
-    // Try Stock URL first
-    let res = await fetch(stockUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      next: { revalidate: 3600 }
-    });
-
-    if (res.status === 404) {
-      // Fallback to ETF URL
-      console.log(`Stock profile not found for ${ticker}, trying ETF URL...`);
-      res = await fetch(etfUrl, {
+  // Fallback to ETF if 404
+  if (response.status === 404) {
+    url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
+    response = await fetch(url, {
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        next: { revalidate: 3600 }
-      });
-    }
-
-    if (!res.ok) {
-      throw new Error(`Failed to fetch profile for ${ticker}: ${res.status} ${res.statusText}`);
-    }
-
-    html = await res.text();
-  } catch (error) {
-    console.error(`Error scraping stock profile for ${ticker}:`, error);
-    throw error;
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        }
+    });
   }
 
+  if (!response.ok) {
+    console.error(`Failed to fetch profile for ${ticker}: ${response.status}`);
+    return null;
+  }
+
+  const html = await response.text();
   const $ = cheerio.load(html);
-  const main = $('main').length ? $('main') : $('body');
 
-  let sector: string | undefined;
-  let industry: string | undefined;
-  let description: string | undefined;
+  let sector = '';
+  let industry = '';
+  
+  // Strategy: Find text node "Sector" or "Industry" in the overview section
+  // Usually presented as "Sector: [Link]" or in a grid
+  // We want to avoid navigation links like "By Industry"
+  
+  // Refined Strategy:
+  // Look for text nodes that exactly start with "Sector" or "Industry" followed by a colon or are separate labels.
+  // Or look for known containers if possible, but generic is better if careful.
+  
+  $('div, li, tr').each((_, el) => {
+    // Avoid checking massive containers, check for leaf-ish nodes
+    if ($(el).children().length > 5) return;
 
-  // 1. Sector & Industry
-  // Exclude general navigation links by ensuring the href is specific
-  const sectorLink = main.find('a[href*="/sector/"]').filter((_, el) => {
-      const href = $(el).attr('href');
-      if (!href) return false;
-      // Filter out general links like /stocks/sector/
-      return !href.endsWith('/sector/') && !href.endsWith('/sector');
-  }).first();
-
-  if (sectorLink.length) {
-      sector = sectorLink.text().trim();
-  }
-
-  const industryLink = main.find('a[href*="/industry/"]').filter((_, el) => {
-      const href = $(el).attr('href');
-      if (!href) return false;
-      return !href.endsWith('/industry/') && !href.endsWith('/industry');
-  }).first();
-
-  if (industryLink.length) {
-      industry = industryLink.text().trim();
-  }
-
-  // Fallback for Sector/Industry (e.g., table cells) if not found in links
-  if (!sector) {
-      main.find('td, div, span').each((_, el) => {
-          if ($(el).text().trim() === 'Sector') {
-              sector = $(el).next().text().trim() || $(el).siblings().last().text().trim();
-              if (sector) return false; // break if found
-          }
-      });
-  }
-
-  if (!industry) {
-      main.find('td, div, span').each((_, el) => {
-          if ($(el).text().trim() === 'Industry') {
-              industry = $(el).next().text().trim() || $(el).siblings().last().text().trim();
-              if (industry) return false;
-          }
-      });
-  }
-
-
-  // 2. Description
-  // Look for "About [Ticker]" or "Company Description" or "Fund Description"
-  const descriptionHeader = main.find('h2, h3').filter((_, el) => {
-    const text = $(el).text().toLowerCase();
-    return text.includes('about') || text.includes('company description') || text.includes('fund description');
-  }).first();
-
-  if (descriptionHeader.length) {
-    const paragraphs: string[] = [];
-    let next = descriptionHeader.next();
-    let siblingCount = 0;
-
-    // Iterate through siblings to find paragraphs
-    // Stop if we hit a new section header or go too far
-    while (next.length && siblingCount < 15) {
-        // Stop at next header
-        if (next.is('h2') || next.is('h3') || next.is('h4')) {
-            break;
+    const text = $(el).text().trim();
+    
+    // Check for "Sector"
+    // Use regex to be more specific: ^Sector\b or similar
+    if (!sector && (text === 'Sector' || text.startsWith('Sector:'))) {
+        // Case 1: "Sector: Technology" (text only)
+        // Case 2: "Sector" [Link "Technology"] (sibling or child)
+        
+        let value = '';
+        const link = $(el).find('a').first();
+        if (link.length > 0 && link.attr('href')?.includes('/sector/')) {
+            value = link.text().trim();
+        } else if (text.includes(':')) {
+            value = text.split(':')[1].trim();
+        } else {
+             // Maybe sibling?
+             // e.g. <div>Sector</div><div>Technology</div>
+             const next = $(el).next();
+             if (next.length && next.text().trim()) {
+                 value = next.text().trim();
+             }
         }
-
-        if (next.is('p')) {
-            const text = next.text().trim();
-            if (text) paragraphs.push(text);
+        
+        if (value) sector = value;
+    }
+    
+    // Check for "Industry"
+    if (!industry && (text === 'Industry' || text.startsWith('Industry:'))) {
+         let value = '';
+         const link = $(el).find('a').first();
+        if (link.length > 0 && link.attr('href')?.includes('/industry/')) {
+            value = link.text().trim();
+        } else if (text.includes(':')) {
+            value = text.split(':')[1].trim();
+        } else {
+             const next = $(el).next();
+             if (next.length && next.text().trim()) {
+                 value = next.text().trim();
+             }
         }
-
-        next = next.next();
-        siblingCount++;
+        
+        if (value) industry = value;
     }
+  });
 
-    if (paragraphs.length > 0) {
-      description = paragraphs.join('\n\n');
-    }
-  }
+  // Description
+  // Look for "About {Ticker}" header
+  let description = '';
+  
+  // 1. Try "About {Ticker}" header
+  $('h2, h3').each((_, el) => {
+      const headerText = $(el).text().trim();
+      if (headerText.includes(`About ${upperTicker}`)) {
+          // The description is usually the next paragraph
+          // It might be in a sibling div or direct sibling p
+          let next = $(el).next();
+          // Skip empty text nodes or non-content elements
+          while (next.length && (next.is('br') || next.text().trim() === '')) {
+              next = next.next();
+          }
+          
+          if (next.is('p')) {
+              description = next.text().trim();
+          } else if (next.is('div')) {
+              // Sometimes wrapped in a div
+              description = next.find('p').first().text().trim();
+              if (!description) description = next.text().trim();
+          }
+      }
+  });
 
-  // Fallback to meta description
+  // 2. Fallback: Meta description
   if (!description) {
-    description = $('meta[name="description"]').attr('content');
+      const metaDesc = $('meta[name="description"]').attr('content');
+      if (metaDesc) {
+          description = metaDesc;
+      }
   }
 
   return {
-    ticker: ticker.toUpperCase(),
     sector,
     industry,
     description
