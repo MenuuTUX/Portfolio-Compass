@@ -137,11 +137,16 @@ export async function GET(request: NextRequest) {
 
     // Fallback for empty DB on general search (landing page scenario)
     if (etfs.length === 0 && !query && !tickersParam) {
-        const DEFAULT_TICKERS = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
-        console.log('[API] Empty DB detected for general search. seeding default tickers...');
+        let defaultTickers = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+
+        if (assetType === 'CRYPTO') {
+            defaultTickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD'];
+        }
+
+        console.log(`[API] Empty DB detected for general search (${assetType || 'General'}). Seeding default tickers...`);
 
         try {
-            const liveData = await fetchMarketSnapshot(DEFAULT_TICKERS);
+            const liveData = await fetchMarketSnapshot(defaultTickers);
              for (const item of liveData) {
                 try {
                      const newEtf = await prisma.etf.upsert({
