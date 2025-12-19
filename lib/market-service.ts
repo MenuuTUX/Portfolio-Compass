@@ -19,7 +19,7 @@ export interface MarketSnapshot {
   dailyChange: Decimal;
   dailyChangePercent: Decimal;
   name: string;
-  assetType: 'STOCK' | 'ETF';
+  assetType: 'STOCK' | 'ETF' | 'CRYPTO';
 }
 
 export interface EtfDetails {
@@ -28,7 +28,7 @@ export interface EtfDetails {
   dailyChange: Decimal;
   name: string;
   description: string;
-  assetType: 'STOCK' | 'ETF';
+  assetType: 'STOCK' | 'ETF' | 'CRYPTO';
   expenseRatio?: Decimal;
   dividendYield?: Decimal;
   beta5Y?: Decimal;
@@ -54,9 +54,10 @@ function normalizePercent(val: number | undefined): Decimal {
   return new Decimal(val);
 }
 
-function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' {
+function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' | 'CRYPTO' {
   if (!quoteType) return 'STOCK';
   if (quoteType === 'ETF') return 'ETF';
+  if (quoteType === 'CRYPTOCURRENCY' || quoteType === 'CCY') return 'CRYPTO';
   return 'STOCK';
 }
 
@@ -225,6 +226,8 @@ export async function fetchEtfDetails(originalTicker: string): Promise<EtfDetail
     });
   } else if (assetType === 'STOCK' && profile?.sector) {
     sectors[profile.sector] = new Decimal(1.0);
+  } else if (assetType === 'CRYPTO') {
+    sectors['Cryptocurrency'] = new Decimal(1.0);
   }
 
   let dividendYield: Decimal | undefined;

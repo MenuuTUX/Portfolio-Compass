@@ -1,10 +1,10 @@
 'use client';
 
-import { Activity, PieChart, TrendingUp, Briefcase, BarChart3, Settings } from 'lucide-react';
+import { Activity, PieChart, TrendingUp, Briefcase, BarChart3, Settings, Coins } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'GROWTH';
+type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO' | 'GROWTH';
 
 interface NavigationProps {
   activeTab: Tab;
@@ -18,6 +18,7 @@ export default function Navigation({ activeTab, onTabChange, onBackToLanding, on
     { id: 'TRENDING', label: 'Trending', icon: TrendingUp },
     { id: 'ETFS', label: 'ETFs', icon: Activity },
     { id: 'STOCKS', label: 'Stocks', icon: BarChart3 },
+    { id: 'CRYPTO', label: 'Crypto', icon: Coins },
     { id: 'PORTFOLIO', label: 'Portfolio', icon: PieChart },
     { id: 'GROWTH', label: 'Growth', icon: TrendingUp },
   ];
