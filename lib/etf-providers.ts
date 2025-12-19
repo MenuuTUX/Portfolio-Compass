@@ -70,7 +70,8 @@ const CRYPTO_ASSETS = [
   { id: 'POLKADOT', symbol: 'DOT' },
   { id: 'CHAINLINK', symbol: 'LINK' },
   { id: 'LITECOIN', symbol: 'LTC' },
-  { id: 'STELLAR', symbol: 'XLM' }
+  { id: 'STELLAR', symbol: 'XLM' },
+  { id: 'AVALANCHE', symbol: 'AVAX' }
 ];
 
 // Create a lookup map that handles both IDs and Symbols
@@ -90,10 +91,13 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
 
   // CRYPTO logic
   if (assetType === 'CRYPTO') {
+    // Strip -USD suffix if present (common in Yahoo Finance tickers)
+    const cleanTicker = upperTicker.replace(/-USD$/, '');
+
     // Explicitly check our known crypto assets map which supports both IDs (BITCOIN) and Symbols (BTC).
     // If not found, fall back to using the ticker as-is (e.g. for unlisted cryptos that might have an icon).
-    const symbol = CRYPTO_RESOLVER[upperTicker];
-    return `${ICON_BASE_URL}/crypto_icons/${symbol || upperTicker}.png`;
+    const symbol = CRYPTO_RESOLVER[cleanTicker];
+    return `${ICON_BASE_URL}/crypto_icons/${symbol || cleanTicker}.png`;
   }
 
   // ETF logic
