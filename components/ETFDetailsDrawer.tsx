@@ -321,7 +321,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
               </div>
             </div>
 
-            <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto">
+            <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto lg:overflow-hidden">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
 
                 {/* Left Col: Chart */}
@@ -460,7 +460,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                 </div>
 
                 {/* Right Col */}
-                <div className="flex flex-col gap-6 h-full">
+                <div className="flex flex-col gap-6 h-full lg:overflow-y-auto lg:pr-2 custom-scrollbar">
 
                   {/* Sector Breakdown or Stock Info */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-[300px] flex flex-col">

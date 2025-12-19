@@ -464,62 +464,12 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     setShowSuggestions(false);
   };
 
-  const handleAdvancedView = useCallback(async (etf: ETF) => {
+  const handleAdvancedView = useCallback((etf: ETF) => {
     addToRecent(etf.ticker);
-    if (etf.isDeepAnalysisLoaded) {
-      setSelectedETF(etf);
-      return;
-    }
-
-    setSyncingTicker(etf.ticker);
-    try {
-      const res = await fetch('/api/etfs/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: etf.ticker }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-
-        if (res.status === 404 && errorData.deleted) {
-          setEtfs(prev => prev.filter(e => e.ticker !== etf.ticker));
-          setMessageDrawer({
-            isOpen: true,
-            title: 'Ticker Not Found',
-            message: `Ticker ${etf.ticker} was not found and has been removed from your list.`,
-            type: 'error'
-          });
-          return;
-        }
-
-        console.error("Sync failed response:", JSON.stringify(errorData));
-        throw new Error(`Sync failed: ${res.status} ${res.statusText}`);
-      }
-
-      const rawUpdatedEtf = await res.json();
-      let updatedEtf: ETF;
-      try {
-        updatedEtf = ETFSchema.parse(rawUpdatedEtf);
-      } catch (e) {
-         if (e instanceof z.ZodError) {
-          console.warn('API response validation failed:', e.issues);
-        } else {
-            console.warn('API response validation failed:', e);
-        }
-        updatedEtf = rawUpdatedEtf as ETF;
-      }
-
-      // Update local state
-      setEtfs(prev => prev.map(e => e.ticker === updatedEtf.ticker ? updatedEtf : e));
-      setSelectedETF(updatedEtf);
-    } catch (err: any) {
-      console.error('Failed to sync ETF details', err);
-      // If network error or other sync error, we could show a message too
-    } finally {
-      setSyncingTicker(null);
-    }
-  }, [addToRecent]); // addToRecent is stable (useCallback)
+    // Directly open the drawer. The drawer component handles fetching fresh data
+    // and sync logic via its internal useEffect, preventing UI blocking here.
+    setSelectedETF(etf);
+  }, [addToRecent]);
 
   const renderNoResults = () => {
     if (loading) return null;
