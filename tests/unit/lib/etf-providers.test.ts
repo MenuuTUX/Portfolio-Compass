@@ -42,6 +42,15 @@ describe('getAssetIconUrl', () => {
       expect(getAssetIconUrl('bitcoin', 'Bitcoin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/BTC.png');
       expect(getAssetIconUrl('btc', 'Bitcoin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/BTC.png');
     });
+
+    // New tests for suffix handling
+    it('should correctly handle CRYPTO tickers with -USD suffix', () => {
+        expect(getAssetIconUrl('BTC-USD', 'Bitcoin', 'CRYPTO')).toContain('/crypto_icons/BTC.png');
+    });
+
+    it('should correctly handle newly added AVAX ticker', () => {
+        expect(getAssetIconUrl('AVAX-USD', 'Avalanche', 'CRYPTO')).toContain('/crypto_icons/AVAX.png');
+    });
   });
 
   describe('STOCK', () => {
@@ -52,7 +61,6 @@ describe('getAssetIconUrl', () => {
 
   describe('ETF', () => {
     it('should return provider logo for ETF', () => {
-      // Changed to 'Vanguard S&P 500 ETF' to avoid 'market' matching 'ARK' in provider list
       expect(getAssetIconUrl('VOO', 'Vanguard S&P 500 ETF', 'ETF')).toBe('/logos/vanguard.png');
     });
   });
