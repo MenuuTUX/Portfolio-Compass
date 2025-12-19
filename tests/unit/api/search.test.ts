@@ -3,6 +3,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 // Mocks
 const mockPrismaFindMany = mock(() => Promise.resolve([]));
 const mockPrismaCreate = mock(() => Promise.resolve({}));
+const mockPrismaUpsert = mock(() => Promise.resolve({}));
 const mockFetchMarketSnapshot = mock(() => Promise.resolve([]));
 const mockSyncEtfDetails = mock(() => Promise.resolve(null));
 
@@ -12,6 +13,7 @@ mock.module('@/lib/db', () => {
       etf: {
         findMany: mockPrismaFindMany,
         create: mockPrismaCreate,
+        upsert: mockPrismaUpsert,
         findUnique: mock(() => Promise.resolve(null))
       }
     }
@@ -57,6 +59,7 @@ describe('API: /api/etfs/search', () => {
   beforeEach(() => {
     mockPrismaFindMany.mockClear();
     mockPrismaCreate.mockClear();
+    mockPrismaUpsert.mockClear();
     mockFetchMarketSnapshot.mockClear();
     mockSyncEtfDetails.mockClear();
 
@@ -76,16 +79,15 @@ describe('API: /api/etfs/search', () => {
     }];
     mockFetchMarketSnapshot.mockResolvedValue(defaultTickersMock);
 
-    // Mock create to return valid object, including relations if requested
-    mockPrismaCreate.mockImplementation((args: any) => {
+    // Mock upsert
+    mockPrismaUpsert.mockImplementation((args: any) => {
         const result: any = {
-            ...args.data,
-            price: Number(args.data.price),
-            daily_change: Number(args.data.daily_change),
+            ...args.create,
+            price: Number(args.create.price),
+            daily_change: Number(args.create.daily_change),
             updatedAt: new Date(),
         };
 
-        // Accurate Prisma mock: return empty relations if 'include' is present
         if (args.include) {
             if (args.include.history) result.history = [];
             if (args.include.sectors) result.sectors = [];
@@ -99,7 +101,7 @@ describe('API: /api/etfs/search', () => {
     const response: any = await GET(request);
 
     expect(mockFetchMarketSnapshot).toHaveBeenCalled();
-    expect(mockPrismaCreate).toHaveBeenCalled();
+    expect(mockPrismaUpsert).toHaveBeenCalled();
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('SPY');
   });
@@ -168,7 +170,7 @@ describe('API: /api/etfs/search', () => {
     }];
     mockFetchMarketSnapshot.mockResolvedValue(liveData);
 
-    // Mock create to return SCALARS ONLY + included empty relations (simulating include: true)
+    // Mock upsert
     const createdEtf = {
       ticker: 'NEW',
       name: 'New Asset',
@@ -181,18 +183,18 @@ describe('API: /api/etfs/search', () => {
       sectors: [],
       allocation: null
     };
-    mockPrismaCreate.mockResolvedValue(createdEtf);
+    mockPrismaUpsert.mockResolvedValue(createdEtf);
 
     const request = new NextRequest('http://localhost/api/etfs/search?query=NEW');
     const response: any = await GET(request);
 
     expect(mockSyncEtfDetails).toHaveBeenCalledWith('NEW');
     expect(mockFetchMarketSnapshot).toHaveBeenCalledWith(['NEW']);
-    expect(mockPrismaCreate).toHaveBeenCalled();
+    expect(mockPrismaUpsert).toHaveBeenCalled();
 
-    // Check if 'include' was passed to create
-    const createCall = mockPrismaCreate.mock.calls[0][0];
-    expect(createCall.include).toBeDefined();
+    // Check if 'include' was passed to upsert
+    const upsertCall = mockPrismaUpsert.mock.calls[0][0];
+    expect(upsertCall.include).toBeDefined();
 
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('NEW');
