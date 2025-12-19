@@ -71,7 +71,8 @@ export function isMarketOpen(date: Date = new Date()): boolean {
   // 3. Check Trading Hours (09:30 - 16:00)
   const time = hour * 100 + minute;
   // 930 is 9:30 AM, 1600 is 4:00 PM
-  if (time >= 930 && time < 1600) {
+  // We extend the check to 18:00 (6:00 PM) to allow cron jobs to catch the final closing price
+  if (time >= 930 && time < 1800) {
     return true;
   }
 
