@@ -45,54 +45,68 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   // Look for text nodes that exactly start with "Sector" or "Industry" followed by a colon or are separate labels.
   // Or look for known containers if possible, but generic is better if careful.
   
-  $('div, li, tr').each((_, el) => {
-    // Avoid checking massive containers, check for leaf-ish nodes
-    if ($(el).children().length > 5) return;
+  // Strategy: Look for specific labels "Sector" and "Industry"
+  // Based on observation: <span>Sector</span> <a ...>Materials</a>
 
+  // 1. Check for specific layout where label is a sibling or parent
+  $('span, div').each((_, el) => {
     const text = $(el).text().trim();
     
-    // Check for "Sector"
-    // Use regex to be more specific: ^Sector\b or similar
-    if (!sector && (text === 'Sector' || text.startsWith('Sector:'))) {
-        // Case 1: "Sector: Technology" (text only)
-        // Case 2: "Sector" [Link "Technology"] (sibling or child)
-        
-        let value = '';
-        const link = $(el).find('a').first();
-        if (link.length > 0 && link.attr('href')?.includes('/sector/')) {
-            value = link.text().trim();
-        } else if (text.includes(':')) {
-            value = text.split(':')[1].trim();
-        } else {
-             // Maybe sibling?
-             // e.g. <div>Sector</div><div>Technology</div>
-             const next = $(el).next();
-             if (next.length && next.text().trim()) {
-                 value = next.text().trim();
-             }
+    if (!sector && text === 'Sector') {
+        const next = $(el).next();
+        if (next.length) {
+            sector = next.text().trim();
         }
-        
-        if (value) sector = value;
     }
-    
-    // Check for "Industry"
-    if (!industry && (text === 'Industry' || text.startsWith('Industry:'))) {
-         let value = '';
-         const link = $(el).find('a').first();
-        if (link.length > 0 && link.attr('href')?.includes('/industry/')) {
-            value = link.text().trim();
-        } else if (text.includes(':')) {
-            value = text.split(':')[1].trim();
-        } else {
-             const next = $(el).next();
-             if (next.length && next.text().trim()) {
-                 value = next.text().trim();
-             }
+
+    if (!industry && text === 'Industry') {
+        const next = $(el).next();
+        if (next.length) {
+            industry = next.text().trim();
         }
-        
-        if (value) industry = value;
     }
   });
+
+  // 2. Fallback: Iterate over broader elements if not found
+  if (!sector || !industry) {
+      $('div, li, tr').each((_, el) => {
+        if ($(el).children().length > 5) return;
+
+        const text = $(el).text().trim();
+
+        if (!sector && (text === 'Sector' || text.startsWith('Sector:'))) {
+            let value = '';
+            const link = $(el).find('a').first();
+            if (link.length > 0 && link.attr('href')?.includes('/sector/')) {
+                value = link.text().trim();
+            } else if (text.includes(':')) {
+                value = text.split(':')[1].trim();
+            } else {
+                const next = $(el).next();
+                if (next.length && next.text().trim()) {
+                    value = next.text().trim();
+                }
+            }
+            if (value) sector = value;
+        }
+
+        if (!industry && (text === 'Industry' || text.startsWith('Industry:'))) {
+            let value = '';
+            const link = $(el).find('a').first();
+            if (link.length > 0 && link.attr('href')?.includes('/industry/')) {
+                value = link.text().trim();
+            } else if (text.includes(':')) {
+                value = text.split(':')[1].trim();
+            } else {
+                const next = $(el).next();
+                if (next.length && next.text().trim()) {
+                    value = next.text().trim();
+                }
+            }
+            if (value) industry = value;
+        }
+      });
+  }
 
   // Description
   // Look for "About {Ticker}" header

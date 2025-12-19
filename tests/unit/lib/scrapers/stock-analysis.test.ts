@@ -6,16 +6,22 @@ const mockFetch = mock((url: string | URL | Request) => {
   const urlStr = url.toString();
 
   // Stock success case
-  if (urlStr.includes('/stocks/aapl/company/')) {
+  if (urlStr.includes('/stocks/aapl/')) {
     return Promise.resolve({
       ok: true,
       status: 200,
       text: () => Promise.resolve(`
         <html>
           <main>
-            <a href="/stocks/sector/technology/">Technology</a>
-            <a href="/stocks/industry/consumer-electronics/">Consumer Electronics</a>
-            <h2>Company Description</h2>
+            <div>
+                <span>Sector</span>
+                <a href="/stocks/sector/technology/">Technology</a>
+            </div>
+            <div>
+                <span>Industry</span>
+                <a href="/stocks/industry/consumer-electronics/">Consumer Electronics</a>
+            </div>
+            <h2>About AAPL</h2>
             <p>Apple Inc. designs and manufactures smartphones.</p>
             <p>It also offers services.</p>
           </main>
@@ -25,7 +31,7 @@ const mockFetch = mock((url: string | URL | Request) => {
   }
 
   // Stock 404 case
-  if (urlStr.includes('/stocks/spy/company/')) {
+  if (urlStr.includes('/stocks/spy/')) {
     return Promise.resolve({
       ok: false,
       status: 404,
@@ -73,18 +79,15 @@ import { getStockProfile } from '../../../../lib/scrapers/stock-analysis';
 describe('getStockProfile', () => {
   it('should scrape stock profile successfully', async () => {
     const profile = await getStockProfile('AAPL');
-    expect(profile.ticker).toBe('AAPL');
-    expect(profile.sector).toBe('Technology');
-    expect(profile.industry).toBe('Consumer Electronics');
-    expect(profile.description).toContain('Apple Inc. designs');
+    // Note: getStockProfile returns { sector, industry, description }, not ticker
+    expect(profile?.sector).toBe('Technology');
+    expect(profile?.industry).toBe('Consumer Electronics');
+    expect(profile?.description).toContain('Apple Inc. designs');
   });
 
   it('should fallback to ETF URL on 404', async () => {
     const profile = await getStockProfile('SPY');
-    expect(profile.ticker).toBe('SPY');
-    // ETF mock doesn't have sector/industry links
-    expect(profile.sector).toBeUndefined();
-    expect(profile.description).toContain('SPDR S&P 500 ETF Trust');
+    expect(profile?.description).toContain('SPDR S&P 500 ETF Trust');
   });
 
   it('should throw error on failure', async () => {

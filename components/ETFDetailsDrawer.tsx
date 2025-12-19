@@ -8,6 +8,7 @@ import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
 import { getProviderLogo } from '@/lib/etf-providers';
 import SectorPieChart from './SectorPieChart';
+import StockInfoCard from './StockInfoCard';
 import { useMemo, useState, useEffect } from 'react';
 
 interface ETFDetailsDrawerProps {
@@ -461,30 +462,22 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                 {/* Right Col */}
                 <div className="flex flex-col gap-6 h-full">
 
-                  {/* Sector Breakdown */}
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-[300px]">
-                    <div className="flex items-center gap-2 mb-4">
-                      <PieIcon className="w-5 h-5 text-blue-400" />
-                      <h3 className="text-lg font-bold text-white">
-                        {displayEtf.assetType === 'STOCK' ? 'Sector' : 'Sector Allocation'}
-                      </h3>
-                    </div>
-
+                  {/* Sector Breakdown or Stock Info */}
+                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-[300px] flex flex-col">
                     {displayEtf.assetType === 'STOCK' ? (
-                      <div className="h-[250px] flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-white mb-2">
-                            {sectorData.length > 0 ? sectorData[0].name : 'Unknown'}
-                          </div>
-                          <div className="text-neutral-400 text-sm">
-                            Sector
-                          </div>
-                        </div>
+                      <div className="flex-1 min-h-0">
+                         <StockInfoCard ticker={displayEtf.ticker} />
                       </div>
                     ) : (
-                      <div className="h-[250px]">
-                        <SectorPieChart sectors={displayEtf.sectors} />
-                      </div>
+                      <>
+                        <div className="flex items-center gap-2 mb-4">
+                          <PieIcon className="w-5 h-5 text-blue-400" />
+                          <h3 className="text-lg font-bold text-white">Sector Allocation</h3>
+                        </div>
+                        <div className="h-[250px]">
+                          <SectorPieChart sectors={displayEtf.sectors} />
+                        </div>
+                      </>
                     )}
                   </div>
 
