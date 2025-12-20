@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       take: 3 // Limit to prevent timeout
     });
 
-    let tickersToSync = staleDefaultTickers.map(t => t.ticker);
+    let tickersToSync = staleDefaultTickers.map((t: { ticker: string }) => t.ticker);
 
     // 2. If no default tickers are stale, check for other stale ETFs (Oldest Updated)
     if (tickersToSync.length === 0) {
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
         select: { ticker: true },
         take: 5 // Sync up to 5 others
       });
-      tickersToSync = staleOthers.map(t => t.ticker);
+      tickersToSync = staleOthers.map((t: { ticker: string }) => t.ticker);
     }
 
     if (tickersToSync.length === 0) {
@@ -57,13 +57,13 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Cron] Syncing stale ETFs: ${tickersToSync.join(', ')}`);
 
-    const results = await Promise.allSettled(tickersToSync.map(ticker => {
+    const results = await Promise.allSettled(tickersToSync.map((ticker: string) => {
       console.log(`Incremental sync: ${ticker}`);
       return syncEtfDetails(ticker);
     }));
 
-    const successCount = results.filter(r => r.status === 'fulfilled' && r.value).length;
-    const failedCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value)).length;
+    const successCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'fulfilled' && (r as PromiseFulfilledResult<any>).value).length;
+    const failedCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'rejected' || (r.status === 'fulfilled' && !(r as PromiseFulfilledResult<any>).value)).length;
 
     return NextResponse.json({
       message: 'Sync complete',
