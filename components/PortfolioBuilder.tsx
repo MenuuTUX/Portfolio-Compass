@@ -42,12 +42,14 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   // Aggregate Sector Allocation
   const sectorAllocation = useMemo(() => {
      return portfolio.reduce((acc: { [key: string]: number }, item) => {
-      Object.entries(item.sectors).forEach(([sector, amount]) => {
-        // Calculation using number here for simplicity as it feeds into Recharts which needs numbers
-        // But strictly we could use Decimal if precision was critical for the pie chart.
-        // Given visual nature, number is fine here, but let's be consistent with weights.
-        acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
-      });
+      if (item.sectors) {
+        Object.entries(item.sectors).forEach(([sector, amount]) => {
+          // Calculation using number here for simplicity as it feeds into Recharts which needs numbers
+          // But strictly we could use Decimal if precision was critical for the pie chart.
+          // Given visual nature, number is fine here, but let's be consistent with weights.
+          acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
+        });
+      }
       return acc;
     }, {});
   }, [portfolio]);

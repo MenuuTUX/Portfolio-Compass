@@ -14,9 +14,8 @@ export async function GET() {
                     include: {
                         history: {
                             orderBy: { date: 'desc' },
-                            take: 30
+                            take: 7
                         },
-                        sectors: true,
                         allocation: true,
                     },
                 },
@@ -59,10 +58,6 @@ export async function GET() {
                 bonds: item.etf.allocation?.bonds_weight ? Number(item.etf.allocation.bonds_weight) : 0,
                 cash: item.etf.allocation?.cash_weight ? Number(item.etf.allocation.cash_weight) : 0,
             },
-            sectors: item.etf.sectors.reduce((acc, sector) => {
-                acc[sector.sector_name] = Number(sector.weight);
-                return acc;
-            }, {} as { [key: string]: number }),
         }));
 
         return NextResponse.json(formattedPortfolio);
