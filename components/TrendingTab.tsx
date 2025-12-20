@@ -126,7 +126,6 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                         history: [],
                         metrics: { yield: 0, mer: 0 },
                         allocation: { equities: 0, bonds: 0, cash: 0 },
-                        sectors: {},
                     };
                 });
 

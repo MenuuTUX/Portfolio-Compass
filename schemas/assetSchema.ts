@@ -40,7 +40,7 @@ export const ETFSchema = z.object({
   dividendHistory: z.array(DividendHistoryItemSchema).optional(),
   metrics: MetricsSchema,
   allocation: AllocationSchema,
-  sectors: SectorsSchema,
+  sectors: SectorsSchema.optional(),
 });
 
 export const PortfolioItemSchema = ETFSchema.extend({

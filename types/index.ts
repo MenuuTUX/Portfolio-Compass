@@ -18,7 +18,7 @@ export interface ETF {
     bonds: number;
     cash: number;
   };
-  sectors: {
+  sectors?: {
     [key: string]: number;
   };
 }

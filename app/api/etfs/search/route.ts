@@ -7,8 +7,6 @@ import { Decimal } from 'decimal.js'
 // Import explicit types from Prisma to avoid 'any'
 import { Prisma } from '@prisma/client'
 
-// import { EtfWhereInput } from '@prisma/client'
-
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
