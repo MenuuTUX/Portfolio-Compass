@@ -1,72 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { EtfHistory } from '@prisma/client';
-import { ETF, PortfolioItem } from '@/types';
-import { Decimal } from 'decimal.js';
 import { syncEtfDetails } from '@/lib/etf-sync';
+import { Decimal } from 'decimal.js';
 
 export const dynamic = 'force-dynamic';
-
-export async function GET() {
-    try {
-        const portfolioItems = await prisma.portfolioItem.findMany({
-            include: {
-                etf: {
-                    include: {
-                        history: {
-                            orderBy: { date: 'desc' },
-                            take: 7
-                        },
-                        allocation: true,
-                    },
-                },
-            },
-        });
-
-        // Map Prisma Decimal to number/Decimal as needed by the frontend types
-        // Since we are sending JSON, Decimal will be serialized (usually to string)
-        // However, the interface `PortfolioItem` in `types/index.ts` accepts `number | Decimal`.
-        // If we want to return Numbers to the frontend (Option A), we convert here.
-        // OR we return strings and let the frontend parse.
-        // Given Option A's "conversion at the edge", converting to Number HERE is the easiest "edge"
-        // before the frontend even sees it, ensuring standard JSON numbers.
-        // BUT `decimal.js` handles precision better. If we convert to Number here, we lose precision on the wire.
-        // But the user chose "Option A" to solve *compilation errors* and *UI issues*.
-        // If I return numbers here, the frontend (which expects number | Decimal) will receive numbers.
-        // This satisfies "Option A" cleanly.
-
-        const formattedPortfolio: any[] = portfolioItems.map((item) => ({
-            ticker: item.etf.ticker,
-            name: item.etf.name,
-            price: Number(item.etf.price),
-            changePercent: Number(item.etf.daily_change),
-            assetType: item.etf.assetType,
-            isDeepAnalysisLoaded: item.etf.isDeepAnalysisLoaded,
-
-            weight: Number(item.weight),
-            shares: Number(item.shares),
-            history: item.etf.history.map((h: EtfHistory) => ({
-                date: h.date.toISOString(),
-                price: Number(h.close),
-                interval: h.interval
-            })).reverse(),
-            metrics: {
-                yield: item.etf.yield ? Number(item.etf.yield) : 0,
-                mer: item.etf.mer ? Number(item.etf.mer) : 0
-            },
-            allocation: {
-                equities: item.etf.allocation?.stocks_weight ? Number(item.etf.allocation.stocks_weight) : 0,
-                bonds: item.etf.allocation?.bonds_weight ? Number(item.etf.allocation.bonds_weight) : 0,
-                cash: item.etf.allocation?.cash_weight ? Number(item.etf.allocation.cash_weight) : 0,
-            },
-        }));
-
-        return NextResponse.json(formattedPortfolio);
-    } catch (error) {
-        console.error('[API] Error fetching portfolio:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    }
-}
 
 export async function POST(request: NextRequest) {
     try {
@@ -89,12 +26,11 @@ export async function POST(request: NextRequest) {
             const syncedEtf = await syncEtfDetails(upperTicker);
 
             if (!syncedEtf) {
-                return NextResponse.json({ error: 'Ticker not found in market' }, { status: 404 });
+                return NextResponse.json({ error: 'Ticker not found on market' }, { status: 404 });
             }
         }
 
-        // Creation: Upsert the PortfolioItem
-        // If it exists, do nothing (update: {}). If new, set weight/shares to 0.
+        // The Safe Add: Upsert PortfolioItem
         await prisma.portfolioItem.upsert({
             where: { etfId: upperTicker },
             create: {
@@ -102,10 +38,10 @@ export async function POST(request: NextRequest) {
                 weight: 0,
                 shares: 0,
             },
-            update: {},
+            update: {}, // Don't overwrite existing user data if they add it twice
         });
 
-        return NextResponse.json({ message: 'Stock added successfully' }, { status: 201 });
+        return NextResponse.json({ message: 'Success', ticker: upperTicker }, { status: 201 });
 
     } catch (error) {
         console.error('[API] Error adding stock to portfolio:', error);
@@ -113,64 +49,71 @@ export async function POST(request: NextRequest) {
     }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function GET() {
     try {
-        const body = await request.json();
-        const { ticker, weight, shares } = body;
-
-        if (!ticker) {
-            return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
-        }
-
-        const updateData: any = {};
-        if (weight !== undefined) updateData.weight = new Decimal(weight);
-        if (shares !== undefined) updateData.shares = new Decimal(shares);
-
-        // We return the updated item. Prisma returns Decimals.
-        // We should format this back to number/string for the frontend.
-        const updatedItem = await prisma.portfolioItem.update({
-            where: { etfId: ticker },
-            data: updateData,
+        const portfolioItems = await prisma.portfolioItem.findMany({
+            include: {
+                etf: {
+                    include: {
+                        sectors: true,
+                        allocation: true,
+                        history: {
+                            take: 7,
+                            orderBy: { date: 'desc' },
+                        },
+                    },
+                },
+            },
         });
 
-        const formattedItem = {
-            ...updatedItem,
-            weight: Number(updatedItem.weight),
-            shares: Number(updatedItem.shares)
-        };
+        // Transform Response: Map the data to a clean JSON object.
+        const formattedPortfolio = portfolioItems.map((item) => {
+            // Flatten the response to match the PortfolioItem interface which extends ETF
+            // This prevents frontend crashes due to changed data shape
+            const etf = item.etf;
+            return {
+                ticker: etf.ticker,
+                name: etf.name,
+                price: Number(etf.price),
+                changePercent: Number(etf.daily_change),
+                assetType: etf.assetType,
+                isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
 
-        return NextResponse.json(formattedItem);
-    } catch (error) {
-        console.error('[API] Error updating portfolio item:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    }
-}
+                weight: Number(item.weight),
+                shares: Number(item.shares),
 
-export async function DELETE(request: NextRequest) {
-    try {
-        const { searchParams } = new URL(request.url);
-        const ticker = searchParams.get('ticker');
+                // History: Latest 7 days, reversed for chart (oldest first)
+                history: etf.history.map((h) => ({
+                    date: h.date.toISOString(),
+                    price: Number(h.close),
+                    interval: h.interval
+                })).reverse(),
 
-        if (!ticker) {
-            return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
-        }
+                metrics: {
+                    yield: etf.yield ? Number(etf.yield) : 0,
+                    mer: etf.mer ? Number(etf.mer) : 0
+                },
 
-        await prisma.portfolioItem.delete({
-            where: { etfId: ticker },
+                allocation: {
+                    equities: etf.allocation?.stocks_weight ? Number(etf.allocation.stocks_weight) : 0,
+                    bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
+                    cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
+                },
+
+                // The interface expects sectors as Record<string, number> or undefined
+                // The DB returns an array of objects
+                sectors: etf.sectors && etf.sectors.length > 0
+                    ? etf.sectors.reduce((acc, s) => {
+                        acc[s.sector_name] = Number(s.weight);
+                        return acc;
+                    }, {} as Record<string, number>)
+                    : undefined
+            };
         });
 
-        const currentCount = await prisma.portfolioItem.count();
-
-        if (currentCount > 0) {
-            const evenWeight = new Decimal(100).dividedBy(currentCount);
-            await prisma.portfolioItem.updateMany({
-                data: { weight: evenWeight },
-            });
-        }
-
-        return NextResponse.json({ message: 'Stock removed successfully' });
+        return NextResponse.json(formattedPortfolio);
     } catch (error) {
-        console.error('[API] Error removing stock from portfolio:', error);
+        console.error('[API] Error fetching portfolio:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
