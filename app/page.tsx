@@ -37,7 +37,7 @@ export default function Home() {
   };
 
   const handleAddToPortfolio = (etf: ETF) => {
-    addStockMutation.mutate(etf);
+    addStockMutation.mutate(etf.ticker);
   };
 
   const handleRemoveFromPortfolio = (ticker: string) => {
