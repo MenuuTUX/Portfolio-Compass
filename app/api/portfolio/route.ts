@@ -80,17 +80,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
         }
 
+        const safePrice = (newStock.price === undefined || newStock.price === null || isNaN(Number(newStock.price)))
+            ? 0
+            : newStock.price;
+
+        const safeChange = (newStock.changePercent === undefined || newStock.changePercent === null || isNaN(Number(newStock.changePercent)))
+            ? 0
+            : newStock.changePercent;
+
         await prisma.etf.upsert({
             where: { ticker: newStock.ticker },
             update: {
-                price: new Decimal(newStock.price),
-                daily_change: new Decimal(newStock.changePercent),
+                price: new Decimal(safePrice),
+                daily_change: new Decimal(safeChange),
             },
             create: {
                 ticker: newStock.ticker,
                 name: newStock.name,
-                price: new Decimal(newStock.price),
-                daily_change: new Decimal(newStock.changePercent),
+                price: new Decimal(safePrice),
+                daily_change: new Decimal(safeChange),
                 assetType: newStock.assetType || 'ETF',
                 currency: 'USD',
             },
