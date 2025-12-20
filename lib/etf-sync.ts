@@ -1,7 +1,6 @@
 import prisma from '@/lib/db'
 import { fetchEtfDetails } from '@/lib/market-service'
 import { Decimal } from 'decimal.js';
-import { fetchISharesHoldings, isSupportedIShares } from '@/lib/scrapers/ishares';
 
 export async function syncEtfDetails(ticker: string) {
   try {
@@ -162,31 +161,7 @@ export async function syncEtfDetails(ticker: string) {
 
       // 7. Update Holdings
       (async () => {
-        if (isSupportedIShares(etf.ticker)) {
-          try {
-            console.log(`[EtfSync] Fetching holdings for iShares ETF ${etf.ticker}...`);
-            const holdings = await fetchISharesHoldings(etf.ticker);
-
-            if (holdings.length > 0) {
-              await prisma.$transaction([
-                prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
-                prisma.holding.createMany({
-                  data: holdings.map(h => ({
-                    etfId: etf.ticker,
-                    ticker: h.ticker,
-                    name: h.name,
-                    sector: h.sector,
-                    weight: h.weight,
-                    shares: h.shares
-                  }))
-                })
-              ]);
-              console.log(`[EtfSync] Synced ${holdings.length} holdings for ${etf.ticker} (iShares)`);
-            }
-          } catch (holdingsError) {
-            console.error(`[EtfSync] Failed to sync holdings for ${etf.ticker}`, holdingsError);
-          }
-        } else if (details.topHoldings && details.topHoldings.length > 0) {
+        if (details.topHoldings && details.topHoldings.length > 0) {
           try {
             console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
             await prisma.$transaction([
