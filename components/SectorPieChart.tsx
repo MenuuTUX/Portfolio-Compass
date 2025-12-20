@@ -5,7 +5,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import { motion } from 'framer-motion';
 
 interface SectorPieChartProps {
-  sectors: { [key: string]: number };
+  sectors?: { [key: string]: number };
   isLoading?: boolean;
 }
 
