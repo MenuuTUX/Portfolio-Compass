@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import { EtfHistory } from '@prisma/client';
 import { ETF, PortfolioItem } from '@/types';
 import { Decimal } from 'decimal.js';
+import { syncEtfDetails } from '@/lib/etf-sync';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,52 +70,40 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
     try {
-        const newStock: ETF = await request.json();
+        const body = await request.json();
+        const { ticker } = body;
 
-        if (!newStock.ticker) {
+        if (!ticker) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
         }
 
-        await prisma.etf.upsert({
-            where: { ticker: newStock.ticker },
-            update: {
-                price: new Decimal(newStock.price),
-                daily_change: new Decimal(newStock.changePercent),
-            },
-            create: {
-                ticker: newStock.ticker,
-                name: newStock.name,
-                price: new Decimal(newStock.price),
-                daily_change: new Decimal(newStock.changePercent),
-                assetType: newStock.assetType || 'ETF',
-                currency: 'USD',
-            },
+        const upperTicker = ticker.toUpperCase();
+
+        // Data Assurance: Check if the ETF exists and is fully loaded
+        const existingEtf = await prisma.etf.findUnique({
+            where: { ticker: upperTicker },
         });
 
-        const existingItem = await prisma.portfolioItem.findUnique({
-            where: { etfId: newStock.ticker },
-        });
+        if (!existingEtf || !existingEtf.isDeepAnalysisLoaded) {
+            console.log(`[API] Ticker ${upperTicker} missing or incomplete, syncing...`);
+            const syncedEtf = await syncEtfDetails(upperTicker);
 
-        if (existingItem) {
-            return NextResponse.json({ message: 'Item already in portfolio' }, { status: 200 });
+            if (!syncedEtf) {
+                return NextResponse.json({ error: 'Ticker not found in market' }, { status: 404 });
+            }
         }
 
-        const currentCount = await prisma.portfolioItem.count();
-        const newCount = currentCount + 1;
-        const evenWeight = new Decimal(100).dividedBy(newCount);
-
-        await prisma.$transaction([
-            prisma.portfolioItem.updateMany({
-                data: { weight: evenWeight },
-            }),
-            prisma.portfolioItem.create({
-                data: {
-                    etfId: newStock.ticker,
-                    weight: evenWeight,
-                    shares: 0,
-                },
-            }),
-        ]);
+        // Creation: Upsert the PortfolioItem
+        // If it exists, do nothing (update: {}). If new, set weight/shares to 0.
+        await prisma.portfolioItem.upsert({
+            where: { etfId: upperTicker },
+            create: {
+                etfId: upperTicker,
+                weight: 0,
+                shares: 0,
+            },
+            update: {},
+        });
 
         return NextResponse.json({ message: 'Stock added successfully' }, { status: 201 });
 
