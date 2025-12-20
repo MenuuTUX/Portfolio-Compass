@@ -10,6 +10,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { ticker } = body;
 
+        console.log(`[API] POST /api/portfolio request for: ${ticker}`);
+
         if (!ticker) {
             return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
         }
@@ -26,12 +28,14 @@ export async function POST(request: NextRequest) {
             const syncedEtf = await syncEtfDetails(upperTicker);
 
             if (!syncedEtf) {
+                console.error(`[API] Sync failed for ${upperTicker} - Ticker not found on market`);
                 return NextResponse.json({ error: 'Ticker not found on market' }, { status: 404 });
             }
         }
 
+        console.log(`[API] Upserting PortfolioItem for ${upperTicker}`);
         // The Safe Add: Upsert PortfolioItem
-        await prisma.portfolioItem.upsert({
+        const item = await prisma.portfolioItem.upsert({
             where: { etfId: upperTicker },
             create: {
                 etfId: upperTicker,
@@ -40,6 +44,7 @@ export async function POST(request: NextRequest) {
             },
             update: {}, // Don't overwrite existing user data if they add it twice
         });
+        console.log(`[API] Successfully upserted item: ${JSON.stringify(item)}`);
 
         return NextResponse.json({ message: 'Success', ticker: upperTicker }, { status: 201 });
 

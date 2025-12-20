@@ -266,7 +266,7 @@ const ETFCard = memo(({
 ETFCard.displayName = 'ETFCard';
 
 interface ComparisonEngineProps {
-  onAddToPortfolio: (etf: ETF) => void;
+  onAddToPortfolio: (etf: ETF) => Promise<void>;
   onRemoveFromPortfolio: (ticker: string) => void;
   portfolio: PortfolioItem[];
   assetType?: string;
@@ -341,9 +341,20 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     }, 500);
   }, []);
 
-  const handleAdd = useCallback((etf: ETF) => {
-    onAddToPortfolio(etf);
-    triggerFlash(etf.ticker, 'success');
+  const handleAdd = useCallback(async (etf: ETF) => {
+    try {
+      await onAddToPortfolio(etf);
+      triggerFlash(etf.ticker, 'success');
+    } catch (error) {
+      console.error("Failed to add to portfolio", error);
+      triggerFlash(etf.ticker, 'error');
+      setMessageDrawer({
+        isOpen: true,
+        title: 'Add Failed',
+        message: 'Could not add asset to portfolio. Please try again.',
+        type: 'error'
+      });
+    }
   }, [onAddToPortfolio, triggerFlash]);
 
   const handleRemove = useCallback((ticker: string) => {
