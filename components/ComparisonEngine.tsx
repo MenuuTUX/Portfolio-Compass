@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, memo, useId } from 'react';
 import { Search, ArrowUpRight, ArrowDownRight, Maximize2, Plus, Check, Trash2, ChevronDown } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { getAssetIconUrl } from '@/lib/etf-providers';
 import { ETF, PortfolioItem } from '@/types';
@@ -11,61 +10,7 @@ import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import MessageDrawer from './MessageDrawer';
-
-interface SparklineProps {
-  data: { date: string; price: number }[];
-  color: string;
-}
-
-// Sparkline component - Memoized to prevent re-renders on parent updates
-const Sparkline = memo(({ data, color }: SparklineProps) => {
-  const uniqueId = useId();
-  // Using a unique ID ensures gradient definitions don't collide between multiple charts
-  const gradientId = `gradient-${uniqueId}`;
-
-  return (
-    <div className="h-16 w-32">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data}>
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-              <stop offset="95%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <YAxis domain={['dataMin', 'dataMax']} hide />
-          <Area
-            type="monotone"
-            dataKey="price"
-            stroke={color}
-            fill={`url(#${gradientId})`}
-            strokeWidth={2}
-            isAnimationActive={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-      <table className="sr-only">
-        <caption>Price History Sparkline</caption>
-        <thead>
-          <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((item, i) => (
-            <tr key={i}>
-              <td>{new Date(item.date).toLocaleDateString()}</td>
-              <td>{formatCurrency(item.price)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-});
-
-Sparkline.displayName = 'Sparkline';
+import Sparkline from './Sparkline';
 
 interface ETFCardProps {
   etf: ETF;
@@ -179,6 +124,7 @@ const ETFCard = memo(({
             <Sparkline
               data={etf.history}
               color={isGraphPositive ? '#10b981' : '#f43f5e'}
+              name={etf.ticker}
             />
           )}
         </div>
