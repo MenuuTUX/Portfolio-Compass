@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
+import { withAccelerate } from '@prisma/extension-accelerate'
 
 const prismaClientSingleton = () => {
   // Ensure we have a connection string.
@@ -8,6 +9,11 @@ const prismaClientSingleton = () => {
     throw new Error("DATABASE_URL is not defined in environment variables");
   }
   const connectionString = process.env.DATABASE_URL;
+
+  // Check if using Prisma Accelerate (prisma:// or prisma+postgres://)
+  if (connectionString.startsWith('prisma://') || connectionString.startsWith('prisma+postgres://')) {
+    return new PrismaClient().$extends(withAccelerate())
+  }
 
   const pool = new pg.Pool({
     connectionString,
