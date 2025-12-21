@@ -11,7 +11,7 @@ import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
 
 interface TrendingTabProps {
-    onAddToPortfolio: (etf: ETF) => void;
+    onAddToPortfolio: (etf: ETF) => Promise<void>;
     portfolio?: PortfolioItem[];
     onRemoveFromPortfolio?: (ticker: string) => void;
 }
@@ -57,8 +57,8 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 // though the browser might limit connections to the same host.
                 // However, splitting the request might help if the backend serializes processing per request but can handle multiple requests in parallel workers.
 
-                const specificPromise = fetch(`/api/etfs/search?tickers=${allSpecificTickers.join(',')}`);
-                const generalPromise = fetch('/api/etfs/search?query=&limit=100');
+                const specificPromise = fetch(`/api/etfs/search?tickers=${allSpecificTickers.join(',')}&includeHistory=true`);
+                const generalPromise = fetch('/api/etfs/search?query=&limit=100&includeHistory=true');
 
                 const [specificRes, generalRes] = await Promise.all([specificPromise, generalPromise]);
 
@@ -110,26 +110,19 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
         const fetchCrypto = async () => {
             setLoadingCrypto(true);
             try {
-                const ids = 'bitcoin,ethereum,solana,cardano,ripple';
-                const res = await fetch(`/api/proxy?path=simple/price&ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+                const res = await fetch('/api/etfs/search?type=CRYPTO&includeHistory=true');
                 if (!res.ok) throw new Error('Failed to fetch crypto data');
-                const data = await res.json();
+                const rawData = await res.json();
 
-                const cryptos: ETF[] = Object.keys(data).map(key => {
-                    const item = data[key];
-                    return {
-                        ticker: key.toUpperCase(),
-                        name: key.charAt(0).toUpperCase() + key.slice(1),
-                        price: item.usd,
-                        changePercent: item.usd_24h_change || 0,
-                        assetType: 'CRYPTO',
-                        history: [],
-                        metrics: { yield: 0, mer: 0 },
-                        allocation: { equities: 0, bonds: 0, cash: 0 },
-                    };
-                });
+                let data: ETF[] = [];
+                try {
+                    data = z.array(ETFSchema).parse(rawData);
+                } catch (e) {
+                    console.warn('API response validation failed for crypto items:', e);
+                    data = rawData as ETF[];
+                }
 
-                setCryptoItems(cryptos);
+                setCryptoItems(data);
             } catch (error) {
                 console.error('Failed to fetch crypto data:', error);
             } finally {
