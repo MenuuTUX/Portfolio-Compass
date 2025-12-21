@@ -55,6 +55,111 @@ export async function POST(request: NextRequest) {
     }
 }
 
+export async function DELETE(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const ticker = searchParams.get('ticker');
+
+        if (!ticker) {
+            return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+        }
+
+        const upperTicker = ticker.toUpperCase();
+
+        await prisma.portfolioItem.delete({
+            where: { etfId: upperTicker },
+        });
+
+        return NextResponse.json({ message: 'Success' });
+    } catch (error) {
+        console.error('[API] Error removing stock from portfolio:', error);
+        // If it doesn't exist, it's effectively deleted, so we can return 200.
+        // Prisma throws P2025 if record not found.
+        if ((error as any).code === 'P2025') {
+             return NextResponse.json({ message: 'Success' }); // Already gone
+        }
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { ticker, weight, shares } = body;
+
+        if (!ticker) {
+            return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+        }
+
+        const upperTicker = ticker.toUpperCase();
+
+        const updatedItem = await prisma.portfolioItem.update({
+            where: { etfId: upperTicker },
+            data: {
+                ...(weight !== undefined && { weight }),
+                ...(shares !== undefined && { shares }),
+            },
+            include: {
+                etf: {
+                    include: {
+                        sectors: true,
+                        allocation: true,
+                        history: {
+                            take: 7,
+                            orderBy: { date: 'desc' },
+                        },
+                    },
+                },
+            },
+        });
+
+        // Transform Response (same logic as GET)
+        const etf = updatedItem.etf;
+        const formattedItem = {
+                ticker: etf.ticker,
+                name: etf.name,
+                price: Number(etf.price),
+                changePercent: Number(etf.daily_change),
+                assetType: etf.assetType,
+                isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
+
+                weight: Number(updatedItem.weight),
+                shares: Number(updatedItem.shares),
+
+                // History: Latest 7 days, reversed for chart (oldest first)
+                history: etf.history.map((h) => ({
+                    date: h.date.toISOString(),
+                    price: Number(h.close),
+                    interval: h.interval
+                })).reverse(),
+
+                metrics: {
+                    yield: etf.yield ? Number(etf.yield) : 0,
+                    mer: etf.mer ? Number(etf.mer) : 0
+                },
+
+                allocation: {
+                    equities: etf.allocation?.stocks_weight ? Number(etf.allocation.stocks_weight) : 0,
+                    bonds: etf.allocation?.bonds_weight ? Number(etf.allocation.bonds_weight) : 0,
+                    cash: etf.allocation?.cash_weight ? Number(etf.allocation.cash_weight) : 0,
+                },
+
+                sectors: etf.sectors && etf.sectors.length > 0
+                    ? etf.sectors.reduce((acc, s) => {
+                        acc[s.sector_name] = Number(s.weight);
+                        return acc;
+                    }, {} as Record<string, number>)
+                    : undefined
+            };
+
+        return NextResponse.json(formattedItem);
+
+    } catch (error) {
+        console.error('[API] Error updating portfolio item:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
 export async function GET() {
     try {
         type PortfolioItemWithRelations = Prisma.PortfolioItemGetPayload<{
