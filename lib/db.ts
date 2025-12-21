@@ -20,8 +20,18 @@ const prismaClientSingleton = () => {
     ssl: { rejectUnauthorized: false }
   })
   const adapter = new PrismaPg(pool)
-  return new PrismaClient({ adapter })
+
+  // Return the standard client but cast it to the Extended client type
+  // to ensure a consistent return type for the singleton and avoid union type issues in the app.
+  // The Extended client is a superset of the standard client functionality-wise for our usage.
+  const client = new PrismaClient({ adapter });
+  return client as unknown as ReturnType<typeof createExtendedClient>;
 };
+
+// Helper to infer the extended client type
+function createExtendedClient() {
+  return new PrismaClient().$extends(withAccelerate());
+}
 
 declare global {
   var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
