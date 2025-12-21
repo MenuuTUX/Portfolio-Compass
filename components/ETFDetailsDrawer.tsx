@@ -321,11 +321,11 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
               </div>
             </div>
 
-            <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-3 lg:grid-rows-[1fr_auto] gap-6 h-full">
+            <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto lg:overflow-hidden">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
 
                 {/* Left Col: Chart */}
-                <div className="lg:col-span-2 lg:row-span-1 bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col h-full min-h-[400px]">
+                <div className="lg:col-span-2 bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col h-full min-h-[400px]">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-emerald-400" />
@@ -459,11 +459,13 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                   </div>
                 </div>
 
+                {/* Right Col Wrapper */}
+                <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto space-y-6 pr-2 custom-scrollbar">
                   {/* Sector Breakdown or Stock Info */}
-                  <div className="lg:col-start-3 lg:row-start-1 bg-white/5 rounded-2xl p-6 border border-white/5 h-full min-h-[300px] flex flex-col">
+                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[300px] flex flex-col">
                     {displayEtf.assetType === 'STOCK' ? (
                       <div className="flex-1 min-h-0">
-                         <StockInfoCard ticker={displayEtf.ticker} />
+                        <StockInfoCard ticker={displayEtf.ticker} />
                       </div>
                     ) : (
                       <>
@@ -479,7 +481,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                   </div>
 
                   {/* Metrics Grid */}
-                  <div className="lg:col-start-3 lg:row-start-2 bg-white/5 rounded-2xl p-6 border border-white/5">
+                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                     <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
                     <div className="grid grid-cols-2 gap-4">
                       {displayEtf.assetType !== 'STOCK' && (
@@ -509,6 +511,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       </div>
                     </div>
                   </div>
+                </div>
               </div>
             </div>
           </motion.div>
