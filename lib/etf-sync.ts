@@ -1,8 +1,18 @@
 import prisma from '@/lib/db'
 import { fetchEtfDetails } from '@/lib/market-service'
 import { Decimal } from 'decimal.js';
+import { Prisma } from '@prisma/client';
 
-export async function syncEtfDetails(ticker: string) {
+export type FullEtf = Prisma.EtfGetPayload<{
+  include: {
+    history: true;
+    sectors: true;
+    allocation: true;
+    holdings: true;
+  }
+}>;
+
+export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
 
@@ -195,8 +205,10 @@ export async function syncEtfDetails(ticker: string) {
       }
     });
 
-    console.log(`[EtfSync] Sync complete for ${etf.ticker}`);
-    return fullEtf;
+    // Explicitly cast the result to ensure it matches the FullEtf type
+    // This handles the case where findUnique returns null, or the type inference is slightly off
+    if (!fullEtf) return null;
+    return fullEtf as FullEtf;
 
   } catch (error) {
     console.error(`[EtfSync] Failed to sync ${ticker}:`, error);

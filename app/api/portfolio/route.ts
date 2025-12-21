@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { syncEtfDetails } from '@/lib/etf-sync';
 import { Decimal } from 'decimal.js';
+import { Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,18 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
     try {
+        type PortfolioItemWithRelations = Prisma.PortfolioItemGetPayload<{
+          include: {
+              etf: {
+                  include: {
+                      sectors: true;
+                      allocation: true;
+                      history: true; // Note: 'take' argument doesn't change the payload type significantly for fields, just the count
+                  },
+              },
+          },
+        }>;
+
         const portfolioItems = await prisma.portfolioItem.findMany({
             include: {
                 etf: {
@@ -69,7 +82,7 @@ export async function GET() {
                     },
                 },
             },
-        });
+        }) as unknown as PortfolioItemWithRelations[];
 
         // Transform Response: Map the data to a clean JSON object.
         const formattedPortfolio = portfolioItems.map((item) => {
