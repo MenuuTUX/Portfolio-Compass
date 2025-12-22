@@ -3,7 +3,7 @@
 
 generator client {
   provider   = "prisma-client-js"
-  engineType = "client"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -62,7 +62,7 @@ model Holding {
   sector    String?
   weight    Decimal
   shares    Decimal?
-  etf       Etf      @relation(fields: [etfId], references: [ticker])
+  etf       Etf    @relation(fields: [etfId], references: [ticker])
 
   @@index([etfId, ticker])
 }
