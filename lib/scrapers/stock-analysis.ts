@@ -12,6 +12,42 @@ export interface StockProfile {
   };
 }
 
+export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<string[]> {
+    const url = `https://stockanalysis.com/markets/${type}/`;
+    const response = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        }
+    });
+    if (!response.ok) {
+        console.error(`Failed to fetch ${type}: ${response.status}`);
+        return [];
+    }
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const tickers: string[] = [];
+
+    // Find the main table
+    $('table').each((_, table) => {
+        const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
+        // Check for expected headers to identify the correct table
+        if (headers.includes('Symbol') && headers.includes('% Change')) {
+            const symbolIndex = headers.indexOf('Symbol');
+            if (symbolIndex > -1) {
+                 $(table).find('tbody tr').each((_, tr) => {
+                    const symbolCell = $(tr).find('td').eq(symbolIndex);
+                    // The symbol is usually a link, so we can try to extract text
+                    const ticker = symbolCell.text().trim();
+                    if (ticker) tickers.push(ticker);
+                 });
+            }
+        }
+    });
+
+    return tickers;
+}
+
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
   const upperTicker = ticker.toUpperCase();
   // Try stock URL first
@@ -42,14 +78,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
 
   let sector = '';
   let industry = '';
-  
-  // Strategy: Find text node "Sector" or "Industry" in the overview section
-  // Usually presented as "Sector: [Link]" or in a grid
-  // We want to avoid navigation links like "By Industry"
-  
-  // Refined Strategy:
-  // Look for text nodes that exactly start with "Sector" or "Industry" followed by a colon or are separate labels.
-  // Or look for known containers if possible, but generic is better if careful.
   
   // Strategy: Look for specific labels "Sector" and "Industry"
   // Based on observation: <span>Sector</span> <a ...>Materials</a>
@@ -178,51 +206,22 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
               summary = next.text().trim();
           }
 
-          // Price Target and Consensus often in a card or sibling structure
-          // "Analyst Consensus: Buy"
-          // "Price Target $288.62 (6.32% upside)"
-
           let consensus = '';
           let targetPrice: number | null = null;
           let targetUpside: number | null = null;
 
-          // Try to find text within the section
-          // Looking for specific strings in next siblings or a container
-          // The structure seen in image/text:
-          // P: According to ...
-          // DIV (card)
-          //   Price Target $X
-          //   (Y% upside)
-          //   Analyst Consensus: Z
-
-          // Let's traverse downwards or search in subsequent siblings until next header
-          let container = next.next();
-          // It might be a div container right after paragraph
-
-          // Helper to parse text content from this section
-          const sectionText = $(el).parent().text() + $(el).parent().next().text(); // Assuming it might be grouped
-
-          // Regex approach on the whole section text might be easier if structure varies
-          // But safer to find elements.
-
           // Look for "Analyst Consensus: [Value]"
-          // In the image, it's text "Analyst Consensus: Buy"
           const consensusMatch = $('div').filter((_, e) => $(e).text().includes('Analyst Consensus:')).last();
           if (consensusMatch.length) {
               const text = consensusMatch.text();
               const match = text.match(/Analyst Consensus:\s*([A-Za-z\s]+)/);
               if (match) {
                   consensus = match[1].trim();
-                  // Clean up if it captures too much (e.g. from chart labels)
-                  // Usually it's short like "Buy", "Strong Buy", "Hold"
-                  // Remove any trailing newlines or extra text if any
                   consensus = consensus.split('\n')[0].trim();
               }
           }
 
           // Look for Price Target
-          // Often displayed as large text "$288.62"
-          // Or searched via text "Price Target"
           const targetLabel = $('div').filter((_, e) => $(e).text().trim() === 'Price Target').last();
           if (targetLabel.length) {
               // The value is likely the next sibling or close by
@@ -235,11 +234,8 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
               }
 
               // Upside/Downside is usually next
-              const upsideEl = valEl.next(); // or nested
-              // If not direct sibling, look in parent text
-              // The text might be "(6.32% upside)"
-
-              const upsideText = upsideEl.text().trim() || valEl.text().trim(); // sometimes in same line?
+              const upsideEl = valEl.next();
+              const upsideText = upsideEl.text().trim() || valEl.text().trim();
               const upMatch = upsideText.match(/\(([\d.-]+)%\s*(upside|downside)\)/i);
               if (upMatch) {
                   let pct = parseFloat(upMatch[1]);
@@ -249,9 +245,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
                   targetUpside = pct;
               }
           } else {
-             // Fallback: search for text in the summary area if specific elements not found
-             // "Price Target $288.62"
-             // Using Cheerio context around the header
+             // Fallback
              const container = $(el).nextAll('div').first();
              const text = container.text();
 
