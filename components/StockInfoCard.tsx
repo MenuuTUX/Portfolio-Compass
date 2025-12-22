@@ -20,6 +20,32 @@ interface StockInfo {
   }
 }
 
+function DescriptionText({ text }: { text: string }) {
+  const [isExpanded, setIsExpanded] = React.useState(false)
+  const MAX_LENGTH = 350
+  const shouldTruncate = text.length > MAX_LENGTH
+
+  const displayText = shouldTruncate && !isExpanded
+    ? text.slice(0, MAX_LENGTH).trim() + "..."
+    : text
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <p className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap">
+        {displayText}
+      </p>
+      {shouldTruncate && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline focus:outline-none transition-colors"
+        >
+          {isExpanded ? "Read less" : "Read more"}
+        </button>
+      )}
+    </div>
+  )
+}
+
 interface StockInfoCardProps {
   ticker: string
 }
@@ -129,9 +155,7 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
 
             {/* Description */}
             <div className="flex-1 min-w-0">
-                <p className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap">
-                {info.description || "No description available."}
-                </p>
+                <DescriptionText text={info.description || "No description available."} />
             </div>
         </div>
 

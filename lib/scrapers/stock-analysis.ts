@@ -140,11 +140,24 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       }
   });
 
+  // Remove [Read more] artifact
+  if (description) {
+      description = description.replace(/\[Read more\]/g, '').trim();
+      // Remove trailing ellipsis if it was part of read more
+      if (description.endsWith('...')) {
+          description = description.slice(0, -3).trim();
+      }
+  }
+
   // 2. Fallback: Meta description
   if (!description) {
       const metaDesc = $('meta[name="description"]').attr('content');
       if (metaDesc) {
-          description = metaDesc;
+          // Check if it's a generic SEO description
+          const isGeneric = metaDesc.startsWith("Get a real-time stock price for the");
+          if (!isGeneric) {
+              description = metaDesc;
+          }
       }
   }
 
