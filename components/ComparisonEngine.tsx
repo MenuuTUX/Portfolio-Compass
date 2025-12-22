@@ -254,6 +254,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
   // Pagination and sorting state
   const [visibleCount, setVisibleCount] = useState(12);
+  const [hasMoreServer, setHasMoreServer] = useState(true);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
 
   // Load recent tickers on mount
@@ -328,12 +329,12 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     };
   }, []);
 
-  const fetchEtfs = useCallback(async (query: string) => {
-    setLoading(true);
+  const fetchEtfs = useCallback(async (query: string, skip = 0) => {
+    if (skip === 0) setLoading(true);
     try {
       // We pass the type as a hint to the backend (though backend might search broadly now)
       // ComparisonEngine requires history for Sparklines, so we explicitly request it.
-      let url = `/api/etfs/search?query=${encodeURIComponent(query)}&includeHistory=true`;
+      let url = `/api/etfs/search?query=${encodeURIComponent(query)}&includeHistory=true&skip=${skip}`;
       if (assetType) {
         url += `&type=${encodeURIComponent(assetType)}`;
       }
@@ -358,24 +359,47 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         const valid = data.filter(item => item.assetType === assetType);
         const other = data.filter(item => item.assetType !== assetType);
 
-        setEtfs(valid);
-        setOtherTypeEtfs(other);
+        if (skip === 0) {
+          setEtfs(valid);
+          setOtherTypeEtfs(other);
+          setSuggestions(valid);
+        } else {
+          setEtfs(prev => [...prev, ...valid]);
+          // We don't append to suggestions or otherTypeEtfs during pagination usually
+        }
 
-        // For suggestions, we might want to show everything but maybe visually distinguish?
-        // Or strictly follow the section rules.
-        // Let's filter suggestions to strict matches for now.
-        setSuggestions(valid);
+        // If we got fewer than requested (roughly), assume no more
+        // API default limit is 50. If valid < 50, maybe no more?
+        // But valid is filtered. The API returned `data`.
+        if (data.length === 0) {
+           setHasMoreServer(false);
+        } else {
+           setHasMoreServer(true);
+        }
+
       } else {
-        setEtfs(data);
-        setSuggestions(data);
-        setOtherTypeEtfs([]);
+        if (skip === 0) {
+          setEtfs(data);
+          setSuggestions(data);
+          setOtherTypeEtfs([]);
+        } else {
+           setEtfs(prev => [...prev, ...data]);
+        }
+
+        if (data.length === 0) {
+             setHasMoreServer(false);
+        } else {
+             setHasMoreServer(true);
+        }
       }
 
     } catch (err) {
       console.error("Failed to load ETF data", err);
-      setEtfs([]);
-      setSuggestions([]);
-      setOtherTypeEtfs([]);
+      if (skip === 0) {
+        setEtfs([]);
+        setSuggestions([]);
+        setOtherTypeEtfs([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -383,13 +407,28 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
   // Effect for main search/grid
   useEffect(() => {
-    fetchEtfs(debouncedSearch);
+    // Reset server pagination state on new search
+    setHasMoreServer(true);
+    fetchEtfs(debouncedSearch, 0);
   }, [debouncedSearch, fetchEtfs]);
 
   // Reset pagination when search or asset type changes
   useEffect(() => {
     setVisibleCount(12);
   }, [debouncedSearch, assetType]);
+
+  const handleLoadMore = () => {
+      // If we have more local items to show, just increase visible count
+      if (visibleCount < etfs.length) {
+          setVisibleCount(prev => prev + 12);
+      } else if (hasMoreServer) {
+          // If we showed all local, try fetching more from server
+          // Use current etfs.length as skip
+          fetchEtfs(debouncedSearch, etfs.length).then(() => {
+              setVisibleCount(prev => prev + 12);
+          });
+      }
+  };
 
   // Effect to handle "No Results Found" drawer (Search returns 0)
   // We only trigger this if search is active (debouncedSearch) and both lists are empty.
@@ -642,14 +681,14 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
             {renderNoResults()}
 
             {/* Load More Button */}
-            {displayedEtfs.length < etfs.length && (
+            {(displayedEtfs.length < etfs.length || hasMoreServer) && (
               <div className="col-span-full flex justify-center mt-8">
                 <button
-                  onClick={() => setVisibleCount(prev => prev + 12)}
+                  onClick={handleLoadMore}
                   className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/10 hover:border-emerald-500/50"
                 >
                   <ChevronDown className="w-4 h-4" />
-                  Load More ({etfs.length - displayedEtfs.length} remaining)
+                  Load More {displayedEtfs.length < etfs.length && `(${etfs.length - displayedEtfs.length} cached)`}
                 </button>
               </div>
             )}
