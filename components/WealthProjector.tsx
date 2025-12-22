@@ -84,10 +84,11 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
           {/* Controls */}
           <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-white/5 border border-white/5">
             <div>
-              <label className="text-sm text-neutral-400 block mb-2">Initial Investment</label>
+              <label htmlFor="initial-investment" className="text-sm text-neutral-400 block mb-2">Initial Investment</label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-neutral-500">$</span>
+                <span className="absolute left-3 top-2.5 text-neutral-400">$</span>
                 <input
+                  id="initial-investment"
                   type="number"
                   value={initialInvestment}
                   onChange={(e) => setInitialInvestment(Number(e.target.value))}
@@ -97,10 +98,11 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             </div>
 
             <div>
-              <label className="text-sm text-neutral-400 block mb-2">Monthly Contribution</label>
+              <label htmlFor="monthly-contribution" className="text-sm text-neutral-400 block mb-2">Monthly Contribution</label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-neutral-500">$</span>
+                <span className="absolute left-3 top-2.5 text-neutral-400">$</span>
                 <input
+                  id="monthly-contribution"
                   type="number"
                   value={monthlyContribution}
                   onChange={(e) => setMonthlyContribution(Number(e.target.value))}
@@ -110,8 +112,9 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             </div>
 
             <div>
-              <label className="text-sm text-neutral-400 block mb-2">Time Horizon (Years): {years}</label>
+              <label htmlFor="time-horizon" className="text-sm text-neutral-400 block mb-2">Time Horizon (Years): {years}</label>
               <input
+                id="time-horizon"
                 type="range"
                 min="5"
                 max="50"
@@ -122,7 +125,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             </div>
 
             <div className="pt-6 border-t border-white/10">
-              <div className="text-sm text-neutral-500 mb-1">Projected Annual Return</div>
+              <div className="text-sm text-neutral-400 mb-1">Projected Annual Return</div>
               <div className="text-2xl font-bold text-emerald-400">{(weightedReturn * 100).toFixed(2)}%</div>
             </div>
           </div>
@@ -131,11 +134,11 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
           <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5">
             <div className="flex justify-between items-end mb-6">
               <div>
-                <div className="text-sm text-neutral-500">Projected Wealth</div>
+                <div className="text-sm text-neutral-400">Projected Wealth</div>
                 <div className="text-4xl font-bold text-white">{formatCurrency(finalAmount)}</div>
               </div>
               <div className="text-right hidden sm:block">
-                <div className="text-sm text-neutral-500">Total Invested</div>
+                <div className="text-sm text-neutral-400">Total Invested</div>
                 <div className="text-xl font-medium text-neutral-300">{formatCurrency(totalInvested)}</div>
               </div>
             </div>

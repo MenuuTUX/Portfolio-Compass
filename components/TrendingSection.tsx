@@ -153,7 +153,7 @@ export default function TrendingSection({
                     <Icon className={cn("w-6 h-6", styles.text)} />
                 </div>
                 <h2 className="text-3xl font-bold text-white tracking-tight">{title}</h2>
-                <span className="text-neutral-500 text-sm font-medium ml-2">
+                <span className="text-neutral-400 text-sm font-medium ml-2">
                     ({visibleItems.length} of {items.length})
                 </span>
             </div>
@@ -265,7 +265,7 @@ export default function TrendingSection({
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-2 text-xs text-neutral-500 border-t border-white/5 pt-4">
+                                <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 border-t border-white/5 pt-4">
                                     <div>
                                         <span className="block mb-1">Asset Type</span>
                                         <span className="text-neutral-300 font-medium">{etf.assetType || 'ETF'}</span>

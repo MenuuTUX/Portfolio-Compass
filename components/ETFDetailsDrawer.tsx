@@ -335,7 +335,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                     <div className="flex items-center gap-4">
                       {/* Comparison Toggle */}
                       <div className="flex items-center gap-2 bg-black/20 rounded-lg p-1 px-2">
-                        <span className={cn("text-xs font-medium transition-colors", showComparison ? "text-white" : "text-neutral-500")}>vs SPY</span>
+                        <span className={cn("text-xs font-medium transition-colors", showComparison ? "text-white" : "text-neutral-400")}>vs SPY</span>
                         <button
                           onClick={() => setShowComparison(!showComparison)}
                           className={cn(
@@ -357,7 +357,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                             onClick={() => setTimeRange(range)}
                             className={cn(
                               "px-3 py-1 rounded-md text-xs font-medium transition-colors",
-                              timeRange === range ? "bg-white/10 text-white" : "text-neutral-500 hover:text-neutral-300"
+                              timeRange === range ? "bg-white/10 text-white" : "text-neutral-400 hover:text-neutral-300"
                             )}
                           >
                             {range}
@@ -486,12 +486,12 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                     <div className="grid grid-cols-2 gap-4">
                       {displayEtf.assetType !== 'STOCK' && (
                         <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                          <div className="text-xs text-neutral-500 mb-1">MER</div>
+                          <div className="text-xs text-neutral-400 mb-1">MER</div>
                           <div className="text-xl font-bold text-white">{displayEtf.metrics.mer.toFixed(2)}%</div>
                         </div>
                       )}
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-xs text-neutral-500 mb-1">Yield (TTM)</div>
+                        <div className="text-xs text-neutral-400 mb-1">Yield (TTM)</div>
                         <div className="text-xl font-bold text-emerald-400">
                           {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
                             ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
@@ -501,7 +501,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-xs text-neutral-500 mb-1">Volatility ({timeRange})</div>
+                            <div className="text-xs text-neutral-400 mb-1">Volatility ({timeRange})</div>
                             <div className={cn("text-xl font-bold", riskData?.color)}>{riskData ? (riskData.stdDev! * 100).toFixed(2) : 'N/A'}%</div>
                           </div>
                           {riskData && (
