@@ -100,14 +100,9 @@ export default function TrendingSection({
         show: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.1
+                staggerChildren: 0.05
             }
         }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 20 },
-        show: { opacity: 1, y: 0 }
     };
 
     const isItemInPortfolio = (ticker: string) => {
@@ -158,10 +153,7 @@ export default function TrendingSection({
                 </span>
             </div>
 
-            <motion.div
-                variants={container}
-                initial="hidden"
-                animate="show"
+            <div
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
             >
                 {visibleItems.map((etf) => {
@@ -179,8 +171,8 @@ export default function TrendingSection({
                     return (
                         <motion.div
                             key={etf.ticker}
-                            variants={item}
-                            animate={flashState ? { x: [0, -5, 5, -5, 5, 0] } : {}}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={flashState ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
                             transition={{ duration: 0.4 }}
                             className={cn(
                                 "group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
