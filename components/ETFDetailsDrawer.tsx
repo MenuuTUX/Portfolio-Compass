@@ -338,6 +338,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         <span className={cn("text-xs font-medium transition-colors", showComparison ? "text-white" : "text-neutral-400")}>vs SPY</span>
                         <button
                           onClick={() => setShowComparison(!showComparison)}
+                          aria-label={showComparison ? "Disable SPY comparison" : "Enable SPY comparison"}
                           className={cn(
                             "w-8 h-4 rounded-full relative transition-colors duration-300 focus:outline-none",
                             showComparison ? "bg-emerald-500" : "bg-neutral-700"
