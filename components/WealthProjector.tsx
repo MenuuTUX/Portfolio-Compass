@@ -5,12 +5,14 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
 import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
+  onBack?: () => void;
 }
 
-export default function WealthProjector({ portfolio }: WealthProjectorProps) {
+export default function WealthProjector({ portfolio, onBack }: WealthProjectorProps) {
   const [initialInvestment, setInitialInvestment] = useState<number>(10000);
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
@@ -62,9 +64,20 @@ export default function WealthProjector({ portfolio }: WealthProjectorProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="mb-12">
-          <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
-          <p className="text-neutral-400">Monte Carlo simulation based on your portfolio&apos;s weighted yield + growth assumptions.</p>
+        <div className="flex items-center gap-4 mb-12">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+              title="Back to Portfolio"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+          )}
+          <div>
+            <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
+            <p className="text-neutral-400">Monte Carlo simulation based on your portfolio&apos;s weighted yield + growth assumptions.</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-20">

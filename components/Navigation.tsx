@@ -4,7 +4,7 @@ import { Activity, PieChart, TrendingUp, Briefcase, BarChart3, Settings, Coins }
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
-type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO' | 'GROWTH';
+type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO';
 
 interface NavigationProps {
   activeTab: Tab;
@@ -20,7 +20,6 @@ export default function Navigation({ activeTab, onTabChange, onBackToLanding, on
     { id: 'STOCKS', label: 'Stocks', icon: BarChart3 },
     { id: 'CRYPTO', label: 'Crypto', icon: Coins },
     { id: 'PORTFOLIO', label: 'Portfolio', icon: PieChart },
-    { id: 'GROWTH', label: 'Growth', icon: TrendingUp },
   ];
 
   return (

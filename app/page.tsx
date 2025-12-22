@@ -5,7 +5,6 @@ import Navigation from '@/components/Navigation';
 import Hero from '@/components/Hero';
 import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
-import WealthProjector from '@/components/WealthProjector';
 import TrendingTab from '@/components/TrendingTab';
 import SettingsDrawer from '@/components/SettingsDrawer';
 import { ETF } from '@/types';
@@ -17,7 +16,7 @@ import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 
 type ViewMode = 'LANDING' | 'APP';
-type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO' | 'GROWTH';
+type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
@@ -114,7 +113,6 @@ export default function Home() {
                     onUpdateWeight={handleUpdateWeight}
                     onUpdateShares={handleUpdateShares}
                     onClear={handleClearPortfolio}
-                    onViewGrowth={() => setActiveTab('GROWTH')}
                   />
                 )}
                 {activeTab === 'ETFS' && (
@@ -143,9 +141,6 @@ export default function Home() {
                     portfolio={portfolio}
                     assetType="CRYPTO"
                   />
-                )}
-                {activeTab === 'GROWTH' && (
-                  <WealthProjector key="growth" portfolio={portfolio} />
                 )}
               </AnimatePresence>
             </div>
