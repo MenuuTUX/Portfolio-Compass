@@ -52,52 +52,66 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                     ...NATURAL_RESOURCES_TICKERS
                 ];
 
-                // Fetch specific tickers
-                // We run these in parallel to speed up if the API supports concurrent connections,
-                // though the browser might limit connections to the same host.
-                // However, splitting the request might help if the backend serializes processing per request but can handle multiple requests in parallel workers.
+                // Fetch data in parallel
+                const promises = [
+                    fetch(`/api/etfs/search?tickers=${allSpecificTickers.join(',')}&includeHistory=true`).then(res => res.json()),
+                    fetch('/api/market/movers?type=gainers').then(res => res.json()),
+                    fetch('/api/market/movers?type=losers').then(res => res.json())
+                ];
 
-                const specificPromise = fetch(`/api/etfs/search?tickers=${allSpecificTickers.join(',')}&includeHistory=true`);
-                const generalPromise = fetch('/api/etfs/search?query=&limit=100&includeHistory=true');
-
-                const [specificRes, generalRes] = await Promise.all([specificPromise, generalPromise]);
+                const [specificDataRaw, gainersRaw, losersRaw] = await Promise.all(promises);
 
                 let specificData: ETF[] = [];
-                if (specificRes.ok) {
-                    const rawSpecificData = await specificRes.json();
+                try {
+                    specificData = z.array(ETFSchema).parse(specificDataRaw);
+                } catch (e) {
+                     console.warn('API response validation failed for specific items:', e);
+                     specificData = specificDataRaw as ETF[];
+                }
+
+                // Fetch details for gainers and losers
+                const gainerTickers = (gainersRaw.tickers || []) as string[];
+                const loserTickers = (losersRaw.tickers || []) as string[];
+
+                // Limit to 20 to avoid overly large requests if scraper returns many
+                const topGainers = gainerTickers.slice(0, 20);
+                const topLosers = loserTickers.slice(0, 20);
+
+                let gainersData: ETF[] = [];
+                let losersData: ETF[] = [];
+
+                if (topGainers.length > 0) {
+                    const res = await fetch(`/api/etfs/search?tickers=${topGainers.join(',')}&includeHistory=true`);
+                    const raw = await res.json();
                     try {
-                        specificData = z.array(ETFSchema).parse(rawSpecificData);
+                        gainersData = z.array(ETFSchema).parse(raw);
                     } catch (e) {
-                        console.warn('API response validation failed for specific items:', e);
-                        specificData = rawSpecificData as ETF[];
+                         console.warn('API response validation failed for gainers:', e);
+                         gainersData = raw as ETF[];
                     }
                 }
 
-                let generalData: ETF[] = [];
-                if (generalRes.ok) {
-                    const rawGeneralData = await generalRes.json();
+                if (topLosers.length > 0) {
+                    const res = await fetch(`/api/etfs/search?tickers=${topLosers.join(',')}&includeHistory=true`);
+                    const raw = await res.json();
                      try {
-                        generalData = z.array(ETFSchema).parse(rawGeneralData);
+                        losersData = z.array(ETFSchema).parse(raw);
                     } catch (e) {
-                        console.warn('API response validation failed for general items:', e);
-                        generalData = rawGeneralData as ETF[];
+                         console.warn('API response validation failed for losers:', e);
+                         losersData = raw as ETF[];
                     }
                 }
-
-                // Combine data
-                const combinedMap = new Map<string, ETF>();
-                [...generalData, ...specificData].forEach(item => {
-                    combinedMap.set(item.ticker, item);
-                });
-                const allData = Array.from(combinedMap.values());
-                const validData = allData.filter(d => d.price > 0);
 
                 // Populate sections
-                setTrendingItems([...validData].sort((a, b) => b.changePercent - a.changePercent).slice(0, 50));
-                setDiscountedItems([...validData].sort((a, b) => a.changePercent - b.changePercent).slice(0, 50));
-                setMag7Items(validData.filter(item => MAG7_TICKERS.includes(item.ticker)));
-                setJustBuyItems(validData.filter(item => JUSTBUY_TICKERS.includes(item.ticker)));
-                setNaturalResourcesItems(validData.filter(item => NATURAL_RESOURCES_TICKERS.includes(item.ticker)));
+                setTrendingItems(gainersData.sort((a, b) => b.changePercent - a.changePercent)); // Ensure sorted by %
+                setDiscountedItems(losersData.sort((a, b) => a.changePercent - b.changePercent)); // Ensure sorted by % ascending (most negative first)
+
+                const specificMap = new Map<string, ETF>();
+                specificData.forEach(item => specificMap.set(item.ticker, item));
+
+                setMag7Items(MAG7_TICKERS.map(t => specificMap.get(t)).filter((i): i is ETF => !!i));
+                setJustBuyItems(JUSTBUY_TICKERS.map(t => specificMap.get(t)).filter((i): i is ETF => !!i));
+                setNaturalResourcesItems(NATURAL_RESOURCES_TICKERS.map(t => specificMap.get(t)).filter((i): i is ETF => !!i));
 
             } catch (error) {
                 console.error('Failed to fetch trending stocks:', error);
