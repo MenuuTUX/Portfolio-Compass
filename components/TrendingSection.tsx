@@ -305,7 +305,7 @@ export default function TrendingSection({
                         </motion.div>
                     );
                 })}
-            </motion.div>
+            </div>
 
             {hasMore && (
                 <div className="flex justify-center mt-8">
