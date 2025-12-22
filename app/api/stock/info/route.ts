@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     // If description is missing (common for ETFs or failed scrapes), try Yahoo Finance
     if (!profile || !profile.description) {
         try {
-            const summary = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price'] });
+            const summary = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price'] } as any) as any;
             if (summary.summaryProfile?.longBusinessSummary) {
                 // Determine sector/industry if missing
                 const sector = profile?.sector || summary.summaryProfile.sector || 'Unknown';
