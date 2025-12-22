@@ -44,7 +44,8 @@ const ETFCard = memo(({
 
   return (
     <motion.div
-      animate={flashState ? { x: [0, -5, 5, -5, 5, 0] } : {}}
+      initial={{ opacity: 0, y: 20 }}
+      animate={flashState ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
       className={cn(
         "glass-card rounded-xl relative overflow-hidden bg-white/5 border transition-all group flex flex-col",
@@ -364,18 +365,20 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           setOtherTypeEtfs(other);
           setSuggestions(valid);
         } else {
-          setEtfs(prev => [...prev, ...valid]);
-          // We don't append to suggestions or otherTypeEtfs during pagination usually
+          setEtfs(prev => {
+             // Deduplicate by ticker to prevent key collisions
+             const existingTickers = new Set(prev.map(e => e.ticker));
+             const newItems = valid.filter(e => !existingTickers.has(e.ticker));
+             return [...prev, ...newItems];
+          });
         }
 
-        // If we got fewer than requested (roughly), assume no more
-        // API default limit is 50. If valid < 50, maybe no more?
-        // But valid is filtered. The API returned `data`.
         if (data.length === 0) {
            setHasMoreServer(false);
         } else {
            setHasMoreServer(true);
         }
+        return valid.length;
 
       } else {
         if (skip === 0) {
@@ -383,7 +386,11 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           setSuggestions(data);
           setOtherTypeEtfs([]);
         } else {
-           setEtfs(prev => [...prev, ...data]);
+           setEtfs(prev => {
+             const existingTickers = new Set(prev.map(e => e.ticker));
+             const newItems = data.filter(e => !existingTickers.has(e.ticker));
+             return [...prev, ...newItems];
+           });
         }
 
         if (data.length === 0) {
@@ -391,6 +398,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         } else {
              setHasMoreServer(true);
         }
+        return data.length;
       }
 
     } catch (err) {
@@ -400,6 +408,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         setSuggestions([]);
         setOtherTypeEtfs([]);
       }
+      return 0;
     } finally {
       setLoading(false);
     }
@@ -417,16 +426,17 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     setVisibleCount(12);
   }, [debouncedSearch, assetType]);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = async () => {
       // If we have more local items to show, just increase visible count
       if (visibleCount < etfs.length) {
           setVisibleCount(prev => prev + 12);
       } else if (hasMoreServer) {
           // If we showed all local, try fetching more from server
           // Use current etfs.length as skip
-          fetchEtfs(debouncedSearch, etfs.length).then(() => {
-              setVisibleCount(prev => prev + 12);
-          });
+          const count = await fetchEtfs(debouncedSearch, etfs.length);
+          if (count > 0) {
+             setVisibleCount(prev => prev + 12);
+          }
       }
   };
 
