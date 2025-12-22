@@ -1,14 +1,15 @@
 'use client';
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { Trash2, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Portfolio, PortfolioItem } from '@/types';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
 import { Decimal } from 'decimal.js';
+import WealthProjector from './WealthProjector';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -18,10 +19,11 @@ interface PortfolioBuilderProps {
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
   onClear: () => void;
-  onViewGrowth: () => void;
 }
 
-export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear, onViewGrowth }: PortfolioBuilderProps) {
+export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear }: PortfolioBuilderProps) {
+  const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
+
   // Calculate aggregate metrics using Decimal for precision (Layer 1)
   const { totalWeight, totalValue } = useMemo(() => {
     return portfolio.reduce((acc, item) => {
@@ -117,6 +119,15 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
     overscan: 5,
   });
 
+  if (viewMode === 'PROJECTION') {
+    return (
+      <WealthProjector
+        portfolio={portfolio}
+        onBack={() => setViewMode('BUILDER')}
+      />
+    );
+  }
+
   return (
     <section className="py-12 md:py-24 px-4 h-[calc(100dvh-64px)] flex flex-col">
       <motion.div
@@ -132,7 +143,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
           <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
             <button
-              onClick={onViewGrowth}
+              onClick={() => setViewMode('PROJECTION')}
               className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
               See Growth Projection
