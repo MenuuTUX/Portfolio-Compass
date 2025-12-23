@@ -62,8 +62,9 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
       <td className="p-4 align-top">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-             <label className="text-xs text-neutral-500 w-12 md:hidden">Shares</label>
+             <label htmlFor={`shares-${item.ticker}`} className="text-xs text-neutral-400 w-12 md:hidden">Shares</label>
              <input
+              id={`shares-${item.ticker}`}
               type="number"
               value={item.shares || 0}
               onChange={(e) => onUpdateShares(item.ticker, parseFloat(e.target.value))}
@@ -72,7 +73,7 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
             />
           </div>
           <div className="flex items-center gap-2 md:hidden">
-             <label className="text-xs text-neutral-500 w-12">Weight</label>
+             <span className="text-xs text-neutral-400 w-12">Weight</span>
              <span className="text-xs text-white">{item.weight}%</span>
           </div>
         </div>
@@ -80,11 +81,12 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
 
       <td className="p-4 align-top hidden md:table-cell">
         <div className="w-32">
-          <div className="flex justify-between text-xs text-neutral-500 mb-1">
+          <label htmlFor={`weight-range-${item.ticker}`} className="flex justify-between text-xs text-neutral-400 mb-1 w-full">
             <span>Weight</span>
             <span>{item.weight}%</span>
-          </div>
+          </label>
           <input
+            id={`weight-range-${item.ticker}`}
             type="range"
             min="0"
             max="100"
@@ -100,7 +102,7 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
       <td className="p-4 align-middle text-right">
         <button
           onClick={() => onRemove(item.ticker)}
-          className="p-2 text-neutral-500 hover:text-rose-500 transition-colors cursor-pointer rounded-full hover:bg-rose-500/10"
+          className="p-2 text-neutral-400 hover:text-rose-500 transition-colors cursor-pointer rounded-full hover:bg-rose-500/10"
           aria-label={`Remove ${item.ticker}`}
         >
           <Trash2 className="w-5 h-5" />

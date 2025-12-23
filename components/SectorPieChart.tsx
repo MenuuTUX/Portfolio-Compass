@@ -52,7 +52,7 @@ export default function SectorPieChart({ sectors, isLoading = false }: SectorPie
 
   if (processedData.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-neutral-500 text-sm">
+        <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
         No sector data available
       </div>
     );

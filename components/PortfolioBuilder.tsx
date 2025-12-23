@@ -182,7 +182,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
 
             <div className="flex-1 min-h-0 border border-white/5 rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden">
               {displayPortfolio.length === 0 ? (
-                <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-500 text-center p-4">
+                <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
                   Select ETFs from the Market Engine to build your portfolio.
                 </div>
               ) : (
@@ -190,11 +190,11 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                   <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-white/10 shadow-sm">
                       <tr>
-                        <th className="p-4 text-xs font-medium text-neutral-500 uppercase tracking-wider w-[30%]">Asset</th>
-                        <th className="p-4 text-xs font-medium text-neutral-500 uppercase tracking-wider hidden md:table-cell w-[20%]">Metrics</th>
-                        <th className="p-4 text-xs font-medium text-neutral-500 uppercase tracking-wider w-[25%] md:w-[15%]">Position</th>
-                        <th className="p-4 text-xs font-medium text-neutral-500 uppercase tracking-wider hidden md:table-cell w-[25%]">Allocation</th>
-                        <th className="p-4 text-xs font-medium text-neutral-500 uppercase tracking-wider text-right w-[10%]">Action</th>
+                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[30%]">Asset</th>
+                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider hidden md:table-cell w-[20%]">Metrics</th>
+                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[25%] md:w-[15%]">Position</th>
+                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider hidden md:table-cell w-[25%]">Allocation</th>
+                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider text-right w-[10%]">Action</th>
                       </tr>
                     </thead>
                     <tbody

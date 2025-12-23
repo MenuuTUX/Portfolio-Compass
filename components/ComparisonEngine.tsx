@@ -119,7 +119,7 @@ const ETFCard = memo(({
         <div className="flex justify-between items-end mb-6">
           <div>
             <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
-            <div className="text-xs text-neutral-500 mt-1">Closing Price</div>
+            <div className="text-xs text-neutral-400 mt-1">Closing Price</div>
           </div>
           {etf.history && etf.history.length > 0 && (
             <Sparkline
@@ -132,11 +132,11 @@ const ETFCard = memo(({
 
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
           <div>
-            <div className="text-xs text-neutral-500 mb-1">Yield</div>
+            <div className="text-xs text-neutral-400 mb-1">Yield</div>
             <div className="text-sm font-medium text-emerald-400">{etf.metrics?.yield?.toFixed(2)}%</div>
           </div>
           <div>
-            <div className="text-xs text-neutral-500 mb-1">MER</div>
+            <div className="text-xs text-neutral-400 mb-1">MER</div>
             <div className="text-sm font-medium text-neutral-300">{etf.metrics?.mer?.toFixed(2)}%</div>
           </div>
         </div>
@@ -549,13 +549,13 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
         : '';
 
       return (
-        <div className="col-span-full text-center text-neutral-500 py-12 flex flex-col items-center">
+        <div className="col-span-full text-center text-neutral-400 py-12 flex flex-col items-center">
           <Search className="h-12 w-12 text-emerald-400 mb-4" />
           <p className="text-lg text-white mb-2">Found matches in {otherSection}</p>
           <p className="text-neutral-400">
             We found "{sample}"{othersText ? ` ${othersText}` : ''} in the {otherSection} section.
           </p>
-          <p className="text-sm text-neutral-500 mt-2">
+          <p className="text-sm text-neutral-400 mt-2">
             Please switch to the {otherSection} tab to view these assets.
           </p>
         </div>
