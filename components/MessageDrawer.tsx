@@ -56,6 +56,7 @@ export default function MessageDrawer({ isOpen, onClose, title, message, type = 
               </div>
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="p-2 rounded-full hover:bg-white/10 transition-colors text-neutral-400 hover:text-white"
               >
                 <X className="w-6 h-6" />

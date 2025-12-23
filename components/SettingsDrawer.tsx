@@ -80,6 +80,7 @@ export default function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps)
                             <h2 className="text-2xl font-bold text-white">Settings</h2>
                             <button
                                 onClick={onClose}
+                                aria-label="Close settings"
                                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
                             >
                                 <X className="w-6 h-6 text-neutral-400" />
