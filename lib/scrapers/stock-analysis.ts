@@ -10,6 +10,16 @@ export interface StockProfile {
     targetPrice: number | null;
     targetUpside: number | null; // as percentage
   };
+  marketCap?: number; // In dollars
+  peRatio?: number;
+  forwardPe?: number;
+  dividendYield?: number; // as percentage (e.g. 0.5 for 0.5%)
+  dividend?: number; // Annual dividend amount
+  beta?: number;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
+  sharesOutstanding?: number;
+  expenseRatio?: number; // as percentage
 }
 
 export interface ScrapedHolding {
@@ -103,9 +113,6 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
                     }
                 }
 
-                // Sometimes symbol is 'n/a' or empty, but we might still want it if name exists?
-                // Usually we need a ticker or valid identifier.
-                // If symbol is 'n/a', it might be cash or something.
                 if (symbol && symbol.toLowerCase() !== 'n/a') {
                     holdings.push({
                         symbol,
@@ -114,9 +121,8 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
                         shares
                     });
                 } else if (name && weight > 0) {
-                     // Keep entry with Name as symbol if symbol is missing (e.g. Cash)
                      holdings.push({
-                         symbol: name, // Use name as symbol for display
+                         symbol: name,
                          name: name,
                          weight,
                          shares
@@ -129,17 +135,40 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
     return holdings;
 }
 
+// Helper to parse "4.01T", "416.16B", "14.78M"
+function parseMarketNumber(val: string): number | undefined {
+    if (!val) return undefined;
+    val = val.toUpperCase().replace('$', '').replace(/,/g, '');
+    let multiplier = 1;
+    if (val.endsWith('T')) {
+        multiplier = 1e12;
+        val = val.slice(0, -1);
+    } else if (val.endsWith('B')) {
+        multiplier = 1e9;
+        val = val.slice(0, -1);
+    } else if (val.endsWith('M')) {
+        multiplier = 1e6;
+        val = val.slice(0, -1);
+    } else if (val.endsWith('K')) {
+        multiplier = 1e3;
+        val = val.slice(0, -1);
+    }
+    const num = parseFloat(val);
+    if (isNaN(num)) return undefined;
+    return num * multiplier;
+}
+
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
   const upperTicker = ticker.toUpperCase();
-  // Try stock URL first
   let url = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/`;
+  let isEtf = false;
+
   let response = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     }
   });
 
-  // Fallback to ETF if 404
   if (response.status === 404) {
     url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
     response = await fetch(url, {
@@ -147,6 +176,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
     });
+    if (response.ok) isEtf = true;
   }
 
   if (!response.ok) {
@@ -161,191 +191,275 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   let industry = '';
   
   // Strategy: Look for specific labels "Sector" and "Industry"
-  // Based on observation: <span>Sector</span> <a ...>Materials</a>
+  // For ETFs: "Asset Class" (Sector) and "Category" (Industry)
 
-  // 1. Check for specific layout where label is a sibling or parent
-  $('span, div').each((_, el) => {
-    const text = $(el).text().trim();
-    
-    if (!sector && text === 'Sector') {
-        const next = $(el).next();
-        if (next.length) {
-            sector = next.text().trim();
+  const extractLabelValue = (labels: string[]): string | undefined => {
+      let val: string | undefined;
+      $('span, div, td, th').each((_, el) => {
+        if (val) return;
+        const text = $(el).text().trim();
+        // Exact match or starts with label:
+        if (labels.includes(text) || labels.some(l => text.startsWith(l + ':'))) {
+            // Check next sibling
+            let next = $(el).next();
+            if (next.length && next.text().trim()) {
+                 val = next.text().trim();
+                 return;
+            }
+            // Check if colon format
+            if (text.includes(':')) {
+                 const parts = text.split(':');
+                 if (parts.length > 1 && parts[1].trim()) {
+                     val = parts[1].trim();
+                     return;
+                 }
+            }
         }
-    }
+      });
+      return val;
+  };
 
-    if (!industry && text === 'Industry') {
-        const next = $(el).next();
-        if (next.length) {
-            industry = next.text().trim();
-        }
-    }
-  });
+  sector = extractLabelValue(['Sector', 'Asset Class']) || '';
+  industry = extractLabelValue(['Industry', 'Category']) || '';
 
-  // 2. Fallback: Iterate over broader elements if not found
+  // Fallback scan if still empty (logic from before, simplified)
   if (!sector || !industry) {
       $('div, li, tr').each((_, el) => {
         if ($(el).children().length > 5) return;
-
         const text = $(el).text().trim();
 
         if (!sector && (text === 'Sector' || text.startsWith('Sector:'))) {
-            let value = '';
-            const link = $(el).find('a').first();
-            if (link.length > 0 && link.attr('href')?.includes('/sector/')) {
-                value = link.text().trim();
-            } else if (text.includes(':')) {
-                value = text.split(':')[1].trim();
-            } else {
-                const next = $(el).next();
-                if (next.length && next.text().trim()) {
-                    value = next.text().trim();
-                }
-            }
-            if (value) sector = value;
+            const next = $(el).next();
+            if (next.length) sector = next.text().trim();
         }
-
         if (!industry && (text === 'Industry' || text.startsWith('Industry:'))) {
-            let value = '';
-            const link = $(el).find('a').first();
-            if (link.length > 0 && link.attr('href')?.includes('/industry/')) {
-                value = link.text().trim();
-            } else if (text.includes(':')) {
-                value = text.split(':')[1].trim();
-            } else {
-                const next = $(el).next();
-                if (next.length && next.text().trim()) {
-                    value = next.text().trim();
-                }
-            }
-            if (value) industry = value;
+             const next = $(el).next();
+            if (next.length) industry = next.text().trim();
         }
       });
   }
 
+
   // Description
-  // Look for "About {Ticker}" header
   let description = '';
-  
-  // 1. Try "About {Ticker}" header
   $('h2, h3').each((_, el) => {
       const headerText = $(el).text().trim();
       if (headerText.includes(`About ${upperTicker}`)) {
-          // The description is usually the next paragraph
-          // It might be in a sibling div or direct sibling p
           let next = $(el).next();
-          // Skip empty text nodes or non-content elements
-          while (next.length && (next.is('br') || next.text().trim() === '')) {
-              next = next.next();
-          }
-          
-          if (next.is('p')) {
-              description = next.text().trim();
-          } else if (next.is('div')) {
-              // Sometimes wrapped in a div
-              description = next.find('p').first().text().trim();
-              if (!description) description = next.text().trim();
+          // Skip empty nodes, BRs, and short navigation links
+          let attempts = 0;
+          while (next.length && attempts < 10) {
+               const text = next.text().trim();
+               // If we hit another header, stop
+               if (next.is('h2') || next.is('h3')) break;
+
+               // If text is substantial, assume it's the description
+               if (text.length > 50) {
+                   // If it's a div, try to find a p inside
+                   if (next.is('div')) {
+                       const p = next.find('p').first();
+                       if (p.length && p.text().trim().length > 50) {
+                           description = p.text().trim();
+                       } else {
+                           description = text;
+                       }
+                   } else {
+                       description = text;
+                   }
+                   break;
+               }
+               next = next.next();
+               attempts++;
           }
       }
   });
 
-  // Remove [Read more] artifact
   if (description) {
       description = description.replace(/\[Read more\]/g, '').trim();
-      // Remove trailing ellipsis if it was part of read more
-      if (description.endsWith('...')) {
-          description = description.slice(0, -3).trim();
+      if (description.endsWith('...')) description = description.slice(0, -3).trim();
+  }
+
+  if (!description) {
+      const metaDesc = $('meta[name="description"]').attr('content');
+      if (metaDesc && !metaDesc.startsWith("Get a real-time stock price for the")) {
+          description = metaDesc;
       }
   }
 
-  // 2. Fallback: Meta description
-  if (!description) {
-      const metaDesc = $('meta[name="description"]').attr('content');
-      if (metaDesc) {
-          // Check if it's a generic SEO description
-          const isGeneric = metaDesc.startsWith("Get a real-time stock price for the");
-          if (!isGeneric) {
-              description = metaDesc;
-          }
+  // --- Financial Metrics Scraping ---
+
+  let marketCap: number | undefined;
+  let peRatio: number | undefined;
+  let forwardPe: number | undefined;
+  let dividendYield: number | undefined;
+  let dividend: number | undefined;
+  let beta: number | undefined;
+  let fiftyTwoWeekLow: number | undefined;
+  let fiftyTwoWeekHigh: number | undefined;
+  let sharesOutstanding: number | undefined;
+  let expenseRatio: number | undefined;
+
+  // Helper to extract value given a label
+  const extractValue = (label: string): string | undefined => {
+    let val: string | undefined;
+
+    // Try finding exact text match in common elements
+    $('div, td, th, span').each((_, el) => {
+        if (val) return;
+        const text = $(el).text().trim();
+        if (text === label) {
+            // Check next sibling
+            let next = $(el).next();
+            if (next.length) {
+                val = next.text().trim();
+                return;
+            }
+        }
+    });
+
+    if (!val) {
+        // Try looking for label inside a cell in a table row, take next cell
+        $('tr').each((_, tr) => {
+            if (val) return;
+            const cells = $(tr).find('td, th');
+            cells.each((i, cell) => {
+                if ($(cell).text().trim() === label) {
+                    if (i + 1 < cells.length) {
+                        val = $(cells[i+1]).text().trim();
+                    }
+                }
+            });
+        });
+    }
+
+    // Try scanning for text nodes if structure is messy
+    if (!val) {
+        $('div').each((_, el) => {
+            if (val) return;
+            const text = $(el).text().trim();
+            if (text.startsWith(label) && text.length < label.length + 20) {
+                 const part = text.substring(label.length).trim();
+                 if (part && !part.includes('\n')) {
+                    val = part;
+                 }
+            }
+        });
+    }
+
+    return val;
+  };
+
+  const rawMarketCap = extractValue('Market Cap') || extractValue('Assets');
+  const rawPe = extractValue('PE Ratio');
+  const rawFPe = extractValue('Forward PE');
+  const rawDiv = extractValue('Dividend') || extractValue('Dividend (ttm)');
+  const rawDivYield = extractValue('Dividend Yield');
+  const rawBeta = extractValue('Beta');
+  const raw52W = extractValue('52-Week Range') || extractValue('52-Week Low');
+  const rawShares = extractValue('Shares Out');
+  const rawExp = extractValue('Expense Ratio');
+  const raw52WHigh = extractValue('52-Week High');
+
+  if (rawMarketCap) marketCap = parseMarketNumber(rawMarketCap);
+
+  if (rawPe) {
+      const n = parseFloat(rawPe.replace(/,/g, ''));
+      if (!isNaN(n)) peRatio = n;
+  }
+
+  if (rawFPe) {
+      const n = parseFloat(rawFPe.replace(/,/g, ''));
+      if (!isNaN(n)) forwardPe = n;
+  }
+
+  if (rawDiv) {
+      const parts = rawDiv.split('(');
+      const valStr = parts[0].replace('$', '').trim();
+      const n = parseFloat(valStr);
+      if (!isNaN(n)) dividend = n;
+
+      if (parts.length > 1 && !rawDivYield) {
+           const yStr = parts[1].replace('%)', '').replace('%', '').trim();
+           const y = parseFloat(yStr);
+           if (!isNaN(y)) dividendYield = y;
       }
+  }
+
+  if (rawDivYield) {
+      const y = parseFloat(rawDivYield.replace('%', '').trim());
+      if (!isNaN(y)) dividendYield = y;
+  }
+
+  if (rawBeta) {
+      const n = parseFloat(rawBeta);
+      if (!isNaN(n)) beta = n;
+  }
+
+  if (rawShares) {
+      sharesOutstanding = parseMarketNumber(rawShares);
+  }
+
+  if (rawExp) {
+      const n = parseFloat(rawExp.replace('%', '').trim());
+      if (!isNaN(n)) expenseRatio = n;
+  }
+
+  if (raw52W) {
+      if (raw52W.includes('-')) {
+          const parts = raw52W.split('-').map(s => parseFloat(s.trim().replace(/,/g, '')));
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+              fiftyTwoWeekLow = parts[0];
+              fiftyTwoWeekHigh = parts[1];
+          }
+      } else {
+          const n = parseFloat(raw52W.replace(/,/g, ''));
+          if (!isNaN(n)) fiftyTwoWeekLow = n;
+      }
+  }
+
+  if (raw52WHigh) {
+       const n = parseFloat(raw52WHigh.replace(/,/g, ''));
+       if (!isNaN(n)) fiftyTwoWeekHigh = n;
   }
 
   // Analyst Data
-  // Look for "Analyst Summary" section
   let analyst: StockProfile['analyst'] | undefined;
 
   $('h2, h3').each((_, el) => {
       const headerText = $(el).text().trim();
       if (headerText === 'Analyst Summary') {
-          // The summary text is usually the next paragraph
           let summary = '';
           let next = $(el).next();
           while (next.length && (next.is('br') || next.text().trim() === '')) {
               next = next.next();
           }
-          if (next.is('p')) {
-              summary = next.text().trim();
-          }
+          if (next.is('p')) summary = next.text().trim();
 
           let consensus = '';
           let targetPrice: number | null = null;
           let targetUpside: number | null = null;
 
-          // Look for "Analyst Consensus: [Value]"
           const consensusMatch = $('div').filter((_, e) => $(e).text().includes('Analyst Consensus:')).last();
           if (consensusMatch.length) {
               const text = consensusMatch.text();
               const match = text.match(/Analyst Consensus:\s*([A-Za-z\s]+)/);
-              if (match) {
-                  consensus = match[1].trim();
-                  consensus = consensus.split('\n')[0].trim();
-              }
+              if (match) consensus = match[1].trim().split('\n')[0].trim();
           }
 
-          // Look for Price Target
           const targetLabel = $('div').filter((_, e) => $(e).text().trim() === 'Price Target').last();
           if (targetLabel.length) {
-              // The value is likely the next sibling or close by
               const valEl = targetLabel.next();
-              const valText = valEl.text().trim();
-              // Remove $ and parse
-              const valMatch = valText.match(/\$([\d,.]+)/);
-              if (valMatch) {
-                  targetPrice = parseFloat(valMatch[1].replace(/,/g, ''));
-              }
+              const valMatch = valEl.text().trim().match(/\$([\d,.]+)/);
+              if (valMatch) targetPrice = parseFloat(valMatch[1].replace(/,/g, ''));
 
-              // Upside/Downside is usually next
               const upsideEl = valEl.next();
               const upsideText = upsideEl.text().trim() || valEl.text().trim();
               const upMatch = upsideText.match(/\(([\d.-]+)%\s*(upside|downside)\)/i);
               if (upMatch) {
                   let pct = parseFloat(upMatch[1]);
-                  if (upMatch[2].toLowerCase() === 'downside') {
-                      pct = -pct;
-                  }
+                  if (upMatch[2].toLowerCase() === 'downside') pct = -pct;
                   targetUpside = pct;
               }
-          } else {
-             // Fallback
-             const container = $(el).nextAll('div').first();
-             const text = container.text();
-
-             if (!consensus) {
-                 const cMatch = text.match(/Analyst Consensus:\s*([A-Za-z\s]+)/);
-                 if (cMatch) consensus = cMatch[1].trim();
-             }
-             if (!targetPrice) {
-                 const pMatch = text.match(/Price Target\s*\$([\d,.]+)/);
-                 if (pMatch) targetPrice = parseFloat(pMatch[1].replace(/,/g, ''));
-             }
-             if (targetUpside === null) {
-                  const uMatch = text.match(/\(([\d.-]+)%\s*(upside|downside)\)/i);
-                  if (uMatch) {
-                      let pct = parseFloat(uMatch[1]);
-                      if (uMatch[2].toLowerCase() === 'downside') pct = -pct;
-                      targetUpside = pct;
-                  }
-             }
           }
 
           if (summary || consensus || targetPrice) {
@@ -363,6 +477,16 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
     sector,
     industry,
     description,
-    analyst
+    analyst,
+    marketCap,
+    peRatio,
+    forwardPe,
+    dividendYield,
+    dividend,
+    beta,
+    fiftyTwoWeekLow,
+    fiftyTwoWeekHigh,
+    sharesOutstanding,
+    expenseRatio
   };
 }
