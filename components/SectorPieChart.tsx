@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion } from 'framer-motion';
 
 interface SectorPieChartProps {
@@ -113,14 +113,7 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
           <Tooltip
             contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
             itemStyle={{ color: '#fff' }}
-            formatter={(value: number) => [`${value.toFixed(2)}%`, 'Weight']}
-          />
-          <Legend
-            layout="vertical"
-            verticalAlign="middle"
-            align="right"
-            iconSize={8}
-            wrapperStyle={{ fontSize: '12px', color: '#a3a3a3' }}
+            formatter={(value: number, name: string) => [`${value.toFixed(2)}%`, name]}
           />
         </PieChart>
       </ResponsiveContainer>
