@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
-import { getProviderLogo } from '@/lib/etf-providers';
+import { getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 import StockInfoCard from './StockInfoCard';
 import { useMemo, useState, useEffect } from 'react';
@@ -337,13 +337,17 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 backdrop-blur-md">
               <div className="flex items-center gap-4">
-                {/* Provider Logo */}
-                {getProviderLogo(displayEtf.name) && (
-                  <div className="w-12 h-12 rounded-xl bg-white p-2 flex items-center justify-center shrink-0">
+                {/* Asset Logo */}
+                {getAssetIconUrl(displayEtf.ticker, displayEtf.name, displayEtf.assetType) && (
+                  <div className="w-12 h-12 flex items-center justify-center shrink-0">
                     <img
-                      src={getProviderLogo(displayEtf.name)!}
-                      alt={`${displayEtf.name} logo`}
+                      src={getAssetIconUrl(displayEtf.ticker, displayEtf.name, displayEtf.assetType)!}
+                      alt={`${displayEtf.ticker} logo`}
                       className="w-full h-full object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.style.display = 'none';
+                      }}
                     />
                   </div>
                 )}
