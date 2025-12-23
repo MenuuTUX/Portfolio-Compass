@@ -527,6 +527,18 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
     }
   }, [addToRecent]); // addToRecent is stable (useCallback)
 
+  const handleTickerSelect = useCallback((ticker: string) => {
+    if (selectedETF?.ticker === ticker) return;
+
+    const existing = etfs.find(e => e.ticker === ticker) || otherTypeEtfs.find(e => e.ticker === ticker);
+    if (existing) {
+        handleAdvancedView(existing);
+    } else {
+        // Create partial ETF to trigger fetch
+        handleAdvancedView({ ticker, name: ticker, price: 0, changePercent: 0, assetType: 'STOCK' } as ETF);
+    }
+  }, [etfs, otherTypeEtfs, selectedETF, handleAdvancedView]);
+
   const renderNoResults = () => {
     if (loading) return null;
 
@@ -705,7 +717,11 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           </div>
         )}
       </motion.div>
-      <ETFDetailsDrawer etf={selectedETF} onClose={() => setSelectedETF(null)} />
+      <ETFDetailsDrawer
+        etf={selectedETF}
+        onClose={() => setSelectedETF(null)}
+        onTickerSelect={handleTickerSelect}
+      />
       <MessageDrawer
         isOpen={messageDrawer.isOpen}
         onClose={handleDrawerClose}
