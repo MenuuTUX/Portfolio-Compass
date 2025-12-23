@@ -249,11 +249,28 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   }, [displayEtf, filteredEtfHistory]);
 
   const sectorData = useMemo(() => {
-    if (!displayEtf || !displayEtf.sectors) return [];
-    return Object.entries(displayEtf.sectors).map(([name, value]) => ({
-      name,
-      value
-    })).sort((a, b) => b.value - a.value);
+    if (!displayEtf) return [];
+
+    // 1. Try Sectors
+    if (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0) {
+        return Object.entries(displayEtf.sectors).map(([name, value]) => ({
+            name,
+            value
+        })).sort((a, b) => b.value - a.value);
+    }
+
+    // 2. Fallback: Holdings (Top 10 by weight)
+    if (displayEtf.holdings && displayEtf.holdings.length > 0) {
+        return displayEtf.holdings
+            .slice(0, 10)
+            .map(h => ({
+                name: h.name || h.ticker,
+                value: h.weight * 100 // Convert to percentage (0.05 -> 5.0)
+            }))
+            .sort((a, b) => b.value - a.value);
+    }
+
+    return [];
   }, [displayEtf]);
 
   return (
@@ -472,10 +489,14 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       <>
                         <div className="flex items-center gap-2 mb-4">
                           <PieIcon className="w-5 h-5 text-blue-400" />
-                          <h3 className="text-lg font-bold text-white">Sector Allocation</h3>
+                          <h3 className="text-lg font-bold text-white">
+                             {displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0
+                                ? "Sector Allocation"
+                                : "Top Holdings"}
+                          </h3>
                         </div>
                         <div className="h-[250px]">
-                          <SectorPieChart sectors={displayEtf.sectors} />
+                          <SectorPieChart data={sectorData} />
                         </div>
                       </>
                     )}
