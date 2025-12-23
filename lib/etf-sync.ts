@@ -3,6 +3,9 @@ import { fetchEtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
+import yahooFinance from 'yahoo-finance2';
+
+yahooFinance.suppressNotices(['yahooSurvey', 'ripHistorical']);
 
 export type FullEtf = Prisma.EtfGetPayload<{
   include: {
@@ -182,12 +185,41 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
 
                 // Create a sector map from Yahoo data if available to enrich scraped data
                 const sectorMap = new Map<string, string>();
+
+                // 1. Try to get sectors from Yahoo top holdings (usually empty but good to check)
                 if (details.topHoldings) {
                     details.topHoldings.forEach(h => {
                         if (h.ticker && h.sector) {
                             sectorMap.set(h.ticker, h.sector);
                         }
                     });
+                }
+
+                // 2. Fetch sectors for top 50 holdings to ensure we have data for the most important assets
+                // We limit to 50 to avoid timeouts/rate-limits
+                const topTickers = scrapedHoldings
+                    .sort((a, b) => b.weight - a.weight)
+                    .slice(0, 50)
+                    .map(h => h.symbol)
+                    .filter(s => !sectorMap.has(s) && s !== 'N/A' && !s.includes(' ')); // Filter out invalid tickers
+
+                if (topTickers.length > 0) {
+                    console.log(`[EtfSync] Fetching sectors for ${topTickers.length} top holdings...`);
+                    // Process in chunks of 10
+                    const chunkSize = 10;
+                    for (let i = 0; i < topTickers.length; i += chunkSize) {
+                        const chunk = topTickers.slice(i, i + chunkSize);
+                        await Promise.all(chunk.map(async (t) => {
+                            try {
+                                const summary = await yahooFinance.quoteSummary(t, { modules: ['summaryProfile'] });
+                                if (summary.summaryProfile?.sector) {
+                                    sectorMap.set(t, summary.summaryProfile.sector);
+                                }
+                            } catch (e) {
+                                // Ignore failures for individual tickers
+                            }
+                        }));
+                    }
                 }
 
                 await prisma.$transaction([
