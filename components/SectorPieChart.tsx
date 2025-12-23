@@ -12,7 +12,7 @@ interface SectorPieChartProps {
 }
 
 // Extended color palette to cover all 11 GICS sectors + others
-const COLORS = [
+export const COLORS = [
   '#10b981', // Emerald
   '#3b82f6', // Blue
   '#f59e0b', // Amber
