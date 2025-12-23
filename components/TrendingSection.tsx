@@ -31,7 +31,7 @@ export default function TrendingSection({
     onRemoveFromPortfolio,
     onSelectItem
 }: TrendingSectionProps) {
-    const [visibleCount, setVisibleCount] = useState(10);
+    const [visibleCount, setVisibleCount] = useState(8);
     const [flashStates, setFlashStates] = useState<Record<string, 'success' | 'error' | null>>({});
     const [syncingTicker, setSyncingTicker] = useState<string | null>(null);
 
@@ -138,7 +138,7 @@ export default function TrendingSection({
     const hasMore = visibleCount < items.length;
 
     const handleLoadMore = () => {
-        setVisibleCount(prev => prev + 10);
+        setVisibleCount(prev => prev + 8);
     };
 
     return (
