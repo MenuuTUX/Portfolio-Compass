@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
-import { getProviderLogo } from '@/lib/etf-providers';
+import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 import StockInfoCard from './StockInfoCard';
 import { useMemo, useState, useEffect } from 'react';
@@ -14,6 +14,7 @@ import { useMemo, useState, useEffect } from 'react';
 interface ETFDetailsDrawerProps {
   etf: ETF | null;
   onClose: () => void;
+  onTickerSelect?: (ticker: string) => void;
 }
 
 const TIME_RANGES = ['1D', '1W', '1M', '1Y', '5Y'];
@@ -25,7 +26,7 @@ const formatSectorName = (name: string) => {
     .join(' ');
 };
 
-export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps) {
+export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDetailsDrawerProps) {
   const [timeRange, setTimeRange] = useState('1M');
   const [showComparison, setShowComparison] = useState(false);
   const [spyData, setSpyData] = useState<ETF | null>(null);
@@ -570,15 +571,38 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
                                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px]">
                                     {allHoldings.length > 0 ? (
-                                        <div className="space-y-3">
+                                        <div className="space-y-1">
                                             {allHoldings.map((h, i) => (
-                                                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-                                                    <div>
-                                                        <div className="font-bold text-white text-sm">{h.ticker}</div>
-                                                        <div className="text-xs text-neutral-400 truncate max-w-[120px]">{h.name}</div>
+                                                <div
+                                                    key={i}
+                                                    className={cn(
+                                                        "flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-all",
+                                                        onTickerSelect && "cursor-pointer hover:border-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] group/item"
+                                                    )}
+                                                    onClick={() => onTickerSelect && onTickerSelect(h.ticker)}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        {getAssetIconUrl(h.ticker, h.name || '', 'STOCK') && (
+                                                            <div className="w-6 h-6 rounded-full bg-white p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                                                <img
+                                                                    src={getAssetIconUrl(h.ticker, h.name || '', 'STOCK')!}
+                                                                    alt={h.ticker}
+                                                                    className="w-full h-full object-contain"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = 'none';
+                                                                        e.currentTarget.parentElement!.style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        <div className={cn("font-bold text-white text-sm", onTickerSelect && "group-hover/item:text-emerald-400 transition-colors")}>{h.ticker}</div>
+                                                        <div className="text-xs text-neutral-400 truncate max-w-[100px] hidden sm:block">{h.name}</div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <div className="text-emerald-400 font-medium text-sm">{h.displayWeight.toFixed(2)}%</div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                                                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(h.displayWeight * 2, 100)}%` }} />
+                                                        </div>
+                                                        <div className="text-emerald-400 font-medium text-sm w-12 text-right">{h.displayWeight.toFixed(2)}%</div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -592,34 +616,74 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-row h-[250px] gap-4">
+                            <div className="flex flex-row h-[250px] gap-6">
                                 {/* Left: Holdings List */}
-                                <div
-                                    className="w-1/2 flex flex-col cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors group"
-                                    onClick={() => setShowAllHoldings(true)}
-                                >
-                                    <div className="text-xs font-semibold text-neutral-400 mb-2 group-hover:text-white transition-colors">Top Holdings</div>
+                                <div className="w-1/2 flex flex-col">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Top Holdings</div>
+                                        {allHoldings.length > 5 && (
+                                            <button
+                                                onClick={() => setShowAllHoldings(true)}
+                                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-medium hover:underline"
+                                            >
+                                                See all {allHoldings.length}...
+                                            </button>
+                                        )}
+                                    </div>
                                     <div className="flex-1 overflow-y-hidden space-y-2">
                                         {topHoldings.map((h, i) => (
-                                            <div key={i} className="flex items-center justify-between text-xs">
-                                                <div className="font-medium text-white truncate max-w-[80px]">{h.ticker}</div>
-                                                <div className="text-emerald-400">{h.displayWeight.toFixed(1)}%</div>
+                                            <div
+                                                key={i}
+                                                className={cn(
+                                                    "flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors group/row",
+                                                    onTickerSelect && "cursor-pointer"
+                                                )}
+                                                onClick={() => onTickerSelect && onTickerSelect(h.ticker)}
+                                            >
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    {getAssetIconUrl(h.ticker, h.name || '', 'STOCK') && (
+                                                        <div className="w-5 h-5 rounded-full bg-white p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                                            <img
+                                                                src={getAssetIconUrl(h.ticker, h.name || '', 'STOCK')!}
+                                                                alt={h.ticker}
+                                                                className="w-full h-full object-contain"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    e.currentTarget.parentElement!.style.display = 'none';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className={cn("font-medium text-white text-sm truncate", onTickerSelect && "group-hover/row:text-emerald-400 transition-colors")}>
+                                                        {h.ticker}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 shrink-0">
+                                                    <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-500 rounded-full opacity-80" style={{ width: `${Math.min(h.displayWeight * 3, 100)}%` }} />
+                                                    </div>
+                                                    <div className="text-emerald-400 text-xs w-8 text-right font-mono">{h.displayWeight.toFixed(1)}%</div>
+                                                </div>
                                             </div>
                                         ))}
                                         {topHoldings.length === 0 && (
-                                            <div className="text-neutral-500 text-xs italic">No holdings data</div>
-                                        )}
-                                        {allHoldings.length > 5 && (
-                                            <div className="text-xs text-blue-400 mt-2 font-medium">See all {allHoldings.length}...</div>
+                                            <div className="text-neutral-500 text-xs italic p-2">No holdings data available</div>
                                         )}
                                     </div>
                                 </div>
 
                                 {/* Right: Pie Chart */}
-                                <div className="w-1/2 relative">
+                                <div className="w-1/2 relative bg-white/5 rounded-xl border border-white/5 p-2 flex items-center justify-center">
+                                    <div className="absolute top-2 left-2 z-10">
+                                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">Allocation</div>
+                                    </div>
                                     <SectorPieChart
                                         data={sectorData}
                                         isLoading={false}
+                                        onSectorClick={(sector) => {
+                                            // Optional: Filter holdings by sector?
+                                            // For now just visual
+                                        }}
                                     />
                                     {(!displayEtf.sectors || Object.keys(displayEtf.sectors).length === 0) && (
                                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -640,7 +704,9 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       {displayEtf.assetType !== 'STOCK' && (
                         <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                           <div className="text-xs text-neutral-400 mb-1">MER</div>
-                          <div className="text-xl font-bold text-white">{displayEtf.metrics.mer.toFixed(2)}%</div>
+                          <div className="text-xl font-bold text-white">
+                            {displayEtf.metrics?.mer ? displayEtf.metrics.mer.toFixed(2) : 'N/A'}%
+                          </div>
                         </div>
                       )}
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
@@ -648,7 +714,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                         <div className="text-xl font-bold text-emerald-400">
                           {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
                             ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
-                            : displayEtf.metrics.yield.toFixed(2)}%
+                            : (displayEtf.metrics?.yield ? displayEtf.metrics.yield.toFixed(2) : 'N/A')}%
                         </div>
                       </div>
                       <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">

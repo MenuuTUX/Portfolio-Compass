@@ -255,7 +255,11 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 </>
             )}
 
-            <ETFDetailsDrawer etf={selectedItem} onClose={() => setSelectedItem(null)} />
+            <ETFDetailsDrawer
+                etf={selectedItem}
+                onClose={() => setSelectedItem(null)}
+                onTickerSelect={(ticker) => setSelectedItem({ ticker, name: ticker, price: 0, changePercent: 0, assetType: 'STOCK' } as ETF)}
+            />
         </section>
     );
 }
