@@ -70,6 +70,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
               onClick={onBack}
               className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
               title="Back to Portfolio"
+              aria-label="Back to Portfolio"
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
