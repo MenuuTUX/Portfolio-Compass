@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
-import { getProviderLogo } from '@/lib/etf-providers';
+import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 import StockInfoCard from './StockInfoCard';
 import { useMemo, useState, useEffect } from 'react';
@@ -582,6 +582,19 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                                     onClick={() => onTickerSelect && onTickerSelect(h.ticker)}
                                                 >
                                                     <div className="flex items-center gap-3">
+                                                        {getAssetIconUrl(h.ticker, h.name || '', 'STOCK') && (
+                                                            <div className="w-6 h-6 rounded-full bg-white p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                                                <img
+                                                                    src={getAssetIconUrl(h.ticker, h.name || '', 'STOCK')!}
+                                                                    alt={h.ticker}
+                                                                    className="w-full h-full object-contain"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = 'none';
+                                                                        e.currentTarget.parentElement!.style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )}
                                                         <div className={cn("font-bold text-white text-sm", onTickerSelect && "group-hover/item:text-emerald-400 transition-colors")}>{h.ticker}</div>
                                                         <div className="text-xs text-neutral-400 truncate max-w-[100px] hidden sm:block">{h.name}</div>
                                                     </div>
@@ -627,10 +640,25 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                                 )}
                                                 onClick={() => onTickerSelect && onTickerSelect(h.ticker)}
                                             >
-                                                <div className={cn("font-medium text-white text-sm", onTickerSelect && "group-hover/row:text-emerald-400 transition-colors")}>
-                                                    {h.ticker}
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    {getAssetIconUrl(h.ticker, h.name || '', 'STOCK') && (
+                                                        <div className="w-5 h-5 rounded-full bg-white p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                                            <img
+                                                                src={getAssetIconUrl(h.ticker, h.name || '', 'STOCK')!}
+                                                                alt={h.ticker}
+                                                                className="w-full h-full object-contain"
+                                                                onError={(e) => {
+                                                                    e.currentTarget.style.display = 'none';
+                                                                    e.currentTarget.parentElement!.style.display = 'none';
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div className={cn("font-medium text-white text-sm truncate", onTickerSelect && "group-hover/row:text-emerald-400 transition-colors")}>
+                                                        {h.ticker}
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 shrink-0">
                                                     <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
                                                         <div className="h-full bg-emerald-500 rounded-full opacity-80" style={{ width: `${Math.min(h.displayWeight * 3, 100)}%` }} />
                                                     </div>
