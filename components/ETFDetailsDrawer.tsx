@@ -676,7 +676,9 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                       {displayEtf.assetType !== 'STOCK' && (
                         <div className="p-4 rounded-xl bg-white/5 border border-white/5">
                           <div className="text-xs text-neutral-400 mb-1">MER</div>
-                          <div className="text-xl font-bold text-white">{displayEtf.metrics.mer.toFixed(2)}%</div>
+                          <div className="text-xl font-bold text-white">
+                            {displayEtf.metrics?.mer ? displayEtf.metrics.mer.toFixed(2) : 'N/A'}%
+                          </div>
                         </div>
                       )}
                       <div className="p-4 rounded-xl bg-white/5 border border-white/5">
@@ -684,7 +686,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                         <div className="text-xl font-bold text-emerald-400">
                           {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
                             ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
-                            : displayEtf.metrics.yield.toFixed(2)}%
+                            : (displayEtf.metrics?.yield ? displayEtf.metrics.yield.toFixed(2) : 'N/A')}%
                         </div>
                       </div>
                       <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
