@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity } from 'lucide-react';
+import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity, ChevronLeft, Layers } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
@@ -19,11 +19,19 @@ interface ETFDetailsDrawerProps {
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 const TIME_RANGES = ['1D', '1W', '1M', '1Y', '5Y'];
 
+// Helper to format sector names (snake_case -> Title Case)
+const formatSectorName = (name: string) => {
+  return name.split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps) {
   const [timeRange, setTimeRange] = useState('1M');
   const [showComparison, setShowComparison] = useState(false);
   const [spyData, setSpyData] = useState<ETF | null>(null);
   const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
+  const [selectedSector, setSelectedSector] = useState<string | null>(null);
 
   // Use fresh data if available, otherwise fall back to prop
   const displayEtf = freshEtf || etf;
@@ -31,6 +39,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   // Reset freshEtf when etf prop changes
   useEffect(() => {
     setFreshEtf(null);
+    setSelectedSector(null);
   }, [etf]);
 
   // Fetch fresh data for the current ETF to ensure it's up to date
@@ -253,9 +262,18 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
     // 1. Try Sectors
     if (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0) {
-        return Object.entries(displayEtf.sectors).map(([name, value]) => ({
-            name,
+        const raw = Object.entries(displayEtf.sectors).map(([name, value]) => ({
+            name: formatSectorName(name),
             value
+        }));
+
+        const total = raw.reduce((sum, item) => sum + item.value, 0);
+        // If total is small (e.g. <= 1.5), assume decimals and convert to percent
+        const shouldScale = total <= 1.5;
+
+        return raw.map(item => ({
+            ...item,
+            value: shouldScale ? item.value * 100 : item.value
         })).sort((a, b) => b.value - a.value);
     }
 
@@ -272,6 +290,22 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
     return [];
   }, [displayEtf]);
+
+  const filteredHoldings = useMemo(() => {
+    if (!selectedSector || !displayEtf?.holdings) return [];
+
+    return displayEtf.holdings.filter(h => {
+        // Handle missing sector data gracefully
+        if (!h.sector) return false;
+
+        // Normalize names for comparison
+        const hSector = formatSectorName(h.sector).toLowerCase();
+        const sSector = selectedSector.toLowerCase();
+
+        // Exact match or partial match (e.g. "Technology" matching "Technology Services")
+        return hSector === sSector || hSector.includes(sSector) || sSector.includes(hSector);
+    }).sort((a, b) => b.weight - a.weight);
+  }, [selectedSector, displayEtf]);
 
   return (
     <AnimatePresence>
@@ -487,17 +521,77 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2 mb-4">
-                          <PieIcon className="w-5 h-5 text-blue-400" />
-                          <h3 className="text-lg font-bold text-white">
-                             {displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0
-                                ? "Sector Allocation"
-                                : "Top Holdings"}
-                          </h3>
+                        <div className="flex items-center gap-2 mb-4 justify-between">
+                            <div className="flex items-center gap-2">
+                                <PieIcon className="w-5 h-5 text-blue-400" />
+                                <h3 className="text-lg font-bold text-white">
+                                    {selectedSector ? "Sector Holdings" : (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0 ? "Sector Allocation" : "Top Holdings")}
+                                </h3>
+                            </div>
+                            {selectedSector && (
+                                <button
+                                    onClick={() => setSelectedSector(null)}
+                                    className="p-1 rounded-full hover:bg-white/10 transition-colors"
+                                >
+                                    <X className="w-4 h-4 text-neutral-400" />
+                                </button>
+                            )}
                         </div>
-                        <div className="h-[250px]">
-                          <SectorPieChart data={sectorData} />
-                        </div>
+
+                        {selectedSector ? (
+                            <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+                                <div className="flex items-center gap-2 mb-4 pb-2 border-b border-white/5">
+                                    <button
+                                        onClick={() => setSelectedSector(null)}
+                                        className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                                    >
+                                        <ChevronLeft className="w-4 h-4" />
+                                        Back
+                                    </button>
+                                    <span className="text-sm font-medium text-white ml-auto">{selectedSector}</span>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px]">
+                                    {filteredHoldings.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {filteredHoldings.map((h, i) => (
+                                                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                                                    <div>
+                                                        <div className="font-bold text-white text-sm">{h.ticker}</div>
+                                                        <div className="text-xs text-neutral-400 truncate max-w-[120px]">{h.name}</div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-emerald-400 font-medium text-sm">{(h.weight * 100).toFixed(2)}%</div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center h-40 text-neutral-500 text-sm text-center">
+                                            <Layers className="w-8 h-8 mb-2 opacity-50" />
+                                            <p>No detailed holdings found for this sector.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="h-[250px]">
+                                <SectorPieChart
+                                    data={sectorData}
+                                    onSectorClick={(sector) => {
+                                        // Only allow clicking if we have holdings to show
+                                        if (displayEtf.holdings && displayEtf.holdings.length > 0) {
+                                            setSelectedSector(sector);
+                                        }
+                                    }}
+                                />
+                                {(!displayEtf.holdings || displayEtf.holdings.length === 0) && (
+                                    <p className="text-xs text-center text-neutral-500 mt-2">
+                                        Detailed holdings not available for interaction.
+                                    </p>
+                                )}
+                            </div>
+                        )}
                       </>
                     )}
                   </div>
