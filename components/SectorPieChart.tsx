@@ -8,16 +8,29 @@ interface SectorPieChartProps {
   sectors?: { [key: string]: number };
   data?: { name: string; value: number }[]; // Direct data prop alternative
   isLoading?: boolean;
+  onSectorClick?: (sectorName: string) => void;
 }
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+// Extended color palette to cover all 11 GICS sectors + others
+const COLORS = [
+  '#10b981', // Emerald
+  '#3b82f6', // Blue
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Violet
+  '#ec4899', // Pink
+  '#6366f1', // Indigo
+  '#06b6d4', // Cyan
+  '#84cc16', // Lime
+  '#d946ef', // Fuchsia
+  '#f97316', // Orange
+  '#14b8a6', // Teal
+];
 
-export default function SectorPieChart({ sectors, data, isLoading = false }: SectorPieChartProps) {
+export default function SectorPieChart({ sectors, data, isLoading = false, onSectorClick }: SectorPieChartProps) {
   const processedData = useMemo(() => {
     // If direct data is provided, use it (assumed to be already sorted/formatted)
     if (data && data.length > 0) {
-        // We still might want to group small items if there are too many?
-        // But for top 10 holdings, it's fine.
         return data;
     }
 
@@ -28,6 +41,7 @@ export default function SectorPieChart({ sectors, data, isLoading = false }: Sec
       value
     })).sort((a, b) => b.value - a.value);
 
+    // Group small sectors logic (optional, but keeping it for robustness if sectors prop is used)
     const threshold = 2.0; // 2%
     const mainSectors = [];
     let otherValue = 0;
@@ -45,7 +59,7 @@ export default function SectorPieChart({ sectors, data, isLoading = false }: Sec
     }
 
     return mainSectors;
-  }, [sectors]);
+  }, [sectors, data]);
 
   if (isLoading) {
     return (
@@ -83,9 +97,17 @@ export default function SectorPieChart({ sectors, data, isLoading = false }: Sec
             outerRadius={80}
             paddingAngle={5}
             dataKey="value"
+            cornerRadius={4}
+            onClick={(data) => onSectorClick && onSectorClick(data.name)}
+            cursor={onSectorClick ? "pointer" : "default"}
           >
             {processedData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0)" />
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[index % COLORS.length]}
+                stroke="rgba(0,0,0,0)"
+                className="hover:opacity-80 transition-opacity"
+              />
             ))}
           </Pie>
           <Tooltip
