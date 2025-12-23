@@ -12,6 +12,13 @@ export interface StockProfile {
   };
 }
 
+export interface ScrapedHolding {
+    symbol: string;
+    name: string;
+    weight: number; // as percentage decimal (e.g. 0.05 for 5%)
+    shares: number | null;
+}
+
 export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<string[]> {
     const url = `https://stockanalysis.com/markets/${type}/`;
     const response = await fetch(url, {
@@ -46,6 +53,80 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
     });
 
     return tickers;
+}
+
+export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
+    const url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/holdings/`;
+    const response = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        }
+    });
+
+    if (!response.ok) {
+        console.error(`Failed to fetch holdings for ${ticker}: ${response.status}`);
+        return [];
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    const holdings: ScrapedHolding[] = [];
+
+    // Find the holdings table
+    // Headers: No., Symbol, Name, % Weight, Shares
+    $('table').each((_, table) => {
+        const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
+
+        const symbolIndex = headers.indexOf('Symbol');
+        const nameIndex = headers.indexOf('Name');
+        const weightIndex = headers.indexOf('% Weight');
+        const sharesIndex = headers.indexOf('Shares');
+
+        if (symbolIndex > -1 && weightIndex > -1) {
+             $(table).find('tbody tr').each((_, tr) => {
+                const tds = $(tr).find('td');
+                const symbol = tds.eq(symbolIndex).text().trim();
+                const name = nameIndex > -1 ? tds.eq(nameIndex).text().trim() : '';
+                const weightText = tds.eq(weightIndex).text().trim();
+                const sharesText = sharesIndex > -1 ? tds.eq(sharesIndex).text().trim() : '';
+
+                let weight = 0;
+                if (weightText.endsWith('%')) {
+                    weight = parseFloat(weightText.replace('%', '')) / 100;
+                }
+
+                let shares: number | null = null;
+                if (sharesText) {
+                    const cleanShares = sharesText.replace(/,/g, '');
+                    if (!isNaN(parseFloat(cleanShares))) {
+                        shares = parseFloat(cleanShares);
+                    }
+                }
+
+                // Sometimes symbol is 'n/a' or empty, but we might still want it if name exists?
+                // Usually we need a ticker or valid identifier.
+                // If symbol is 'n/a', it might be cash or something.
+                if (symbol && symbol.toLowerCase() !== 'n/a') {
+                    holdings.push({
+                        symbol,
+                        name,
+                        weight,
+                        shares
+                    });
+                } else if (name && weight > 0) {
+                     // Keep entry with Name as symbol if symbol is missing (e.g. Cash)
+                     holdings.push({
+                         symbol: name, // Use name as symbol for display
+                         name: name,
+                         weight,
+                         shares
+                     });
+                }
+             });
+        }
+    });
+
+    return holdings;
 }
 
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {

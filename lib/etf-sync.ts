@@ -1,5 +1,6 @@
 import prisma from '@/lib/db'
 import { fetchEtfDetails } from '@/lib/market-service'
+import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
 
@@ -171,7 +172,46 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
 
       // 7. Update Holdings
       (async () => {
-        if (details.topHoldings && details.topHoldings.length > 0) {
+        let holdingsSynced = false;
+
+        // Try StockAnalysis.com first
+        try {
+            const scrapedHoldings = await getEtfHoldings(etf.ticker);
+            if (scrapedHoldings.length > 0) {
+                console.log(`[EtfSync] Using StockAnalysis.com holdings for ${etf.ticker} (${scrapedHoldings.length} items)...`);
+
+                // Create a sector map from Yahoo data if available to enrich scraped data
+                const sectorMap = new Map<string, string>();
+                if (details.topHoldings) {
+                    details.topHoldings.forEach(h => {
+                        if (h.ticker && h.sector) {
+                            sectorMap.set(h.ticker, h.sector);
+                        }
+                    });
+                }
+
+                await prisma.$transaction([
+                    prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
+                    prisma.holding.createMany({
+                        data: scrapedHoldings.map(h => ({
+                            etfId: etf.ticker,
+                            ticker: h.symbol,
+                            name: h.name,
+                            sector: sectorMap.get(h.symbol) || 'Unknown',
+                            weight: h.weight,
+                            shares: h.shares ? new Decimal(h.shares) : null
+                        }))
+                    })
+                ]);
+                console.log(`[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`);
+                holdingsSynced = true;
+            }
+        } catch (saError) {
+            console.error(`[EtfSync] Failed to sync StockAnalysis holdings for ${etf.ticker}`, saError);
+        }
+
+        // Fallback to Yahoo Finance if StockAnalysis failed or returned no data
+        if (!holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
           try {
             console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
             await prisma.$transaction([

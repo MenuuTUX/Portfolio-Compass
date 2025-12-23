@@ -21,6 +21,13 @@ export interface ETF {
   sectors?: {
     [key: string]: number;
   };
+  holdings?: {
+    ticker: string;
+    name: string;
+    weight: number;
+    sector?: string;
+    shares?: number;
+  }[];
 }
 
 export interface PortfolioItem extends ETF {

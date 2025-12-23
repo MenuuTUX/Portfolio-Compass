@@ -4,8 +4,6 @@ import prisma from '@/lib/db'
 import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 import { Decimal } from 'decimal.js'
-// Import explicit types from Prisma to avoid 'any'
-import { Prisma } from '@prisma/client'
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +20,7 @@ export async function GET(request: NextRequest) {
   const includeHistory = searchParams.get('includeHistory') === 'true' || isFullHistoryRequested
 
   try {
-    const whereClause: Prisma.EtfWhereInput = {};
+    const whereClause: any = {};
 
     let requestedTickers: string[] = [];
     if (tickersParam) {
@@ -50,6 +48,9 @@ export async function GET(request: NextRequest) {
     };
     if (includeHistory) {
       includeObj.history = { orderBy: { date: 'asc' } };
+    }
+    if (isFullHistoryRequested) {
+      includeObj.holdings = { orderBy: { weight: 'desc' } };
     }
 
     let takeLimit = isFullHistoryRequested ? 1 : (query ? 10 : 50);
@@ -378,6 +379,13 @@ export async function GET(request: NextRequest) {
           acc[sector.sector_name] = safeDecimal(sector.weight)
           return acc
         }, {} as { [key: string]: number }),
+        holdings: (etf.holdings || []).map((h: any) => ({
+            ticker: h.ticker,
+            name: h.name,
+            weight: safeDecimal(h.weight),
+            sector: h.sector,
+            shares: h.shares ? safeDecimal(h.shares) : null
+        })),
       };
     })
 
