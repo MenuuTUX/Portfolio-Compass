@@ -294,16 +294,19 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   const filteredHoldings = useMemo(() => {
     if (!selectedSector || !displayEtf?.holdings) return [];
 
+    // Create a simplified token from the selected sector for loose matching
+    // e.g. "Financial Services" -> "financial"
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const sTokens = normalize(selectedSector);
+
     return displayEtf.holdings.filter(h => {
-        // Handle missing sector data gracefully
         if (!h.sector) return false;
 
-        // Normalize names for comparison
-        const hSector = formatSectorName(h.sector).toLowerCase();
-        const sSector = selectedSector.toLowerCase();
+        const hTokens = normalize(h.sector);
 
-        // Exact match or partial match (e.g. "Technology" matching "Technology Services")
-        return hSector === sSector || hSector.includes(sSector) || sSector.includes(hSector);
+        // Match if one contains the other
+        // This handles "Financial Services" vs "Financial" vs "Financials"
+        return hTokens.includes(sTokens) || sTokens.includes(hTokens);
     }).sort((a, b) => b.weight - a.weight);
   }, [selectedSector, displayEtf]);
 
