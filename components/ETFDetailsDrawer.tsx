@@ -280,11 +280,15 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
     // 2. Fallback: Holdings (Top 10 by weight)
     if (displayEtf.holdings && displayEtf.holdings.length > 0) {
+        // Detect if weights are already percentages
+        const sampleSum = displayEtf.holdings.reduce((acc, h) => acc + h.weight, 0);
+        const isPercentage = sampleSum > 1.5;
+
         return displayEtf.holdings
             .slice(0, 10)
             .map(h => ({
                 name: h.name || h.ticker,
-                value: h.weight * 100 // Convert to percentage (0.05 -> 5.0)
+                value: isPercentage ? h.weight : h.weight * 100 // Convert to percentage (0.05 -> 5.0)
             }))
             .sort((a, b) => b.value - a.value);
     }
@@ -294,7 +298,18 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
 
   const allHoldings = useMemo(() => {
     if (!displayEtf?.holdings) return [];
-    return [...displayEtf.holdings].sort((a, b) => b.weight - a.weight);
+
+    // Detect if weights are already percentages
+    const sampleSum = displayEtf.holdings.reduce((acc, h) => acc + h.weight, 0);
+    const isPercentage = sampleSum > 1.5;
+
+    return [...displayEtf.holdings]
+        .sort((a, b) => b.weight - a.weight)
+        .map(h => ({
+            ...h,
+            // Create a normalized value for display
+            displayWeight: isPercentage ? h.weight : h.weight * 100
+        }));
   }, [displayEtf]);
 
   const topHoldings = useMemo(() => allHoldings.slice(0, 5), [allHoldings]);
@@ -563,7 +578,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                                                         <div className="text-xs text-neutral-400 truncate max-w-[120px]">{h.name}</div>
                                                     </div>
                                                     <div className="text-right">
-                                                        <div className="text-emerald-400 font-medium text-sm">{(h.weight * 100).toFixed(2)}%</div>
+                                                        <div className="text-emerald-400 font-medium text-sm">{h.displayWeight.toFixed(2)}%</div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -588,7 +603,7 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                                         {topHoldings.map((h, i) => (
                                             <div key={i} className="flex items-center justify-between text-xs">
                                                 <div className="font-medium text-white truncate max-w-[80px]">{h.ticker}</div>
-                                                <div className="text-emerald-400">{(h.weight * 100).toFixed(1)}%</div>
+                                                <div className="text-emerald-400">{h.displayWeight.toFixed(1)}%</div>
                                             </div>
                                         ))}
                                         {topHoldings.length === 0 && (
