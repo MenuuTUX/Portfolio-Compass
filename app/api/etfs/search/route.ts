@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   const assetType = searchParams.get('type')
   const tickersParam = searchParams.get('tickers')
   const limitParam = searchParams.get('limit')
+  const skipParam = searchParams.get('skip')
   const isFullHistoryRequested = searchParams.get('full') === 'true';
   // Default to false for performance, client must explicitly request history if needed
   // If full history is requested, we force includeHistory to true
@@ -59,12 +60,17 @@ export async function GET(request: NextRequest) {
         takeLimit = requestedTickers.length;
     }
 
+    const skip = skipParam ? parseInt(skipParam, 10) : 0;
+
     let etfs: any[] = [];
     try {
         etfs = await prisma.etf.findMany({
             where: whereClause,
             include: includeObj,
             take: takeLimit,
+            skip: skip,
+            // Ensure deterministic ordering for pagination
+            orderBy: { ticker: 'asc' }
         });
     } catch (dbError) {
         console.error('[API] DB Read Failed:', dbError);
@@ -134,7 +140,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Fallback for empty DB on general search (landing page scenario)
-    if (etfs.length === 0 && !query && !tickersParam) {
+    // Only run this on the first page (skip === 0)
+    if (etfs.length === 0 && !query && !tickersParam && skip === 0) {
         let defaultTickers = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 
         if (assetType === 'CRYPTO') {

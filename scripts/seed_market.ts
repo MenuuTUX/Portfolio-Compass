@@ -23,8 +23,22 @@ function getTopETFs(): string[] {
     'XIU.TO', 'XIC.TO', 'VFV.TO', 'VUN.TO', 'XEQT.TO', 'VEQT.TO', 'VGRO.TO', 'XGRO.TO',
     'ZEB.TO', 'VDY.TO', 'ZSP.TO', 'HQU.TO', 'HOU.TO', 'HOD.TO', 'HNU.TO',
     'ZAG.TO', 'XBB.TO', 'VAB.TO', 'XSP.TO',
-    'XLV', 'XLF', 'XLY', 'XLP', 'XLE', 'XLI', 'XLB', 'XLRE', 'XLU', 'SMH'
+    'XLV', 'XLF', 'XLY', 'XLP', 'XLE', 'XLI', 'XLB', 'XLRE', 'XLU', 'SMH',
+    // Additional ETFs
+    'SCHD', 'JEPI', 'JEPQ', 'DIA', 'IWD', 'IWB', 'MDY', 'RSP', 'VYM', 'DVY',
+    'USMV', 'QUAL', 'MTUM', 'VLUE', 'SIZE', 'SPLG', 'SPYG', 'SPYD', 'SCHG', 'SCHX',
+    'SCHB', 'SCHA', 'ITOT', 'IXUS', 'ACWI', 'VT', 'BNDX', 'MUB', 'TIP', 'LQD',
+    'HYG', 'JNK', 'PFF', 'PGX', 'VNQ', 'REM', 'INDA', 'MCHI', 'EWJ', 'EWZ'
   ];
+}
+
+function getTopCrypto(): string[] {
+    return [
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD',
+        'DOT-USD', 'MATIC-USD', 'LTC-USD', 'UNI-USD', 'BCH-USD', 'ALGO-USD', 'XLM-USD', 'VET-USD',
+        'ICP-USD', 'FIL-USD', 'HBAR-USD', 'AAVE-USD', 'GRT-USD', 'EOS-USD', 'SAND-USD', 'MANA-USD',
+        'THETA-USD', 'XTZ-USD', 'ATOM-USD', 'AXS-USD', 'CAKE-USD', 'MKR-USD', 'QNT-USD', 'FLOW-USD'
+    ];
 }
 
 function getMag7Tickers(): string[] {
@@ -42,14 +56,15 @@ async function seedMarket() {
   try {
     console.log('Fetching target ticker list...');
 
-    const [sp500, topEtfs, mag7, justBuy] = await Promise.all([
+    const [sp500, topEtfs, mag7, justBuy, crypto] = await Promise.all([
       getSP500Tickers(),
       Promise.resolve(getTopETFs()),
       Promise.resolve(getMag7Tickers()),
-      Promise.resolve(getJustBuyTickers())
+      Promise.resolve(getJustBuyTickers()),
+      Promise.resolve(getTopCrypto())
     ]);
 
-    const targetTickers = Array.from(new Set([...sp500, ...topEtfs, ...mag7, ...justBuy]));
+    const targetTickers = Array.from(new Set([...sp500, ...topEtfs, ...mag7, ...justBuy, ...crypto]));
     console.log(`Found ${targetTickers.length} target tickers.`);
 
     const existingEtfs = await prisma.etf.findMany({

@@ -73,9 +73,9 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 const gainerTickers = (gainersRaw.tickers || []) as string[];
                 const loserTickers = (losersRaw.tickers || []) as string[];
 
-                // Limit to 20 to avoid overly large requests if scraper returns many
-                const topGainers = gainerTickers.slice(0, 20);
-                const topLosers = loserTickers.slice(0, 20);
+                // Limit to 50 to allow better "load more" experience
+                const topGainers = gainerTickers.slice(0, 50);
+                const topLosers = loserTickers.slice(0, 50);
 
                 let gainersData: ETF[] = [];
                 let losersData: ETF[] = [];
