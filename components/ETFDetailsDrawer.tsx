@@ -7,7 +7,7 @@ import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
 import { getProviderLogo } from '@/lib/etf-providers';
-import SectorPieChart from './SectorPieChart';
+import SectorPieChart, { COLORS } from './SectorPieChart';
 import StockInfoCard from './StockInfoCard';
 import { useMemo, useState, useEffect } from 'react';
 
@@ -16,7 +16,6 @@ interface ETFDetailsDrawerProps {
   onClose: () => void;
 }
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 const TIME_RANGES = ['1D', '1W', '1M', '1Y', '5Y'];
 
 // Helper to format sector names (snake_case -> Title Case)
@@ -31,7 +30,8 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   const [showComparison, setShowComparison] = useState(false);
   const [spyData, setSpyData] = useState<ETF | null>(null);
   const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
-  const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [showLegend, setShowLegend] = useState(false);
+  const [showAllHoldings, setShowAllHoldings] = useState(false);
 
   // Use fresh data if available, otherwise fall back to prop
   const displayEtf = freshEtf || etf;
@@ -39,7 +39,8 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
   // Reset freshEtf when etf prop changes
   useEffect(() => {
     setFreshEtf(null);
-    setSelectedSector(null);
+    setShowLegend(false);
+    setShowAllHoldings(false);
   }, [etf]);
 
   // Fetch fresh data for the current ETF to ensure it's up to date
@@ -291,24 +292,12 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
     return [];
   }, [displayEtf]);
 
-  const filteredHoldings = useMemo(() => {
-    if (!selectedSector || !displayEtf?.holdings) return [];
+  const allHoldings = useMemo(() => {
+    if (!displayEtf?.holdings) return [];
+    return [...displayEtf.holdings].sort((a, b) => b.weight - a.weight);
+  }, [displayEtf]);
 
-    // Create a simplified token from the selected sector for loose matching
-    // e.g. "Financial Services" -> "financial"
-    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const sTokens = normalize(selectedSector);
-
-    return displayEtf.holdings.filter(h => {
-        if (!h.sector) return false;
-
-        const hTokens = normalize(h.sector);
-
-        // Match if one contains the other
-        // This handles "Financial Services" vs "Financial" vs "Financials"
-        return hTokens.includes(sTokens) || sTokens.includes(hTokens);
-    }).sort((a, b) => b.weight - a.weight);
-  }, [selectedSector, displayEtf]);
+  const topHoldings = useMemo(() => allHoldings.slice(0, 5), [allHoldings]);
 
   return (
     <AnimatePresence>
@@ -525,39 +514,49 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                     ) : (
                       <>
                         <div className="flex items-center gap-2 mb-4 justify-between">
-                            <div className="flex items-center gap-2">
+                            <div
+                                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setShowLegend(!showLegend)}
+                            >
                                 <PieIcon className="w-5 h-5 text-blue-400" />
                                 <h3 className="text-lg font-bold text-white">
-                                    {selectedSector ? "Sector Holdings" : (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0 ? "Sector Allocation" : "Top Holdings")}
+                                    Sector Allocation
                                 </h3>
+                                <div className={cn("text-xs bg-white/10 px-2 py-0.5 rounded text-neutral-400 transition-colors", showLegend && "bg-blue-500/20 text-blue-300")}>
+                                    Legend
+                                </div>
                             </div>
-                            {selectedSector && (
-                                <button
-                                    onClick={() => setSelectedSector(null)}
-                                    className="p-1 rounded-full hover:bg-white/10 transition-colors"
-                                >
-                                    <X className="w-4 h-4 text-neutral-400" />
-                                </button>
-                            )}
                         </div>
 
-                        {selectedSector ? (
+                        {showLegend && (
+                            <div className="mb-4 grid grid-cols-2 gap-2 text-xs animate-in fade-in slide-in-from-top-2 duration-300">
+                                {sectorData.map((item, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                        <span className="text-neutral-300 truncate">{item.name}</span>
+                                        <span className="text-neutral-500 ml-auto">{item.value.toFixed(1)}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {showAllHoldings ? (
                             <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
                                 <div className="flex items-center gap-2 mb-4 pb-2 border-b border-white/5">
                                     <button
-                                        onClick={() => setSelectedSector(null)}
+                                        onClick={() => setShowAllHoldings(false)}
                                         className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
                                     >
                                         <ChevronLeft className="w-4 h-4" />
                                         Back
                                     </button>
-                                    <span className="text-sm font-medium text-white ml-auto">{selectedSector}</span>
+                                    <span className="text-sm font-medium text-white ml-auto">All Holdings ({allHoldings.length})</span>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[300px]">
-                                    {filteredHoldings.length > 0 ? (
+                                    {allHoldings.length > 0 ? (
                                         <div className="space-y-3">
-                                            {filteredHoldings.map((h, i) => (
+                                            {allHoldings.map((h, i) => (
                                                 <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
                                                     <div>
                                                         <div className="font-bold text-white text-sm">{h.ticker}</div>
@@ -572,27 +571,47 @@ export default function ETFDetailsDrawer({ etf, onClose }: ETFDetailsDrawerProps
                                     ) : (
                                         <div className="flex flex-col items-center justify-center h-40 text-neutral-500 text-sm text-center">
                                             <Layers className="w-8 h-8 mb-2 opacity-50" />
-                                            <p>No detailed holdings found for this sector.</p>
+                                            <p>No holdings found.</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         ) : (
-                            <div className="h-[250px]">
-                                <SectorPieChart
-                                    data={sectorData}
-                                    onSectorClick={(sector) => {
-                                        // Only allow clicking if we have holdings to show
-                                        if (displayEtf.holdings && displayEtf.holdings.length > 0) {
-                                            setSelectedSector(sector);
-                                        }
-                                    }}
-                                />
-                                {(!displayEtf.holdings || displayEtf.holdings.length === 0) && (
-                                    <p className="text-xs text-center text-neutral-500 mt-2">
-                                        Detailed holdings not available for interaction.
-                                    </p>
-                                )}
+                            <div className="flex flex-row h-[250px] gap-4">
+                                {/* Left: Holdings List */}
+                                <div
+                                    className="w-1/2 flex flex-col cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors group"
+                                    onClick={() => setShowAllHoldings(true)}
+                                >
+                                    <div className="text-xs font-semibold text-neutral-400 mb-2 group-hover:text-white transition-colors">Top Holdings</div>
+                                    <div className="flex-1 overflow-y-hidden space-y-2">
+                                        {topHoldings.map((h, i) => (
+                                            <div key={i} className="flex items-center justify-between text-xs">
+                                                <div className="font-medium text-white truncate max-w-[80px]">{h.ticker}</div>
+                                                <div className="text-emerald-400">{(h.weight * 100).toFixed(1)}%</div>
+                                            </div>
+                                        ))}
+                                        {topHoldings.length === 0 && (
+                                            <div className="text-neutral-500 text-xs italic">No holdings data</div>
+                                        )}
+                                        {allHoldings.length > 5 && (
+                                            <div className="text-xs text-blue-400 mt-2 font-medium">See all {allHoldings.length}...</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right: Pie Chart */}
+                                <div className="w-1/2 relative">
+                                    <SectorPieChart
+                                        data={sectorData}
+                                        isLoading={false}
+                                    />
+                                    {(!displayEtf.sectors || Object.keys(displayEtf.sectors).length === 0) && (
+                                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <span className="text-xs text-neutral-500 bg-black/80 px-2 py-1 rounded">No Sector Data</span>
+                                         </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                       </>
