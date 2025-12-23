@@ -3,9 +3,11 @@ import { fetchEtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
-import yahooFinance from 'yahoo-finance2';
+import { YahooFinance } from 'yahoo-finance2';
 
-yahooFinance.suppressNotices(['yahooSurvey', 'ripHistorical']);
+const yf = new YahooFinance({
+  suppressNotices: ['yahooSurvey', 'ripHistorical'],
+});
 
 export type FullEtf = Prisma.EtfGetPayload<{
   include: {
@@ -211,7 +213,7 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
                         const chunk = topTickers.slice(i, i + chunkSize);
                         await Promise.all(chunk.map(async (t) => {
                             try {
-                                const summary = await yahooFinance.quoteSummary(t, { modules: ['summaryProfile'] });
+                                const summary = await yf.quoteSummary(t, { modules: ['summaryProfile'] });
                                 if (summary.summaryProfile?.sector) {
                                     sectorMap.set(t, summary.summaryProfile.sector);
                                 }
