@@ -6,13 +6,21 @@ import { motion } from 'framer-motion';
 
 interface SectorPieChartProps {
   sectors?: { [key: string]: number };
+  data?: { name: string; value: number }[]; // Direct data prop alternative
   isLoading?: boolean;
 }
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
-export default function SectorPieChart({ sectors, isLoading = false }: SectorPieChartProps) {
+export default function SectorPieChart({ sectors, data, isLoading = false }: SectorPieChartProps) {
   const processedData = useMemo(() => {
+    // If direct data is provided, use it (assumed to be already sorted/formatted)
+    if (data && data.length > 0) {
+        // We still might want to group small items if there are too many?
+        // But for top 10 holdings, it's fine.
+        return data;
+    }
+
     if (!sectors) return [];
 
     const rawData = Object.entries(sectors).map(([name, value]) => ({
