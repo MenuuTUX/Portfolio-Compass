@@ -17,7 +17,7 @@ const providers = [
   { name: 'Fidelity', keywords: ['Fidelity'], slug: 'fidelity' },
   { name: 'First Trust', keywords: ['First Trust'], slug: 'first-trust' },
   { name: 'Franklin', keywords: ['Franklin', 'Franklin Templeton'], slug: 'franklin-templeton', stockTicker: 'BEN' },
-  { name: 'Global X', keywords: ['Global X'], slug: 'global-x' },
+  { name: 'Global X', keywords: ['Global X', 'BetaPro'], slug: 'global-x' },
   { name: 'Goldman Sachs', keywords: ['Goldman Sachs'], slug: 'goldman-sachs', stockTicker: 'GS' },
   { name: 'GraniteShares', keywords: ['GraniteShares'], slug: 'graniteshares' },
   { name: 'Hamilton', keywords: ['Hamilton'], slug: 'hamilton-etfs' },
@@ -43,11 +43,22 @@ const providers = [
   { name: 'Xtrackers', keywords: ['Xtrackers', 'DWS'], slug: 'xtrackers', stockTicker: 'DWS' },
 ];
 
-export function getProviderLogo(etfName: string): string | null {
+function findProvider(etfName: string) {
   const normalizedName = etfName.toLowerCase();
-  const match = providers.find(p =>
-    p.keywords.some(k => normalizedName.includes(k.toLowerCase()))
+  return providers.find(p =>
+    p.keywords.some(k => {
+      const lowerKeyword = k.toLowerCase();
+      // Escape special regex characters
+      const escapedKeyword = lowerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Use word boundaries to prevent partial matches (e.g. 'ARK' in 'Market')
+      const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+      return regex.test(normalizedName);
+    })
   );
+}
+
+export function getProviderLogo(etfName: string): string | null {
+  const match = findProvider(etfName);
 
   if (match) {
     const missing = ['agfiq', 'advisorshares', 'alpha-architect', 'american-century-investments', 'cibc-asset-management'];
@@ -102,10 +113,7 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
 
   // ETF logic
   if (assetType === 'ETF') {
-    const normalizedName = name.toLowerCase();
-    const match = providers.find(p =>
-      p.keywords.some(k => normalizedName.includes(k.toLowerCase()))
-    );
+    const match = findProvider(name);
 
     if (match) {
         if (match.stockTicker) {
@@ -118,6 +126,10 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
         if (missing.includes(match.slug)) return null;
         return `/logos/${match.slug}.png`;
     }
+
+    // Fallback: If no provider matched, assume it might be a stock or an ETF with a ticker icon.
+    // This supports mixed lists where stocks are present, or ETFs without a known provider but with a ticker icon.
+    return `${ICON_BASE_URL}/ticker_icons/${upperTicker}.png`;
   }
 
   return null;
