@@ -17,7 +17,7 @@ const providers = [
   { name: 'Fidelity', keywords: ['Fidelity'], slug: 'fidelity' },
   { name: 'First Trust', keywords: ['First Trust'], slug: 'first-trust' },
   { name: 'Franklin', keywords: ['Franklin', 'Franklin Templeton'], slug: 'franklin-templeton', stockTicker: 'BEN' },
-  { name: 'Global X', keywords: ['Global X'], slug: 'global-x' },
+  { name: 'Global X', keywords: ['Global X', 'BetaPro'], slug: 'global-x' },
   { name: 'Goldman Sachs', keywords: ['Goldman Sachs'], slug: 'goldman-sachs', stockTicker: 'GS' },
   { name: 'GraniteShares', keywords: ['GraniteShares'], slug: 'graniteshares' },
   { name: 'Hamilton', keywords: ['Hamilton'], slug: 'hamilton-etfs' },
@@ -126,6 +126,10 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
         if (missing.includes(match.slug)) return null;
         return `/logos/${match.slug}.png`;
     }
+
+    // Fallback: If no provider matched, assume it might be a stock or an ETF with a ticker icon.
+    // This supports mixed lists where stocks are present, or ETFs without a known provider but with a ticker icon.
+    return `${ICON_BASE_URL}/ticker_icons/${upperTicker}.png`;
   }
 
   return null;
