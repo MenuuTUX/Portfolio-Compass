@@ -1,5 +1,6 @@
 import YahooFinance from 'yahoo-finance2';
 import { Decimal } from './decimal';
+import { getStockProfile } from './scrapers/stock-analysis';
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -43,6 +44,21 @@ export interface EtfDetails {
     close: Decimal;
     interval?: string;
   }[];
+  // Expanded Metrics
+  marketCap?: Decimal;
+  revenue?: Decimal;
+  netIncome?: Decimal;
+  eps?: Decimal;
+  sharesOutstanding?: Decimal;
+  volume?: Decimal;
+  open?: Decimal;
+  previousClose?: Decimal;
+  daysRange?: string;
+  fiftyTwoWeekRange?: string;
+  beta?: Decimal;
+  earningsDate?: string;
+  dividend?: Decimal;
+  exDividendDate?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -128,6 +144,9 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
 }
 
 export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): Promise<EtfDetails> {
+  // Fetch basic data from Yahoo Finance primarily for Price, History, and Asset Type.
+  // We will now also fetch from StockAnalysis for financial metrics.
+
   const { data: quoteSummary, resolvedTicker } = await fetchWithFallback(originalTicker, async (t) => {
     const data = await yf.quoteSummary(t, {
       modules: ['price', 'summaryProfile', 'topHoldings', 'fundProfile', 'defaultKeyStatistics', 'summaryDetail']
@@ -137,6 +156,14 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
     }
     return data;
   });
+
+  // Fetch from Stock Analysis (non-blocking if possible, but we need data to return)
+  let stockProfile: Awaited<ReturnType<typeof getStockProfile>> = null;
+  try {
+      stockProfile = await getStockProfile(resolvedTicker);
+  } catch (e) {
+      console.warn(`Failed to fetch Stock Analysis profile for ${resolvedTicker}:`, e);
+  }
 
   const fetchHistoryInterval = async (interval: '1h' | '1d' | '1wk' | '1mo', period1: Date) => {
     try {
@@ -224,32 +251,107 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
         }
       }
     });
-  } else if (assetType === 'STOCK' && profile?.sector) {
-    sectors[profile.sector] = new Decimal(1.0);
+  } else if (assetType === 'STOCK') {
+      // Use Stock Analysis sector if available, else Yahoo
+      const sectorName = stockProfile?.sector || profile?.sector;
+      if (sectorName) {
+          sectors[sectorName] = new Decimal(1.0);
+      }
   } else if (assetType === 'CRYPTO') {
     sectors['Cryptocurrency'] = new Decimal(1.0);
   }
 
+  // --- Merge Financial Metrics (Prioritizing Stock Analysis) ---
+
+  // Helper
+  const toDecimal = (val: number | undefined) => val !== undefined ? new Decimal(val) : undefined;
+
+  // Dividend Yield
   let dividendYield: Decimal | undefined;
-  let rawDividendYield = summaryDetail?.dividendYield;
-  if (!rawDividendYield && defaultKeyStatistics?.yield) {
-    rawDividendYield = defaultKeyStatistics.yield;
-  }
-  if (rawDividendYield !== undefined) {
-      if (rawDividendYield < 1) {
-          rawDividendYield = rawDividendYield * 100;
+  if (stockProfile?.dividendYield !== undefined) {
+      dividendYield = new Decimal(stockProfile.dividendYield);
+  } else {
+      let rawDividendYield = summaryDetail?.dividendYield;
+      if (!rawDividendYield && defaultKeyStatistics?.yield) {
+        rawDividendYield = defaultKeyStatistics.yield;
       }
-      dividendYield = new Decimal(rawDividendYield);
+      if (rawDividendYield !== undefined) {
+          if (rawDividendYield < 1) rawDividendYield = rawDividendYield * 100;
+          dividendYield = new Decimal(rawDividendYield);
+      }
   }
 
+  // Expense Ratio
   let expenseRatio: Decimal | undefined;
-  let rawExpenseRatio = fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
-  if (rawExpenseRatio !== undefined) {
-      if (rawExpenseRatio < 1) {
-          rawExpenseRatio = rawExpenseRatio * 100;
+  if (stockProfile?.expenseRatio !== undefined) {
+      expenseRatio = new Decimal(stockProfile.expenseRatio);
+  } else {
+      let rawExpenseRatio = fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
+      if (rawExpenseRatio !== undefined) {
+          if (rawExpenseRatio < 1) rawExpenseRatio = rawExpenseRatio * 100;
+          expenseRatio = new Decimal(rawExpenseRatio);
       }
-      expenseRatio = new Decimal(rawExpenseRatio);
   }
+
+  // Beta
+  let beta5Y: Decimal | undefined;
+  if (stockProfile?.beta !== undefined) {
+      beta5Y = new Decimal(stockProfile.beta);
+  } else {
+      let rawBeta = defaultKeyStatistics?.beta;
+      if (rawBeta) beta5Y = new Decimal(rawBeta);
+  }
+
+  // PE Ratio
+  let peRatio: Decimal | undefined;
+  if (stockProfile?.peRatio !== undefined) {
+      peRatio = new Decimal(stockProfile.peRatio);
+  } else {
+      if (summaryDetail?.trailingPE) peRatio = new Decimal(summaryDetail.trailingPE);
+  }
+
+  // Forward PE
+  let forwardPe: Decimal | undefined;
+  if (stockProfile?.forwardPe !== undefined) {
+      forwardPe = new Decimal(stockProfile.forwardPe);
+  } else {
+      if (summaryDetail?.forwardPE) forwardPe = new Decimal(summaryDetail.forwardPE);
+      else if (defaultKeyStatistics?.forwardPE) forwardPe = new Decimal(defaultKeyStatistics.forwardPE);
+  }
+
+  // 52 Week High/Low
+  let fiftyTwoWeekHigh: Decimal | undefined;
+  if (stockProfile?.fiftyTwoWeekHigh !== undefined) {
+      fiftyTwoWeekHigh = new Decimal(stockProfile.fiftyTwoWeekHigh);
+  } else {
+      if (summaryDetail?.fiftyTwoWeekHigh) fiftyTwoWeekHigh = new Decimal(summaryDetail.fiftyTwoWeekHigh);
+  }
+
+  let fiftyTwoWeekLow: Decimal | undefined;
+  if (stockProfile?.fiftyTwoWeekLow !== undefined) {
+      fiftyTwoWeekLow = new Decimal(stockProfile.fiftyTwoWeekLow);
+  } else {
+      if (summaryDetail?.fiftyTwoWeekLow) fiftyTwoWeekLow = new Decimal(summaryDetail.fiftyTwoWeekLow);
+  }
+
+  // Description preference
+  let description = stockProfile?.description || profile?.longBusinessSummary || "No description available.";
+
+  // New Metrics from StockProfile
+  const marketCap = toDecimal(stockProfile?.marketCap) || (summaryDetail?.marketCap ? new Decimal(summaryDetail.marketCap) : undefined);
+  const revenue = toDecimal(stockProfile?.revenue);
+  const netIncome = toDecimal(stockProfile?.netIncome);
+  const eps = toDecimal(stockProfile?.eps);
+  const sharesOutstanding = toDecimal(stockProfile?.sharesOutstanding);
+  const volume = toDecimal(stockProfile?.volume);
+  const open = toDecimal(stockProfile?.open);
+  const previousClose = toDecimal(stockProfile?.previousClose);
+  const dividend = toDecimal(stockProfile?.dividend);
+
+  const daysRange = stockProfile?.daysRange;
+  const fiftyTwoWeekRange = stockProfile?.fiftyTwoWeekRange;
+  const earningsDate = stockProfile?.earningsDate;
+  const exDividendDate = stockProfile?.exDividendDate;
 
   // Extract Top Holdings
   let holdingsList: { ticker: string; name: string; sector: string | null; weight: Decimal }[] | undefined;
@@ -262,29 +364,12 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
     }));
   }
 
-  // Extract Key Statistics
-  // Prefer 5Y beta (defaultKeyStatistics.beta), fallback to beta3Year for ETFs if strictly necessary or keep null if 5Y is required.
-  // The task specifically asked for "Beta (5Y Monthly)".
-  // Yahoo often provides 'beta' in defaultKeyStatistics for stocks (which is 5Y) and 'beta3Year' for funds.
-  // We will check for 'beta' first.
-  let rawBeta = defaultKeyStatistics?.beta;
-  // If beta is missing and it's an ETF, we might want to use beta3Year as a proxy,
-  // but the requirement was specific about 5Y.
-  // However, for ETFs, 5Y beta might be stored in 'beta3Year' field mistakenly by Yahoo or just not available as 5Y.
-  // Given the "Beta 5Y" field name, we should stick to 'beta' if possible.
-
-  const beta5Y = rawBeta ? new Decimal(rawBeta) : undefined;
-  const peRatio = summaryDetail?.trailingPE ? new Decimal(summaryDetail.trailingPE) : undefined;
-  const forwardPe = summaryDetail?.forwardPE ? new Decimal(summaryDetail.forwardPE) : (defaultKeyStatistics?.forwardPE ? new Decimal(defaultKeyStatistics.forwardPE) : undefined);
-  const fiftyTwoWeekHigh = summaryDetail?.fiftyTwoWeekHigh ? new Decimal(summaryDetail.fiftyTwoWeekHigh) : undefined;
-  const fiftyTwoWeekLow = summaryDetail?.fiftyTwoWeekLow ? new Decimal(summaryDetail.fiftyTwoWeekLow) : undefined;
-
   return {
     ticker: resolvedTicker,
     price: new Decimal(price?.regularMarketPrice || 0),
     dailyChange: new Decimal(price?.regularMarketChangePercent || 0),
     name: price?.shortName || price?.longName || resolvedTicker,
-    description: profile?.longBusinessSummary || "No description available.",
+    description,
     assetType,
     expenseRatio,
     dividendYield,
@@ -295,6 +380,20 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
     fiftyTwoWeekLow,
     sectors,
     topHoldings: holdingsList,
-    history
+    history,
+    marketCap,
+    revenue,
+    netIncome,
+    eps,
+    sharesOutstanding,
+    volume,
+    open,
+    previousClose,
+    daysRange,
+    fiftyTwoWeekRange,
+    beta: beta5Y, // Alias beta to beta5Y
+    earningsDate,
+    dividend,
+    exDividendDate
   };
 }
