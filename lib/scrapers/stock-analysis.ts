@@ -10,22 +10,34 @@ export interface StockProfile {
     targetPrice: number | null;
     targetUpside: number | null; // as percentage
   };
-  marketCap?: number; // In dollars
+  marketCap?: number;
+  revenue?: number;
+  netIncome?: number;
+  sharesOutstanding?: number;
+  eps?: number;
   peRatio?: number;
   forwardPe?: number;
-  dividendYield?: number; // as percentage (e.g. 0.5 for 0.5%)
-  dividend?: number; // Annual dividend amount
+  dividend?: number;
+  dividendYield?: number;
+  exDividendDate?: string;
+
+  volume?: number;
+  open?: number;
+  previousClose?: number;
+  daysRange?: string; // "0.1733 - 0.4700"
+  fiftyTwoWeekRange?: string; // "0.1153 - 9.8000"
   beta?: number;
+  earningsDate?: string;
+
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
-  sharesOutstanding?: number;
-  expenseRatio?: number; // as percentage
+  expenseRatio?: number;
 }
 
 export interface ScrapedHolding {
     symbol: string;
     name: string;
-    weight: number; // as percentage decimal (e.g. 0.05 for 5%)
+    weight: number;
     shares: number | null;
 }
 
@@ -48,13 +60,11 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
     // Find the main table
     $('table').each((_, table) => {
         const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
-        // Check for expected headers to identify the correct table
         if (headers.includes('Symbol') && headers.includes('% Change')) {
             const symbolIndex = headers.indexOf('Symbol');
             if (symbolIndex > -1) {
                  $(table).find('tbody tr').each((_, tr) => {
                     const symbolCell = $(tr).find('td').eq(symbolIndex);
-                    // The symbol is usually a link, so we can try to extract text
                     const ticker = symbolCell.text().trim();
                     if (ticker) tickers.push(ticker);
                  });
@@ -82,8 +92,6 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
     const $ = cheerio.load(html);
     const holdings: ScrapedHolding[] = [];
 
-    // Find the holdings table
-    // Headers: No., Symbol, Name, % Weight, Shares
     $('table').each((_, table) => {
         const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
 
@@ -135,7 +143,6 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
     return holdings;
 }
 
-// Helper to parse "4.01T", "416.16B", "14.78M"
 function parseMarketNumber(val: string): number | undefined {
     if (!val) return undefined;
     val = val.toUpperCase().replace('$', '').replace(/,/g, '');
@@ -189,9 +196,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
 
   let sector = '';
   let industry = '';
-  
-  // Strategy: Look for specific labels "Sector" and "Industry"
-  // For ETFs: "Asset Class" (Sector) and "Category" (Industry)
 
   const extractLabelValue = (labels: string[]): string | undefined => {
       let val: string | undefined;
@@ -222,7 +226,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   sector = extractLabelValue(['Sector', 'Asset Class']) || '';
   industry = extractLabelValue(['Industry', 'Category']) || '';
 
-  // Fallback scan if still empty (logic from before, simplified)
+  // Fallback scan if still empty
   if (!sector || !industry) {
       $('div, li, tr').each((_, el) => {
         if ($(el).children().length > 5) return;
@@ -239,23 +243,18 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       });
   }
 
-
   // Description
   let description = '';
   $('h2, h3').each((_, el) => {
       const headerText = $(el).text().trim();
       if (headerText.includes(`About ${upperTicker}`)) {
           let next = $(el).next();
-          // Skip empty nodes, BRs, and short navigation links
           let attempts = 0;
           while (next.length && attempts < 10) {
                const text = next.text().trim();
-               // If we hit another header, stop
                if (next.is('h2') || next.is('h3')) break;
 
-               // If text is substantial, assume it's the description
                if (text.length > 50) {
-                   // If it's a div, try to find a p inside
                    if (next.is('div')) {
                        const p = next.find('p').first();
                        if (p.length && p.text().trim().length > 50) {
@@ -288,18 +287,8 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
 
   // --- Financial Metrics Scraping ---
 
-  let marketCap: number | undefined;
-  let peRatio: number | undefined;
-  let forwardPe: number | undefined;
-  let dividendYield: number | undefined;
-  let dividend: number | undefined;
-  let beta: number | undefined;
-  let fiftyTwoWeekLow: number | undefined;
-  let fiftyTwoWeekHigh: number | undefined;
-  let sharesOutstanding: number | undefined;
-  let expenseRatio: number | undefined;
+  const metrics: Partial<StockProfile> = {};
 
-  // Helper to extract value given a label
   const extractValue = (label: string): string | undefined => {
     let val: string | undefined;
 
@@ -308,7 +297,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
         if (val) return;
         const text = $(el).text().trim();
         if (text === label) {
-            // Check next sibling
             let next = $(el).next();
             if (next.length) {
                 val = next.text().trim();
@@ -332,7 +320,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
         });
     }
 
-    // Try scanning for text nodes if structure is messy
     if (!val) {
         $('div').each((_, el) => {
             if (val) return;
@@ -345,81 +332,105 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
             }
         });
     }
-
     return val;
   };
 
   const rawMarketCap = extractValue('Market Cap') || extractValue('Assets');
-  const rawPe = extractValue('PE Ratio');
-  const rawFPe = extractValue('Forward PE');
-  const rawDiv = extractValue('Dividend') || extractValue('Dividend (ttm)');
-  const rawDivYield = extractValue('Dividend Yield');
-  const rawBeta = extractValue('Beta');
-  const raw52W = extractValue('52-Week Range') || extractValue('52-Week Low');
+  if (rawMarketCap) metrics.marketCap = parseMarketNumber(rawMarketCap);
+
+  const rawRevenue = extractValue('Revenue (ttm)');
+  if (rawRevenue) metrics.revenue = parseMarketNumber(rawRevenue);
+
+  const rawNetIncome = extractValue('Net Income (ttm)');
+  if (rawNetIncome) metrics.netIncome = parseMarketNumber(rawNetIncome);
+
   const rawShares = extractValue('Shares Out');
-  const rawExp = extractValue('Expense Ratio');
-  const raw52WHigh = extractValue('52-Week High');
+  if (rawShares) metrics.sharesOutstanding = parseMarketNumber(rawShares);
 
-  if (rawMarketCap) marketCap = parseMarketNumber(rawMarketCap);
+  const rawEps = extractValue('EPS (ttm)');
+  if (rawEps) {
+      const n = parseFloat(rawEps.replace(/,/g, ''));
+      if (!isNaN(n)) metrics.eps = n;
+  }
 
+  const rawPe = extractValue('PE Ratio');
   if (rawPe) {
       const n = parseFloat(rawPe.replace(/,/g, ''));
-      if (!isNaN(n)) peRatio = n;
+      if (!isNaN(n)) metrics.peRatio = n;
   }
 
+  const rawFPe = extractValue('Forward PE');
   if (rawFPe) {
       const n = parseFloat(rawFPe.replace(/,/g, ''));
-      if (!isNaN(n)) forwardPe = n;
+      if (!isNaN(n)) metrics.forwardPe = n;
   }
 
+  const rawDiv = extractValue('Dividend') || extractValue('Dividend (ttm)');
   if (rawDiv) {
       const parts = rawDiv.split('(');
       const valStr = parts[0].replace('$', '').trim();
       const n = parseFloat(valStr);
-      if (!isNaN(n)) dividend = n;
+      if (!isNaN(n)) metrics.dividend = n;
 
-      if (parts.length > 1 && !rawDivYield) {
+      if (parts.length > 1) {
            const yStr = parts[1].replace('%)', '').replace('%', '').trim();
            const y = parseFloat(yStr);
-           if (!isNaN(y)) dividendYield = y;
+           if (!isNaN(y)) metrics.dividendYield = y;
       }
   }
 
+  const rawDivYield = extractValue('Dividend Yield');
   if (rawDivYield) {
       const y = parseFloat(rawDivYield.replace('%', '').trim());
-      if (!isNaN(y)) dividendYield = y;
+      if (!isNaN(y)) metrics.dividendYield = y;
   }
 
+  const rawExDiv = extractValue('Ex-Dividend Date');
+  if (rawExDiv) metrics.exDividendDate = rawExDiv;
+
+  const rawVolume = extractValue('Volume');
+  if (rawVolume) metrics.volume = parseMarketNumber(rawVolume);
+
+  const rawOpen = extractValue('Open');
+  if (rawOpen) {
+       const n = parseFloat(rawOpen.replace(/,/g, ''));
+       if (!isNaN(n)) metrics.open = n;
+  }
+
+  const rawPrevClose = extractValue('Previous Close');
+  if (rawPrevClose) {
+       const n = parseFloat(rawPrevClose.replace(/,/g, ''));
+       if (!isNaN(n)) metrics.previousClose = n;
+  }
+
+  const rawDaysRange = extractValue("Day's Range");
+  if (rawDaysRange) metrics.daysRange = rawDaysRange;
+
+  const raw52Range = extractValue('52-Week Range');
+  if (raw52Range) metrics.fiftyTwoWeekRange = raw52Range;
+
+  const rawBeta = extractValue('Beta');
   if (rawBeta) {
       const n = parseFloat(rawBeta);
-      if (!isNaN(n)) beta = n;
+      if (!isNaN(n)) metrics.beta = n;
   }
 
-  if (rawShares) {
-      sharesOutstanding = parseMarketNumber(rawShares);
-  }
+  const rawEarnings = extractValue('Earnings Date');
+  if (rawEarnings) metrics.earningsDate = rawEarnings;
 
+  const rawExp = extractValue('Expense Ratio');
   if (rawExp) {
       const n = parseFloat(rawExp.replace('%', '').trim());
-      if (!isNaN(n)) expenseRatio = n;
+      if (!isNaN(n)) metrics.expenseRatio = n;
   }
 
-  if (raw52W) {
-      if (raw52W.includes('-')) {
-          const parts = raw52W.split('-').map(s => parseFloat(s.trim().replace(/,/g, '')));
-          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-              fiftyTwoWeekLow = parts[0];
-              fiftyTwoWeekHigh = parts[1];
-          }
-      } else {
-          const n = parseFloat(raw52W.replace(/,/g, ''));
-          if (!isNaN(n)) fiftyTwoWeekLow = n;
+  // Parse ranges into Low/High if available
+  if (metrics.fiftyTwoWeekRange && metrics.fiftyTwoWeekRange.includes('-')) {
+      const parts = metrics.fiftyTwoWeekRange.split('-').map(s => parseFloat(s.trim().replace(/,/g, '')));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          metrics.fiftyTwoWeekLow = parts[0];
+          metrics.fiftyTwoWeekHigh = parts[1];
       }
-  }
-
-  if (raw52WHigh) {
-       const n = parseFloat(raw52WHigh.replace(/,/g, ''));
-       if (!isNaN(n)) fiftyTwoWeekHigh = n;
   }
 
   // Analyst Data
@@ -478,15 +489,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
     industry,
     description,
     analyst,
-    marketCap,
-    peRatio,
-    forwardPe,
-    dividendYield,
-    dividend,
-    beta,
-    fiftyTwoWeekLow,
-    fiftyTwoWeekHigh,
-    sharesOutstanding,
-    expenseRatio
+    ...metrics
   };
 }
