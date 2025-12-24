@@ -24,6 +24,22 @@ model Etf {
   forwardPe      Decimal?
   fiftyTwoWeekHigh Decimal?
   fiftyTwoWeekLow  Decimal?
+
+  // Extended Metrics
+  marketCap        Decimal?
+  sharesOut        Decimal?
+  eps              Decimal?
+  revenue          Decimal?
+  netIncome        Decimal?
+  dividend         Decimal?
+  exDividendDate   String?
+  volume           Decimal?
+  open             Decimal?
+  prevClose        Decimal?
+  earningsDate     String?
+  daysRange        String?
+  fiftyTwoWeekRange String?
+
   assetType      String          @default("ETF")
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
