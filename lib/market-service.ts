@@ -44,6 +44,21 @@ export interface EtfDetails {
     close: Decimal;
     interval?: string;
   }[];
+  // Expanded Metrics
+  marketCap?: Decimal;
+  revenue?: Decimal;
+  netIncome?: Decimal;
+  eps?: Decimal;
+  sharesOutstanding?: Decimal;
+  volume?: Decimal;
+  open?: Decimal;
+  previousClose?: Decimal;
+  daysRange?: string;
+  fiftyTwoWeekRange?: string;
+  beta?: Decimal;
+  earningsDate?: string;
+  dividend?: Decimal;
+  exDividendDate?: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -248,6 +263,9 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
 
   // --- Merge Financial Metrics (Prioritizing Stock Analysis) ---
 
+  // Helper
+  const toDecimal = (val: number | undefined) => val !== undefined ? new Decimal(val) : undefined;
+
   // Dividend Yield
   let dividendYield: Decimal | undefined;
   if (stockProfile?.dividendYield !== undefined) {
@@ -319,6 +337,22 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
   // Description preference
   let description = stockProfile?.description || profile?.longBusinessSummary || "No description available.";
 
+  // New Metrics from StockProfile
+  const marketCap = toDecimal(stockProfile?.marketCap) || (summaryDetail?.marketCap ? new Decimal(summaryDetail.marketCap) : undefined);
+  const revenue = toDecimal(stockProfile?.revenue);
+  const netIncome = toDecimal(stockProfile?.netIncome);
+  const eps = toDecimal(stockProfile?.eps);
+  const sharesOutstanding = toDecimal(stockProfile?.sharesOutstanding);
+  const volume = toDecimal(stockProfile?.volume);
+  const open = toDecimal(stockProfile?.open);
+  const previousClose = toDecimal(stockProfile?.previousClose);
+  const dividend = toDecimal(stockProfile?.dividend);
+
+  const daysRange = stockProfile?.daysRange;
+  const fiftyTwoWeekRange = stockProfile?.fiftyTwoWeekRange;
+  const earningsDate = stockProfile?.earningsDate;
+  const exDividendDate = stockProfile?.exDividendDate;
+
   // Extract Top Holdings
   let holdingsList: { ticker: string; name: string; sector: string | null; weight: Decimal }[] | undefined;
   if (topHoldings?.holdings && Array.isArray(topHoldings.holdings)) {
@@ -346,6 +380,20 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
     fiftyTwoWeekLow,
     sectors,
     topHoldings: holdingsList,
-    history
+    history,
+    marketCap,
+    revenue,
+    netIncome,
+    eps,
+    sharesOutstanding,
+    volume,
+    open,
+    previousClose,
+    daysRange,
+    fiftyTwoWeekRange,
+    beta: beta5Y, // Alias beta to beta5Y
+    earningsDate,
+    dividend,
+    exDividendDate
   };
 }

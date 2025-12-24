@@ -28,6 +28,26 @@ export interface ETF {
     sector?: string;
     shares?: number;
   }[];
+  // Extended Metrics (Optional, for Stocks primarily)
+  marketCap?: number;
+  revenue?: number;
+  netIncome?: number;
+  eps?: number;
+  sharesOutstanding?: number;
+  volume?: number;
+  open?: number;
+  previousClose?: number;
+  daysRange?: string;
+  fiftyTwoWeekRange?: string;
+  beta?: number;
+  peRatio?: number;
+  forwardPe?: number;
+  earningsDate?: string;
+  dividend?: number;
+  exDividendDate?: string;
+  dividendYield?: number;
+  fiftyTwoWeekLow?: number;
+  fiftyTwoWeekHigh?: number;
 }
 
 export interface PortfolioItem extends ETF {
