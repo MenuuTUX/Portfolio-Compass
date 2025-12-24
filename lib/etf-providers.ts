@@ -43,11 +43,22 @@ const providers = [
   { name: 'Xtrackers', keywords: ['Xtrackers', 'DWS'], slug: 'xtrackers', stockTicker: 'DWS' },
 ];
 
-export function getProviderLogo(etfName: string): string | null {
+function findProvider(etfName: string) {
   const normalizedName = etfName.toLowerCase();
-  const match = providers.find(p =>
-    p.keywords.some(k => normalizedName.includes(k.toLowerCase()))
+  return providers.find(p =>
+    p.keywords.some(k => {
+      const lowerKeyword = k.toLowerCase();
+      // Escape special regex characters
+      const escapedKeyword = lowerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Use word boundaries to prevent partial matches (e.g. 'ARK' in 'Market')
+      const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+      return regex.test(normalizedName);
+    })
   );
+}
+
+export function getProviderLogo(etfName: string): string | null {
+  const match = findProvider(etfName);
 
   if (match) {
     const missing = ['agfiq', 'advisorshares', 'alpha-architect', 'american-century-investments', 'cibc-asset-management'];
@@ -102,10 +113,7 @@ export function getAssetIconUrl(ticker: string, name: string, assetType: string 
 
   // ETF logic
   if (assetType === 'ETF') {
-    const normalizedName = name.toLowerCase();
-    const match = providers.find(p =>
-      p.keywords.some(k => normalizedName.includes(k.toLowerCase()))
-    );
+    const match = findProvider(name);
 
     if (match) {
         if (match.stockTicker) {
