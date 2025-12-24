@@ -161,7 +161,7 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     {/* Consensus */}
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center text-center">
+                    <div className="flex flex-col items-center justify-center text-center p-3">
                         <span className="text-[10px] text-stone-400 mb-1 uppercase tracking-wider">Consensus</span>
                         <div className={cn(
                             "text-lg font-bold",
@@ -174,7 +174,7 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
                     </div>
 
                     {/* Price Target */}
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center text-center">
+                    <div className="flex flex-col items-center justify-center text-center p-3">
                          <span className="text-[10px] text-stone-400 mb-1 uppercase tracking-wider flex items-center gap-1">
                              <Target className="w-3 h-3" />
                              Price Target
