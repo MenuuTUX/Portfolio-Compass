@@ -70,6 +70,22 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
         forwardPe: details.forwardPe || null,
         fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
         fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+
+        // Extended Metrics
+        marketCap: details.marketCap || null,
+        sharesOut: details.sharesOutstanding || null,
+        eps: details.eps || null,
+        revenue: details.revenue || null,
+        netIncome: details.netIncome || null,
+        dividend: details.dividend || null,
+        exDividendDate: details.exDividendDate || null,
+        volume: details.volume || null,
+        open: details.open || null,
+        prevClose: details.previousClose || null,
+        earningsDate: details.earningsDate || null,
+        daysRange: details.daysRange || null,
+        fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
+
         name: details.name,
         currency: 'USD',
         exchange: 'Unknown',
@@ -90,6 +106,22 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
         forwardPe: details.forwardPe || null,
         fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
         fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+
+        // Extended Metrics
+        marketCap: details.marketCap || null,
+        sharesOut: details.sharesOutstanding || null,
+        eps: details.eps || null,
+        revenue: details.revenue || null,
+        netIncome: details.netIncome || null,
+        dividend: details.dividend || null,
+        exDividendDate: details.exDividendDate || null,
+        volume: details.volume || null,
+        open: details.open || null,
+        prevClose: details.previousClose || null,
+        earningsDate: details.earningsDate || null,
+        daysRange: details.daysRange || null,
+        fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
+
         assetType: details.assetType,
         isDeepAnalysisLoaded: true,
       }

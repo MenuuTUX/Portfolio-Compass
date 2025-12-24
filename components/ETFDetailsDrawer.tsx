@@ -26,6 +26,30 @@ const formatSectorName = (name: string) => {
     .join(' ');
 };
 
+function formatLargeNumber(num: number | undefined): string {
+    if (num === undefined) return 'n/a';
+    if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+    return num.toLocaleString();
+}
+
+function formatNumber(num: number | undefined, decimals = 2): string {
+    if (num === undefined) return 'n/a';
+    return num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// Simple row component for the Metrics grid
+function MetricRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+            <span className="text-xs text-neutral-400 font-medium" title={label}>{label}</span>
+            <span className="text-sm font-mono text-white text-right break-words max-w-[120px]">{value}</span>
+        </div>
+    )
+}
+
 export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDetailsDrawerProps) {
   const [timeRange, setTimeRange] = useState('1M');
   const [showComparison, setShowComparison] = useState(false);
@@ -169,10 +193,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
     if (showComparison && spyData && spyData.history) {
       // Re-implement filter logic for SPY to match ETF
-      // We can't reuse the exact function scope but we can replicate the logic
-      // Ideally we would extract filterAndSort but for now let's duplicate the simple logic or find a way to share
-      // Let's just create a helper inside since we need targetInterval/cutoffDate
-
       let targetInterval = '1wk';
       const now = new Date();
       const cutoffDate = new Date();
@@ -197,7 +217,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         if (spyHistory.length === 0) return null;
 
         const targetTime = targetDate.getTime();
-        // Tolerance: 30 minutes for 1h/1d, 1 day for 1w/1m/1y
         const tolerance = (timeRange === '1D' || timeRange === '1W')
           ? 30 * 60 * 1000
           : 24 * 60 * 60 * 1000;
@@ -222,7 +241,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
       if (filteredEtfHistory.length > 0) {
         const etfStart = filteredEtfHistory[0].price;
-        // Find closest SPY start price to align the charts
         const spyStartPrice = getSpyPriceAt(new Date(filteredEtfHistory[0].date));
         const spyStart = spyStartPrice || (spyHistory.length > 0 ? spyHistory[0].price : 1);
 
@@ -262,7 +280,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
   const sectorData = useMemo(() => {
     if (!displayEtf) return [];
 
-    // 1. Try Sectors
     if (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0) {
         const raw = Object.entries(displayEtf.sectors).map(([name, value]) => ({
             name: formatSectorName(name),
@@ -270,7 +287,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         }));
 
         const total = raw.reduce((sum, item) => sum + item.value, 0);
-        // If total is small (e.g. <= 1.5), assume decimals and convert to percent
         const shouldScale = total <= 1.5;
 
         return raw.map(item => ({
@@ -279,9 +295,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         })).sort((a, b) => b.value - a.value);
     }
 
-    // 2. Fallback: Holdings (Top 10 by weight)
     if (displayEtf.holdings && displayEtf.holdings.length > 0) {
-        // Detect if weights are already percentages
         const sampleSum = displayEtf.holdings.reduce((acc, h) => acc + h.weight, 0);
         const isPercentage = sampleSum > 1.5;
 
@@ -289,7 +303,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
             .slice(0, 10)
             .map(h => ({
                 name: h.name || h.ticker,
-                value: isPercentage ? h.weight : h.weight * 100 // Convert to percentage (0.05 -> 5.0)
+                value: isPercentage ? h.weight : h.weight * 100
             }))
             .sort((a, b) => b.value - a.value);
     }
@@ -300,7 +314,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
   const allHoldings = useMemo(() => {
     if (!displayEtf?.holdings) return [];
 
-    // Detect if weights are already percentages
     const sampleSum = displayEtf.holdings.reduce((acc, h) => acc + h.weight, 0);
     const isPercentage = sampleSum > 1.5;
 
@@ -308,7 +321,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         .sort((a, b) => b.weight - a.weight)
         .map(h => ({
             ...h,
-            // Create a normalized value for display
             displayWeight: isPercentage ? h.weight : h.weight * 100
         }));
   }, [displayEtf]);
@@ -467,7 +479,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                               return [`${value.toFixed(2)}%`, displayEtf.ticker];
                             }
                             if (name === 'spyPrice') {
-                              // Show original SPY price if available
                               const original = item.payload.originalSpyPrice;
                               return [original ? formatCurrency(original) : 'N/A', 'SPY'];
                             }
@@ -521,10 +532,12 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
                 {/* Right Col Wrapper */}
                 <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto space-y-6 pr-2 custom-scrollbar">
-                  {/* Sector Breakdown or Stock Info */}
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[300px] flex flex-col">
+
+                  {/* Top Box: Description / Sector */}
+                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[200px] flex flex-col">
                     {displayEtf.assetType === 'STOCK' ? (
                       <div className="flex-1 min-h-0">
+                        {/* Only basic info here */}
                         <StockInfoCard ticker={displayEtf.ticker} />
                       </div>
                     ) : (
@@ -698,37 +711,59 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                   </div>
 
                   {/* Metrics Grid */}
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                     <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      {displayEtf.assetType !== 'STOCK' && (
-                        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                          <div className="text-xs text-neutral-400 mb-1">MER</div>
-                          <div className="text-xl font-bold text-white">
-                            {displayEtf.metrics?.mer ? displayEtf.metrics.mer.toFixed(2) : 'N/A'}%
+
+                    {displayEtf.assetType === 'STOCK' ? (
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                            {/* Detailed Stock Metrics */}
+                            <MetricRow label="Market Cap" value={formatLargeNumber(displayEtf.marketCap)} />
+                            <MetricRow label="Revenue (ttm)" value={formatLargeNumber(displayEtf.revenue)} />
+                            <MetricRow label="Net Income (ttm)" value={formatLargeNumber(displayEtf.netIncome)} />
+                            <MetricRow label="Shares Out" value={formatLargeNumber(displayEtf.sharesOutstanding)} />
+                            <MetricRow label="EPS (ttm)" value={formatNumber(displayEtf.eps)} />
+                            <MetricRow label="PE Ratio" value={formatNumber(displayEtf.peRatio)} />
+                            <MetricRow label="Forward PE" value={formatNumber(displayEtf.forwardPe)} />
+                            <MetricRow label="Dividend" value={displayEtf.dividend ? formatCurrency(displayEtf.dividend) : 'n/a'} />
+                            <MetricRow label="Div Yield" value={displayEtf.dividendYield ? `${displayEtf.dividendYield.toFixed(2)}%` : 'n/a'} />
+                            <MetricRow label="Ex-Div Date" value={displayEtf.exDividendDate || 'n/a'} />
+                            <MetricRow label="Volume" value={displayEtf.volume ? displayEtf.volume.toLocaleString() : 'n/a'} />
+                            <MetricRow label="Open" value={formatNumber(displayEtf.open)} />
+                            <MetricRow label="Prev Close" value={formatNumber(displayEtf.previousClose)} />
+                            <MetricRow label="Beta" value={formatNumber(displayEtf.beta)} />
+                            <MetricRow label="Earnings" value={displayEtf.earningsDate || 'n/a'} />
+                            <MetricRow label="52W High" value={formatNumber(displayEtf.fiftyTwoWeekHigh)} />
+                            <MetricRow label="52W Low" value={formatNumber(displayEtf.fiftyTwoWeekLow)} />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                            <div className="text-xs text-neutral-400 mb-1">MER</div>
+                            <div className="text-xl font-bold text-white">
+                              {displayEtf.metrics?.mer ? displayEtf.metrics.mer.toFixed(2) : 'N/A'}%
+                            </div>
+                          </div>
+                          <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+                            <div className="text-xs text-neutral-400 mb-1">Yield (TTM)</div>
+                            <div className="text-xl font-bold text-emerald-400">
+                              {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
+                                ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
+                                : (displayEtf.metrics?.yield ? displayEtf.metrics.yield.toFixed(2) : 'N/A')}%
+                            </div>
+                          </div>
+                          <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-xs text-neutral-400 mb-1">Volatility ({timeRange})</div>
+                                <div className={cn("text-xl font-bold", riskData?.color)}>{riskData ? (riskData.stdDev! * 100).toFixed(2) : 'N/A'}%</div>
+                              </div>
+                              {riskData && (
+                                <AlertTriangle className={cn("w-8 h-8 opacity-50", riskData.color)} />
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
-                      <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="text-xs text-neutral-400 mb-1">Yield (TTM)</div>
-                        <div className="text-xl font-bold text-emerald-400">
-                          {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
-                            ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
-                            : (displayEtf.metrics?.yield ? displayEtf.metrics.yield.toFixed(2) : 'N/A')}%
-                        </div>
-                      </div>
-                      <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-xs text-neutral-400 mb-1">Volatility ({timeRange})</div>
-                            <div className={cn("text-xl font-bold", riskData?.color)}>{riskData ? (riskData.stdDev! * 100).toFixed(2) : 'N/A'}%</div>
-                          </div>
-                          {riskData && (
-                            <AlertTriangle className={cn("w-8 h-8 opacity-50", riskData.color)} />
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

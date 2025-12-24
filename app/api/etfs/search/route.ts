@@ -370,6 +370,26 @@ export async function GET(request: NextRequest) {
             yield: etf.yield ? safeDecimal(etf.yield) : 0,
             mer: etf.mer ? safeDecimal(etf.mer) : 0
         },
+        // Extended Metrics
+        marketCap: etf.marketCap ? safeDecimal(etf.marketCap) : undefined,
+        sharesOutstanding: etf.sharesOut ? safeDecimal(etf.sharesOut) : undefined,
+        eps: etf.eps ? safeDecimal(etf.eps) : undefined,
+        revenue: etf.revenue ? safeDecimal(etf.revenue) : undefined,
+        netIncome: etf.netIncome ? safeDecimal(etf.netIncome) : undefined,
+        dividend: etf.dividend ? safeDecimal(etf.dividend) : undefined,
+        exDividendDate: etf.exDividendDate || undefined,
+        volume: etf.volume ? safeDecimal(etf.volume) : undefined,
+        open: etf.open ? safeDecimal(etf.open) : undefined,
+        previousClose: etf.prevClose ? safeDecimal(etf.prevClose) : undefined,
+        earningsDate: etf.earningsDate || undefined,
+        daysRange: etf.daysRange || undefined,
+        fiftyTwoWeekRange: etf.fiftyTwoWeekRange || undefined,
+        beta: etf.beta5Y ? safeDecimal(etf.beta5Y) : undefined,
+        peRatio: etf.peRatio ? safeDecimal(etf.peRatio) : undefined,
+        forwardPe: etf.forwardPe ? safeDecimal(etf.forwardPe) : undefined,
+        fiftyTwoWeekHigh: etf.fiftyTwoWeekHigh ? safeDecimal(etf.fiftyTwoWeekHigh) : undefined,
+        fiftyTwoWeekLow: etf.fiftyTwoWeekLow ? safeDecimal(etf.fiftyTwoWeekLow) : undefined,
+
         allocation: {
           equities: etf.allocation?.stocks_weight ? safeDecimal(etf.allocation.stocks_weight) : 0,
           bonds: etf.allocation?.bonds_weight ? safeDecimal(etf.allocation.bonds_weight) : 0,
