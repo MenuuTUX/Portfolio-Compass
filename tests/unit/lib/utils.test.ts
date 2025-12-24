@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { calculateRiskMetric, cn, formatCurrency, formatPercentage } from '../../../lib/utils';
+import { calculateRiskMetric, cn, formatCurrency, formatPercentage, formatDate } from '../../../lib/utils';
 
 describe('calculateRiskMetric', () => {
   it('should return default safe values for empty history', () => {
@@ -61,6 +61,19 @@ describe('formatPercentage', () => {
   it('should handle round numbers', () => {
     const result = formatPercentage(5);
     expect(result).toBe('5.00%');
+  });
+});
+
+describe('formatDate', () => {
+  it('should format date correctly', () => {
+    const date = new Date('2023-01-01T12:00:00Z');
+    const result = formatDate(date);
+    expect(result).toBe('1/1/2023'); // en-US format
+  });
+
+  it('should handle string input', () => {
+    const result = formatDate('2023-01-01T12:00:00Z');
+    expect(result).toBe('1/1/2023');
   });
 });
 

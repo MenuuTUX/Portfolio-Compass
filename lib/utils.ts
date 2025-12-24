@@ -6,21 +6,37 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const currencyFormatter = new Intl.NumberFormat('en-CA', {
+  style: 'currency',
+  currency: 'CAD',
+});
+
 export function formatCurrency(value: number | Decimal) {
   const val = typeof value === 'number' ? value : value.toNumber();
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD',
-  }).format(val)
+  return currencyFormatter.format(val);
 }
+
+const percentageFormatter = new Intl.NumberFormat('en-CA', {
+  style: 'percent',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 export function formatPercentage(value: number | Decimal) {
   const val = typeof value === 'number' ? value : value.toNumber();
-  return new Intl.NumberFormat('en-CA', {
-    style: 'percent',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(val / 100)
+  return percentageFormatter.format(val / 100);
+}
+
+// Use a fixed locale formatter for date consistency and to avoid hydration mismatches
+// compared to using system-dependent toLocaleDateString().
+const safeDateFormatter = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+});
+
+export function formatDate(date: string | Date | number) {
+  return safeDateFormatter.format(new Date(date));
 }
 
 export interface RiskMetric {

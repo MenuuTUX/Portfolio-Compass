@@ -2,7 +2,7 @@
 
 import { useId, memo } from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface SparklineProps {
   data: { date: string; price: number }[];
@@ -48,7 +48,7 @@ const Sparkline = memo(({ data, color, name }: SparklineProps) => {
         <tbody>
           {data.map((item, i) => (
             <tr key={i}>
-              <td>{new Date(item.date).toLocaleDateString()}</td>
+              <td>{formatDate(item.date)}</td>
               <td>{formatCurrency(item.price)}</td>
             </tr>
           ))}

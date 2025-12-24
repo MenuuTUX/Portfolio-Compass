@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { formatDate } from '@/lib/utils';
 
 interface FearGreedData {
   score: number;
@@ -169,7 +170,7 @@ export default function FearGreedGauge() {
       </div>
 
        <div className="text-[10px] text-white/20 mt-[-5px] z-10">
-          Updated: {new Date(data.updatedAt).toLocaleDateString()}
+          Updated: {formatDate(data.updatedAt)}
        </div>
 
     </div>
