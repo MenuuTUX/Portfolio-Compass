@@ -54,6 +54,7 @@ mock.module('next/server', () => {
 // Dynamic import
 const { GET } = await import('../../../app/api/etfs/search/route');
 const { NextRequest } = await import('next/server');
+const { ETFSchema } = await import('../../../schemas/assetSchema');
 
 describe('API: /api/etfs/search', () => {
   beforeEach(() => {
@@ -104,6 +105,11 @@ describe('API: /api/etfs/search', () => {
     expect(mockPrismaUpsert).toHaveBeenCalled();
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('SPY');
+
+    // Schema Validation
+    const parseResult = ETFSchema.safeParse(response._data[0]);
+    if (!parseResult.success) console.error(parseResult.error);
+    expect(parseResult.success).toBe(true);
   });
 
   it('should return local data if found', async () => {
@@ -127,6 +133,10 @@ describe('API: /api/etfs/search', () => {
 
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('VTI');
+
+    // Schema Validation
+    const parseResult = ETFSchema.safeParse(response._data[0]);
+    expect(parseResult.success).toBe(true);
   });
 
   it('should attempt deep sync on local miss', async () => {
@@ -155,6 +165,10 @@ describe('API: /api/etfs/search', () => {
 
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('HQU.TO');
+
+    // Schema Validation
+    const parseResult = ETFSchema.safeParse(response._data[0]);
+    expect(parseResult.success).toBe(true);
   });
 
   it('should fallback to snapshot if deep sync fails', async () => {
@@ -198,5 +212,53 @@ describe('API: /api/etfs/search', () => {
 
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('NEW');
+
+    // Schema Validation
+    const parseResult = ETFSchema.safeParse(response._data[0]);
+    expect(parseResult.success).toBe(true);
+  });
+
+  it('should handle potentially null fields by converting to undefined', async () => {
+      // Setup specific mock that returns nulls for optional fields
+      const nullFieldEtf = {
+        ticker: 'NULLY',
+        name: 'Null Fields ETF',
+        price: 100,
+        daily_change: 0,
+        assetType: 'ETF',
+        isDeepAnalysisLoaded: true,
+        updatedAt: new Date(),
+        // Prisma typically returns null for optional fields if they are missing
+        history: [{ date: new Date(), close: 100, interval: 'daily' }], // interval 'daily' should be undefined in API
+        sectors: [],
+        allocation: null, // Should handle null allocation
+        holdings: [
+            { ticker: 'SUB', name: 'Sub', weight: 10, sector: 'Tech', shares: null } // shares: null should be undefined
+        ],
+        // Extended metrics as nulls
+        marketCap: null,
+        dividend: null
+      };
+
+      mockPrismaFindMany.mockResolvedValue([nullFieldEtf]);
+
+      const request = new NextRequest('http://localhost/api/etfs/search?query=NULLY');
+      const response: any = await GET(request);
+
+      expect(response._data).toHaveLength(1);
+      const item = response._data[0];
+
+      // Assertions for undefined transformation
+      expect(item.history[0].interval).toBeUndefined();
+      expect(item.holdings[0].shares).toBeUndefined();
+      expect(item.marketCap).toBeUndefined();
+      expect(item.dividend).toBeUndefined();
+
+      // Schema Validation
+      const parseResult = ETFSchema.safeParse(item);
+      if (!parseResult.success) {
+          console.error("Schema validation failed for null-field test:", parseResult.error);
+      }
+      expect(parseResult.success).toBe(true);
   });
 });
