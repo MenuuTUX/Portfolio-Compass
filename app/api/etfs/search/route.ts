@@ -377,6 +377,7 @@ export async function GET(request: NextRequest) {
         revenue: etf.revenue ? safeDecimal(etf.revenue) : undefined,
         netIncome: etf.netIncome ? safeDecimal(etf.netIncome) : undefined,
         dividend: etf.dividend ? safeDecimal(etf.dividend) : undefined,
+        dividendYield: etf.yield ? safeDecimal(etf.yield) : undefined,
         exDividendDate: etf.exDividendDate || undefined,
         volume: etf.volume ? safeDecimal(etf.volume) : undefined,
         open: etf.open ? safeDecimal(etf.open) : undefined,

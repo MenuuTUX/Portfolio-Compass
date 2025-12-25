@@ -1,4 +1,5 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { Decimal } from 'decimal.js';
 
 // Mocks
 const mockPrismaFindMany = mock(() => Promise.resolve([]));
@@ -123,7 +124,8 @@ describe('API: /api/etfs/search', () => {
       updatedAt: new Date(),
       history: [{ date: new Date(), close: 200, interval: 'daily' }],
       sectors: [{ sector_name: 'Tech', weight: 20 }],
-      allocation: { stocks_weight: 99, bonds_weight: 1, cash_weight: 0 }
+      allocation: { stocks_weight: 99, bonds_weight: 1, cash_weight: 0 },
+      yield: new Decimal(1.5),
     };
 
     mockPrismaFindMany.mockResolvedValue([mockEtf]);
@@ -133,6 +135,8 @@ describe('API: /api/etfs/search', () => {
 
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('VTI');
+    expect(response._data[0].metrics.yield).toBe(1.5);
+    expect(response._data[0].dividendYield).toBe(1.5);
 
     // Schema Validation
     const parseResult = ETFSchema.safeParse(response._data[0]);

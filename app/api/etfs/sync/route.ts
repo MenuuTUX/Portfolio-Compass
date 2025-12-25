@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
         yield: fullEtf.yield ? Number(fullEtf.yield) : 0,
         mer: fullEtf.mer ? Number(fullEtf.mer) : 0
       },
+      dividend: fullEtf.dividend ? Number(fullEtf.dividend) : undefined,
+      dividendYield: fullEtf.yield ? Number(fullEtf.yield) : undefined,
       allocation: {
         equities: fullEtf.allocation?.stocks_weight ? Number(fullEtf.allocation.stocks_weight) : 0,
         bonds: fullEtf.allocation?.bonds_weight ? Number(fullEtf.allocation.bonds_weight) : 0,
