@@ -1,73 +1,65 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PortfolioItem } from '@/types';
-import { PortfolioItemSchema } from '@/schemas/assetSchema';
-import { z } from 'zod';
+import { Portfolio } from '@/types';
+import { loadPortfolio, savePortfolio } from '@/lib/storage';
 
-interface UpdatePortfolioItemParams {
-    ticker: string;
-    weight?: number;
-    shares?: number;
+interface UpdateParams {
+  ticker: string;
+  weight?: number;
+  shares?: number;
 }
 
-export function useUpdatePortfolioItem() {
-    const queryClient = useQueryClient();
+export const useUpdatePortfolioItem = () => {
+  const queryClient = useQueryClient();
 
-    return useMutation({
-        mutationFn: async ({ ticker, weight, shares }: UpdatePortfolioItemParams) => {
-            const response = await fetch('/api/portfolio', {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ ticker, weight, shares }),
-            });
+  return useMutation({
+    mutationFn: async ({ ticker, weight, shares }: UpdateParams) => {
+      // 1. Update Local Storage
+      const currentItems = loadPortfolio();
+      const newItems = currentItems.map((item) => {
+        if (item.ticker.toUpperCase() === ticker.toUpperCase()) {
+          return {
+            ...item,
+            weight: weight !== undefined ? weight : item.weight,
+            shares: shares !== undefined ? shares : item.shares,
+          };
+        }
+        return item;
+      });
+      savePortfolio(newItems);
 
-            if (!response.ok) {
-                throw new Error('Failed to update portfolio item');
-            }
+      return { ticker, weight, shares };
+    },
+    onMutate: async ({ ticker, weight, shares }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['portfolio'] });
 
-            const data = await response.json();
+      // Snapshot the previous value
+      const previousPortfolio = queryClient.getQueryData<Portfolio>(['portfolio']);
 
-            try {
-                return PortfolioItemSchema.parse(data);
-            } catch (error) {
-                 if (error instanceof z.ZodError) {
-                    console.warn('API response validation failed for update item:', error.issues);
-                } else {
-                    console.warn('API response validation failed for update item:', error);
-                }
-                return data as PortfolioItem;
-            }
-        },
-        onMutate: async ({ ticker, weight, shares }) => {
-            await queryClient.cancelQueries({ queryKey: ['portfolio'] });
-            const previousPortfolio = queryClient.getQueryData<PortfolioItem[]>(['portfolio']);
+      // Optimistically update
+      queryClient.setQueryData<Portfolio>(['portfolio'], (old) => {
+        if (!old) return [];
+        return old.map((item) => {
+          if (item.ticker.toUpperCase() === ticker.toUpperCase()) {
+            return {
+              ...item,
+              weight: weight !== undefined ? weight : item.weight,
+              shares: shares !== undefined ? shares : item.shares,
+            };
+          }
+          return item;
+        });
+      });
 
-            if (previousPortfolio) {
-                queryClient.setQueryData<PortfolioItem[]>(['portfolio'], (old) => {
-                    if (!old) return [];
-                    return old.map((item) => {
-                        if (item.ticker === ticker) {
-                            return {
-                                ...item,
-                                ...(weight !== undefined && { weight }),
-                                ...(shares !== undefined && { shares }),
-                            };
-                        }
-                        return item;
-                    });
-                });
-            }
-
-            return { previousPortfolio };
-        },
-        onError: (err, newTodo, context) => {
-            if (context?.previousPortfolio) {
-                queryClient.setQueryData(['portfolio'], context.previousPortfolio);
-            }
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-        },
-    });
-}
+      return { previousPortfolio };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousPortfolio) {
+        queryClient.setQueryData(['portfolio'], context.previousPortfolio);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+    },
+  });
+};
