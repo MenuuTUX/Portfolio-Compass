@@ -13,10 +13,10 @@ describe('isMarketOpen', () => {
     expect(isMarketOpen(date)).toBe(false);
   });
 
-  it('should return false after market close (4:00 PM)', () => {
-    // 16:00 is close
+  it('should return true after market close (4:00 PM) to allow post-market sync', () => {
+    // 16:00 is technically close, but we extend to 18:00 for sync
     const date = new Date('2025-01-15T16:00:00-05:00');
-    expect(isMarketOpen(date)).toBe(false);
+    expect(isMarketOpen(date)).toBe(true);
   });
 
   it('should return false on weekends (Saturday)', () => {
