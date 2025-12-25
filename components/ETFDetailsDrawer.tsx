@@ -599,7 +599,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                                 >
                                                     <div className="flex items-center gap-3">
                                                         {getAssetIconUrl(h.ticker, h.name || '', 'ETF') && (
-                                                            <div className="w-6 h-6 rounded-full bg-white p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                                        <div className="w-6 h-6 shrink-0 flex items-center justify-center">
                                                                 <img
                                                                     src={getAssetIconUrl(h.ticker, h.name || '', 'ETF')!}
                                                                     alt={h.ticker}
@@ -658,7 +658,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                             >
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     {getAssetIconUrl(h.ticker, h.name || '', 'ETF') && (
-                                                        <div className="w-5 h-5 rounded-full bg-white p-0.5 shrink-0 overflow-hidden flex items-center justify-center">
+                                                        <div className="w-5 h-5 shrink-0 flex items-center justify-center">
                                                             <img
                                                                 src={getAssetIconUrl(h.ticker, h.name || '', 'ETF')!}
                                                                 alt={h.ticker}
