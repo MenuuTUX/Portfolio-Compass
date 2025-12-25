@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Layers, AlertCircle, TrendingUp, Target } from "lucide-react"
+import { Layers, AlertCircle, TrendingUp, Target, Factory } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -30,14 +30,14 @@ function DescriptionText({ text }: { text: string }) {
     : text
 
   return (
-    <div className="flex flex-col items-start gap-1">
-      <p className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap">
+    <div className="flex flex-col items-start gap-2">
+      <p className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap font-sans">
         {displayText}
       </p>
       {shouldTruncate && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline focus:outline-none transition-colors"
+          className="text-xs font-medium text-emerald-400 hover:text-emerald-300 hover:underline focus:outline-none transition-colors"
         >
           {isExpanded ? "Read less" : "Read more"}
         </button>
@@ -92,20 +92,21 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
 
   if (loading) {
     return (
-      <Card className="w-full h-full">
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row gap-6">
-            <Skeleton className="h-32 w-32 shrink-0 rounded-lg" />
-            <div className="flex-1 space-y-2">
+      <Card className="w-full h-full bg-transparent border-none shadow-none p-0">
+        <div className="flex flex-col gap-4">
+            <div className="flex gap-2">
+                <Skeleton className="h-6 w-16 rounded-full" />
+                <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+            <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />
             </div>
-          </div>
-        </CardContent>
+            <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
+                <Skeleton className="h-20 w-full" />
+            </div>
+        </div>
       </Card>
     )
   }
@@ -114,13 +115,13 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
     return (
       <Card className="w-full h-full border-red-500/20 bg-red-500/5">
         <CardHeader>
-           <CardTitle className="text-red-400 flex items-center gap-2">
-             <AlertCircle className="h-5 w-5" />
-             Error
+           <CardTitle className="text-red-400 flex items-center gap-2 text-sm">
+             <AlertCircle className="h-4 w-4" />
+             Unable to load profile
            </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-red-300">
+          <p className="text-xs text-red-300">
             {error || "Could not load asset profile."}
           </p>
         </CardContent>
@@ -129,73 +130,81 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
   }
 
   return (
-    <Card className="w-full h-full flex flex-col bg-transparent border-0 shadow-none p-0">
-      <div className="flex-1 flex flex-col gap-8 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+    <div className="w-full h-full flex flex-col gap-6">
 
-        {/* Description & Sector */}
-        <div className="flex flex-col sm:flex-row gap-6">
-            <div className="flex flex-col items-center justify-center h-28 w-28 shrink-0 rounded-lg bg-stone-800/50 p-2 text-center border border-white/5 shadow-inner">
-                <Layers className="h-6 w-6 text-emerald-500 mb-2" />
-                <Badge variant="secondary" className="mb-1 text-[10px] h-4 px-1.5 pointer-events-none">
-                    SECTOR
-                </Badge>
-                <span className="text-xs font-bold text-stone-100 line-clamp-2 leading-tight">
-                    {info.sector || "Unknown"}
-                </span>
-            </div>
-            <div className="flex-1 min-w-0">
-                <DescriptionText text={info.description || "No description available."} />
-            </div>
-        </div>
+      {/* Header Badges */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+            STOCK
+        </Badge>
+        {info.sector && (
+            <Badge variant="outline" className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal">
+                <Layers className="w-3 h-3 text-neutral-400" />
+                {info.sector}
+            </Badge>
+        )}
+        {info.industry && (
+            <Badge variant="outline" className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal">
+                <Factory className="w-3 h-3 text-neutral-400" />
+                {info.industry}
+            </Badge>
+        )}
+      </div>
 
-        {/* Analyst Analysis Text */}
-        {info.analyst && (
-            <div className="pt-6 border-t border-white/5">
-                <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    Analyst Summary
-                </h3>
-                <p className="text-sm text-stone-300 italic mb-4">
-                    {info.analyst.summary}
+      {/* Description */}
+      <DescriptionText text={info.description || "No description available."} />
+
+      {/* Analyst Analysis Section */}
+      {info.analyst && (
+        <div className="space-y-4 pt-2">
+            <div className="flex items-center gap-2 text-white">
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <h3 className="font-bold text-sm tracking-wide">Analyst Summary</h3>
+            </div>
+
+            <div className="relative pl-4 border-l-2 border-emerald-500/30 py-1">
+                <p className="text-sm text-neutral-300 italic leading-relaxed">
+                    "{info.analyst.summary}"
                 </p>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    {/* Consensus */}
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center text-center">
-                        <span className="text-[10px] text-stone-400 mb-1 uppercase tracking-wider">Consensus</span>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+                {/* Consensus Card */}
+                <div className="bg-gradient-to-br from-white/5 to-white/0 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold">Consensus</span>
+                    <Badge
+                        variant="secondary"
+                        className={cn(
+                        "text-sm font-bold px-3 py-1",
+                        info.analyst.consensus.toLowerCase().includes('buy') ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" :
+                        info.analyst.consensus.toLowerCase().includes('sell') ? "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30" :
+                        "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                    )}>
+                        {info.analyst.consensus}
+                    </Badge>
+                </div>
+
+                {/* Price Target Card */}
+                <div className="bg-gradient-to-br from-white/5 to-white/0 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+                    <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold flex items-center gap-1">
+                        <Target className="w-3 h-3" />
+                        Target
+                    </span>
+                    <div className="text-lg font-bold text-white tracking-tight">
+                        {info.analyst.targetPrice ? `$${info.analyst.targetPrice.toFixed(2)}` : 'N/A'}
+                    </div>
+                    {info.analyst.targetUpside !== null && (
                         <div className={cn(
-                            "text-lg font-bold",
-                            info.analyst.consensus.toLowerCase().includes('buy') ? "text-emerald-400" :
-                            info.analyst.consensus.toLowerCase().includes('sell') ? "text-rose-400" :
-                            "text-amber-400"
+                            "text-[10px] font-medium mt-0.5",
+                            info.analyst.targetUpside >= 0 ? "text-emerald-400" : "text-rose-400"
                         )}>
-                            {info.analyst.consensus}
+                            {info.analyst.targetUpside >= 0 ? '▲' : '▼'} {Math.abs(info.analyst.targetUpside).toFixed(1)}%
                         </div>
-                    </div>
-
-                    {/* Price Target */}
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center text-center">
-                         <span className="text-[10px] text-stone-400 mb-1 uppercase tracking-wider flex items-center gap-1">
-                             <Target className="w-3 h-3" />
-                             Price Target
-                         </span>
-                         <div className="text-lg font-bold text-white">
-                             {info.analyst.targetPrice ? `$${info.analyst.targetPrice.toFixed(2)}` : 'N/A'}
-                         </div>
-                         {info.analyst.targetUpside !== null && (
-                             <div className={cn(
-                                 "text-[10px] font-medium",
-                                 info.analyst.targetUpside >= 0 ? "text-emerald-400" : "text-rose-400"
-                             )}>
-                                 {info.analyst.targetUpside >= 0 ? '+' : ''}{info.analyst.targetUpside.toFixed(2)}%
-                             </div>
-                         )}
-                    </div>
+                    )}
                 </div>
             </div>
-        )}
-
-      </div>
-    </Card>
+        </div>
+      )}
+    </div>
   )
 }
