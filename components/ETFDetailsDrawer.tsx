@@ -40,12 +40,15 @@ function formatNumber(num: number | undefined, decimals = 2): string {
     return num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-// Simple row component for the Metrics grid
-function MetricRow({ label, value }: { label: string; value: string }) {
+// Compact card for the Metrics grid
+function MetricCard({ label, value, subValue, highlight }: { label: string; value: string; subValue?: string; highlight?: boolean }) {
     return (
-        <div className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-            <span className="text-xs text-neutral-400 font-medium" title={label}>{label}</span>
-            <span className="text-sm font-mono text-white text-right break-words max-w-[120px]">{value}</span>
+        <div className="bg-white/5 rounded-xl p-3 border border-white/5 hover:bg-white/10 transition-colors group">
+            <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider mb-1 truncate group-hover:text-neutral-300 transition-colors">{label}</div>
+            <div className={cn("text-sm font-bold truncate font-mono", highlight ? "text-emerald-400" : "text-white")}>
+                {value}
+            </div>
+            {subValue && <div className="text-[10px] text-neutral-500 mt-0.5">{subValue}</div>}
         </div>
     )
 }
@@ -712,28 +715,60 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
                   {/* Metrics Grid */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                    <h3 className="text-lg font-bold text-white mb-4">Key Metrics</h3>
+                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                        Key Metrics
+                    </h3>
 
                     {displayEtf.assetType === 'STOCK' ? (
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                            {/* Detailed Stock Metrics */}
-                            <MetricRow label="Market Cap" value={formatLargeNumber(displayEtf.marketCap)} />
-                            <MetricRow label="Revenue (ttm)" value={formatLargeNumber(displayEtf.revenue)} />
-                            <MetricRow label="Net Income (ttm)" value={formatLargeNumber(displayEtf.netIncome)} />
-                            <MetricRow label="Shares Out" value={formatLargeNumber(displayEtf.sharesOutstanding)} />
-                            <MetricRow label="EPS (ttm)" value={formatNumber(displayEtf.eps)} />
-                            <MetricRow label="PE Ratio" value={formatNumber(displayEtf.peRatio)} />
-                            <MetricRow label="Forward PE" value={formatNumber(displayEtf.forwardPe)} />
-                            <MetricRow label="Dividend" value={displayEtf.dividend ? formatCurrency(displayEtf.dividend) : 'n/a'} />
-                            <MetricRow label="Div Yield" value={displayEtf.dividendYield ? `${displayEtf.dividendYield.toFixed(2)}%` : 'n/a'} />
-                            <MetricRow label="Ex-Div Date" value={displayEtf.exDividendDate || 'n/a'} />
-                            <MetricRow label="Volume" value={displayEtf.volume ? displayEtf.volume.toLocaleString() : 'n/a'} />
-                            <MetricRow label="Open" value={formatNumber(displayEtf.open)} />
-                            <MetricRow label="Prev Close" value={formatNumber(displayEtf.previousClose)} />
-                            <MetricRow label="Beta" value={formatNumber(displayEtf.beta)} />
-                            <MetricRow label="Earnings" value={displayEtf.earningsDate || 'n/a'} />
-                            <MetricRow label="52W High" value={formatNumber(displayEtf.fiftyTwoWeekHigh)} />
-                            <MetricRow label="52W Low" value={formatNumber(displayEtf.fiftyTwoWeekLow)} />
+                        <div className="space-y-8">
+                            {/* Valuation Section */}
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Valuation</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MetricCard label="Market Cap" value={formatLargeNumber(displayEtf.marketCap)} />
+                                    <MetricCard label="PE Ratio" value={formatNumber(displayEtf.peRatio)} />
+                                    <MetricCard label="Forward PE" value={formatNumber(displayEtf.forwardPe)} />
+                                    <MetricCard label="EPS (ttm)" value={formatNumber(displayEtf.eps)} />
+                                </div>
+                            </div>
+
+                            {/* Dividends & Returns */}
+                            {(displayEtf.dividend || displayEtf.dividendYield) && (
+                                <div className="space-y-3">
+                                    <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Dividends</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <MetricCard
+                                            label="Div Yield"
+                                            value={displayEtf.dividendYield ? `${displayEtf.dividendYield.toFixed(2)}%` : 'n/a'}
+                                            highlight={!!displayEtf.dividendYield}
+                                        />
+                                        <MetricCard label="Dividend" value={displayEtf.dividend ? formatCurrency(displayEtf.dividend) : 'n/a'} />
+                                        <MetricCard label="Ex-Div Date" value={displayEtf.exDividendDate || 'n/a'} />
+                                        <MetricCard label="Earnings Date" value={displayEtf.earningsDate || 'n/a'} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Market Performance */}
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Trading</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MetricCard label="Beta" value={formatNumber(displayEtf.beta)} />
+                                    <MetricCard label="Volume" value={displayEtf.volume ? (displayEtf.volume > 1e6 ? (displayEtf.volume/1e6).toFixed(1) + 'M' : displayEtf.volume.toLocaleString()) : 'n/a'} />
+                                    <MetricCard label="52W High" value={formatNumber(displayEtf.fiftyTwoWeekHigh)} />
+                                    <MetricCard label="52W Low" value={formatNumber(displayEtf.fiftyTwoWeekLow)} />
+                                </div>
+                            </div>
+
+                            {/* Financials */}
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Financials</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MetricCard label="Revenue" value={formatLargeNumber(displayEtf.revenue)} />
+                                    <MetricCard label="Net Income" value={formatLargeNumber(displayEtf.netIncome)} />
+                                    <MetricCard label="Shares Out" value={formatLargeNumber(displayEtf.sharesOutstanding)} />
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 gap-4">
