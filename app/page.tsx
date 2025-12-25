@@ -14,6 +14,7 @@ import { useAddStock } from '@/hooks/useAddStock';
 import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
 import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
+import { savePortfolio } from '@/lib/storage';
 
 type ViewMode = 'LANDING' | 'APP';
 type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO';
@@ -52,6 +53,7 @@ export default function Home() {
   };
 
   const handleClearPortfolio = () => {
+    savePortfolio([]);
     queryClient.setQueryData(['portfolio'], []);
   };
 
