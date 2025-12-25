@@ -18,9 +18,7 @@ describe("StockInfoCard", () => {
         global.fetch = mock(() => new Promise(() => {}));
 
         render(<StockInfoCard ticker="AAPL" />);
-        // Look for skeleton structure - we can check for the card structure
-        // Since we can't easily query by class in RTL without setup, we check for lack of error/content
-        const errorText = screen.queryByText("Error");
+        const errorText = screen.queryByText("Unable to load profile");
         expect(errorText).toBeNull();
     });
 
@@ -44,10 +42,13 @@ describe("StockInfoCard", () => {
         render(<StockInfoCard ticker="AAPL" />);
 
         await waitFor(() => {
-            expect(screen.getByText("SECTOR")).toBeDefined();
+            expect(screen.getByText("STOCK")).toBeDefined();
             expect(screen.getByText("Technology")).toBeDefined();
             expect(screen.getByText(/Apple Inc/)).toBeDefined();
-            expect(screen.getByText("Strong Buy")).toBeDefined();
+            // The summary is quoted in the UI
+            expect(screen.getByText(/"Strong Buy"/)).toBeDefined();
+            // Consensus badge
+            expect(screen.getAllByText("Buy")).toBeDefined();
             expect(screen.getByText("$200.50")).toBeDefined();
         });
     });
@@ -60,7 +61,7 @@ describe("StockInfoCard", () => {
         render(<StockInfoCard ticker="FAIL" />);
 
         await waitFor(() => {
-            expect(screen.getByText("Error")).toBeDefined();
+            expect(screen.getByText("Unable to load profile")).toBeDefined();
             expect(screen.getByText("Failed to fetch asset profile")).toBeDefined();
         });
     });
