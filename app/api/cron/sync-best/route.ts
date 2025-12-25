@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     const results = await Promise.allSettled(tickersToSync.map((ticker: string) => {
       console.log(`Incremental sync: ${ticker}`);
-      return syncEtfDetails(ticker);
+      return syncEtfDetails(ticker, ['1h', '1d']);
     }));
 
     const successCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'fulfilled' && (r as PromiseFulfilledResult<any>).value).length;
