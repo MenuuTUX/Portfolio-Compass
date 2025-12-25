@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+/**
+ * Local Storage Management for Portfolio
+ * Implements Local-First architecture.
+ */
+
 export const LocalPortfolioItemSchema = z.object({
   ticker: z.string(),
   weight: z.number(),

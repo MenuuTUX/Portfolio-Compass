@@ -6,6 +6,10 @@ interface AddStockParams {
   ticker: string;
 }
 
+/**
+ * Hook to add a stock to the local portfolio.
+ * Fetches details from API to validate, then saves to LocalStorage.
+ */
 export const useAddStock = () => {
   const queryClient = useQueryClient();
 

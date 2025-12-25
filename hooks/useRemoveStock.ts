@@ -2,6 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Portfolio } from '@/types';
 import { loadPortfolio, savePortfolio } from '@/lib/storage';
 
+/**
+ * Hook to remove a stock from the local portfolio.
+ * Updates LocalStorage and React Query cache.
+ */
 export const useRemoveStock = () => {
   const queryClient = useQueryClient();
 
