@@ -13,7 +13,10 @@ export type FullEtf = Prisma.EtfGetPayload<{
   }
 }>;
 
-export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
+export async function syncEtfDetails(
+  ticker: string,
+  intervals?: ('1h' | '1d' | '1wk' | '1mo')[]
+): Promise<FullEtf | null> {
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
 
@@ -38,7 +41,7 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
     }
 
     // 1. Fetch deep details from Yahoo
-    const details = await fetchEtfDetails(ticker, fromDate);
+    const details = await fetchEtfDetails(ticker, fromDate, intervals);
 
     if (!details) {
       console.error(`[EtfSync] No details found for ${ticker}`);
@@ -163,28 +166,35 @@ export async function syncEtfDetails(ticker: string): Promise<FullEtf | null> {
       // 6. Update History
       (async () => {
         if (details.history && details.history.length > 0) {
-          // Separate daily from others
+          // Identify which intervals we have in the new data
+          const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
           const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
-          const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
 
-          // Delete non-daily history (replace strategy)
-          await prisma.etfHistory.deleteMany({
-            where: {
-                etfId: etf.ticker,
-                interval: { not: '1d' }
-            }
-          });
+          // Determine which non-daily intervals were fetched and need replacement
+          // We only replace intervals that were actually returned by the fetch
+          const intervalsToReplace = Array.from(fetchedIntervals).filter(i => i !== '1d');
 
-          // Insert non-daily history
-          if (otherHistory.length > 0) {
-              await prisma.etfHistory.createMany({
-                data: otherHistory.map((h: any) => ({
+          if (intervalsToReplace.length > 0) {
+              // Delete only the intervals we are about to replace
+              await prisma.etfHistory.deleteMany({
+                where: {
                     etfId: etf.ticker,
-                    date: new Date(h.date),
-                    close: h.close,
-                    interval: h.interval
-                }))
+                    interval: { in: intervalsToReplace }
+                }
               });
+
+              const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
+
+              if (otherHistory.length > 0) {
+                  await prisma.etfHistory.createMany({
+                    data: otherHistory.map((h: any) => ({
+                        etfId: etf.ticker,
+                        date: new Date(h.date),
+                        close: h.close,
+                        interval: h.interval
+                    }))
+                  });
+              }
           }
 
           // Append daily history (skip duplicates)
