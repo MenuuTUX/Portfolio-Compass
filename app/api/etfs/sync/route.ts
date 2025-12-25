@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       history: fullEtf.history.map((h: EtfHistory) => ({
         date: h.date.toISOString(),
         price: Number(h.close),
-        interval: h.interval
+        interval: (h.interval === 'daily' || !h.interval) ? undefined : h.interval
       })),
       metrics: {
         yield: fullEtf.yield ? Number(fullEtf.yield) : 0,
