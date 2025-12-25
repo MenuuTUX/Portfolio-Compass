@@ -10,6 +10,8 @@ const yf = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
 });
 
+const DECIMAL_ZERO = new Decimal(0);
+
 // -----------------------------------------------------------------------------
 // Type Definitions
 // -----------------------------------------------------------------------------
@@ -66,7 +68,7 @@ export interface EtfDetails {
 // -----------------------------------------------------------------------------
 
 function normalizePercent(val: number | undefined): Decimal {
-  if (val === undefined || val === null) return new Decimal(0);
+  if (val === undefined || val === null) return DECIMAL_ZERO;
   return new Decimal(val);
 }
 
@@ -105,8 +107,8 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
 
   const mapQuoteToSnapshot = (quote: any) => ({
     ticker: quote.symbol,
-    price: new Decimal(quote.regularMarketPrice || 0),
-    dailyChange: new Decimal(quote.regularMarketChange || 0),
+    price: quote.regularMarketPrice ? new Decimal(quote.regularMarketPrice) : DECIMAL_ZERO,
+    dailyChange: quote.regularMarketChange ? new Decimal(quote.regularMarketChange) : DECIMAL_ZERO,
     dailyChangePercent: normalizePercent(quote.regularMarketChangePercent),
     name: quote.shortName || quote.longName || quote.symbol,
     assetType: determineAssetType(quote.quoteType)
@@ -356,18 +358,21 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
   // Extract Top Holdings
   let holdingsList: { ticker: string; name: string; sector: string | null; weight: Decimal }[] | undefined;
   if (topHoldings?.holdings && Array.isArray(topHoldings.holdings)) {
-    holdingsList = topHoldings.holdings.map((h: any) => ({
-      ticker: h.symbol,
-      name: h.holdingName || h.symbol,
-      sector: null, // Yahoo doesn't provide sector in this list
-      weight: new Decimal(h.holdingPercent ? h.holdingPercent * 100 : 0)
-    }));
+    holdingsList = topHoldings.holdings.map((h: any) => {
+      const weightVal = h.holdingPercent ? h.holdingPercent * 100 : 0;
+      return {
+        ticker: h.symbol,
+        name: h.holdingName || h.symbol,
+        sector: null, // Yahoo doesn't provide sector in this list
+        weight: weightVal ? new Decimal(weightVal) : DECIMAL_ZERO
+      };
+    });
   }
 
   return {
     ticker: resolvedTicker,
-    price: new Decimal(price?.regularMarketPrice || 0),
-    dailyChange: new Decimal(price?.regularMarketChangePercent || 0),
+    price: price?.regularMarketPrice ? new Decimal(price.regularMarketPrice) : DECIMAL_ZERO,
+    dailyChange: price?.regularMarketChangePercent ? new Decimal(price.regularMarketChangePercent) : DECIMAL_ZERO,
     name: price?.shortName || price?.longName || resolvedTicker,
     description,
     assetType,
