@@ -222,7 +222,7 @@ export async function GET(request: NextRequest) {
 
         // Fire-and-forget background sync
         Promise.all(staleEtfs.map((staleEtf: any) =>
-          syncEtfDetails(staleEtf.ticker).catch(err =>
+          syncEtfDetails(staleEtf.ticker, ['1d']).catch(err =>
             console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
           )
         ));

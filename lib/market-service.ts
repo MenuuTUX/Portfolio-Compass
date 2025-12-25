@@ -143,7 +143,11 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
   }
 }
 
-export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): Promise<EtfDetails> {
+export async function fetchEtfDetails(
+  originalTicker: string,
+  fromDate?: Date,
+  intervals: ('1h' | '1d' | '1wk' | '1mo')[] = ['1h', '1d', '1wk', '1mo']
+): Promise<EtfDetails> {
   // Fetch basic data from Yahoo Finance primarily for Price, History, and Asset Type.
   // We will now also fetch from StockAnalysis for financial metrics.
 
@@ -196,10 +200,10 @@ export async function fetchEtfDetails(originalTicker: string, fromDate?: Date): 
   const d7d = new Date(); d7d.setDate(now.getDate() - 7); // 7 days for 1h data
 
   const [h1h, h1d, h1wk, h1mo] = await Promise.all([
-    fetchHistoryInterval('1h', d7d),
-    fetchHistoryInterval('1d', fromDate || d1y),
-    fetchHistoryInterval('1wk', d5y),
-    fetchHistoryInterval('1mo', dMax)
+    intervals.includes('1h') ? fetchHistoryInterval('1h', d7d) : Promise.resolve([]),
+    intervals.includes('1d') ? fetchHistoryInterval('1d', fromDate || d1y) : Promise.resolve([]),
+    intervals.includes('1wk') ? fetchHistoryInterval('1wk', d5y) : Promise.resolve([]),
+    intervals.includes('1mo') ? fetchHistoryInterval('1mo', dMax) : Promise.resolve([])
   ]);
 
   // Ensure the latest price is represented in the history
