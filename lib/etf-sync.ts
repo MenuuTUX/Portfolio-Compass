@@ -132,160 +132,151 @@ export async function syncEtfDetails(
 
     console.log(`[EtfSync] Upserted base record for ${etf.ticker}`);
 
-    // Parallelize child relation updates
-    await Promise.all([
-      // 4. Update Sectors
-      (async () => {
-        if (Object.keys(details.sectors).length > 0) {
-          await prisma.etfSector.deleteMany({ where: { etfId: etf.ticker } });
-          await prisma.etfSector.createMany({
-            data: Object.entries(details.sectors).map(([sector, weight]) => ({
-              etfId: etf.ticker,
-              sector_name: sector,
-              weight: weight // Decimal
-            }))
+    // Sequential child relation updates to reduce DB connection pressure
+
+    // 4. Update Sectors
+    if (Object.keys(details.sectors).length > 0) {
+      await prisma.etfSector.deleteMany({ where: { etfId: etf.ticker } });
+      await prisma.etfSector.createMany({
+        data: Object.entries(details.sectors).map(([sector, weight]) => ({
+          etfId: etf.ticker,
+          sector_name: sector,
+          weight: weight // Decimal
+        }))
+      });
+    }
+
+    // 5. Update Allocation
+    const existingAlloc = await prisma.etfAllocation.findUnique({ where: { etfId: etf.ticker } });
+    if (existingAlloc) {
+      await prisma.etfAllocation.update({
+        where: { etfId: etf.ticker },
+        data: { stocks_weight, bonds_weight, cash_weight }
+      });
+    } else {
+      await prisma.etfAllocation.create({
+        data: { etfId: etf.ticker, stocks_weight, bonds_weight, cash_weight }
+      });
+    }
+
+    // 6. Update History
+    if (details.history && details.history.length > 0) {
+      // Identify which intervals we have in the new data
+      const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
+      const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
+
+      // Determine which non-daily intervals were fetched and need replacement
+      // We only replace intervals that were actually returned by the fetch
+      const intervalsToReplace = Array.from(fetchedIntervals).filter(i => i !== '1d');
+
+      if (intervalsToReplace.length > 0) {
+          // Delete only the intervals we are about to replace
+          await prisma.etfHistory.deleteMany({
+            where: {
+                etfId: etf.ticker,
+                interval: { in: intervalsToReplace }
+            }
           });
-        }
-      })(),
 
-      // 5. Update Allocation
-      (async () => {
-        const existingAlloc = await prisma.etfAllocation.findUnique({ where: { etfId: etf.ticker } });
-        if (existingAlloc) {
-          await prisma.etfAllocation.update({
-            where: { etfId: etf.ticker },
-            data: { stocks_weight, bonds_weight, cash_weight }
-          });
-        } else {
-          await prisma.etfAllocation.create({
-            data: { etfId: etf.ticker, stocks_weight, bonds_weight, cash_weight }
-          });
-        }
-      })(),
+          const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
 
-      // 6. Update History
-      (async () => {
-        if (details.history && details.history.length > 0) {
-          // Identify which intervals we have in the new data
-          const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
-          const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
-
-          // Determine which non-daily intervals were fetched and need replacement
-          // We only replace intervals that were actually returned by the fetch
-          const intervalsToReplace = Array.from(fetchedIntervals).filter(i => i !== '1d');
-
-          if (intervalsToReplace.length > 0) {
-              // Delete only the intervals we are about to replace
-              await prisma.etfHistory.deleteMany({
-                where: {
-                    etfId: etf.ticker,
-                    interval: { in: intervalsToReplace }
-                }
-              });
-
-              const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
-
-              if (otherHistory.length > 0) {
-                  await prisma.etfHistory.createMany({
-                    data: otherHistory.map((h: any) => ({
-                        etfId: etf.ticker,
-                        date: new Date(h.date),
-                        close: h.close,
-                        interval: h.interval
-                    }))
-                  });
-              }
-          }
-
-          // Append daily history (skip duplicates)
-          if (dailyHistory.length > 0) {
-              // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
-              const dates = dailyHistory.map((h: any) => new Date(h.date));
-              await prisma.etfHistory.deleteMany({
-                  where: {
-                      etfId: etf.ticker,
-                      interval: '1d',
-                      date: { in: dates }
-                  }
-              });
-
+          if (otherHistory.length > 0) {
               await prisma.etfHistory.createMany({
-                data: dailyHistory.map((h: any) => ({
+                data: otherHistory.map((h: any) => ({
                     etfId: etf.ticker,
                     date: new Date(h.date),
                     close: h.close,
-                    interval: '1d'
-                })),
-                skipDuplicates: true
+                    interval: h.interval
+                }))
               });
           }
-        }
-      })(),
+      }
 
-      // 7. Update Holdings
-      (async () => {
-        let holdingsSynced = false;
+      // Append daily history (skip duplicates)
+      if (dailyHistory.length > 0) {
+          // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
+          const dates = dailyHistory.map((h: any) => new Date(h.date));
+          await prisma.etfHistory.deleteMany({
+              where: {
+                  etfId: etf.ticker,
+                  interval: '1d',
+                  date: { in: dates }
+              }
+          });
 
-        // Try StockAnalysis.com first
-        try {
-            const scrapedHoldings = await getEtfHoldings(etf.ticker);
-            if (scrapedHoldings.length > 0) {
-                console.log(`[EtfSync] Using StockAnalysis.com holdings for ${etf.ticker} (${scrapedHoldings.length} items)...`);
+          await prisma.etfHistory.createMany({
+            data: dailyHistory.map((h: any) => ({
+                etfId: etf.ticker,
+                date: new Date(h.date),
+                close: h.close,
+                interval: '1d'
+            })),
+            skipDuplicates: true
+          });
+      }
+    }
 
-                // Create a sector map from Yahoo data if available to enrich scraped data
-                const sectorMap = new Map<string, string>();
-                if (details.topHoldings) {
-                    details.topHoldings.forEach(h => {
-                        if (h.ticker && h.sector) {
-                            sectorMap.set(h.ticker, h.sector);
-                        }
-                    });
-                }
+    // 7. Update Holdings
+    let holdingsSynced = false;
 
-                await prisma.$transaction([
-                    prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
-                    prisma.holding.createMany({
-                        data: scrapedHoldings.map(h => ({
-                            etfId: etf.ticker,
-                            ticker: h.symbol,
-                            name: h.name,
-                            sector: sectorMap.get(h.symbol) || 'Unknown',
-                            weight: h.weight,
-                            shares: h.shares ? new Decimal(h.shares) : null
-                        }))
-                    })
-                ]);
-                console.log(`[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`);
-                holdingsSynced = true;
+    // Try StockAnalysis.com first
+    try {
+        const scrapedHoldings = await getEtfHoldings(etf.ticker);
+        if (scrapedHoldings.length > 0) {
+            console.log(`[EtfSync] Using StockAnalysis.com holdings for ${etf.ticker} (${scrapedHoldings.length} items)...`);
+
+            // Create a sector map from Yahoo data if available to enrich scraped data
+            const sectorMap = new Map<string, string>();
+            if (details.topHoldings) {
+                details.topHoldings.forEach(h => {
+                    if (h.ticker && h.sector) {
+                        sectorMap.set(h.ticker, h.sector);
+                    }
+                });
             }
-        } catch (saError) {
-            console.error(`[EtfSync] Failed to sync StockAnalysis holdings for ${etf.ticker}`, saError);
-        }
 
-        // Fallback to Yahoo Finance if StockAnalysis failed or returned no data
-        if (!holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
-          try {
-            console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
             await prisma.$transaction([
                 prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
                 prisma.holding.createMany({
-                    data: details.topHoldings.map(h => ({
+                    data: scrapedHoldings.map(h => ({
                         etfId: etf.ticker,
-                        ticker: h.ticker,
+                        ticker: h.symbol,
                         name: h.name,
-                        sector: h.sector || 'Unknown',
+                        sector: sectorMap.get(h.symbol) || 'Unknown',
                         weight: h.weight,
-                        shares: null // Yahoo doesn't provide share counts
+                        shares: h.shares ? new Decimal(h.shares) : null
                     }))
                 })
             ]);
-            console.log(`[EtfSync] Synced ${details.topHoldings.length} holdings for ${etf.ticker} (Yahoo)`);
-          } catch (yhError) {
-             console.error(`[EtfSync] Failed to sync Yahoo holdings for ${etf.ticker}`, yhError);
-          }
+            console.log(`[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`);
+            holdingsSynced = true;
         }
-      })()
-    ]);
+    } catch (saError) {
+        console.error(`[EtfSync] Failed to sync StockAnalysis holdings for ${etf.ticker}`, saError);
+    }
+
+    // Fallback to Yahoo Finance if StockAnalysis failed or returned no data
+    if (!holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
+      try {
+        console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
+        await prisma.$transaction([
+            prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
+            prisma.holding.createMany({
+                data: details.topHoldings.map(h => ({
+                    etfId: etf.ticker,
+                    ticker: h.ticker,
+                    name: h.name,
+                    sector: h.sector || 'Unknown',
+                    weight: h.weight,
+                    shares: null // Yahoo doesn't provide share counts
+                }))
+            })
+        ]);
+        console.log(`[EtfSync] Synced ${details.topHoldings.length} holdings for ${etf.ticker} (Yahoo)`);
+      } catch (yhError) {
+         console.error(`[EtfSync] Failed to sync Yahoo holdings for ${etf.ticker}`, yhError);
+      }
+    }
 
     const fullEtf = await prisma.etf.findUnique({
       where: { ticker: etf.ticker },
