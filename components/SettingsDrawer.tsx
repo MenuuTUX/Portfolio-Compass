@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, RefreshCw, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { savePortfolio } from '@/lib/storage';
 
 interface SettingsDrawerProps {
     isOpen: boolean;
@@ -25,10 +26,10 @@ export default function SettingsDrawer({ isOpen, onClose }: SettingsDrawerProps)
         setStatus(null);
 
         try {
-            const res = await fetch('/api/portfolio/clear', { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed to clear portfolio');
+            // Client-side clear
+            savePortfolio([]);
+            await queryClient.setQueryData(['portfolio'], []);
 
-            await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
             setStatus({ type: 'success', message: 'Portfolio cleared successfully' });
         } catch (error) {
             console.error(error);

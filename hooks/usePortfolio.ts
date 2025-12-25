@@ -2,6 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Portfolio, ETF } from '@/types';
 import { loadPortfolio } from '@/lib/storage';
 
+/**
+ * Hook to fetch the user's portfolio.
+ * Reads from LocalStorage and fetches rich data for each item.
+ */
 export const usePortfolio = () => {
   return useQuery<Portfolio>({
     queryKey: ['portfolio'],
