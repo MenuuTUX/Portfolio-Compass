@@ -205,6 +205,9 @@ export async function GET(request: NextRequest) {
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
       const staleEtfs = etfs.filter((e: any) => {
+        // If deep analysis is not loaded, it's stale by definition (unless it's a crypto which doesn't have it, but for now treat as stale)
+        if (e.isDeepAnalysisLoaded === false) return true;
+
         if (!e.updatedAt) return true; // Handle fallback objects without updatedAt (though we added it)
         if (e.updatedAt < oneHourAgo) return true;
 
@@ -212,6 +215,7 @@ export async function GET(request: NextRequest) {
           const lastHistoryDate = e.history[e.history.length - 1].date;
           if (new Date(lastHistoryDate) < twoDaysAgo) return true;
         } else {
+          // No history implies stale if it's supposed to have it
           return true;
         }
 
@@ -219,14 +223,36 @@ export async function GET(request: NextRequest) {
       });
 
       if (staleEtfs.length > 0) {
-        console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}". Syncing in background...`);
+        console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}".`);
 
-        // Fire-and-forget background sync
-        Promise.all(staleEtfs.map((staleEtf: any) =>
-          syncEtfDetails(staleEtf.ticker, ['1d']).catch(err =>
-            console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
-          )
-        ));
+        if (isFullHistoryRequested) {
+           // If user specifically requested full details (Details Drawer), we must block and sync
+           console.log(`[API] Full details requested for stale/incomplete items. Performing blocking sync...`);
+
+           await Promise.all(staleEtfs.map(async (staleEtf: any) => {
+             try {
+                // Perform full sync (no interval restrictions)
+                const synced = await syncEtfDetails(staleEtf.ticker);
+                if (synced) {
+                    // Replace the stale item in the local list with the fresh one
+                    const index = etfs.findIndex(e => e.ticker === staleEtf.ticker);
+                    if (index !== -1) {
+                        etfs[index] = synced;
+                    }
+                }
+             } catch (err) {
+                 console.error(`[API] Blocking sync failed for ${staleEtf.ticker}:`, err);
+             }
+           }));
+        } else {
+            // Fire-and-forget background sync for list views
+            console.log(`[API] Syncing in background (non-blocking)...`);
+            Promise.all(staleEtfs.map((staleEtf: any) =>
+                syncEtfDetails(staleEtf.ticker, ['1d']).catch(err =>
+                    console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
+                )
+            ));
+        }
       }
     }
 
