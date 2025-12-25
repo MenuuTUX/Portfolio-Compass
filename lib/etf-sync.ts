@@ -199,6 +199,16 @@ export async function syncEtfDetails(
 
           // Append daily history (skip duplicates)
           if (dailyHistory.length > 0) {
+              // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
+              const dates = dailyHistory.map((h: any) => new Date(h.date));
+              await prisma.etfHistory.deleteMany({
+                  where: {
+                      etfId: etf.ticker,
+                      interval: '1d',
+                      date: { in: dates }
+                  }
+              });
+
               await prisma.etfHistory.createMany({
                 data: dailyHistory.map((h: any) => ({
                     etfId: etf.ticker,

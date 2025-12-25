@@ -340,7 +340,7 @@ export async function GET(request: NextRequest) {
       let history = etf.history ? etf.history.map((h: any) => ({
         date: h.date instanceof Date ? h.date.toISOString() : h.date, // Handle non-Date mocks/fallbacks if any
         price: Number(h.close),
-        interval: h.interval
+        interval: (h.interval === 'daily' || !h.interval) ? undefined : h.interval
       })) : [];
 
       // Downsampling Logic: If not requesting full history and we have a lot of points,
@@ -404,7 +404,7 @@ export async function GET(request: NextRequest) {
             name: h.name,
             weight: safeDecimal(h.weight),
             sector: h.sector,
-            shares: h.shares ? safeDecimal(h.shares) : null
+            shares: h.shares ? safeDecimal(h.shares) : undefined
         })),
       };
     })
