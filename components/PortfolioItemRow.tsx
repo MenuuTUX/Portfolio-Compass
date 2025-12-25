@@ -1,9 +1,10 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { getAssetIconUrl } from '@/lib/etf-providers';
 import { PortfolioItem } from '@/types';
 import { motion } from 'framer-motion';
 import { VirtualItem } from '@tanstack/react-virtual';
+import Image from 'next/image';
 
 interface PortfolioItemRowProps {
   item: PortfolioItem;
@@ -15,6 +16,9 @@ interface PortfolioItemRowProps {
 }
 
 const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onUpdateWeight, onUpdateShares }: PortfolioItemRowProps) => {
+  const [imgError, setImgError] = useState(false);
+  const iconUrl = getAssetIconUrl(item.ticker, item.name, item.assetType);
+
   return (
     <tr
       key={item.ticker}
@@ -25,17 +29,15 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
     >
       <td className="p-4 align-top">
         <div className="flex gap-3 items-center">
-          {getAssetIconUrl(item.ticker, item.name, item.assetType) && (
-            <div className="w-8 h-8 flex items-center justify-center shrink-0">
-              <img
-                src={getAssetIconUrl(item.ticker, item.name, item.assetType)!}
+          {iconUrl && !imgError && (
+            <div className="w-8 h-8 flex items-center justify-center shrink-0 relative">
+              <Image
+                src={iconUrl}
                 alt={`${item.ticker} logo`}
-                className="w-full h-full object-contain"
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  e.currentTarget.parentElement!.style.display = 'none';
-                }}
+                className="object-contain"
+                width={32}
+                height={32}
+                onError={() => setImgError(true)}
               />
             </div>
           )}
