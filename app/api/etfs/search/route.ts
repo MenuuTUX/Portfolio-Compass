@@ -89,9 +89,9 @@ export async function GET(request: NextRequest) {
                 const liveData = await fetchMarketSnapshot(missingTickers);
 
                 // Create missing ETFs in DB
-                for (const item of liveData) {
+                const upsertPromises = liveData.map(async (item) => {
                     try {
-                        const newEtf = await prisma.etf.upsert({
+                        return await prisma.etf.upsert({
                             where: { ticker: item.ticker },
                             update: {
                                 price: item.price.toString(),
@@ -110,14 +110,12 @@ export async function GET(request: NextRequest) {
                             },
                             include: includeObj
                         });
-                        // Add to the list of etfs to return
-                        etfs.push(newEtf as any);
                     } catch (createError) {
                          console.error(`[API] Failed to upsert ETF ${item.ticker}:`, createError);
 
                          // Fallback: Use live data directly if DB write fails
                          // Construct an object matching the Prisma Etf shape expected by formattedEtfs
-                         const fallbackEtf = {
+                         return {
                              ticker: item.ticker,
                              name: item.name,
                              price: item.price, // Decimal
@@ -131,9 +129,11 @@ export async function GET(request: NextRequest) {
                              allocation: null,
                              updatedAt: new Date()
                          };
-                         etfs.push(fallbackEtf as any);
                     }
-                }
+                });
+
+                const results = await Promise.all(upsertPromises);
+                etfs.push(...(results as any[]));
             } catch (liveFetchError) {
                 console.error('[API] Failed to fetch missing tickers live:', liveFetchError);
             }
@@ -153,9 +153,9 @@ export async function GET(request: NextRequest) {
 
         try {
             const liveData = await fetchMarketSnapshot(defaultTickers);
-             for (const item of liveData) {
+            const seedPromises = liveData.map(async (item) => {
                 try {
-                     const newEtf = await prisma.etf.upsert({
+                     return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
                         update: {
                             price: item.price.toString(),
@@ -172,11 +172,10 @@ export async function GET(request: NextRequest) {
                         },
                         include: includeObj
                     });
-                    etfs.push(newEtf as any);
                 } catch (e) {
                     console.error(`[API] Failed to auto-seed ${item.ticker}:`, e);
                      // Fallback: Use live data directly if DB write fails
-                     const fallbackEtf = {
+                     return {
                          ticker: item.ticker,
                          name: item.name,
                          price: item.price,
@@ -190,9 +189,11 @@ export async function GET(request: NextRequest) {
                          allocation: null,
                          updatedAt: new Date()
                      };
-                     etfs.push(fallbackEtf as any);
                 }
-            }
+            });
+
+            const seededEtfs = await Promise.all(seedPromises);
+            etfs.push(...(seededEtfs as any[]));
         } catch (e) {
             console.error('[API] Failed to fetch default tickers:', e);
         }
@@ -282,9 +283,9 @@ export async function GET(request: NextRequest) {
               console.log(`[API] Deep sync failed for ${stillMissing.join(', ')}. Falling back to snapshot...`);
               try {
                 const liveData = await fetchMarketSnapshot(stillMissing);
-                for (const item of liveData) {
+                const snapshotPromises = liveData.map(async (item) => {
                   try {
-                      const newEtf = await prisma.etf.upsert({
+                      return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
                         update: {
                             price: item.price.toString(),
@@ -301,11 +302,10 @@ export async function GET(request: NextRequest) {
                         },
                         include: includeObj
                       });
-                      etfs.push(newEtf as any);
                   } catch (createErr) {
                     console.error(`[API] Failed to create snapshot ETF ${item.ticker}`, createErr);
                     // Fallback
-                     const fallbackEtf = {
+                     return {
                          ticker: item.ticker,
                          name: item.name,
                          price: item.price,
@@ -319,9 +319,11 @@ export async function GET(request: NextRequest) {
                          allocation: null,
                          updatedAt: new Date()
                      };
-                     etfs.push(fallbackEtf as any);
                   }
-                }
+                });
+
+                const snapshotEtfs = await Promise.all(snapshotPromises);
+                etfs.push(...(snapshotEtfs as any[]));
               } catch (snapshotErr) {
                 console.error('[API] Snapshot fallback failed', snapshotErr);
               }
@@ -340,7 +342,7 @@ export async function GET(request: NextRequest) {
       let history = etf.history ? etf.history.map((h: any) => ({
         date: h.date instanceof Date ? h.date.toISOString() : h.date, // Handle non-Date mocks/fallbacks if any
         price: Number(h.close),
-        interval: h.interval
+        interval: (h.interval === 'daily' || !h.interval) ? undefined : h.interval
       })) : [];
 
       // Downsampling Logic: If not requesting full history and we have a lot of points,
@@ -377,6 +379,7 @@ export async function GET(request: NextRequest) {
         revenue: etf.revenue ? safeDecimal(etf.revenue) : undefined,
         netIncome: etf.netIncome ? safeDecimal(etf.netIncome) : undefined,
         dividend: etf.dividend ? safeDecimal(etf.dividend) : undefined,
+        dividendYield: etf.yield ? safeDecimal(etf.yield) : undefined,
         exDividendDate: etf.exDividendDate || undefined,
         volume: etf.volume ? safeDecimal(etf.volume) : undefined,
         open: etf.open ? safeDecimal(etf.open) : undefined,
@@ -404,7 +407,7 @@ export async function GET(request: NextRequest) {
             name: h.name,
             weight: safeDecimal(h.weight),
             sector: h.sector,
-            shares: h.shares ? safeDecimal(h.shares) : null
+            shares: h.shares ? safeDecimal(h.shares) : undefined
         })),
       };
     })
