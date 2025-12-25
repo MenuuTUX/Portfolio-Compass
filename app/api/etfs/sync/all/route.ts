@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { syncEtfDetails } from '@/lib/etf-sync';
+import pLimit from 'p-limit';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // 5 minutes timeout for bulk sync
@@ -18,24 +19,25 @@ export async function POST() {
 
         console.log(`Starting bulk sync for ${allEtfs.length} ETFs...`);
 
-        const results = [];
+        // Limit concurrency to 5 to avoid rate limits/timeouts
+        const limit = pLimit(5);
         let successCount = 0;
         let failureCount = 0;
 
-        // 2. Sync each one
-        // We do this sequentially to avoid overwhelming the system/rate limits, 
-        // or we could do small batches. Let's do sequential for safety first.
-        for (const etf of allEtfs) {
+        // 2. Sync concurrently with limit
+        const promises = allEtfs.map((etf) => limit(async () => {
             try {
                 await syncEtfDetails(etf.ticker);
-                results.push({ ticker: etf.ticker, status: 'success' });
                 successCount++;
+                return { ticker: etf.ticker, status: 'success' };
             } catch (error: any) {
                 console.error(`Failed to sync ${etf.ticker}:`, error);
-                results.push({ ticker: etf.ticker, status: 'error', error: error.message });
                 failureCount++;
+                return { ticker: etf.ticker, status: 'error', error: error.message };
             }
-        }
+        }));
+
+        const results = await Promise.all(promises);
 
         return NextResponse.json({
             message: `Sync complete. Success: ${successCount}, Failed: ${failureCount}`,
