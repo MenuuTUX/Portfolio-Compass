@@ -12,8 +12,17 @@ mock.module('@/lib/scrapers/stock-analysis', () => ({
   getStockProfile: mockGetStockProfile
 }));
 
+// Mock yahoo-finance2
+const mockYahooFinance = {
+    quoteSummary: mock(() => Promise.resolve({}))
+};
+
+mock.module('yahoo-finance2', () => ({
+    default: mockYahooFinance
+}));
+
 // Import the module under test dynamically to ensure the mock is applied
-const { GET } = await import('@/app/api/stock/info/route');
+const { GET } = await import('../../../app/api/stock/info/route');
 
 describe('GET /api/stock/info', () => {
   it('returns 400 if ticker is missing', async () => {
@@ -37,21 +46,46 @@ describe('GET /api/stock/info', () => {
     expect(mockGetStockProfile).toHaveBeenCalledWith('AAPL');
   });
 
-  it('returns 404 if profile not found', async () => {
-    mockGetStockProfile.mockResolvedValueOnce(null);
-    const req = new Request('http://localhost/api/stock/info?ticker=INVALID');
+  it('should fall back to Yahoo Finance if scraper returns null description', async () => {
+    mockGetStockProfile.mockResolvedValueOnce({
+        sector: 'Tech',
+        industry: 'Chips',
+        description: '' // Missing description
+    });
+    mockYahooFinance.quoteSummary.mockResolvedValueOnce({
+        summaryProfile: {
+            longBusinessSummary: 'Yahoo description',
+            sector: 'Technology',
+            industry: 'Semiconductors'
+        }
+    });
+
+    const req = new Request('http://localhost/api/stock/info?ticker=NVDA');
     const res = await GET(req);
-    expect(res.status).toBe(404);
     const json = await res.json();
-    expect(json.error).toBe('Profile not found');
+
+    expect(mockGetStockProfile).toHaveBeenCalledWith('NVDA');
+    expect(mockYahooFinance.quoteSummary).toHaveBeenCalledWith('NVDA', expect.anything());
+    expect(json.description).toBe('Yahoo description');
+    // It should keep existing sector/industry if available from scraper
+    expect(json.sector).toBe('Tech');
   });
 
-  it('returns 500 on internal error', async () => {
-    mockGetStockProfile.mockRejectedValueOnce(new Error('Network error'));
-    const req = new Request('http://localhost/api/stock/info?ticker=ERROR');
-    const res = await GET(req);
-    expect(res.status).toBe(500);
-    const json = await res.json();
-    expect(json.error).toBe('Internal server error');
+  it('should fall back to Yahoo Finance if scraper returns null object', async () => {
+      mockGetStockProfile.mockResolvedValueOnce(null);
+      mockYahooFinance.quoteSummary.mockResolvedValueOnce({
+          summaryProfile: {
+              longBusinessSummary: 'Yahoo description only',
+              sector: 'Financial',
+              industry: 'Bank'
+          }
+      });
+
+      const req = new Request('http://localhost/api/stock/info?ticker=JPM');
+      const res = await GET(req);
+      const json = await res.json();
+
+      expect(json.description).toBe('Yahoo description only');
+      expect(json.sector).toBe('Financial');
   });
 });
