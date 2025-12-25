@@ -36,7 +36,7 @@ export default function Home() {
   };
 
   const handleAddToPortfolio = async (etf: ETF) => {
-    await addStockMutation.mutateAsync(etf.ticker);
+    await addStockMutation.mutateAsync({ ticker: etf.ticker });
   };
 
   const handleRemoveFromPortfolio = (ticker: string) => {
