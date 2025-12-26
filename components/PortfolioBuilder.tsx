@@ -10,6 +10,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
 import { Decimal } from 'decimal.js';
 import WealthProjector from './WealthProjector';
+import PortfolioOptimizer from './PortfolioOptimizer';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -242,9 +243,14 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
 
           {/* Visualization */}
-          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit lg:h-full overflow-y-auto">
-            <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
-            <div className="w-full h-[300px] flex-shrink-0">
+          <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar pr-1">
+            {/* Optimizer */}
+            {portfolio.length > 0 && <PortfolioOptimizer portfolio={portfolio} />}
+
+            {/* Sector Chart */}
+            <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit">
+              <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
+              <div className="w-full h-[300px] flex-shrink-0">
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -292,17 +298,18 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                 </table>
               )}
             </div>
-            {pieData.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
-                {pieData.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="truncate">{entry.name}</span>
-                    <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
+                {pieData.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
+                    {pieData.map((entry, index) => (
+                      <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="truncate">{entry.name}</span>
+                        <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
           </div>
         </div>
       </motion.div>
