@@ -33,21 +33,21 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
         color: 'text-emerald-400',
         border: 'border-emerald-500/30',
         bg: 'from-emerald-950/40 to-emerald-900/20',
-        glow: 'shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)]',
+        glow: 'shadow-[0_0_20px_-5px_rgba(16,185,129,0.1)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] hover:border-emerald-500/50',
         icon: ShieldCheck
       };
       case 'warning': return {
         color: 'text-rose-400',
         border: 'border-rose-500/30',
         bg: 'from-rose-950/40 to-rose-900/20',
-        glow: 'shadow-[0_0_20px_-5px_rgba(244,63,94,0.2)]',
+        glow: 'shadow-[0_0_20px_-5px_rgba(244,63,94,0.1)] hover:shadow-[0_0_25px_rgba(244,63,94,0.5)] hover:border-rose-500/50',
         icon: AlertTriangle
       };
       default: return {
         color: 'text-blue-400',
         border: 'border-blue-500/30',
         bg: 'from-blue-950/40 to-blue-900/20',
-        glow: 'shadow-[0_0_20px_-5px_rgba(59,130,246,0.2)]',
+        glow: 'shadow-[0_0_20px_-5px_rgba(59,130,246,0.1)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] hover:border-blue-500/50',
         icon: Zap
       };
     }
@@ -73,7 +73,7 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
               theme.bg,
               theme.glow
             )}
-            whileHover={{ scale: 1.02 }}
+            // Removed whileHover scale expansion as per user request
           >
             {/* Background Watermark Icon */}
             <Icon className={cn("absolute -right-4 -top-4 w-20 h-20 opacity-5 transition-transform duration-500 group-hover:scale-110", theme.color)} />
