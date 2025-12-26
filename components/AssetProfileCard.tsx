@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Layers, AlertCircle, TrendingUp, Target, Factory } from "lucide-react"
+import { Layers, AlertCircle, TrendingUp, Target, Factory, Landmark } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -46,11 +46,12 @@ function DescriptionText({ text }: { text: string }) {
   )
 }
 
-interface StockInfoCardProps {
+interface AssetProfileCardProps {
   ticker: string
+  assetType?: 'STOCK' | 'ETF'
 }
 
-export default function StockInfoCard({ ticker }: StockInfoCardProps) {
+export default function AssetProfileCard({ ticker, assetType = 'STOCK' }: AssetProfileCardProps) {
   const [info, setInfo] = React.useState<StockInfo | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -103,9 +104,11 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-3/4" />
             </div>
-            <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
-                <Skeleton className="h-20 w-full" />
-            </div>
+            {assetType === 'STOCK' && (
+                <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
+                    <Skeleton className="h-20 w-full" />
+                </div>
+            )}
         </div>
       </Card>
     )
@@ -130,20 +133,20 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col gap-6">
+    <div className="w-full h-full flex flex-col gap-4">
 
       {/* Header Badges */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-            STOCK
+            {assetType === 'ETF' ? 'ETF' : 'STOCK'}
         </Badge>
-        {info.sector && (
+        {info.sector && info.sector !== 'Unknown' && (
             <Badge variant="outline" className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal">
                 <Layers className="w-3 h-3 text-neutral-400" />
                 {info.sector}
             </Badge>
         )}
-        {info.industry && (
+        {info.industry && info.industry !== 'Unknown' && (
             <Badge variant="outline" className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal">
                 <Factory className="w-3 h-3 text-neutral-400" />
                 {info.industry}
@@ -154,8 +157,8 @@ export default function StockInfoCard({ ticker }: StockInfoCardProps) {
       {/* Description */}
       <DescriptionText text={info.description || "No description available."} />
 
-      {/* Analyst Analysis Section */}
-      {info.analyst && (
+      {/* Analyst Analysis Section - Only for Stocks */}
+      {assetType === 'STOCK' && info.analyst && (
         <div className="space-y-4 pt-2">
             <div className="flex items-center gap-2 text-white">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />

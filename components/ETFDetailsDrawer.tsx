@@ -1,14 +1,14 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity, ChevronLeft, Layers } from 'lucide-react';
+import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity, ChevronLeft, Layers, Landmark, Info } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
 import { calculateTTMYield } from '@/lib/finance';
 import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
-import StockInfoCard from './StockInfoCard';
+import AssetProfileCard from './AssetProfileCard';
 import EtfVerdictCard from './EtfVerdictCard';
 import { useMemo, useState, useEffect } from 'react';
 
@@ -538,15 +538,17 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
                   <EtfVerdictCard etf={displayEtf} />
 
-                  {/* Top Box: Description / Sector */}
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[200px] flex flex-col">
-                    {displayEtf.assetType === 'STOCK' ? (
-                      <div className="flex-1 min-h-0">
-                        {/* Only basic info here */}
-                        <StockInfoCard ticker={displayEtf.ticker} />
-                      </div>
-                    ) : (
-                      <>
+                  {/* Profile / Description Section */}
+                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col">
+                    <AssetProfileCard
+                        ticker={displayEtf.ticker}
+                        assetType={displayEtf.assetType === 'STOCK' ? 'STOCK' : 'ETF'}
+                    />
+                  </div>
+
+                  {/* Sector & Holdings (ETFs Only) */}
+                  {displayEtf.assetType !== 'STOCK' && (
+                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[200px] flex flex-col">
                         <div className="flex items-center gap-2 mb-4 justify-between">
                             <div
                                 className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
@@ -554,7 +556,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                             >
                                 <PieIcon className="w-5 h-5 text-blue-400" />
                                 <h3 className="text-lg font-bold text-white">
-                                    Sector Allocation
+                                    Allocation
                                 </h3>
                                 <div className={cn("text-xs bg-white/10 px-2 py-0.5 rounded text-neutral-400 transition-colors", showLegend && "bg-blue-500/20 text-blue-300")}>
                                     Legend
@@ -693,7 +695,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                 {/* Right: Pie Chart */}
                                 <div className="w-1/2 relative bg-white/5 rounded-xl border border-white/5 p-2 flex items-center justify-center">
                                     <div className="absolute top-2 left-2 z-10">
-                                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">Allocation</div>
+                                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">Sectors</div>
                                     </div>
                                     <SectorPieChart
                                         data={sectorData}
@@ -711,9 +713,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                 </div>
                             </div>
                         )}
-                      </>
-                    )}
                   </div>
+                  )}
 
                   {/* Metrics Grid */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
