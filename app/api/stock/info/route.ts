@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getStockProfile } from '@/lib/scrapers/stock-analysis';
+import { getEtfDescription } from '@/lib/scrapers/etf-dot-com';
 import yahooFinance from 'yahoo-finance2';
 
 export async function GET(request: Request) {
@@ -14,9 +15,36 @@ export async function GET(request: Request) {
   }
 
   try {
+    // 1. Fetch main profile from StockAnalysis (robust source for metrics/sector)
     let profile: any = await getStockProfile(ticker);
 
-    // If description is missing (common for ETFs or failed scrapes), try Yahoo Finance
+    // 2. Try to get specialized ETF description from ETF.com (User requested source)
+    // We do this if profile is missing, or even if present to see if we can get "Analysis & Insights"
+    // However, to save time, we might only do it if we suspect it's an ETF or if description is missing.
+    // Given the user request "scrap this website... for the description", we prioritize it.
+    if (!profile?.description || profile.sector === 'Unknown') {
+        const etfDesc = await getEtfDescription(ticker);
+        if (etfDesc) {
+             if (!profile) profile = { sector: 'Unknown', industry: 'Unknown' };
+             profile.description = etfDesc;
+        }
+    } else {
+        // If we have a profile, we can still try to upgrade the description if it's an ETF
+        // But doing 2 scrapes per request is slow.
+        // Let's assume if StockAnalysis gave us a description, it's "good enough" unless the user
+        // explicitly wants ETF.com.
+        // But the user complained about "lazy/clunky" which was Yahoo.
+        // StockAnalysis description is actually quite good.
+        // But let's try ETF.com as an override if we can confirm it's an ETF?
+        // Simpler: Just try ETF.com if StockAnalysis failed to give a description.
+        // Wait, I want to use ETF.com as the *preferred* source for description per user request.
+        const etfDesc = await getEtfDescription(ticker);
+        if (etfDesc) {
+            profile.description = etfDesc;
+        }
+    }
+
+    // 3. Fallback to Yahoo Finance if still missing description or basic info
     if (!profile || !profile.description) {
         try {
             // Fetch summaryProfile (stocks) and fundProfile (ETFs)
