@@ -289,12 +289,11 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
             value
         }));
 
-        const total = raw.reduce((sum, item) => sum + item.value, 0);
-        const shouldScale = total <= 1.5;
-
+        // Sectors are consistently stored as decimals (e.g. 0.15 for 15%) from Yahoo.
+        // Even for leveraged ETFs where sum > 1.0 (e.g. 2.0), we should scale.
         return raw.map(item => ({
             ...item,
-            value: shouldScale ? item.value * 100 : item.value
+            value: item.value * 100
         })).sort((a, b) => b.value - a.value);
     }
 
@@ -701,7 +700,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                             // For now just visual
                                         }}
                                     />
-                                    {(!displayEtf.sectors || Object.keys(displayEtf.sectors).length === 0) && (
+                                    {(sectorData.length === 0) && (
                                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                             <span className="text-xs text-neutral-500 bg-black/80 px-2 py-1 rounded">No Sector Data</span>
                                          </div>
