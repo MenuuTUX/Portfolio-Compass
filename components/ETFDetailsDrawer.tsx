@@ -667,7 +667,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                                     </div>
 
                                                     {getAssetIconUrl(h.ticker, h.name || '', 'ETF') ? (
-                                                        <div className="w-6 h-6 rounded-full bg-white p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
+                                                        <div className="w-6 h-6 rounded-full bg-transparent shrink-0 flex items-center justify-center overflow-hidden">
                                                             <img
                                                                 src={getAssetIconUrl(h.ticker, h.name || '', 'ETF')!}
                                                                 alt={h.ticker}
