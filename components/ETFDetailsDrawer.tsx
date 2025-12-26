@@ -9,6 +9,7 @@ import { calculateTTMYield } from '@/lib/finance';
 import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 import StockInfoCard from './StockInfoCard';
+import EtfVerdictCard from './EtfVerdictCard';
 import { useMemo, useState, useEffect } from 'react';
 
 interface ETFDetailsDrawerProps {
@@ -395,6 +396,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
             </div>
 
             <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto lg:overflow-hidden">
+              <EtfVerdictCard etf={displayEtf} />
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
 
                 {/* Left Col: Chart */}
