@@ -289,12 +289,11 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
             value
         }));
 
-        const total = raw.reduce((sum, item) => sum + item.value, 0);
-        const shouldScale = total <= 1.5;
-
+        // Sectors are consistently stored as decimals (e.g. 0.15 for 15%) from Yahoo.
+        // Even for leveraged ETFs where sum > 1.0 (e.g. 2.0), we should scale.
         return raw.map(item => ({
             ...item,
-            value: shouldScale ? item.value * 100 : item.value
+            value: item.value * 100
         })).sort((a, b) => b.value - a.value);
     }
 

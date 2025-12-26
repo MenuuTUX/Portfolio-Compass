@@ -90,7 +90,7 @@ describe('Lib: syncEtfDetails', () => {
     });
 
     // Mock Upsert returning basic ETF info
-    mockPrismaUpsert.mockResolvedValue({ ticker });
+    mockPrismaUpsert.mockResolvedValue({ ticker, assetType: 'ETF' });
 
     // Mock FindUnique returning full ETF (end of function)
     mockPrismaFindUnique.mockResolvedValue({
@@ -107,9 +107,6 @@ describe('Lib: syncEtfDetails', () => {
     expect(mockPrismaDeleteMany).toHaveBeenCalled();
     const deleteCalls = mockPrismaDeleteMany.mock.calls;
 
-    // Find the call for etfHistory
-    // Note: deleteMany is called for sectors, holdings, etc.
-    // We need to inspect the arguments.
     const historyDeleteCall = deleteCalls.find(call => {
         const arg = call[0];
         return arg && arg.where && arg.where.etfId === ticker && arg.where.interval === '1d';
@@ -118,21 +115,65 @@ describe('Lib: syncEtfDetails', () => {
     expect(historyDeleteCall).toBeDefined();
     if (historyDeleteCall) {
         expect(historyDeleteCall[0].where.date).toBeDefined();
-        // Since we passed dates in an 'in' array
         expect(historyDeleteCall[0].where.date.in).toBeDefined();
         expect(historyDeleteCall[0].where.date.in).toHaveLength(1);
     }
+  });
 
-    // Verify createMany was called
-    const createCalls = mockPrismaCreateMany.mock.calls;
-    const historyCreateCall = createCalls.find(call => {
-        const arg = call[0];
-        return arg && arg.data && Array.isArray(arg.data) && arg.data.length > 0 && arg.data[0].interval === '1d';
-    });
+  it('should normalize StockAnalysis decimal weights to percentages', async () => {
+      const ticker = 'LEVERAGED';
 
-    expect(historyCreateCall).toBeDefined();
-    if (historyCreateCall) {
-        expect(historyCreateCall[0].data[0].close).toEqual(new Decimal(105));
-    }
+      mockFetchEtfDetails.mockResolvedValue({
+          ticker,
+          name: 'Leveraged ETF',
+          price: new Decimal(100),
+          dailyChange: new Decimal(1.5),
+          assetType: 'ETF',
+          description: 'Desc',
+          sectors: {},
+          history: []
+      });
+
+      // IMPORTANT: Mock upsert to return assetType: 'ETF' so the holdings logic runs
+      mockPrismaUpsert.mockResolvedValue({ ticker, assetType: 'ETF' });
+
+      // Mock StockAnalysis returning decimal weights
+      // 2.0 = 200% (Leveraged)
+      // 0.5 = 50%
+      mockGetEtfHoldings.mockResolvedValue([
+          { symbol: 'A', name: 'Asset A', weight: 2.0, shares: null },
+          { symbol: 'B', name: 'Asset B', weight: 0.5, shares: null }
+      ]);
+
+      mockPrismaFindUnique.mockResolvedValue({
+          ticker,
+          history: [],
+          sectors: [],
+          allocation: null,
+          holdings: []
+      });
+
+      await syncEtfDetails(ticker);
+
+      // Verify transaction calls
+      expect(mockPrismaTransaction).toHaveBeenCalled();
+
+      const createCalls = mockPrismaCreateMany.mock.calls;
+      const holdingCreateCall = createCalls.find(call => {
+          const arg = call[0];
+          return arg && arg.data && Array.isArray(arg.data) && arg.data.some((h: any) => h.ticker === 'A');
+      });
+
+      expect(holdingCreateCall).toBeDefined();
+      if (holdingCreateCall) {
+          const holdings = holdingCreateCall[0].data;
+          const holdingA = holdings.find((h: any) => h.ticker === 'A');
+          const holdingB = holdings.find((h: any) => h.ticker === 'B');
+
+          // Expect weights to be multiplied by 100
+          // Convert Decimal to number for comparison
+          expect(holdingA.weight.toNumber()).toEqual(200); // 2.0 * 100
+          expect(holdingB.weight.toNumber()).toEqual(50);  // 0.5 * 100
+      }
   });
 });

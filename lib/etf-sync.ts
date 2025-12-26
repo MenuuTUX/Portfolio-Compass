@@ -244,7 +244,8 @@ export async function syncEtfDetails(
                           ticker: h.symbol,
                           name: h.name,
                           sector: sectorMap.get(h.symbol) || 'Unknown',
-                          weight: h.weight,
+                          // Normalize StockAnalysis decimal weights (0.05) to percentage (5.0) to match Yahoo
+                          weight: new Decimal(h.weight).mul(100),
                           shares: h.shares ? new Decimal(h.shares) : null
                       }))
                   })
