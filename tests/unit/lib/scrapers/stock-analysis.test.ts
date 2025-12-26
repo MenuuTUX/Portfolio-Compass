@@ -22,7 +22,7 @@ const mockFetch = mock((url: string | URL | Request) => {
                 <a href="/stocks/industry/consumer-electronics/">Consumer Electronics</a>
             </div>
             <h2>About AAPL</h2>
-            <p>Apple Inc. designs and manufactures smartphones.</p>
+            <p>Apple Inc. designs and manufactures smartphones. It is a very large company that makes iPhones and Macs and other things that people buy.</p>
             <p>It also offers services.</p>
           </main>
         </html>
@@ -48,7 +48,7 @@ const mockFetch = mock((url: string | URL | Request) => {
         <html>
           <main>
              <h2>About SPY</h2>
-             <p>SPDR S&P 500 ETF Trust tracks the S&P 500.</p>
+             <p>SPDR S&P 500 ETF Trust tracks the S&P 500. It is one of the most popular ETFs in the world and holds a basket of 500 large US companies.</p>
              <meta name="description" content="SPY ETF description fallback">
           </main>
         </html>
