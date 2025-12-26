@@ -10,6 +10,8 @@ const mockPrismaCreateMany = mock(() => Promise.resolve({ count: 0 }));
 const mockPrismaUpdate = mock(() => Promise.resolve({}));
 const mockPrismaCreate = mock(() => Promise.resolve({}));
 const mockPrismaTransaction = mock(() => Promise.resolve([]));
+// Added missing mock for etfAllocation.upsert
+const mockPrismaAllocationUpsert = mock(() => Promise.resolve({}));
 
 const mockFetchEtfDetails = mock(() => Promise.resolve(null));
 const mockGetEtfHoldings = mock(() => Promise.resolve([]));
@@ -34,6 +36,7 @@ mock.module('@/lib/db', () => {
         findUnique: mockPrismaFindUnique,
         update: mockPrismaUpdate,
         create: mockPrismaCreate,
+        upsert: mockPrismaAllocationUpsert, // Added here
       },
       holding: {
         deleteMany: mockPrismaDeleteMany,
@@ -69,6 +72,7 @@ describe('Lib: syncEtfDetails', () => {
     mockFetchEtfDetails.mockClear();
     mockGetEtfHoldings.mockClear();
     mockPrismaTransaction.mockClear();
+    mockPrismaAllocationUpsert.mockClear();
   });
 
   it('should delete overlapping daily history before inserting', async () => {
