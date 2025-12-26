@@ -3,7 +3,7 @@ import { analyzeEtf } from '@/lib/etf-analysis';
 import { ETF } from '@/types';
 import { cn } from '@/lib/utils';
 
-export default function EtfVerdictCard({ etf }: { etf: ETF }) {
+export default function EtfVerdictCard({ etf, className }: { etf: ETF; className?: string }) {
   const verdict = analyzeEtf(etf);
 
   const getIcon = (status: string) => {
@@ -23,7 +23,7 @@ export default function EtfVerdictCard({ etf }: { etf: ETF }) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div className={cn("grid grid-cols-1 gap-4", className)}>
       {Object.entries(verdict).map(([key, data]) => (
         <div key={key} className={cn("p-4 rounded-xl border flex flex-col gap-2", getColor(data.status))}>
           <div className="flex items-center justify-between">

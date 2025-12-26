@@ -396,8 +396,6 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
             </div>
 
             <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto lg:overflow-hidden">
-              <EtfVerdictCard etf={displayEtf} />
-
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
 
                 {/* Left Col: Chart */}
@@ -537,6 +535,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
                 {/* Right Col Wrapper */}
                 <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto space-y-6 pr-2 custom-scrollbar">
+
+                  <EtfVerdictCard etf={displayEtf} />
 
                   {/* Top Box: Description / Sector */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[200px] flex flex-col">
