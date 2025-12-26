@@ -256,16 +256,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (etfs.length === 0 && query && query.length > 1) {
-      console.log(`[API] Local miss for "${query}". Processing fallback strategy...`);
+    // Fallback Strategy: Check for missing specific tickers
+    // This handles cases where:
+    // 1. DB is empty for the query (etfs.length === 0)
+    // 2. OR DB has results but the exact requested ticker is missing (e.g. searched "MEME", got "MEMES")
+    const rawTargets = query ? query.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0) : [];
+    const loadedTickers = new Set(etfs.map((e: any) => e.ticker));
+    let targetsToFetch = rawTargets.filter(t => !loadedTickers.has(t));
 
-      const targets = query.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0);
-      // Limit to 5 to prevent abuse
-      const limitedTargets = targets.slice(0, 5);
+    // Refine: If we have results, only fetch missing targets if they look like tickers
+    // This prevents fetching "APPLE INC" when searching "Apple Inc" returns "AAPL" (assuming "APPLE INC" is not a valid ticker)
+    if (etfs.length > 0) {
+      targetsToFetch = targetsToFetch.filter(t => !t.includes(' ') && t.length <= 12);
+    }
 
-      if (limitedTargets.length > 0) {
+    const limitedTargets = targetsToFetch.slice(0, 5);
+
+    if (limitedTargets.length > 0) {
+      console.log(`[API] Processing fallback strategy for missing targets: ${limitedTargets.join(', ')}`);
+
+      {
         try {
-          // 1. Check DB for these tickers
+          // 1. Check DB for these tickers (Exact Match)
            let existingInDb: any[] = [];
            try {
               existingInDb = await prisma.etf.findMany({
