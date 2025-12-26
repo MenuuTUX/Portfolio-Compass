@@ -259,7 +259,8 @@ export async function syncEtfDetails(
     }
 
     // Fallback to Yahoo Finance if StockAnalysis failed or returned no data
-    if (!holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
+    // Only fetch holdings for ETFs
+    if (etf.assetType === 'ETF' && !holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
       try {
         console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
         await prisma.$transaction([
