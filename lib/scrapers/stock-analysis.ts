@@ -269,30 +269,48 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   // Description
   let description = '';
   $('h2, h3').each((_, el) => {
+      if (description) return;
       const headerText = $(el).text().trim();
       if (headerText.includes(`About ${upperTicker}`)) {
-          let next = $(el).next();
-          let attempts = 0;
-          while (next.length && attempts < 10) {
-               const text = next.text().trim();
-               if (next.is('h2') || next.is('h3')) break;
 
-               if (text.length > 50) {
-                   if (next.is('div')) {
-                       const p = next.find('p').first();
-                       if (p.length && p.text().trim().length > 50) {
-                           description = p.text().trim();
-                       } else {
-                           description = text;
+          const findDescriptionInSiblings = (startElem: cheerio.Cheerio<any>) => {
+              let next = startElem.next();
+              let attempts = 0;
+              while (next.length && attempts < 10) {
+                   const text = next.text().trim();
+                   // Stop if we hit another header
+                   if (next.is('h2') || next.is('h3')) return null;
+
+                   // If text is substantial, it's likely the description
+                   if (text.length > 50) {
+                       if (next.is('div')) {
+                           const p = next.find('p').first();
+                           if (p.length && p.text().trim().length > 50) {
+                               return p.text().trim();
+                           }
+                           // If div has text but no p, use the text
+                           return text;
                        }
-                   } else {
-                       description = text;
+                       return text;
                    }
-                   break;
-               }
-               next = next.next();
-               attempts++;
+                   next = next.next();
+                   attempts++;
+              }
+              return null;
           }
+
+          // Try siblings of the header
+          let desc = findDescriptionInSiblings($(el));
+
+          // If not found, check parent's siblings (in case header is wrapped in a flex/grid div)
+          if (!desc) {
+              const parent = $(el).parent();
+              if (parent.length && (parent.is('div') || parent.is('header'))) {
+                  desc = findDescriptionInSiblings(parent);
+              }
+          }
+
+          if (desc) description = desc;
       }
   });
 
