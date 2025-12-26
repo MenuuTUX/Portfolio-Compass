@@ -71,44 +71,12 @@ export function getProviderLogo(etfName: string): string | null {
 // Using jsDelivr for faster, cached delivery
 const ICON_BASE_URL = 'https://cdn.jsdelivr.net/gh/nvstly/icons@main';
 
-const CRYPTO_ASSETS = [
-  { id: 'BITCOIN', symbol: 'BTC' },
-  { id: 'ETHEREUM', symbol: 'ETH' },
-  { id: 'SOLANA', symbol: 'SOL' },
-  { id: 'CARDANO', symbol: 'ADA' },
-  { id: 'RIPPLE', symbol: 'XRP' },
-  { id: 'DOGECOIN', symbol: 'DOGE' },
-  { id: 'POLKADOT', symbol: 'DOT' },
-  { id: 'CHAINLINK', symbol: 'LINK' },
-  { id: 'LITECOIN', symbol: 'LTC' },
-  { id: 'STELLAR', symbol: 'XLM' },
-  { id: 'AVALANCHE', symbol: 'AVAX' }
-];
-
-// Create a lookup map that handles both IDs and Symbols
-const CRYPTO_RESOLVER = CRYPTO_ASSETS.reduce((acc, { id, symbol }) => {
-  acc[id] = symbol;
-  acc[symbol] = symbol;
-  return acc;
-}, {} as Record<string, string>);
-
 export function getAssetIconUrl(ticker: string, name: string, assetType: string = 'ETF'): string | null {
   const upperTicker = ticker.toUpperCase();
 
   // STOCK logic
   if (assetType === 'STOCK') {
     return `${ICON_BASE_URL}/ticker_icons/${upperTicker}.png`;
-  }
-
-  // CRYPTO logic
-  if (assetType === 'CRYPTO') {
-    // Strip -USD suffix if present (common in Yahoo Finance tickers)
-    const cleanTicker = upperTicker.replace(/-USD$/, '');
-
-    // Explicitly check our known crypto assets map which supports both IDs (BITCOIN) and Symbols (BTC).
-    // If not found, fall back to using the ticker as-is (e.g. for unlisted cryptos that might have an icon).
-    const symbol = CRYPTO_RESOLVER[cleanTicker];
-    return `${ICON_BASE_URL}/crypto_icons/${symbol || cleanTicker}.png`;
   }
 
   // ETF logic

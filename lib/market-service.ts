@@ -20,7 +20,7 @@ export interface MarketSnapshot {
   dailyChange: Decimal;
   dailyChangePercent: Decimal;
   name: string;
-  assetType: 'STOCK' | 'ETF' | 'CRYPTO';
+  assetType: 'STOCK' | 'ETF';
 }
 
 export interface EtfDetails {
@@ -29,7 +29,7 @@ export interface EtfDetails {
   dailyChange: Decimal;
   name: string;
   description: string;
-  assetType: 'STOCK' | 'ETF' | 'CRYPTO';
+  assetType: 'STOCK' | 'ETF';
   expenseRatio?: Decimal;
   dividendYield?: Decimal;
   beta5Y?: Decimal;
@@ -70,10 +70,9 @@ function normalizePercent(val: number | undefined): Decimal {
   return new Decimal(val);
 }
 
-function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' | 'CRYPTO' {
+function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' {
   if (!quoteType) return 'STOCK';
   if (quoteType === 'ETF') return 'ETF';
-  if (quoteType === 'CRYPTOCURRENCY' || quoteType === 'CCY') return 'CRYPTO';
   return 'STOCK';
 }
 
@@ -261,8 +260,6 @@ export async function fetchEtfDetails(
       if (sectorName) {
           sectors[sectorName] = new Decimal(1.0);
       }
-  } else if (assetType === 'CRYPTO') {
-    sectors['Cryptocurrency'] = new Decimal(1.0);
   }
 
   // --- Merge Financial Metrics (Prioritizing Stock Analysis) ---
