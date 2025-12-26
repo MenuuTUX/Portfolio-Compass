@@ -172,7 +172,7 @@ const fetchWithUserAgent = async (u: string) => fetch(u, {
 });
 
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
-  const upperTicker = ticker.toUpperCase();
+  let upperTicker = ticker.toUpperCase();
   // StockAnalysis.com typically uses US tickers (e.g., ASML instead of ASML.AS)
   // We try the original ticker first, but if it fails, we might try stripping suffix
   // However, we must be careful not to map unrelated stocks.
@@ -190,6 +190,31 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
     if (response.ok) isEtf = true;
   }
 
+  // Fallback: Check for specific international exchanges (TSX, NEO) before generic suffix stripping
+  if (response.status === 404 && ticker.includes('.')) {
+      const parts = ticker.split('.');
+      const baseTicker = parts[0];
+      const suffix = parts[1]?.toUpperCase();
+
+      if (suffix === 'TO') {
+           // Try TSX
+           url = `https://stockanalysis.com/quote/tsx/${baseTicker.toLowerCase()}/`;
+           response = await fetchWithUserAgent(url);
+           if (response.ok) {
+               isEtf = true; // TSX pages share structure
+               upperTicker = baseTicker.toUpperCase();
+           }
+      } else if (suffix === 'NE') {
+           // Try NEO
+           url = `https://stockanalysis.com/quote/neo/${baseTicker.toLowerCase()}/`;
+           response = await fetchWithUserAgent(url);
+           if (response.ok) {
+               isEtf = true;
+               upperTicker = baseTicker.toUpperCase();
+           }
+      }
+  }
+
   // Fallback: If original ticker failed (404), and it has a suffix (e.g., ASML.AS), try stripping it.
   // This is useful for dual-listed companies where StockAnalysis only tracks the US listing.
   // We only do this if the base ticker is > 2 chars to avoid ambiguity with small tickers.
@@ -200,11 +225,18 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
           url = `https://stockanalysis.com/stocks/${baseTicker.toLowerCase()}/`;
           response = await fetchWithUserAgent(url);
 
-          if (response.status === 404) {
-               // Try base ticker as ETF
-               url = `https://stockanalysis.com/etf/${baseTicker.toLowerCase()}/`;
-               response = await fetchWithUserAgent(url);
-               if (response.ok) isEtf = true;
+          if (response.ok) {
+               upperTicker = baseTicker.toUpperCase();
+          } else {
+               if (response.status === 404) {
+                   // Try base ticker as ETF
+                   url = `https://stockanalysis.com/etf/${baseTicker.toLowerCase()}/`;
+                   response = await fetchWithUserAgent(url);
+                   if (response.ok) {
+                       isEtf = true;
+                       upperTicker = baseTicker.toUpperCase();
+                   }
+               }
           }
       }
   }
