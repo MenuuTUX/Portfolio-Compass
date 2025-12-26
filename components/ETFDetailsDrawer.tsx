@@ -536,7 +536,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                 {/* Right Col Wrapper */}
                 <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto space-y-6 pr-2 custom-scrollbar">
 
-                  <EtfVerdictCard etf={displayEtf} />
+                  {displayEtf.assetType === 'ETF' && <EtfVerdictCard etf={displayEtf} />}
 
                   {/* Top Box: Description / Sector */}
                   <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[200px] flex flex-col">
