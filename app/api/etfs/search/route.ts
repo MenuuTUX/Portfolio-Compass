@@ -145,10 +145,6 @@ export async function GET(request: NextRequest) {
     if (etfs.length === 0 && !query && !tickersParam && skip === 0) {
         let defaultTickers = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 
-        if (assetType === 'CRYPTO') {
-            defaultTickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD'];
-        }
-
         console.log(`[API] Empty DB detected for general search (${assetType || 'General'}). Seeding default tickers in parallel...`);
 
         try {
@@ -206,7 +202,7 @@ export async function GET(request: NextRequest) {
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
       const staleEtfs = etfs.filter((e: any) => {
-        // If deep analysis is not loaded, it's stale by definition (unless it's a crypto which doesn't have it, but for now treat as stale)
+        // If deep analysis is not loaded, it's stale by definition
         if (e.isDeepAnalysisLoaded === false) return true;
 
         if (!e.updatedAt) return true; // Handle fallback objects without updatedAt (though we added it)

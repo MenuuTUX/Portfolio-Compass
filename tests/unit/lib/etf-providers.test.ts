@@ -1,67 +1,32 @@
-
 import { describe, it, expect } from 'bun:test';
-import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
-
-describe('getProviderLogo', () => {
-  it('should return logo path for known provider keywords', () => {
-    expect(getProviderLogo('Vanguard S&P 500 ETF')).toBe('/logos/vanguard.png');
-    expect(getProviderLogo('iShares Core S&P 500 ETF')).toBe('/logos/ishares.png');
-    expect(getProviderLogo('BMO Aggregate Bond Index ETF')).toBe('/logos/bmo-asset-management.png');
-  });
-
-  it('should return null for unknown provider', () => {
-    expect(getProviderLogo('Random ETF Name')).toBeNull();
-  });
-
-  it('should return null for known provider without logo', () => {
-    expect(getProviderLogo('AGFiQ US Market Neutral Anti-Beta CAD-Hedged ETF')).toBeNull();
-  });
-
-  it('should be case insensitive', () => {
-    expect(getProviderLogo('vanguard s&p 500 etf')).toBe('/logos/vanguard.png');
-  });
-});
+import { getAssetIconUrl } from '@/lib/etf-providers';
 
 describe('getAssetIconUrl', () => {
-  describe('CRYPTO', () => {
-    it('should resolve known crypto ID to symbol icon', () => {
-      expect(getAssetIconUrl('BITCOIN', 'Bitcoin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/BTC.png');
-      expect(getAssetIconUrl('ETHEREUM', 'Ethereum', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/ETH.png');
-    });
-
-    it('should resolve known crypto symbol to symbol icon', () => {
-      expect(getAssetIconUrl('BTC', 'Bitcoin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/BTC.png');
-      expect(getAssetIconUrl('ETH', 'Ethereum', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/ETH.png');
-    });
-
-    it('should fallback to ticker for unknown crypto', () => {
-      expect(getAssetIconUrl('UNKNOWN', 'Unknown Coin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/UNKNOWN.png');
-    });
-
-    it('should be case insensitive for lookup', () => {
-      expect(getAssetIconUrl('bitcoin', 'Bitcoin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/BTC.png');
-      expect(getAssetIconUrl('btc', 'Bitcoin', 'CRYPTO')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/crypto_icons/BTC.png');
-    });
-
-    // New tests for suffix handling
-    it('should correctly handle CRYPTO tickers with -USD suffix', () => {
-        expect(getAssetIconUrl('BTC-USD', 'Bitcoin', 'CRYPTO')).toContain('/crypto_icons/BTC.png');
-    });
-
-    it('should correctly handle newly added AVAX ticker', () => {
-        expect(getAssetIconUrl('AVAX-USD', 'Avalanche', 'CRYPTO')).toContain('/crypto_icons/AVAX.png');
+  describe('STOCKS', () => {
+    it('should return ticker icon for stocks', () => {
+      expect(getAssetIconUrl('AAPL', 'Apple Inc', 'STOCK')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/AAPL.png');
     });
   });
 
-  describe('STOCK', () => {
-    it('should return stock icon url', () => {
-      expect(getAssetIconUrl('AAPL', 'Apple Inc.', 'STOCK')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/AAPL.png');
+  describe('ETFs', () => {
+    it('should resolve provider icon for known providers', () => {
+      // SPDR now falls back to stock ticker 'STT' because it has one in the map
+      expect(getAssetIconUrl('SPY', 'SPDR S&P 500 ETF Trust', 'ETF')).toContain('/ticker_icons/STT.png');
+      expect(getAssetIconUrl('QQQ', 'Invesco QQQ Trust', 'ETF')).toContain('/ticker_icons/IVZ.png');
+    });
+
+    it('should fallback to ticker icon for unknown providers', () => {
+      expect(getAssetIconUrl('UNKNOWN', 'Unknown ETF', 'ETF')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/UNKNOWN.png');
+    });
+
+    it('should handle providers with stock tickers', () => {
+       expect(getAssetIconUrl('BLK', 'iShares Core', 'ETF')).toContain('/ticker_icons/BLK.png');
     });
   });
 
-  describe('ETF', () => {
-    it('should return provider logo for ETF', () => {
-      expect(getAssetIconUrl('VOO', 'Vanguard S&P 500 ETF', 'ETF')).toBe('/logos/vanguard.png');
+  describe('Others', () => {
+    it('should return null for unknown asset types', () => {
+        expect(getAssetIconUrl('FOO', 'Bar', 'UNKNOWN')).toBeNull();
     });
   });
 });

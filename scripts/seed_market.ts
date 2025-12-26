@@ -32,15 +32,6 @@ function getTopETFs(): string[] {
   ];
 }
 
-function getTopCrypto(): string[] {
-    return [
-        'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD',
-        'DOT-USD', 'MATIC-USD', 'LTC-USD', 'UNI-USD', 'BCH-USD', 'ALGO-USD', 'XLM-USD', 'VET-USD',
-        'ICP-USD', 'FIL-USD', 'HBAR-USD', 'AAVE-USD', 'GRT-USD', 'EOS-USD', 'SAND-USD', 'MANA-USD',
-        'THETA-USD', 'XTZ-USD', 'ATOM-USD', 'AXS-USD', 'CAKE-USD', 'MKR-USD', 'QNT-USD', 'FLOW-USD'
-    ];
-}
-
 function getMag7Tickers(): string[] {
   return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
 }
@@ -56,15 +47,14 @@ async function seedMarket() {
   try {
     console.log('Fetching target ticker list...');
 
-    const [sp500, topEtfs, mag7, justBuy, crypto] = await Promise.all([
+    const [sp500, topEtfs, mag7, justBuy] = await Promise.all([
       getSP500Tickers(),
       Promise.resolve(getTopETFs()),
       Promise.resolve(getMag7Tickers()),
-      Promise.resolve(getJustBuyTickers()),
-      Promise.resolve(getTopCrypto())
+      Promise.resolve(getJustBuyTickers())
     ]);
 
-    const targetTickers = Array.from(new Set([...sp500, ...topEtfs, ...mag7, ...justBuy, ...crypto]));
+    const targetTickers = Array.from(new Set([...sp500, ...topEtfs, ...mag7, ...justBuy]));
     console.log(`Found ${targetTickers.length} target tickers.`);
 
     const existingEtfs = await prisma.etf.findMany({
