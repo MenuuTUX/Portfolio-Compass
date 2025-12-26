@@ -14,43 +14,52 @@ export async function GET(request: Request) {
   }
 
   try {
-    let profile = await getStockProfile(ticker);
+    let profile: any = await getStockProfile(ticker);
 
     // If description is missing (common for ETFs or failed scrapes), try Yahoo Finance
     if (!profile || !profile.description) {
         try {
-            const summary = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price'] } as any) as any;
-            if (summary.summaryProfile?.longBusinessSummary) {
-                // Determine sector/industry if missing
-                const sector = profile?.sector || summary.summaryProfile.sector || 'Unknown';
-                const industry = profile?.industry || summary.summaryProfile.industry || 'Unknown';
+            // Fetch summaryProfile (stocks) and fundProfile (ETFs)
+            const summary = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price', 'fundProfile'] } as any) as any;
 
-                if (profile) {
-                    profile = {
-                        ...profile,
-                        description: summary.summaryProfile.longBusinessSummary,
-                        sector,
-                        industry
-                    };
-                } else {
-                    profile = {
-                        sector,
-                        industry,
-                        description: summary.summaryProfile.longBusinessSummary,
-                        analyst: undefined
-                    };
-                }
+            const summaryProfile = summary.summaryProfile || {};
+            const fundProfile = summary.fundProfile || {};
+
+            const description = summaryProfile.longBusinessSummary || null;
+
+            // Determine sector/industry/family
+            const sector = profile?.sector || summaryProfile.sector || fundProfile.categoryName || 'Unknown';
+            const industry = profile?.industry || summaryProfile.industry || fundProfile.family || 'Unknown';
+
+            if (profile) {
+                profile = {
+                    ...profile,
+                    description: profile.description || description,
+                    sector,
+                    industry
+                };
+            } else {
+                profile = {
+                    sector,
+                    industry,
+                    description,
+                    analyst: undefined
+                };
             }
         } catch (yfError) {
             console.warn(`Yahoo Finance fallback failed for ${ticker}:`, yfError);
         }
     }
 
+    // Even if profile is empty/partial, return it so the UI can render what it has (e.g. just Sector/Industry)
+    // instead of a 404 which causes a red error box.
     if (!profile) {
-       return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
+        // Return a minimal valid object
+        return NextResponse.json({
+            sector: 'Unknown',
+            industry: 'Unknown',
+            description: null
+        });
     }
 
     return NextResponse.json(profile);

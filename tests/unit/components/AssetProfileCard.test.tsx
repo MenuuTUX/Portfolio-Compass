@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, beforeEach } from "bun:test";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import AssetProfileCard from "@/components/AssetProfileCard";
 import React from 'react';
 
@@ -9,14 +9,14 @@ global.fetch = mockFetch;
 
 describe("AssetProfileCard", () => {
     beforeEach(() => {
-        mockFetch.mockClear();
+        cleanup();
+        mockFetch.mockReset();
     });
 
-    it("renders loading skeleton initially", () => {
+    it("renders loading skeleton initially", async () => {
         // Return a pending promise so it stays in loading state
         mockFetch.mockImplementation(() => new Promise(() => {}));
         const { container } = render(<AssetProfileCard ticker="AAPL" />);
-        // Look for skeleton elements
         expect(container.getElementsByClassName("animate-pulse").length).toBeGreaterThan(0);
     });
 
@@ -63,12 +63,13 @@ describe("AssetProfileCard", () => {
             expect(screen.getByText("ETF")).toBeTruthy();
             expect(screen.getByText("Equity")).toBeTruthy();
             expect(screen.getByText("ETF description...")).toBeTruthy();
-            // Analyst summary should NOT be present
-            expect(screen.queryByText("Analyst Summary")).toBeNull();
-        });
+        }, { timeout: 3000 });
+
+        // Analyst summary should NOT be present
+        expect(screen.queryByText("Analyst Summary")).toBeNull();
     });
 
-    it("handles error state", async () => {
+    it("handles missing data gracefully (no red error card)", async () => {
          mockFetch.mockResolvedValue({
             ok: false,
         });
@@ -76,7 +77,12 @@ describe("AssetProfileCard", () => {
         render(<AssetProfileCard ticker="FAIL" />);
 
         await waitFor(() => {
-             expect(screen.getByText("Unable to load profile")).toBeTruthy();
-        });
+             // Should show the header "About FAIL" even if failed
+             expect(screen.getByText("About FAIL")).toBeTruthy();
+             // Should show the fallback text
+             expect(screen.getByText("Asset description not available.")).toBeTruthy();
+             // Should NOT show "Unable to load profile"
+             expect(screen.queryByText("Unable to load profile")).toBeNull();
+        }, { timeout: 3000 });
     });
 });

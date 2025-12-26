@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Layers, AlertCircle, TrendingUp, Target, Factory, Landmark } from "lucide-react"
+import { Layers, AlertCircle, TrendingUp, Target, Factory, BookOpen, Info } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 interface StockInfo {
   sector: string
   industry: string
-  description: string
+  description: string | null
   analyst?: {
     summary: string
     consensus: string
@@ -49,9 +49,11 @@ function DescriptionText({ text }: { text: string }) {
 interface AssetProfileCardProps {
   ticker: string
   assetType?: 'STOCK' | 'ETF'
+  className?: string
+  description?: string // Optional override
 }
 
-export default function AssetProfileCard({ ticker, assetType = 'STOCK' }: AssetProfileCardProps) {
+export default function AssetProfileCard({ ticker, assetType = 'STOCK', className, description: descriptionProp }: AssetProfileCardProps) {
   const [info, setInfo] = React.useState<StockInfo | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -67,7 +69,8 @@ export default function AssetProfileCard({ ticker, assetType = 'STOCK' }: AssetP
       try {
         const res = await fetch(`/api/stock/info?ticker=${encodeURIComponent(ticker)}`)
         if (!res.ok) {
-          throw new Error("Failed to fetch asset profile")
+           // Even if it fails, we treat it as "no info" rather than a hard error
+           throw new Error("Failed to fetch")
         }
         const data = await res.json()
         if (mounted) {
@@ -75,7 +78,8 @@ export default function AssetProfileCard({ ticker, assetType = 'STOCK' }: AssetP
         }
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Unknown error")
+           // Silent fail - we will show "Description unavailable"
+           setInfo(null)
         }
       } finally {
         if (mounted) {
@@ -93,7 +97,7 @@ export default function AssetProfileCard({ ticker, assetType = 'STOCK' }: AssetP
 
   if (loading) {
     return (
-      <Card className="w-full h-full bg-transparent border-none shadow-none p-0">
+      <Card className={cn("w-full h-full bg-transparent border-none shadow-none p-0", className)}>
         <div className="flex flex-col gap-4">
             <div className="flex gap-2">
                 <Skeleton className="h-6 w-16 rounded-full" />
@@ -114,52 +118,51 @@ export default function AssetProfileCard({ ticker, assetType = 'STOCK' }: AssetP
     )
   }
 
-  if (error || !info) {
-    return (
-      <Card className="w-full h-full border-red-500/20 bg-red-500/5">
-        <CardHeader>
-           <CardTitle className="text-red-400 flex items-center gap-2 text-sm">
-             <AlertCircle className="h-4 w-4" />
-             Unable to load profile
-           </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-red-300">
-            {error || "Could not load asset profile."}
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Use prop description if available, otherwise fetch result
+  const description = descriptionProp || info?.description;
+  const sector = info?.sector;
+  const industry = info?.industry;
 
   return (
-    <div className="w-full h-full flex flex-col gap-4">
+    <div className={cn("w-full h-full flex flex-col gap-4", className)}>
+
+      <div className="flex items-center gap-2 text-white mb-1">
+        <BookOpen className="w-5 h-5 text-emerald-400" />
+        <h3 className="text-lg font-bold">About {ticker}</h3>
+      </div>
 
       {/* Header Badges */}
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded-md">
             {assetType === 'ETF' ? 'ETF' : 'STOCK'}
         </Badge>
-        {info.sector && info.sector !== 'Unknown' && (
+        {sector && sector !== 'Unknown' && (
             <Badge variant="outline" className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal">
                 <Layers className="w-3 h-3 text-neutral-400" />
-                {info.sector}
+                {sector}
             </Badge>
         )}
-        {info.industry && info.industry !== 'Unknown' && (
+        {industry && industry !== 'Unknown' && (
             <Badge variant="outline" className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal">
                 <Factory className="w-3 h-3 text-neutral-400" />
-                {info.industry}
+                {industry}
             </Badge>
         )}
       </div>
 
       {/* Description */}
-      <DescriptionText text={info.description || "No description available."} />
+      {description ? (
+        <DescriptionText text={description} />
+      ) : (
+        <div className="flex items-center gap-2 py-4 text-neutral-500 text-sm italic">
+            <Info className="w-4 h-4" />
+            <span>Asset description not available.</span>
+        </div>
+      )}
 
       {/* Analyst Analysis Section - Only for Stocks */}
-      {assetType === 'STOCK' && info.analyst && (
-        <div className="space-y-4 pt-2">
+      {assetType === 'STOCK' && info?.analyst && (
+        <div className="space-y-4 pt-4 mt-2 border-t border-white/5">
             <div className="flex items-center gap-2 text-white">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
                 <h3 className="font-bold text-sm tracking-wide">Analyst Summary</h3>
