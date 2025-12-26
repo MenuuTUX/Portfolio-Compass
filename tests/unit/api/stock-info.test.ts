@@ -1,15 +1,21 @@
-import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
-// Define mock function
+// Define mock functions
 const mockGetStockProfile = mock(() => Promise.resolve({
   sector: 'Technology',
   industry: 'Consumer Electronics',
   description: 'Apple Inc. designs...'
 }));
 
-// Mock the module before importing the file under test
+const mockGetEtfDescription = mock(() => Promise.resolve(null));
+
+// Mock the modules
 mock.module('@/lib/scrapers/stock-analysis', () => ({
   getStockProfile: mockGetStockProfile
+}));
+
+mock.module('@/lib/scrapers/etf-dot-com', () => ({
+  getEtfDescription: mockGetEtfDescription
 }));
 
 // Mock yahoo-finance2
@@ -25,6 +31,12 @@ mock.module('yahoo-finance2', () => ({
 const { GET } = await import('../../../app/api/stock/info/route');
 
 describe('GET /api/stock/info', () => {
+  beforeEach(() => {
+    mockGetStockProfile.mockClear();
+    mockGetEtfDescription.mockClear();
+    mockYahooFinance.quoteSummary.mockClear();
+  });
+
   it('returns 400 if ticker is missing', async () => {
     const req = new Request('http://localhost/api/stock/info');
     const res = await GET(req);
@@ -46,12 +58,17 @@ describe('GET /api/stock/info', () => {
     expect(mockGetStockProfile).toHaveBeenCalledWith('AAPL');
   });
 
-  it('should fall back to Yahoo Finance if scraper returns null description', async () => {
+  it('should try ETF.com if description is missing, then fallback to Yahoo', async () => {
+    // 1. StockAnalysis returns no description
     mockGetStockProfile.mockResolvedValueOnce({
         sector: 'Tech',
         industry: 'Chips',
-        description: '' // Missing description
+        description: ''
     });
+    // 2. ETF.com returns null (simulating not found or error)
+    mockGetEtfDescription.mockResolvedValueOnce(null);
+
+    // 3. Yahoo returns data
     mockYahooFinance.quoteSummary.mockResolvedValueOnce({
         summaryProfile: {
             longBusinessSummary: 'Yahoo description',
@@ -65,27 +82,41 @@ describe('GET /api/stock/info', () => {
     const json = await res.json();
 
     expect(mockGetStockProfile).toHaveBeenCalledWith('NVDA');
+    expect(mockGetEtfDescription).toHaveBeenCalledWith('NVDA');
     expect(mockYahooFinance.quoteSummary).toHaveBeenCalledWith('NVDA', expect.anything());
     expect(json.description).toBe('Yahoo description');
-    // It should keep existing sector/industry if available from scraper
     expect(json.sector).toBe('Tech');
   });
 
-  it('should fall back to Yahoo Finance if scraper returns null object', async () => {
-      mockGetStockProfile.mockResolvedValueOnce(null);
-      mockYahooFinance.quoteSummary.mockResolvedValueOnce({
-          summaryProfile: {
-              longBusinessSummary: 'Yahoo description only',
-              sector: 'Financial',
-              industry: 'Bank'
-          }
+  it('should use ETF.com description if StockAnalysis description is missing', async () => {
+      mockGetStockProfile.mockResolvedValueOnce({
+          sector: 'Financial',
+          industry: 'ETF',
+          description: ''
       });
+      mockGetEtfDescription.mockResolvedValueOnce('ETF.com Analysis & Insights');
 
-      const req = new Request('http://localhost/api/stock/info?ticker=JPM');
+      const req = new Request('http://localhost/api/stock/info?ticker=SLV');
       const res = await GET(req);
       const json = await res.json();
 
-      expect(json.description).toBe('Yahoo description only');
-      expect(json.sector).toBe('Financial');
+      expect(mockGetEtfDescription).toHaveBeenCalledWith('SLV');
+      expect(json.description).toBe('ETF.com Analysis & Insights');
+      expect(mockYahooFinance.quoteSummary).not.toHaveBeenCalled();
+  });
+
+  it('should use ETF.com description if StockAnalysis sector is Unknown (implying poor data)', async () => {
+       mockGetStockProfile.mockResolvedValueOnce({
+           sector: 'Unknown',
+           industry: 'Unknown',
+           description: 'Some weak description'
+       });
+       mockGetEtfDescription.mockResolvedValueOnce('Better ETF description');
+
+       const req = new Request('http://localhost/api/stock/info?ticker=BAD_DATA');
+       const res = await GET(req);
+       const json = await res.json();
+
+       expect(json.description).toBe('Better ETF description');
   });
 });
