@@ -54,7 +54,7 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
   };
 
   return (
-    <div className={cn("grid grid-cols-1 gap-4", className)}>
+    <div className={cn("grid grid-cols-1 gap-3", className)}>
       {Object.entries(verdict).map(([key, data]) => {
         const isExpanded = expandedKey === key;
         const explanation = EXPLANATIONS[key];
@@ -67,7 +67,7 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
             layout
             onClick={() => setExpandedKey(isExpanded ? null : key)}
             className={cn(
-              "group relative overflow-hidden rounded-xl border p-4 cursor-pointer transition-all duration-300",
+              "group relative overflow-hidden rounded-xl border p-3 cursor-pointer transition-all duration-300",
               "bg-gradient-to-br backdrop-blur-sm",
               theme.border,
               theme.bg,
@@ -76,10 +76,10 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
             whileHover={{ scale: 1.02 }}
           >
             {/* Background Watermark Icon */}
-            <Icon className={cn("absolute -right-4 -top-4 w-24 h-24 opacity-5 transition-transform duration-500 group-hover:scale-110", theme.color)} />
+            <Icon className={cn("absolute -right-4 -top-4 w-20 h-20 opacity-5 transition-transform duration-500 group-hover:scale-110", theme.color)} />
 
             <motion.div layout className="relative z-10">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
                     <span className={cn("text-[10px] font-bold uppercase tracking-[0.2em]", theme.color)}>
                         {key}
@@ -91,15 +91,15 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
                 }
               </div>
 
-              <div className="flex items-center gap-3 mb-1">
-                <h3 className="text-lg font-bold text-white tracking-tight">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-base font-bold text-white tracking-tight">
                     {data.label}
                 </h3>
                 {/* Status Indicator Dot */}
-                <div className={cn("w-2 h-2 rounded-full shadow-[0_0_10px_currentColor]", theme.color)} />
+                <div className={cn("w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor]", theme.color)} />
               </div>
 
-              <p className="text-xs text-neutral-400 leading-relaxed max-w-[90%]">
+              <p className="text-[11px] text-neutral-400 leading-relaxed max-w-[90%]">
                 {data.description}
               </p>
             </motion.div>
