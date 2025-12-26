@@ -700,7 +700,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                             // For now just visual
                                         }}
                                     />
-                                    {(!displayEtf.sectors || Object.keys(displayEtf.sectors).length === 0) && (
+                                    {(sectorData.length === 0) && (
                                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                             <span className="text-xs text-neutral-500 bg-black/80 px-2 py-1 rounded">No Sector Data</span>
                                          </div>
