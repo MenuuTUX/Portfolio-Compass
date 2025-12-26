@@ -665,6 +665,20 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                                                     <div className={cn("text-xs font-bold text-neutral-500 font-mono w-4", i < 3 ? "text-emerald-500" : "")}>
                                                         {String(i + 1).padStart(2, '0')}
                                                     </div>
+
+                                                    {getAssetIconUrl(h.ticker, h.name || '', 'ETF') ? (
+                                                        <div className="w-6 h-6 rounded-full bg-white p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
+                                                            <img
+                                                                src={getAssetIconUrl(h.ticker, h.name || '', 'ETF')!}
+                                                                alt={h.ticker}
+                                                                className="w-full h-full object-contain"
+                                                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-6 h-6 rounded-full bg-white/10 shrink-0 border border-white/10" />
+                                                    )}
+
                                                     <div className={cn("font-bold text-white text-xs truncate", onTickerSelect && "group-hover/row:text-emerald-400 transition-colors")}>
                                                         {h.ticker}
                                                     </div>

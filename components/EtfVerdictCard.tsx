@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, Info, ChevronDown, ChevronUp, ShieldCheck, Zap, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info, ChevronDown, ChevronUp, ShieldCheck, Zap } from 'lucide-react';
 import { analyzeEtf } from '@/lib/etf-analysis';
 import { ETF } from '@/types';
 import { cn } from '@/lib/utils';
@@ -54,7 +54,7 @@ export default function EtfVerdictCard({ etf, className }: { etf: ETF; className
   };
 
   return (
-    <div className={cn("grid grid-cols-1 gap-3", className)}>
+    <div className={cn("grid grid-cols-1 gap-4", className)}>
       {Object.entries(verdict).map(([key, data]) => {
         const isExpanded = expandedKey === key;
         const explanation = EXPLANATIONS[key];
