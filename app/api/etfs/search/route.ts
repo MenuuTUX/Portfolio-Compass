@@ -149,10 +149,11 @@ export async function GET(request: NextRequest) {
             defaultTickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD'];
         }
 
-        console.log(`[API] Empty DB detected for general search (${assetType || 'General'}). Seeding default tickers...`);
+        console.log(`[API] Empty DB detected for general search (${assetType || 'General'}). Seeding default tickers in parallel...`);
 
         try {
             const liveData = await fetchMarketSnapshot(defaultTickers);
+            // Execute upserts in parallel to minimize latency during seeding
             const seedPromises = liveData.map(async (item) => {
                 try {
                      return await prisma.etf.upsert({
