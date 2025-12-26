@@ -219,11 +219,12 @@ export async function syncEtfDetails(
     // 7. Update Holdings
     let holdingsSynced = false;
 
-    // Try StockAnalysis.com first
-    try {
-        const scrapedHoldings = await getEtfHoldings(etf.ticker);
-        if (scrapedHoldings.length > 0) {
-            console.log(`[EtfSync] Using StockAnalysis.com holdings for ${etf.ticker} (${scrapedHoldings.length} items)...`);
+    // Try StockAnalysis.com first (Only for ETFs)
+    if (etf.assetType === 'ETF') {
+      try {
+          const scrapedHoldings = await getEtfHoldings(etf.ticker);
+          if (scrapedHoldings.length > 0) {
+              console.log(`[EtfSync] Using StockAnalysis.com holdings for ${etf.ticker} (${scrapedHoldings.length} items)...`);
 
             // Create a sector map from Yahoo data if available to enrich scraped data
             const sectorMap = new Map<string, string>();
@@ -235,28 +236,31 @@ export async function syncEtfDetails(
                 });
             }
 
-            await prisma.$transaction([
-                prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
-                prisma.holding.createMany({
-                    data: scrapedHoldings.map(h => ({
-                        etfId: etf.ticker,
-                        ticker: h.symbol,
-                        name: h.name,
-                        sector: sectorMap.get(h.symbol) || 'Unknown',
-                        weight: h.weight,
-                        shares: h.shares ? new Decimal(h.shares) : null
-                    }))
-                })
-            ]);
-            console.log(`[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`);
-            holdingsSynced = true;
-        }
-    } catch (saError) {
-        console.error(`[EtfSync] Failed to sync StockAnalysis holdings for ${etf.ticker}`, saError);
+              await prisma.$transaction([
+                  prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
+                  prisma.holding.createMany({
+                      data: scrapedHoldings.map(h => ({
+                          etfId: etf.ticker,
+                          ticker: h.symbol,
+                          name: h.name,
+                          sector: sectorMap.get(h.symbol) || 'Unknown',
+                          // Normalize StockAnalysis decimal weights (0.05) to percentage (5.0) to match Yahoo
+                          weight: new Decimal(h.weight).mul(100),
+                          shares: h.shares ? new Decimal(h.shares) : null
+                      }))
+                  })
+              ]);
+              console.log(`[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`);
+              holdingsSynced = true;
+          }
+      } catch (saError) {
+          console.error(`[EtfSync] Failed to sync StockAnalysis holdings for ${etf.ticker}`, saError);
+      }
     }
 
     // Fallback to Yahoo Finance if StockAnalysis failed or returned no data
-    if (!holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
+    // Only fetch holdings for ETFs
+    if (etf.assetType === 'ETF' && !holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
       try {
         console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
         await prisma.$transaction([
