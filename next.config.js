@@ -8,7 +8,7 @@ const nextConfig = {
             },
         ],
     },
-    serverExternalPackages: ['yahoo-finance2', 'crypto', 'node:crypto', 'prisma', '@prisma/client'],
+    serverExternalPackages: ['yahoo-finance2', 'prisma', '@prisma/client'],
 };
 
 export default nextConfig;

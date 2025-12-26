@@ -17,7 +17,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { savePortfolio } from '@/lib/storage';
 
 type ViewMode = 'LANDING' | 'APP';
-type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS' | 'CRYPTO';
+type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS';
 
 export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
@@ -133,15 +133,6 @@ export default function Home() {
                     onRemoveFromPortfolio={handleRemoveFromPortfolio}
                     portfolio={portfolio}
                     assetType="STOCK"
-                  />
-                )}
-                {activeTab === 'CRYPTO' && (
-                  <ComparisonEngine
-                    key="crypto"
-                    onAddToPortfolio={handleAddToPortfolio}
-                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                    portfolio={portfolio}
-                    assetType="CRYPTO"
                   />
                 )}
               </AnimatePresence>

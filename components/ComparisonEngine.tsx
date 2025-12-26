@@ -551,7 +551,6 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
       const firstOther = otherTypeEtfs[0];
       if (firstOther.assetType === 'STOCK') otherSection = 'Stocks';
       else if (firstOther.assetType === 'ETF') otherSection = 'ETFs';
-      else if (firstOther.assetType === 'CRYPTO') otherSection = 'Crypto';
 
       const sample = otherTypeEtfs[0].ticker;
       // Fixed phrasing: handle singular vs plural
@@ -622,7 +621,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           <div className="w-full md:w-auto">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Market Engine</h2>
             <p className="text-sm md:text-base text-neutral-400">
-              Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : (assetType === 'CRYPTO' ? 'Crypto Assets' : 'ETFs')}. Click to add to builder.
+              Real-time analysis of leading {assetType === 'STOCK' ? 'Stocks' : 'ETFs'}. Click to add to builder.
             </p>
           </div>
 

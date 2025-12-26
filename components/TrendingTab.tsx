@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe, Coins } from 'lucide-react';
+import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe } from 'lucide-react';
 import { ETF, PortfolioItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { ETFSchema } from '@/schemas/assetSchema';
@@ -23,11 +23,9 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     const [mag7Items, setMag7Items] = useState<ETF[]>([]);
     const [justBuyItems, setJustBuyItems] = useState<ETF[]>([]);
     const [naturalResourcesItems, setNaturalResourcesItems] = useState<ETF[]>([]);
-    const [cryptoItems, setCryptoItems] = useState<ETF[]>([]);
 
     // Separate loading states
     const [loadingStocks, setLoadingStocks] = useState(true);
-    const [loadingCrypto, setLoadingCrypto] = useState(true);
 
     const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
 
@@ -120,32 +118,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
             }
         };
 
-        // 2. Fetch Crypto (Independent)
-        const fetchCrypto = async () => {
-            setLoadingCrypto(true);
-            try {
-                const res = await fetch('/api/etfs/search?type=CRYPTO&includeHistory=true');
-                if (!res.ok) throw new Error('Failed to fetch crypto data');
-                const rawData = await res.json();
-
-                let data: ETF[] = [];
-                try {
-                    data = z.array(ETFSchema).parse(rawData);
-                } catch (e) {
-                    console.warn('API response validation failed for crypto items:', e);
-                    data = rawData as ETF[];
-                }
-
-                setCryptoItems(data);
-            } catch (error) {
-                console.error('Failed to fetch crypto data:', error);
-            } finally {
-                setLoadingCrypto(false);
-            }
-        };
-
         fetchStocks();
-        fetchCrypto();
     }, []);
 
     // Helper to render skeleton
@@ -163,28 +136,6 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
             <div className="mb-8">
                 <FearGreedGauge />
             </div>
-
-            {/* Crypto Section */}
-            {loadingCrypto ? (
-                <div className="mb-12">
-                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-white">
-                        <Coins className="w-6 h-6 text-rose-400" />
-                        Crypto
-                    </h2>
-                    {renderSkeleton(4)}
-                </div>
-            ) : (
-                <TrendingSection
-                    title="Crypto"
-                    items={cryptoItems}
-                    Icon={Coins}
-                    theme="rose"
-                    onAddToPortfolio={onAddToPortfolio}
-                    portfolio={portfolio}
-                    onRemoveFromPortfolio={onRemoveFromPortfolio}
-                    onSelectItem={setSelectedItem}
-                />
-            )}
 
             {/* Stock Sections */}
             {loadingStocks ? (
