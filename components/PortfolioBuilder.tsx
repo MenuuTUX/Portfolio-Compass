@@ -10,6 +10,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
 import { Decimal } from 'decimal.js';
 import WealthProjector from './WealthProjector';
+import OptimizationPanel from './OptimizationPanel';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -23,6 +24,7 @@ interface PortfolioBuilderProps {
 
 export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
+  const [isOptimizerActive, setIsOptimizerActive] = useState(true);
 
   // Calculate aggregate metrics using Decimal for precision (Layer 1)
   const { totalWeight, totalValue } = useMemo(() => {
@@ -143,6 +145,17 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
           <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
             <button
+              onClick={() => setIsOptimizerActive(!isOptimizerActive)}
+              className={cn(
+                "flex-1 md:flex-none justify-center px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer border",
+                isOptimizerActive
+                  ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                  : "bg-white/5 border-white/10 hover:bg-white/10 text-white"
+              )}
+            >
+              Optimization Mode
+            </button>
+            <button
               onClick={() => setViewMode('PROJECTION')}
               className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
@@ -242,65 +255,87 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
 
           {/* Visualization */}
-          <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit lg:h-full overflow-y-auto">
-            <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
-            <div className="w-full h-[300px] flex-shrink-0">
-              {pieData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0.5)" />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                      itemStyle={{ color: '#fff' }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
-                  Add holdings to see exposure
+          <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar pr-1">
+            {isOptimizerActive && portfolio.length > 0 ? (
+              <OptimizationPanel
+                portfolio={portfolio}
+                onApply={(newShares, newWeights) => {
+                  // 1. Update Shares
+                  Object.entries(newShares).forEach(([ticker, additionalShares]) => {
+                     const currentShares = portfolio.find(p => p.ticker === ticker)?.shares || 0;
+                     handleUpdateShares(ticker, currentShares + additionalShares);
+                  });
+
+                  // 2. Update Weights
+                  Object.entries(newWeights).forEach(([ticker, weight]) => {
+                    handleUpdateWeight(ticker, weight);
+                  });
+
+                  setIsOptimizerActive(false);
+                }}
+              />
+            ) : (
+              <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit">
+                <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
+                <div className="w-full h-[300px] flex-shrink-0">
+                  {pieData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {pieData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0.5)" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
+                          itemStyle={{ color: '#fff' }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
+                      Add holdings to see exposure
+                    </div>
+                  )}
+                  {pieData.length > 0 && (
+                    <table className="sr-only">
+                      <caption>Portfolio Sector Allocation</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Sector</th>
+                          <th scope="col">Allocation</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pieData.map((entry, index) => (
+                          <tr key={index}>
+                            <td>{entry.name}</td>
+                            <td>{entry.value.toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
-              )}
-              {pieData.length > 0 && (
-                <table className="sr-only">
-                  <caption>Portfolio Sector Allocation</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">Sector</th>
-                      <th scope="col">Allocation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                {pieData.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
                     {pieData.map((entry, index) => (
-                      <tr key={index}>
-                        <td>{entry.name}</td>
-                        <td>{entry.value.toFixed(1)}%</td>
-                      </tr>
+                      <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                        <span className="truncate">{entry.name}</span>
+                        <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            {pieData.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mt-4 overflow-y-auto">
-                {pieData.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-2 text-xs text-neutral-400">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                    <span className="truncate">{entry.name}</span>
-                    <span className="ml-auto text-white">{entry.value.toFixed(1)}%</span>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>

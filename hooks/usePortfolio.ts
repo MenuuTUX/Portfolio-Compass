@@ -17,10 +17,11 @@ export const usePortfolio = () => {
       }
 
       // Fetch details for each ticker individually as per requirements
+      // We request includeHoldings=true to support the Optimizer
       const results = await Promise.all(
         localItems.map(async (item) => {
           try {
-            const response = await fetch(`/api/etfs/search?query=${item.ticker}&includeHistory=true`);
+            const response = await fetch(`/api/etfs/search?query=${item.ticker}&includeHistory=true&includeHoldings=true`);
             if (!response.ok) return null;
             const etfs: ETF[] = await response.json();
             // Find exact match (case-insensitive)
