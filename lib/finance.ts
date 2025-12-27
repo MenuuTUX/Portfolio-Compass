@@ -6,6 +6,31 @@ export interface DividendHistoryItem {
   exDate?: string;
 }
 
+export interface AssetWithCompositeScore {
+  scores: {
+    composite: number;
+  };
+}
+
+/**
+ * Forecasts expected returns based on Benchmark Volatility Scaling.
+ * mu_i = alpha + (CompositeZScore_i * sigma_benchmark)
+ *
+ * @param assets - List of assets with composite scores.
+ * @param benchmarkVol - The volatility of the benchmark (sigma_benchmark).
+ * @param riskFreeRate - The base risk-free rate (alpha), defaults to 0.04.
+ * @returns Array of expected returns corresponding to the input assets.
+ */
+export function forecastExpectedReturns<T extends AssetWithCompositeScore>(
+  assets: T[],
+  benchmarkVol: number,
+  riskFreeRate: number = 0.04
+): number[] {
+  return assets.map(asset => {
+    return riskFreeRate + (asset.scores.composite * benchmarkVol);
+  });
+}
+
 export function calculateTTMYield(dividendHistory: DividendHistoryItem[], currentPrice: number | Decimal): Decimal {
   if (!dividendHistory || dividendHistory.length === 0) {
     return new Decimal(0);
