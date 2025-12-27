@@ -16,39 +16,39 @@ export const usePortfolio = () => {
         return [];
       }
 
-      // Fetch details for each ticker individually as per requirements
+      // Fetch details for all tickers in a single batch request to prevent connection exhaustion
       // We request includeHoldings=true to support the Optimizer
-      const results = await Promise.all(
-        localItems.map(async (item) => {
-          try {
-            const response = await fetch(`/api/etfs/search?query=${item.ticker}&includeHistory=true&includeHoldings=true`);
-            if (!response.ok) return null;
-            const etfs: ETF[] = await response.json();
-            // Find exact match (case-insensitive)
-            const etf = etfs.find(e => e.ticker.toUpperCase() === item.ticker.toUpperCase());
-            return etf || null;
-          } catch (e) {
-            console.error(`Failed to fetch details for ${item.ticker}`, e);
-            return null;
-          }
-        })
-      );
+      try {
+        const tickers = localItems.map(item => item.ticker).join(',');
+        const response = await fetch(`/api/etfs/search?tickers=${tickers}&includeHistory=true&includeHoldings=true`);
 
-      // Merge local config with server data
-      const portfolio: Portfolio = [];
-
-      localItems.forEach((localItem, index) => {
-        const etf = results[index];
-        if (etf) {
-           portfolio.push({
-             ...etf,
-             weight: localItem.weight,
-             shares: localItem.shares,
-           });
+        if (!response.ok) {
+           console.error('Failed to fetch portfolio data batch');
+           return [];
         }
-      });
 
-      return portfolio;
+        const etfs: ETF[] = await response.json();
+
+        // Merge local config with server data
+        const portfolio: Portfolio = [];
+
+        localItems.forEach((localItem) => {
+          // Find exact match (case-insensitive)
+          const etf = etfs.find(e => e.ticker.toUpperCase() === localItem.ticker.toUpperCase());
+          if (etf) {
+             portfolio.push({
+               ...etf,
+               weight: localItem.weight,
+               shares: localItem.shares,
+             });
+          }
+        });
+
+        return portfolio;
+      } catch (e) {
+        console.error(`Failed to fetch portfolio details`, e);
+        return [];
+      }
     },
     staleTime: 60000, // 1 minute
     refetchOnWindowFocus: false,
