@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
                 const liveData = await fetchMarketSnapshot(missingTickers);
 
                 // Use p-limit to restrict concurrent DB writes
-                const limit = pLimit(5); // Conservative limit for connection pool
+                const limit = pLimit(1); // Strict limit for connection pool safety
 
                 const upsertPromises = liveData.map((item) => limit(async () => {
                     try {
@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
 
         try {
             const liveData = await fetchMarketSnapshot(defaultTickers);
-            const limit = pLimit(5); // Limit concurrency
+            const limit = pLimit(1); // Strict limit for connection pool safety
 
             const seedPromises = liveData.map((item) => limit(async () => {
                 try {
@@ -243,7 +243,7 @@ export async function GET(request: NextRequest) {
              console.log(`[API] Found ${staleEtfs.length} stale ETFs for request. Syncing...`);
         }
 
-        const limit = pLimit(3); // Strict limit for heavy sync operations
+        const limit = pLimit(1); // Strict limit for heavy sync operations
 
         if (isFullHistoryRequested) {
            // If user specifically requested full details (Details Drawer), we must block and sync
@@ -303,7 +303,7 @@ export async function GET(request: NextRequest) {
     if (limitedTargets.length > 0 && !tickersParam) {
       console.log(`[API] Processing fallback strategy for missing targets: ${limitedTargets.join(', ')}`);
 
-      const limit = pLimit(3);
+      const limit = pLimit(1);
 
       {
         try {
