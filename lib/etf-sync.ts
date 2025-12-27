@@ -219,7 +219,8 @@ export async function syncEtfDetails(
 
     // Execute core updates in one transaction to acquire only 1 connection
     if (transactionOperations.length > 0) {
-        await prisma.$transaction(transactionOperations);
+        // Increase timeout to 60 seconds (default 5s) to handle large history updates and slower connections
+        await prisma.$transaction(transactionOperations, { timeout: 60000 });
     }
 
     // 7. Update Holdings
