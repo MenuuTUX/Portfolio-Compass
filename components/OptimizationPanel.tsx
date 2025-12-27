@@ -11,9 +11,10 @@ import { Decimal } from 'decimal.js';
 interface OptimizationPanelProps {
   portfolio: PortfolioItem[];
   onApply: (newShares: Record<string, number>, newWeights: Record<string, number>) => void;
+  onCalibrating?: (isCalibrating: boolean) => void;
 }
 
-export default function OptimizationPanel({ portfolio, onApply }: OptimizationPanelProps) {
+export default function OptimizationPanel({ portfolio, onApply, onCalibrating }: OptimizationPanelProps) {
   const [investmentAmount, setInvestmentAmount] = useState<number>(7000);
   const [result, setResult] = useState<SmartDistributionResult | null>(null);
   const [proposedShares, setProposedShares] = useState<Record<string, number>>({});
@@ -21,15 +22,22 @@ export default function OptimizationPanel({ portfolio, onApply }: OptimizationPa
 
   // Debounced calculation for initial recommendation
   useEffect(() => {
+    onCalibrating?.(true);
     const timer = setTimeout(() => {
       if (portfolio.length > 0) {
         const res = calculateSmartDistribution(portfolio, investmentAmount);
         setResult(res);
         setProposedShares(res.newShares);
       }
+      onCalibrating?.(false);
     }, 300); // 300ms debounce
     return () => clearTimeout(timer);
-  }, [investmentAmount, portfolio]);
+  }, [investmentAmount, portfolio, onCalibrating]);
+
+  // Ensure calibration state is reset on unmount
+  useEffect(() => {
+    return () => onCalibrating?.(false);
+  }, [onCalibrating]);
 
   const projectedMetrics = useMemo(() => {
     if (!result) return null;
