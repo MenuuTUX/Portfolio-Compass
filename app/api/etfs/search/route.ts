@@ -26,8 +26,11 @@ export async function GET(request: NextRequest) {
 
     let requestedTickers: string[] = [];
     if (tickersParam) {
-        requestedTickers = tickersParam.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+        // Parse comma-separated tickers and filter out empty strings
+        requestedTickers = tickersParam.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0);
+
         if (requestedTickers.length > 0) {
+            // Use 'in' operator to match any of the requested tickers
             whereClause.ticker = { in: requestedTickers, mode: 'insensitive' as const };
         }
     }
@@ -60,6 +63,7 @@ export async function GET(request: NextRequest) {
         takeLimit = parseInt(limitParam, 10);
     } else if (tickersParam) {
         // If specific tickers are requested, allow fetching all of them plus some buffer
+        // (Though technically we only need exactly requestedTickers.length)
         takeLimit = requestedTickers.length;
     }
 
@@ -80,7 +84,8 @@ export async function GET(request: NextRequest) {
         etfs = [];
     }
 
-    // Handle missing tickers if a specific list was requested
+    // Handle missing tickers if a specific list was requested via `tickers` param
+    // This supports the "batch fetch" usage in usePortfolio
     if (requestedTickers.length > 0) {
         const foundTickers = new Set(etfs.map((e: any) => e.ticker.toUpperCase()));
         const missingTickers = requestedTickers.filter(t => !foundTickers.has(t));
@@ -201,7 +206,13 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    if (query && etfs.length > 0 && etfs.length < 5) {
+    if ((query || tickersParam) && etfs.length > 0) {
+      // Staleness check logic
+      // Note: We relaxed the check to also include cases where we just fetched a batch via tickersParam
+      // But we must be careful not to sync storm.
+      // If tickersParam is present (portfolio view), we rely on the `fetchMarketSnapshot` above for basic price updates.
+      // We only do deep sync if explicitly requested (not common for list view) or if data is REALLY old/missing.
+
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
@@ -213,19 +224,24 @@ export async function GET(request: NextRequest) {
         if (!e.updatedAt) return true; // Handle fallback objects without updatedAt (though we added it)
         if (e.updatedAt < oneHourAgo) return true;
 
-        if (e.history && e.history.length > 0) {
-          const lastHistoryDate = e.history[e.history.length - 1].date;
-          if (new Date(lastHistoryDate) < twoDaysAgo) return true;
-        } else {
-          // No history implies stale if it's supposed to have it
-          return true;
+        if (includeHistory) {
+             if (e.history && e.history.length > 0) {
+                const lastHistoryDate = e.history[e.history.length - 1].date;
+                if (new Date(lastHistoryDate) < twoDaysAgo) return true;
+             } else {
+                 // No history implies stale if it's supposed to have it
+                 return true;
+             }
         }
 
         return false;
       });
 
       if (staleEtfs.length > 0) {
-        console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}".`);
+        // Only log significantly if it's a small number or a specific query
+        if (staleEtfs.length < 10) {
+             console.log(`[API] Found ${staleEtfs.length} stale ETFs for request. Syncing...`);
+        }
 
         const limit = pLimit(3); // Strict limit for heavy sync operations
 
@@ -250,7 +266,7 @@ export async function GET(request: NextRequest) {
            })));
         } else {
             // Fire-and-forget background sync for list views
-            console.log(`[API] Syncing in background (non-blocking)...`);
+            //console.log(`[API] Syncing in background (non-blocking)...`);
 
             // We don't await this Promise.all, but we still want to limit the concurrency
             // of the operations happening in the background to avoid swamping the pool
@@ -265,16 +281,26 @@ export async function GET(request: NextRequest) {
 
     // Fallback Strategy: Check for missing specific tickers
     const rawTargets = query ? query.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0) : [];
+    // Also include requested tickers from the new param
+    if (tickersParam) {
+        requestedTickers.forEach(t => rawTargets.push(t));
+    }
+
+    // De-duplicate targets
+    const uniqueTargets = Array.from(new Set(rawTargets));
     const loadedTickers = new Set(etfs.map((e: any) => e.ticker));
-    let targetsToFetch = rawTargets.filter(t => !loadedTickers.has(t));
+    let targetsToFetch = uniqueTargets.filter(t => !loadedTickers.has(t));
 
     if (etfs.length > 0) {
       targetsToFetch = targetsToFetch.filter(t => !t.includes(' ') && t.length <= 12);
     }
 
+    // Only fallback fetch a small number to prevent abuse, unless it's a specific portfolio request (tickersParam)
+    // If tickersParam is used, we already handled missing ones above via `fetchMarketSnapshot` + upsert.
+    // This block is mostly for the `query` param fallback.
     const limitedTargets = targetsToFetch.slice(0, 5);
 
-    if (limitedTargets.length > 0) {
+    if (limitedTargets.length > 0 && !tickersParam) {
       console.log(`[API] Processing fallback strategy for missing targets: ${limitedTargets.join(', ')}`);
 
       const limit = pLimit(3);

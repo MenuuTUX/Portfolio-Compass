@@ -76,6 +76,13 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
 }
 
 export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
+    // StockAnalysis mostly supports US tickers.
+    // If it's a Canadian ticker (e.g. .TO), it likely won't have holdings data on this site.
+    // We skip explicitly to avoid 404 noise.
+    if (ticker.includes('.')) {
+        return [];
+    }
+
     const url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/holdings/`;
     const response = await fetch(url, {
         headers: {
@@ -84,7 +91,12 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
     });
 
     if (!response.ok) {
-        console.error(`Failed to fetch holdings for ${ticker}: ${response.status}`);
+        if (response.status === 404) {
+            // It's common for some ETFs not to be on StockAnalysis, warn instead of error
+            console.warn(`[StockAnalysis] Holdings not found for ${ticker} (404).`);
+        } else {
+            console.error(`Failed to fetch holdings for ${ticker}: ${response.status}`);
+        }
         return [];
     }
 

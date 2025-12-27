@@ -170,9 +170,18 @@ export async function fetchEtfDetails(
 
   const fetchHistoryInterval = async (interval: '1h' | '1d' | '1wk' | '1mo', period1: Date) => {
     try {
+      // Safety check: ensure period1 is not in the future relative to period2 (now)
+      // This prevents "start date cannot be after end date" errors
+      const now = new Date();
+      if (period1 > now) {
+         // This can happen if 'fromDate' was tomorrow (e.g., last sync was just now)
+         // In this case, we have nothing new to fetch
+         return [];
+      }
+
       const res = await yf.chart(resolvedTicker, {
         period1,
-        period2: new Date(), // Force up to now
+        period2: now, // Force up to now
         interval,
       });
       if (res && res.quotes) {
@@ -185,8 +194,9 @@ export async function fetchEtfDetails(
           }));
       }
       return [];
-    } catch (e) {
-      console.warn(`Failed to fetch ${interval} history for ${resolvedTicker}`);
+    } catch (e: any) {
+      // Log warning but don't crash
+      console.warn(`Failed to fetch ${interval} history for ${resolvedTicker}: ${e.message}`);
       return [];
     }
   };
