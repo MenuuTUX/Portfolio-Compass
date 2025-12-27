@@ -1,6 +1,5 @@
-import { prisma } from '@/lib/db';
-import { getFearGreedIndex } from './scrapers/fear-greed';
-import Decimal from 'decimal.js';
+import prisma from '@/lib/db';
+import { fetchFearAndGreedIndex } from './scrapers/fear-greed';
 
 /**
  * Calculates the Exponential Moving Average (EMA).
@@ -28,7 +27,7 @@ export type SmoothedSentiment = {
  */
 export async function getSmoothedSentiment(): Promise<SmoothedSentiment> {
   // 1. Fetch live score
-  const liveData = await getFearGreedIndex();
+  const liveData = await fetchFearAndGreedIndex();
 
   if (!liveData) {
     throw new Error("Failed to fetch live Fear & Greed index");
@@ -107,23 +106,6 @@ export async function getSmoothedSentiment(): Promise<SmoothedSentiment> {
 
   // 5. Hysteresis Logic
   // "The signal should only change 'Regime' if the 10-Day EMA crosses a threshold and stays there for 3 consecutive days."
-  // Let's define thresholds.
-  // Extreme Fear: < 25
-  // Fear: 25-45
-  // Neutral: 45-55
-  // Greed: 55-75
-  // Extreme Greed: > 75
-
-  // Actually, the user requirement is generic: "crosses a threshold (e.g., < 40) and stays there for 3 consecutive days."
-  // This implies we need to determine the *current* regime based on the *smoothed* value,
-  // but only if it has been consistent.
-
-  // Let's look at the last 3 EMA values
-  const last3Emas = emaSeries.slice(-3);
-
-  // Simple interpretation: Is the EMA trend consistent?
-  // Or does the user mean the *rating* derived from EMA must be stable?
-  // "The signal should only change 'Regime' (e.g., from Neutral to Fear) if the 10-Day EMA crosses a threshold... and stays there"
 
   // Let's derive the rating from the current EMA
   const getRating = (score: number) => {
@@ -138,12 +120,17 @@ export async function getSmoothedSentiment(): Promise<SmoothedSentiment> {
 
   // Check stability: Do the last 3 EMAs all map to this same rating?
   let isStable = false;
+
+  // We need at least 3 points to check stability
+  const last3Emas = emaSeries.slice(-3);
+
   if (last3Emas.length >= 3) {
     const ratings = last3Emas.map(getRating);
+    // Stable if all 3 recent ratings are the same
     isStable = ratings.every(r => r === currentSmoothedRating);
   } else {
-    // Not enough history for stability check, assume unstable or default to current
-    isStable = true; // Fallback for start
+    // Not enough history for stability check, assume stable (as we can't disprove it) or just default
+    isStable = true;
   }
 
   // Determine trend
@@ -156,12 +143,7 @@ export async function getSmoothedSentiment(): Promise<SmoothedSentiment> {
 
   return {
     score: Number(currentEma.toFixed(2)),
-    rating: isStable ? currentSmoothedRating : "Unstable (" + currentSmoothedRating + ")", // Or however we want to represent it
-    // Actually user wants a stable signal. If it's not stable (hasn't held for 3 days),
-    // maybe we should return the *previous* regime?
-    // For now, I'll return the smoothed rating but flag stability.
-    // A strict implementation would require storing the "last confirmed regime".
-    // Let's keep it simple: Return the EMA score and the derived rating.
+    rating: isStable ? currentSmoothedRating : `Unstable (${currentSmoothedRating})`,
     trend,
     history: chronologicalHistory.map(h => ({ date: h.date, score: h.score })),
     isSignalStable: isStable
