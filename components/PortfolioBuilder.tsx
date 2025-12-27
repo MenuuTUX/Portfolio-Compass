@@ -24,7 +24,7 @@ interface PortfolioBuilderProps {
 
 export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
-  const [isOptimizerActive, setIsOptimizerActive] = useState(false);
+  const [isOptimizerActive, setIsOptimizerActive] = useState(true);
 
   // Calculate aggregate metrics using Decimal for precision (Layer 1)
   const { totalWeight, totalValue } = useMemo(() => {
