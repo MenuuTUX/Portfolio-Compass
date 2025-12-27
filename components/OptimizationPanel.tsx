@@ -10,7 +10,7 @@ import { Decimal } from 'decimal.js';
 
 interface OptimizationPanelProps {
   portfolio: PortfolioItem[];
-  onApply: (newShares: Record<string, number>) => void;
+  onApply: (newShares: Record<string, number>, newWeights: Record<string, number>) => void;
 }
 
 export default function OptimizationPanel({ portfolio, onApply }: OptimizationPanelProps) {
@@ -33,7 +33,7 @@ export default function OptimizationPanel({ portfolio, onApply }: OptimizationPa
     setIsApplying(true);
     // Simulate a small delay for "Processing" feel
     setTimeout(() => {
-      onApply(result.newShares);
+      onApply(result.newShares, result.newWeights);
       setIsApplying(false);
       // Reset input or keep it? Keeping it allows iterative adding.
     }, 500);

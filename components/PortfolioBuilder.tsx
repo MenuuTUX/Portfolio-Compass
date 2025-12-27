@@ -259,11 +259,18 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             {isOptimizerActive && portfolio.length > 0 ? (
               <OptimizationPanel
                 portfolio={portfolio}
-                onApply={(newShares) => {
+                onApply={(newShares, newWeights) => {
+                  // 1. Update Shares
                   Object.entries(newShares).forEach(([ticker, additionalShares]) => {
                      const currentShares = portfolio.find(p => p.ticker === ticker)?.shares || 0;
                      handleUpdateShares(ticker, currentShares + additionalShares);
                   });
+
+                  // 2. Update Weights
+                  Object.entries(newWeights).forEach(([ticker, weight]) => {
+                    handleUpdateWeight(ticker, weight);
+                  });
+
                   setIsOptimizerActive(false);
                 }}
               />
