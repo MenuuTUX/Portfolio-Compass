@@ -76,7 +76,7 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
           </div>
           <div className="flex items-center gap-2 md:hidden">
              <span className="text-xs text-neutral-400 w-12">Weight</span>
-             <span className="text-xs text-white">{item.weight}%</span>
+             <span className="text-xs text-white">{item.weight?.toFixed(2)}%</span>
           </div>
         </div>
       </td>
@@ -85,7 +85,7 @@ const PortfolioItemRow = memo(({ item, virtualRow, measureElement, onRemove, onU
         <div className="w-32">
           <label htmlFor={`weight-range-${item.ticker}`} className="flex justify-between text-xs text-neutral-400 mb-1 w-full">
             <span>Weight</span>
-            <span>{item.weight}%</span>
+            <span>{item.weight?.toFixed(2)}%</span>
           </label>
           <input
             id={`weight-range-${item.ticker}`}

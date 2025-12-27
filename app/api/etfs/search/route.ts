@@ -4,6 +4,7 @@ import prisma from '@/lib/db'
 import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 import { Decimal } from 'decimal.js'
+import pLimit from 'p-limit'
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
   // Default to false for performance, client must explicitly request history if needed
   // If full history is requested, we force includeHistory to true
   const includeHistory = searchParams.get('includeHistory') === 'true' || isFullHistoryRequested
+  const includeHoldings = searchParams.get('includeHoldings') === 'true' || isFullHistoryRequested;
 
   try {
     const whereClause: any = {};
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     if (includeHistory) {
       includeObj.history = { orderBy: { date: 'asc' } };
     }
-    if (isFullHistoryRequested) {
+    if (includeHoldings) {
       includeObj.holdings = { orderBy: { weight: 'desc' } };
     }
 
@@ -88,8 +90,10 @@ export async function GET(request: NextRequest) {
             try {
                 const liveData = await fetchMarketSnapshot(missingTickers);
 
-                // Create missing ETFs in DB
-                const upsertPromises = liveData.map(async (item) => {
+                // Use p-limit to restrict concurrent DB writes
+                const limit = pLimit(5); // Conservative limit for connection pool
+
+                const upsertPromises = liveData.map((item) => limit(async () => {
                     try {
                         return await prisma.etf.upsert({
                             where: { ticker: item.ticker },
@@ -130,7 +134,7 @@ export async function GET(request: NextRequest) {
                              updatedAt: new Date()
                          };
                     }
-                });
+                }));
 
                 const results = await Promise.all(upsertPromises);
                 etfs.push(...(results as any[]));
@@ -145,12 +149,13 @@ export async function GET(request: NextRequest) {
     if (etfs.length === 0 && !query && !tickersParam && skip === 0) {
         let defaultTickers = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 
-        console.log(`[API] Empty DB detected for general search (${assetType || 'General'}). Seeding default tickers in parallel...`);
+        console.log(`[API] Empty DB detected for general search (${assetType || 'General'}). Seeding default tickers...`);
 
         try {
             const liveData = await fetchMarketSnapshot(defaultTickers);
-            // Execute upserts in parallel to minimize latency during seeding
-            const seedPromises = liveData.map(async (item) => {
+            const limit = pLimit(5); // Limit concurrency
+
+            const seedPromises = liveData.map((item) => limit(async () => {
                 try {
                      return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
@@ -187,7 +192,7 @@ export async function GET(request: NextRequest) {
                          updatedAt: new Date()
                      };
                 }
-            });
+            }));
 
             const seededEtfs = await Promise.all(seedPromises);
             etfs.push(...(seededEtfs as any[]));
@@ -222,11 +227,13 @@ export async function GET(request: NextRequest) {
       if (staleEtfs.length > 0) {
         console.log(`[API] Found ${staleEtfs.length} stale ETFs for query "${query}".`);
 
+        const limit = pLimit(3); // Strict limit for heavy sync operations
+
         if (isFullHistoryRequested) {
            // If user specifically requested full details (Details Drawer), we must block and sync
            console.log(`[API] Full details requested for stale/incomplete items. Performing blocking sync...`);
 
-           await Promise.all(staleEtfs.map(async (staleEtf: any) => {
+           await Promise.all(staleEtfs.map((staleEtf: any) => limit(async () => {
              try {
                 // Perform full sync (no interval restrictions)
                 const synced = await syncEtfDetails(staleEtf.ticker);
@@ -240,29 +247,27 @@ export async function GET(request: NextRequest) {
              } catch (err) {
                  console.error(`[API] Blocking sync failed for ${staleEtf.ticker}:`, err);
              }
-           }));
+           })));
         } else {
             // Fire-and-forget background sync for list views
             console.log(`[API] Syncing in background (non-blocking)...`);
-            Promise.all(staleEtfs.map((staleEtf: any) =>
+
+            // We don't await this Promise.all, but we still want to limit the concurrency
+            // of the operations happening in the background to avoid swamping the pool
+            Promise.all(staleEtfs.map((staleEtf: any) => limit(() =>
                 syncEtfDetails(staleEtf.ticker, ['1d']).catch(err =>
                     console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
                 )
-            ));
+            )));
         }
       }
     }
 
     // Fallback Strategy: Check for missing specific tickers
-    // This handles cases where:
-    // 1. DB is empty for the query (etfs.length === 0)
-    // 2. OR DB has results but the exact requested ticker is missing (e.g. searched "MEME", got "MEMES")
     const rawTargets = query ? query.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0) : [];
     const loadedTickers = new Set(etfs.map((e: any) => e.ticker));
     let targetsToFetch = rawTargets.filter(t => !loadedTickers.has(t));
 
-    // Refine: If we have results, only fetch missing targets if they look like tickers
-    // This prevents fetching "APPLE INC" when searching "Apple Inc" returns "AAPL" (assuming "APPLE INC" is not a valid ticker)
     if (etfs.length > 0) {
       targetsToFetch = targetsToFetch.filter(t => !t.includes(' ') && t.length <= 12);
     }
@@ -271,6 +276,8 @@ export async function GET(request: NextRequest) {
 
     if (limitedTargets.length > 0) {
       console.log(`[API] Processing fallback strategy for missing targets: ${limitedTargets.join(', ')}`);
+
+      const limit = pLimit(3);
 
       {
         try {
@@ -299,7 +306,7 @@ export async function GET(request: NextRequest) {
           if (missingTargets.length > 0) {
             console.log(`[API] Attempting deep sync for missing: ${missingTargets.join(', ')}`);
 
-            await Promise.all(missingTargets.map(async (ticker) => {
+            await Promise.all(missingTargets.map((ticker) => limit(async () => {
               try {
                 const synced = await syncEtfDetails(ticker);
                 if (synced) {
@@ -308,7 +315,7 @@ export async function GET(request: NextRequest) {
               } catch (err) {
                 console.error(`[API] Sync failed for ${ticker}`, err);
               }
-            }));
+            })));
 
             // Re-check what is still missing after sync attempts
             const foundAfterSync = new Set(etfs.map((e: any) => e.ticker));
@@ -318,7 +325,8 @@ export async function GET(request: NextRequest) {
               console.log(`[API] Deep sync failed for ${stillMissing.join(', ')}. Falling back to snapshot...`);
               try {
                 const liveData = await fetchMarketSnapshot(stillMissing);
-                const snapshotPromises = liveData.map(async (item) => {
+
+                const snapshotPromises = liveData.map((item) => limit(async () => {
                   try {
                       return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
@@ -355,7 +363,7 @@ export async function GET(request: NextRequest) {
                          updatedAt: new Date()
                      };
                   }
-                });
+                }));
 
                 const snapshotEtfs = await Promise.all(snapshotPromises);
                 etfs.push(...(snapshotEtfs as any[]));
@@ -372,22 +380,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Format & Return Local Data with Number conversion
-    // We let TS infer the type from map, or explicit annotation.
     const formattedEtfs = etfs.map((etf: any) => {
       let history = etf.history ? etf.history.map((h: any) => ({
-        date: h.date instanceof Date ? h.date.toISOString() : h.date, // Handle non-Date mocks/fallbacks if any
+        date: h.date instanceof Date ? h.date.toISOString() : h.date,
         price: Number(h.close),
         interval: (h.interval === 'daily' || !h.interval) ? undefined : h.interval
       })) : [];
 
-      // Downsampling Logic: If not requesting full history and we have a lot of points,
-      // reduce to ~30 points for performance (Sparklines)
       if (!isFullHistoryRequested && history.length > 50) {
         const step = Math.ceil(history.length / 30);
         history = history.filter((_: any, index: number) => index % step === 0 || index === history.length - 1);
       }
 
-      // Handle Decimal conversion safely for potential fallback objects or DB objects
       const safeDecimal = (val: any) => {
           if (Decimal.isDecimal(val)) return val.toNumber();
           if (typeof val === 'string') return parseFloat(val);

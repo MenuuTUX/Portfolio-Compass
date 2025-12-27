@@ -283,7 +283,7 @@ export default function OptimizationPanel({ portfolio, onApply }: OptimizationPa
                    <div className="space-y-1">
                        <div className="flex justify-between text-[10px] text-neutral-500 uppercase tracking-wider">
                            <span>Weight</span>
-                           <span className="text-white">{newWeight.toFixed(1)}%</span>
+                           <span className="text-white">{newWeight.toFixed(2)}%</span>
                        </div>
                        <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
                            <motion.div
