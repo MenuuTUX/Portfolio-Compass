@@ -11,6 +11,7 @@ import PortfolioItemRow from './PortfolioItemRow';
 import { Decimal } from 'decimal.js';
 import WealthProjector from './WealthProjector';
 import OptimizationPanel from './OptimizationPanel';
+import AlgorithmExplainer from './AlgorithmExplainer';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -132,12 +133,12 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   }
 
   return (
-    <section className="py-12 md:py-24 px-4 h-[calc(100dvh-64px)] flex flex-col">
+    <section className="py-12 md:py-24 px-4 min-h-screen flex flex-col">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-7xl mx-auto w-full flex flex-col h-full"
+        className="max-w-7xl mx-auto w-full flex flex-col"
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 flex-shrink-0">
           <div>
@@ -171,7 +172,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 h-[75vh] min-h-[600px]">
           {/* Holdings List */}
           <div className={cn("lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300", isCalibrating && "blur-sm opacity-50 pointer-events-none")}>
             {portfolio.length > 0 && (
@@ -343,6 +344,8 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             )}
           </div>
         </div>
+
+        <AlgorithmExplainer />
       </motion.div>
     </section>
   );
