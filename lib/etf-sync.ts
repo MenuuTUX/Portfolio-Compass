@@ -132,96 +132,88 @@ export async function syncEtfDetails(
 
     console.log(`[EtfSync] Upserted base record for ${etf.ticker}`);
 
-    // Sequential child relation updates to reduce DB connection pressure
-    // Refactored to use a single large transaction block where possible to avoid connection thrashing
-    // But due to logic complexity, we keep them somewhat separate but ensure they are awaited properly
+    // Sequential child relation updates using Interactive Transaction
+    // This allows us to use 'timeout' which is not supported in sequential array operations
+    await prisma.$transaction(async (tx) => {
+        // 4. Update Sectors
+        if (Object.keys(details.sectors).length > 0) {
+            await tx.etfSector.deleteMany({ where: { etfId: etf.ticker } });
+            await tx.etfSector.createMany({
+                data: Object.entries(details.sectors).map(([sector, weight]) => ({
+                    etfId: etf.ticker,
+                    sector_name: sector,
+                    weight: weight // Decimal
+                }))
+            });
+        }
 
-    const transactionOperations: any[] = [];
-
-    // 4. Update Sectors
-    if (Object.keys(details.sectors).length > 0) {
-        transactionOperations.push(prisma.etfSector.deleteMany({ where: { etfId: etf.ticker } }));
-        transactionOperations.push(prisma.etfSector.createMany({
-            data: Object.entries(details.sectors).map(([sector, weight]) => ({
-                etfId: etf.ticker,
-                sector_name: sector,
-                weight: weight // Decimal
-            }))
-        }));
-    }
-
-    // 5. Update Allocation
-    // Allocation is tricky because it's an Upsert semantically, but we can just use Upsert operation in transaction
-    transactionOperations.push(
-        prisma.etfAllocation.upsert({
+        // 5. Update Allocation
+        await tx.etfAllocation.upsert({
             where: { etfId: etf.ticker },
             update: { stocks_weight, bonds_weight, cash_weight },
             create: { etfId: etf.ticker, stocks_weight, bonds_weight, cash_weight }
-        })
-    );
+        });
 
-    // 6. Update History
-    if (details.history && details.history.length > 0) {
-      // Identify which intervals we have in the new data
-      const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
-      const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
+        // 6. Update History
+        if (details.history && details.history.length > 0) {
+            // Identify which intervals we have in the new data
+            const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
+            const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
 
-      // Determine which non-daily intervals were fetched and need replacement
-      // We only replace intervals that were actually returned by the fetch
-      const intervalsToReplace = Array.from(fetchedIntervals).filter(i => i !== '1d');
+            // Determine which non-daily intervals were fetched and need replacement
+            // We only replace intervals that were actually returned by the fetch
+            const intervalsToReplace = Array.from(fetchedIntervals).filter(i => i !== '1d');
 
-      if (intervalsToReplace.length > 0) {
-          // Delete only the intervals we are about to replace
-          transactionOperations.push(prisma.etfHistory.deleteMany({
-            where: {
-                etfId: etf.ticker,
-                interval: { in: intervalsToReplace }
+            if (intervalsToReplace.length > 0) {
+                // Delete only the intervals we are about to replace
+                await tx.etfHistory.deleteMany({
+                    where: {
+                        etfId: etf.ticker,
+                        interval: { in: intervalsToReplace }
+                    }
+                });
+
+                const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
+
+                if (otherHistory.length > 0) {
+                    await tx.etfHistory.createMany({
+                        data: otherHistory.map((h: any) => ({
+                            etfId: etf.ticker,
+                            date: new Date(h.date),
+                            close: h.close,
+                            interval: h.interval
+                        }))
+                    });
+                }
             }
-          }));
 
-          const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
+            // Append daily history (skip duplicates)
+            if (dailyHistory.length > 0) {
+                // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
+                const dates = dailyHistory.map((h: any) => new Date(h.date));
+                await tx.etfHistory.deleteMany({
+                    where: {
+                        etfId: etf.ticker,
+                        interval: '1d',
+                        date: { in: dates }
+                    }
+                });
 
-          if (otherHistory.length > 0) {
-              transactionOperations.push(prisma.etfHistory.createMany({
-                data: otherHistory.map((h: any) => ({
-                    etfId: etf.ticker,
-                    date: new Date(h.date),
-                    close: h.close,
-                    interval: h.interval
-                }))
-              }));
-          }
-      }
-
-      // Append daily history (skip duplicates)
-      if (dailyHistory.length > 0) {
-          // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
-          const dates = dailyHistory.map((h: any) => new Date(h.date));
-          transactionOperations.push(prisma.etfHistory.deleteMany({
-              where: {
-                  etfId: etf.ticker,
-                  interval: '1d',
-                  date: { in: dates }
-              }
-          }));
-
-          transactionOperations.push(prisma.etfHistory.createMany({
-            data: dailyHistory.map((h: any) => ({
-                etfId: etf.ticker,
-                date: new Date(h.date),
-                close: h.close,
-                interval: '1d'
-            })),
-            skipDuplicates: true
-          }));
-      }
-    }
-
-    // Execute core updates in one transaction to acquire only 1 connection
-    if (transactionOperations.length > 0) {
-        // Increase timeout to 60 seconds (default 5s) to handle large history updates and slower connections
-        await prisma.$transaction(transactionOperations, { timeout: 60000 });
-    }
+                await tx.etfHistory.createMany({
+                    data: dailyHistory.map((h: any) => ({
+                        etfId: etf.ticker,
+                        date: new Date(h.date),
+                        close: h.close,
+                        interval: '1d'
+                    })),
+                    skipDuplicates: true
+                });
+            }
+        }
+    }, {
+        timeout: 60000, // 60 seconds
+        maxWait: 10000
+    });
 
     // 7. Update Holdings
     let holdingsSynced = false;
