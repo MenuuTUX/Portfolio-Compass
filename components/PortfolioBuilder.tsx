@@ -25,6 +25,7 @@ interface PortfolioBuilderProps {
 export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
   const [isOptimizerActive, setIsOptimizerActive] = useState(true);
+  const [isCalibrating, setIsCalibrating] = useState(false);
 
   // Calculate aggregate metrics using Decimal for precision (Layer 1)
   const { totalWeight, totalValue } = useMemo(() => {
@@ -172,7 +173,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 overflow-hidden">
           {/* Holdings List */}
-          <div className="lg:col-span-2 flex flex-col h-full min-h-0">
+          <div className={cn("lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300", isCalibrating && "blur-sm opacity-50 pointer-events-none")}>
             {portfolio.length > 0 && (
               <div className="flex flex-col gap-2 mb-4 flex-shrink-0">
                 <div className="p-4 rounded-lg border border-white/10 bg-white/5 flex justify-between items-center">
@@ -259,6 +260,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             {isOptimizerActive && portfolio.length > 0 ? (
               <OptimizationPanel
                 portfolio={portfolio}
+                onCalibrating={setIsCalibrating}
                 onApply={(newShares, newWeights) => {
                   // 1. Update Shares
                   Object.entries(newShares).forEach(([ticker, additionalShares]) => {
@@ -297,6 +299,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                         <Tooltip
                           contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
                           itemStyle={{ color: '#fff' }}
+                          formatter={(value: number) => `${value.toFixed(2)}%`}
                         />
                       </PieChart>
                     </ResponsiveContainer>
