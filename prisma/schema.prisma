@@ -32,6 +32,7 @@ model Etf {
   revenue          Decimal?
   netIncome        Decimal?
   dividend         Decimal?
+  dividendGrowth5Y Decimal?
   exDividendDate   String?
   volume           Decimal?
   open             Decimal?

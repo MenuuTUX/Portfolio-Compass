@@ -24,8 +24,10 @@ export interface AssetWithCompositeScore {
 export function forecastExpectedReturn(
   zScore: number,
   benchmarkVol: number = 0.15,
-  riskFreeRate: number = 0.04
+  riskFreeRate: number = 0.04 // 4% Risk Free Rate
 ): number {
+  // Formula: mu = R_free + (zScore * sigma_benchmark)
+  // This ensures a stock with Z=1.0 gets the same expected return as the benchmark.
   return riskFreeRate + (zScore * benchmarkVol);
 }
 

@@ -1,70 +1,83 @@
 import { describe, it, expect } from 'bun:test';
 import { calculateCompositeScores } from '../../../lib/quant-scoring';
-import { ETF } from '@/types';
+import { EtfDetails } from '../../../lib/market-service';
+import { Decimal } from 'decimal.js';
 
 describe('calculateCompositeScores', () => {
   it('should calculate scores for a list of assets', () => {
     // Mock assets
-    const assets: Partial<ETF>[] = [
-      { ticker: 'A', peRatio: 10, dividendYield: 0.02, beta: 1.0, metrics: { yield: 0.02, mer: 0 }, allocation: { equities: 0, bonds: 0, cash: 0 } },
-      { ticker: 'B', peRatio: 20, dividendYield: 0.01, beta: 1.5, metrics: { yield: 0.01, mer: 0 }, allocation: { equities: 0, bonds: 0, cash: 0 } }
+    const assets: Partial<EtfDetails>[] = [
+      {
+          ticker: 'A',
+          peRatio: new Decimal(10),
+          dividendYield: new Decimal(2), // 2%
+          dividendGrowth5Y: new Decimal(5), // 5%
+          beta5Y: new Decimal(1.0),
+          metrics: {}, allocation: {}, sectors: {}, history: []
+      } as any,
+      {
+          ticker: 'B',
+          peRatio: new Decimal(20),
+          dividendYield: new Decimal(1),
+          dividendGrowth5Y: new Decimal(1),
+          beta5Y: new Decimal(1.5),
+          metrics: {}, allocation: {}, sectors: {}, history: []
+      } as any
     ];
 
     // Force cast for testing partials
-    const scores = calculateCompositeScores(assets as ETF[]);
+    const scores = calculateCompositeScores(assets as EtfDetails[]);
 
-    expect(scores.size).toBe(2);
-    expect(scores.has('A')).toBe(true);
-    expect(scores.has('B')).toBe(true);
+    expect(scores.length).toBe(2);
 
-    // A: V=1/10=0.1, Q=0.02, L=1/1=1
-    // B: V=1/20=0.05, Q=0.01, L=1/1.5=0.66
-    // A is better in all metrics, so Z-scores should be higher (or positive vs negative)
+    const scoreA = scores.find(s => s.ticker === 'A')?.scores.composite;
+    const scoreB = scores.find(s => s.ticker === 'B')?.scores.composite;
 
-    expect(scores.get('A')).toBeGreaterThan(scores.get('B')!);
+    expect(scoreA).toBeDefined();
+    expect(scoreB).toBeDefined();
+
+    // A: V=1/10=0.1, Q=2+5=7, L=1/1=1
+    // B: V=1/20=0.05, Q=1+1=2, L=1/1.5=0.66
+    // A is better in all metrics, so Z-scores should be higher
+    expect(scoreA!).toBeGreaterThan(scoreB!);
   });
 
   it('should handle missing data gracefully', () => {
-    const assets: Partial<ETF>[] = [
-      { ticker: 'A', metrics: { mer: 0, yield: 0 }, allocation: { equities: 0, bonds: 0, cash: 0 } } // Missing PE, Beta, etc.
+    const assets: Partial<EtfDetails>[] = [
+      { ticker: 'A', sectors: {}, history: [] } as any // Missing PE, Beta, etc.
     ];
 
-    const scores = calculateCompositeScores(assets as ETF[]);
-    expect(scores.has('A')).toBe(true);
-    // Should not crash
+    const scores = calculateCompositeScores(assets as EtfDetails[]);
+    expect(scores.length).toBe(1);
+    expect(scores[0].scores.composite).toBe(0); // Z-score of single item is usually 0 or NaN depending on impl, my impl uses std=1 if len=1, so (val-mean)/1 = 0.
   });
 
-  it('should calculate Dividend Growth correctly (implicit check)', () => {
-     // Asset with growing dividends
-     const assets: Partial<ETF>[] = [
+  it('should use Dividend Growth 5Y in Quality Score', () => {
+     // Asset with high growth vs low growth
+     const assets: Partial<EtfDetails>[] = [
        {
          ticker: 'GROW',
-         peRatio: 10,
-         dividendYield: 0.02,
-         beta: 1.0,
-         dividendHistory: [
-             { date: '2020-01-01', amount: 1.0 },
-             { date: '2024-01-01', amount: 1.5 } // Growth
-         ],
-         metrics: { yield: 0.02, mer: 0 },
-         allocation: { equities: 0, bonds: 0, cash: 0 }
-       },
+         dividendYield: new Decimal(2),
+         dividendGrowth5Y: new Decimal(10), // High Growth
+         peRatio: new Decimal(10),
+         beta5Y: new Decimal(1),
+         sectors: {}, history: []
+       } as any,
        {
          ticker: 'FLAT',
-         peRatio: 10,
-         dividendYield: 0.02,
-         beta: 1.0,
-         dividendHistory: [
-             { date: '2020-01-01', amount: 1.0 },
-             { date: '2024-01-01', amount: 1.0 } // No growth
-         ],
-         metrics: { yield: 0.02, mer: 0 },
-         allocation: { equities: 0, bonds: 0, cash: 0 }
-       }
+         dividendYield: new Decimal(2),
+         dividendGrowth5Y: new Decimal(0), // No Growth
+         peRatio: new Decimal(10),
+         beta5Y: new Decimal(1),
+         sectors: {}, history: []
+       } as any
      ];
 
-     const scores = calculateCompositeScores(assets as ETF[]);
+     const scores = calculateCompositeScores(assets as EtfDetails[]);
+     const scoreGrow = scores.find(s => s.ticker === 'GROW')!.scores.composite;
+     const scoreFlat = scores.find(s => s.ticker === 'FLAT')!.scores.composite;
+
      // GROW should have higher quality score than FLAT, thus higher composite (other factors equal)
-     expect(scores.get('GROW')).toBeGreaterThan(scores.get('FLAT')!);
+     expect(scoreGrow).toBeGreaterThan(scoreFlat);
   });
 });
