@@ -23,13 +23,18 @@ export interface GreedyOptimizationResult {
 
 /**
  * Implements a Greedy Marginal Utility optimization algorithm for discrete portfolio construction.
- * Objective: Maximize U(w) = w^T*mu - lambda * w^T * Sigma * w
+ * Objective: Maximize U(w) = mu_port - lambda * sigma^2_port
  * Constraint: Discrete shares.
  *
  * Algorithm Steps:
- * 1. Calculate Marginal Utility: MU_i = mu_i - 2*lambda*(Sigma*w)_i
- * 2. Look-Ahead: Simulate buying $100 worth. Select asset maximizing Sharpe Ratio of resulting portfolio.
- * 3. Subtract cost from budget, update portfolio weights.
+ * 1. Iterative Marginal Utility:
+ *    - While budget > 0:
+ *      - Identify affordable assets.
+ *      - Look-Ahead: Simulate buying $100 block (or remaining budget) of each candidate.
+ *      - Calculate the Utility increase (Delta U) for each candidate.
+ *      - Select the asset with the highest Delta U.
+ *      - Buy whole shares.
+ *      - Subtract cost from budget.
  */
 export function optimizePortfolioGreedy(params: GreedyOptimizationParams): GreedyOptimizationResult {
   const { candidates, covarianceMatrix, lambda, budget, initialShares = {} } = params;
@@ -51,7 +56,7 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
   const currentShares = new Float64Array(numAssets);
   const addedShares = new Float64Array(numAssets);
 
-  // Calculate Initial Value for Target Wealth Normalization
+  // Load initial shares
   let initialValue = 0;
   for(let i=0; i<numAssets; i++) {
       const s = initialShares[candidates[i].ticker] || 0;
@@ -59,60 +64,33 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
       initialValue += s * candidates[i].price;
   }
 
-  // Weights will be calculated relative to (Initial + Budget)
-  // This ensures MU is calculated relative to the *Goal Portfolio Size*.
-  const targetWealth = initialValue + budget;
-
   let remainingBudgetDec = new Decimal(budget);
   const LOOK_AHEAD_VALUE = 100; // Batch size in dollars
 
   // Helper to calculate Utility for a given share configuration
+  // U = mu_p - lambda * sigma_p^2
+  // We use weights relative to the *Current Total Value* of the portfolio being evaluated.
   const calculateUtility = (shares: Float64Array): number => {
       const w = new Float64Array(numAssets);
-      let term1 = 0;
       let totalCurrentValue = 0;
 
-      // Compute weights based on current portfolio value?
-      // Or based on targetWealth?
-      // To compare Utilities, we should normalize consistently.
-      // Usually U is defined on weights summing to 1.
-      // So we calculate actual weights of the portfolio represented by `shares`.
-
       for(let i=0; i<numAssets; i++) totalCurrentValue += shares[i] * candidates[i].price;
+
+      // If portfolio is empty, utility is 0 (or undefined, but 0 is safe start)
       if (totalCurrentValue === 0) return 0;
 
+      // Calculate weights
       for (let i = 0; i < numAssets; i++) {
           w[i] = (shares[i] * candidates[i].price) / totalCurrentValue;
-          term1 += w[i] * candidates[i].expectedReturn;
       }
 
-      let term2 = 0;
-      for (let i = 0; i < numAssets; i++) {
-          let rowSum = 0;
-          for (let j = 0; j < numAssets; j++) {
-              rowSum += covarianceMatrix[i][j] * w[j];
-          }
-          term2 += w[i] * rowSum;
-      }
-      return term1 - lambda * term2;
-  };
-
-  // Helper to calculate Sharpe Ratio for a given share configuration
-  // Sharpe = (mu_p - rf) / sigma_p
-  // Assuming Rf = 0.04 as per standard.
-  const calculateSharpe = (shares: Float64Array): number => {
-      const w = new Float64Array(numAssets);
+      // Calculate Expected Return (mu_p)
       let mu_p = 0;
-      let totalVal = 0;
-      for(let i=0; i<numAssets; i++) totalVal += shares[i] * candidates[i].price;
-
-      if (totalVal === 0) return 0;
-
       for (let i = 0; i < numAssets; i++) {
-          w[i] = (shares[i] * candidates[i].price) / totalVal;
           mu_p += w[i] * candidates[i].expectedReturn;
       }
 
+      // Calculate Variance (sigma_p^2)
       let var_p = 0;
       for (let i = 0; i < numAssets; i++) {
           let rowSum = 0;
@@ -122,17 +100,19 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
           var_p += w[i] * rowSum;
       }
 
-      const sigma_p = Math.sqrt(var_p);
-      if (sigma_p === 0) return 0; // Avoid div by zero
-
-      return (mu_p - 0.04) / sigma_p;
+      // Utility = Return - Risk Penalty
+      return mu_p - (lambda * var_p);
   };
+
+  // Base Utility (Current State)
+  let currentUtility = calculateUtility(currentShares);
 
   // Greedy Loop
   while (true) {
       const budgetNum = remainingBudgetDec.toNumber();
-      let minAffordablePrice = Infinity;
 
+      // Find minimum affordable price to see if we can buy anything
+      let minAffordablePrice = Infinity;
       for(let i=0; i<numAssets; i++) {
           if (candidates[i].price < minAffordablePrice) {
               minAffordablePrice = candidates[i].price;
@@ -144,15 +124,20 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
       }
 
       let bestIdx = -1;
-      let bestSimulatedMetric = -Infinity; // Sharpe Ratio
+      let bestUtility = -Infinity;
 
+      // Current total shares state
       const currentTotalShares = new Float64Array(numAssets);
       for(let i=0; i<numAssets; i++) currentTotalShares[i] = currentShares[i] + addedShares[i];
 
+      const currentStepUtility = calculateUtility(currentTotalShares);
+
+      // Iterate over candidates to find the best buy
       for(let i=0; i<numAssets; i++) {
           if (candidates[i].price > budgetNum) continue;
 
           // Determine Step Size for this asset
+          // Buy roughly $100 worth, but at least 1 share
           let sharesToBuy = Math.max(1, Math.round(LOOK_AHEAD_VALUE / candidates[i].price));
           const maxAffordable = Math.floor(budgetNum / candidates[i].price);
           sharesToBuy = Math.min(sharesToBuy, maxAffordable);
@@ -163,15 +148,16 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
           const tempShares = new Float64Array(currentTotalShares);
           tempShares[i] += sharesToBuy;
 
-          const simulatedMetric = calculateSharpe(tempShares);
+          const simulatedUtility = calculateUtility(tempShares);
 
-          // We want to maximize the resulting Sharpe
-          if (simulatedMetric > bestSimulatedMetric) {
-              bestSimulatedMetric = simulatedMetric;
+          // Maximize Utility
+          if (simulatedUtility > bestUtility) {
+              bestUtility = simulatedUtility;
               bestIdx = i;
           }
       }
 
+      // If no improvement or no valid candidate found
       if (bestIdx === -1) {
           break;
       }
@@ -180,9 +166,14 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
       const sharesToBuy = Math.max(1, Math.round(LOOK_AHEAD_VALUE / candidates[bestIdx].price));
       const finalShares = Math.min(sharesToBuy, Math.floor(budgetNum / candidates[bestIdx].price));
 
+      if (finalShares === 0) break; // Should not happen given logic above
+
       addedShares[bestIdx] += finalShares;
       const cost = new Decimal(finalShares).times(candidates[bestIdx].price);
       remainingBudgetDec = remainingBudgetDec.minus(cost);
+
+      // Update utility for next iteration? Not strictly needed as we recalc per step, but good for tracking
+      currentUtility = bestUtility;
   }
 
   // Construct Result
@@ -206,13 +197,13 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
       finalWeightsResult[candidates[i].ticker] = (finalSharesResult[candidates[i].ticker] * candidates[i].price) / baseValue;
   }
 
-  const utility = calculateUtility(finalTotalShares);
+  const finalUtility = calculateUtility(finalTotalShares);
 
   return {
       shares: finalSharesResult,
       addedShares: addedSharesResult,
       weights: finalWeightsResult,
-      utility,
+      utility: finalUtility,
       remainingBudget: remainingBudgetDec.toNumber()
   };
 }

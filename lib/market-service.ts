@@ -32,6 +32,7 @@ export interface EtfDetails {
   assetType: 'STOCK' | 'ETF';
   expenseRatio?: Decimal;
   dividendYield?: Decimal;
+  dividendGrowth5Y?: Decimal;
   beta5Y?: Decimal;
   peRatio?: Decimal;
   forwardPe?: Decimal;
@@ -292,6 +293,12 @@ export async function fetchEtfDetails(
       }
   }
 
+  // Dividend Growth 5Y
+  let dividendGrowth5Y: Decimal | undefined;
+  if (stockProfile?.dividendGrowth5Y !== undefined) {
+      dividendGrowth5Y = new Decimal(stockProfile.dividendGrowth5Y);
+  }
+
   // Expense Ratio
   let expenseRatio: Decimal | undefined;
   if (stockProfile?.expenseRatio !== undefined) {
@@ -384,6 +391,7 @@ export async function fetchEtfDetails(
     assetType,
     expenseRatio,
     dividendYield,
+    dividendGrowth5Y,
     beta5Y,
     peRatio,
     forwardPe,

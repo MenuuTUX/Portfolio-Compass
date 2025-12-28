@@ -17,7 +17,7 @@ describe('optimizePortfolioGreedy', () => {
     expect(Object.keys(result.shares).length).toBe(0);
   });
 
-  it('should allocate budget to best asset (Greedy/Sharpe logic)', () => {
+  it('should allocate budget to best asset (Greedy Utility logic)', () => {
     // A: High Return, Low Risk (Best)
     // B: Low Return, High Risk
     const params: GreedyOptimizationParams = {
@@ -58,17 +58,11 @@ describe('optimizePortfolioGreedy', () => {
     expect(result.remainingBudget).toBeGreaterThanOrEqual(40);
   });
 
-  it('should maximize Sharpe Ratio (look-ahead check)', () => {
-    // Scenario:
-    // A: Return 10%, Vol 10% (Sharpe ~0.6 assuming Rf=0.04)
-    // B: Return 20%, Vol 30% (Sharpe ~0.53)
-    // C: Return 8%, Vol 5% (Sharpe ~0.8)
-    // The optimizer should prefer C first.
-    // Note: optimization loop maximizes Sharpe of *resulting* portfolio.
-
-    // Covariance matrix (uncorrelated for simplicity)
-    // A (idx 0), B (idx 1), C (idx 2)
-    // Vars: 0.01, 0.09, 0.0025
+  it('should maximize Utility (Risk Neutral / Low Lambda)', () => {
+    // Scenario: Low Risk Aversion (Lambda = 0.5)
+    // A: Return 10%, Var 0.01. U = 0.10 - 0.5*0.01 = 0.095
+    // B: Return 20%, Var 0.09. U = 0.20 - 0.5*0.09 = 0.155 (Winner)
+    // C: Return 8%, Var 0.0025. U = 0.08 - 0.5*0.0025 = 0.07875
 
     const params: GreedyOptimizationParams = {
       candidates: [
@@ -81,13 +75,41 @@ describe('optimizePortfolioGreedy', () => {
         [0, 0.09, 0],
         [0, 0, 0.0025]
       ],
-      lambda: 1,
-      budget: 100 // Buy 10 shares
+      lambda: 0.5,
+      budget: 100
     };
 
     const result = optimizePortfolioGreedy(params);
 
-    // C should be favored because it has the highest Sharpe (0.08-0.04)/0.05 = 0.8 vs A: 0.6 vs B: 0.53
+    // B should be favored
+    expect(result.shares['B']).toBeGreaterThan(result.shares['A'] || 0);
+    expect(result.shares['B']).toBeGreaterThan(result.shares['C'] || 0);
+  });
+
+  it('should maximize Utility (High Risk Aversion / High Lambda)', () => {
+    // Scenario: High Risk Aversion (Lambda = 10)
+    // A: Return 10%, Var 0.01. U = 0.10 - 10*0.01 = 0.00
+    // B: Return 20%, Var 0.09. U = 0.20 - 10*0.09 = -0.70
+    // C: Return 8%, Var 0.0025. U = 0.08 - 10*0.0025 = 0.055 (Winner)
+
+    const params: GreedyOptimizationParams = {
+      candidates: [
+        { ticker: 'A', price: 10, expectedReturn: 0.10 },
+        { ticker: 'B', price: 10, expectedReturn: 0.20 },
+        { ticker: 'C', price: 10, expectedReturn: 0.08 }
+      ],
+      covarianceMatrix: [
+        [0.01, 0, 0],
+        [0, 0.09, 0],
+        [0, 0, 0.0025]
+      ],
+      lambda: 10,
+      budget: 100
+    };
+
+    const result = optimizePortfolioGreedy(params);
+
+    // C should be favored (Low Volatility)
     expect(result.shares['C']).toBeGreaterThan(result.shares['A'] || 0);
     expect(result.shares['C']).toBeGreaterThan(result.shares['B'] || 0);
   });
