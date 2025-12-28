@@ -81,6 +81,7 @@ export async function syncEtfDetails(
         revenue: details.revenue || null,
         netIncome: details.netIncome || null,
         dividend: details.dividend || null,
+        dividendGrowth5Y: details.dividendGrowth5Y || null,
         exDividendDate: details.exDividendDate || null,
         volume: details.volume || null,
         open: details.open || null,

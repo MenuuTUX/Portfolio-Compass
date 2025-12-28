@@ -19,6 +19,7 @@ export interface StockProfile {
   forwardPe?: number;
   dividend?: number;
   dividendYield?: number;
+  dividendGrowth5Y?: number;
   exDividendDate?: string;
 
   volume?: number;
@@ -468,6 +469,12 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   if (rawDivYield) {
       const y = parseFloat(rawDivYield.replace('%', '').trim());
       if (!isNaN(y)) metrics.dividendYield = y;
+  }
+
+  const rawDivGrowth = extractValue('Dividend Growth (5Y)') || extractValue('5-Year Dividend Growth');
+  if (rawDivGrowth) {
+      const y = parseFloat(rawDivGrowth.replace('%', '').trim());
+      if (!isNaN(y)) metrics.dividendGrowth5Y = y;
   }
 
   const rawExDiv = extractValue('Ex-Dividend Date');
