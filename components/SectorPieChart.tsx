@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SectorPieChartProps {
@@ -148,20 +148,6 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
               />
             ))}
           </Pie>
-          <Tooltip
-             contentStyle={{
-                 backgroundColor: 'rgba(23, 23, 23, 0.9)', // neutral-900
-                 backdropFilter: 'blur(8px)',
-                 border: '1px solid rgba(255,255,255,0.1)',
-                 borderRadius: '8px',
-                 padding: '8px 12px',
-                 boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-             }}
-             itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 500 }}
-             formatter={(value: any) => [`${Number(value).toFixed(2)}%`, '']}
-             separator=""
-             labelStyle={{ display: 'none' }}
-           />
         </PieChart>
       </ResponsiveContainer>
 

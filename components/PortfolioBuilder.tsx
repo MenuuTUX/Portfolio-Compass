@@ -57,7 +57,15 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
      return portfolio.reduce((acc: { [key: string]: number }, item) => {
       if (item.sectors) {
         Object.entries(item.sectors).forEach(([sector, amount]) => {
-          acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
+          // Normalize sector name: Title Case and remove underscores
+          const normalizedSector = sector
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+          acc[normalizedSector] = (acc[normalizedSector] || 0) + (amount * (item.weight / 100));
         });
       }
       return acc;
