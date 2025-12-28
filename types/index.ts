@@ -48,6 +48,7 @@ export interface ETF {
   dividendYield?: number;
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
+  dividendGrowth5Y?: number;
 }
 
 export interface PortfolioItem extends ETF {
