@@ -12,6 +12,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useAddStock } from '@/hooks/useAddStock';
 import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
+import { useBatchUpdatePortfolio, BatchUpdateItem } from '@/hooks/useBatchUpdatePortfolio';
 import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePortfolio } from '@/lib/storage';
@@ -30,6 +31,7 @@ export default function Home() {
   const addStockMutation = useAddStock();
   const removeStockMutation = useRemoveStock();
   const updatePortfolioItemMutation = useUpdatePortfolioItem();
+  const batchUpdatePortfolioMutation = useBatchUpdatePortfolio();
   const queryClient = useQueryClient();
 
   const handleStart = () => {
@@ -50,6 +52,10 @@ export default function Home() {
 
   const handleUpdateShares = (ticker: string, shares: number) => {
     updatePortfolioItemMutation.mutate({ ticker, shares });
+  };
+
+  const handleBatchUpdate = (updates: BatchUpdateItem[]) => {
+    batchUpdatePortfolioMutation.mutate(updates);
   };
 
   const handleClearPortfolio = () => {
@@ -114,6 +120,7 @@ export default function Home() {
                     onRemove={handleRemoveFromPortfolio}
                     onUpdateWeight={handleUpdateWeight}
                     onUpdateShares={handleUpdateShares}
+                    onBatchUpdate={handleBatchUpdate}
                     onClear={handleClearPortfolio}
                   />
                 )}
