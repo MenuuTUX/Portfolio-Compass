@@ -14,20 +14,27 @@ mock.module('recharts', () => {
         Pie: ({ children, data }: { children: React.ReactNode, data: any[] }) => <div data-testid="pie-component">{children}</div>,
         Cell: () => <div data-testid="pie-cell" />,
         Tooltip: () => <div data-testid="tooltip" />,
-        Treemap: ({ data }: { data: any[] }) => (
-            <div data-testid="treemap">
-                {data.map((d: any, i: number) => (
-                    <div key={i} data-testid="treemap-node">{d.name}</div>
-                ))}
+        BarChart: ({ children, data }: { children: React.ReactNode, data: any[] }) => (
+            <div data-testid="bar-chart">
+                 {/* Render logic to verify data passing */}
+                 {data.map((d: any, i: number) => (
+                    <div key={i} data-testid="bar-chart-item">{d.name}: {d.weight}</div>
+                 ))}
+                 {children}
             </div>
         ),
+        Bar: () => <div data-testid="bar" />,
+        XAxis: () => <div data-testid="x-axis" />,
+        YAxis: () => <div data-testid="y-axis" />,
+        CartesianGrid: () => <div data-testid="grid" />,
+        ReferenceLine: () => <div data-testid="ref-line" />,
         Sector: () => <div data-testid="sector" />
     };
 });
 
 // Import components after mocks
 import SectorPieChart from '../../../components/SectorPieChart';
-import PortfolioTreemap from '../../../components/PortfolioTreemap';
+import PortfolioBarChart from '../../../components/PortfolioBarChart';
 
 describe('Visualization Components', () => {
 
@@ -59,7 +66,7 @@ describe('Visualization Components', () => {
         });
     });
 
-    describe('PortfolioTreemap', () => {
+    describe('PortfolioBarChart', () => {
         it('renders with portfolio items', () => {
             const portfolio = [
                 {
@@ -74,7 +81,7 @@ describe('Visualization Components', () => {
                 },
                 {
                     ticker: 'GOOGL',
-                    weight: 50,
+                    weight: 40,
                     price: 2800,
                     shares: 5,
                     changePercent: -0.5,
@@ -84,17 +91,21 @@ describe('Visualization Components', () => {
                 }
             ];
 
-            render(<PortfolioTreemap portfolio={portfolio} />);
+            render(<PortfolioBarChart portfolio={portfolio} />);
 
-            // Due to our mock, the Treemap renders a wrapper with nodes
-            // But verify the container is there
-            expect(screen.getByText('Portfolio Weight Allocation')).toBeTruthy();
-            expect(screen.getByTestId('treemap')).toBeTruthy();
-            expect(screen.getByText('Portfolio')).toBeTruthy();
+            expect(screen.getByText('Portfolio Allocation (Equity vs Cash)')).toBeTruthy();
+            expect(screen.getByTestId('bar-chart')).toBeTruthy();
+
+            // Verify items
+            expect(screen.getByText('AAPL: 50')).toBeTruthy();
+            expect(screen.getByText('GOOGL: 40')).toBeTruthy();
+
+            // Check for Cash Buffer (100 - 90 = 10)
+            expect(screen.getByText('Cash Buffer: 10')).toBeTruthy();
         });
 
         it('renders empty state', () => {
-             render(<PortfolioTreemap portfolio={[]} />);
+             render(<PortfolioBarChart portfolio={[]} />);
              expect(screen.getByText('No assets in portfolio')).toBeTruthy();
         });
     });
