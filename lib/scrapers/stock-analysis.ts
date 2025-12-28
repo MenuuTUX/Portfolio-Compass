@@ -33,6 +33,14 @@ export interface StockProfile {
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
   expenseRatio?: number;
+
+  // New ETF Metrics
+  inceptionDate?: string;
+  payoutFrequency?: string;
+  payoutRatio?: number;
+  holdingsCount?: number;
+  bondMaturity?: number;
+  bondDuration?: number;
 }
 
 export interface ScrapedHolding {
@@ -514,6 +522,24 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   if (rawExp) {
       const n = parseFloat(rawExp.replace('%', '').trim());
       if (!isNaN(n)) metrics.expenseRatio = n;
+  }
+
+  const rawInception = extractValue('Inception Date');
+  if (rawInception) metrics.inceptionDate = rawInception;
+
+  const rawPayoutFreq = extractValue('Payout Frequency');
+  if (rawPayoutFreq) metrics.payoutFrequency = rawPayoutFreq;
+
+  const rawPayoutRatio = extractValue('Payout Ratio');
+  if (rawPayoutRatio) {
+      const n = parseFloat(rawPayoutRatio.replace('%', '').trim());
+      if (!isNaN(n)) metrics.payoutRatio = n;
+  }
+
+  const rawHoldings = extractValue('Holdings');
+  if (rawHoldings) {
+      const n = parseInt(rawHoldings.replace(/,/g, ''), 10);
+      if (!isNaN(n)) metrics.holdingsCount = n;
   }
 
   // Parse ranges into Low/High if available

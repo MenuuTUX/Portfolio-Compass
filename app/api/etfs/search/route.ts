@@ -458,6 +458,14 @@ export async function GET(request: NextRequest) {
         fiftyTwoWeekHigh: etf.fiftyTwoWeekHigh ? safeDecimal(etf.fiftyTwoWeekHigh) : undefined,
         fiftyTwoWeekLow: etf.fiftyTwoWeekLow ? safeDecimal(etf.fiftyTwoWeekLow) : undefined,
 
+        // New ETF Metrics
+        inceptionDate: etf.inceptionDate || undefined,
+        payoutFrequency: etf.payoutFrequency || undefined,
+        payoutRatio: etf.payoutRatio ? safeDecimal(etf.payoutRatio) : undefined,
+        holdingsCount: etf.holdingsCount || undefined,
+        bondMaturity: etf.bondMaturity ? safeDecimal(etf.bondMaturity) : undefined,
+        bondDuration: etf.bondDuration ? safeDecimal(etf.bondDuration) : undefined,
+
         allocation: {
           equities: etf.allocation?.stocks_weight ? safeDecimal(etf.allocation.stocks_weight) : 0,
           bonds: etf.allocation?.bonds_weight ? safeDecimal(etf.allocation.bonds_weight) : 0,

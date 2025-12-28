@@ -774,32 +774,49 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                             </div>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                            <div className="text-xs text-neutral-400 mb-1">MER</div>
-                            <div className="text-xl font-bold text-white">
-                              {displayEtf.metrics?.mer ? displayEtf.metrics.mer.toFixed(2) : 'N/A'}%
+                        <div className="space-y-8">
+                            {/* Overview Section */}
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Overview</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MetricCard label="Assets" value={formatLargeNumber(displayEtf.marketCap)} />
+                                    <MetricCard label="Expense Ratio" value={displayEtf.metrics?.mer ? `${displayEtf.metrics.mer.toFixed(2)}%` : 'n/a'} />
+                                    <MetricCard label="PE Ratio" value={formatNumber(displayEtf.peRatio)} />
+                                    <MetricCard label="Shares Out" value={formatLargeNumber(displayEtf.sharesOutstanding)} />
+                                    <MetricCard label="Volume" value={displayEtf.volume ? (displayEtf.volume > 1e6 ? (displayEtf.volume/1e6).toFixed(1) + 'M' : displayEtf.volume.toLocaleString()) : 'n/a'} />
+                                    <MetricCard label="Holdings" value={displayEtf.holdingsCount ? displayEtf.holdingsCount.toLocaleString() : (displayEtf.holdings ? displayEtf.holdings.length.toLocaleString() : 'n/a')} />
+                                    <MetricCard label="Inception Date" value={displayEtf.inceptionDate || 'n/a'} />
+                                    <MetricCard label="Beta" value={formatNumber(displayEtf.beta)} />
+                                </div>
                             </div>
-                          </div>
-                          <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                            <div className="text-xs text-neutral-400 mb-1">Yield (TTM)</div>
-                            <div className="text-xl font-bold text-emerald-400">
-                              {displayEtf.dividendHistory && displayEtf.dividendHistory.length > 0
-                                ? calculateTTMYield(displayEtf.dividendHistory, displayEtf.price).toFixed(2)
-                                : (displayEtf.metrics?.yield ? displayEtf.metrics.yield.toFixed(2) : 'N/A')}%
+
+                            {/* Dividends */}
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Dividends</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MetricCard
+                                        label="Dividend Yield"
+                                        value={displayEtf.metrics?.yield ? `${displayEtf.metrics.yield.toFixed(2)}%` : 'n/a'}
+                                        highlight={!!displayEtf.metrics?.yield}
+                                    />
+                                    <MetricCard label="Dividend (ttm)" value={displayEtf.dividend ? formatCurrency(displayEtf.dividend) : 'n/a'} />
+                                    <MetricCard label="Ex-Dividend Date" value={displayEtf.exDividendDate || 'n/a'} />
+                                    <MetricCard label="Payout Frequency" value={displayEtf.payoutFrequency || 'n/a'} />
+                                    <MetricCard label="Payout Ratio" value={displayEtf.payoutRatio ? `${displayEtf.payoutRatio.toFixed(2)}%` : 'n/a'} />
+                                </div>
                             </div>
-                          </div>
-                          <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/5">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <div className="text-xs text-neutral-400 mb-1">Volatility ({timeRange})</div>
-                                <div className={cn("text-xl font-bold", riskData?.color)}>{riskData ? (riskData.stdDev! * 100).toFixed(2) : 'N/A'}%</div>
-                              </div>
-                              {riskData && (
-                                <AlertTriangle className={cn("w-8 h-8 opacity-50", riskData.color)} />
-                              )}
+
+                            {/* Trading / Price */}
+                            <div className="space-y-3">
+                                <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">Trading</h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MetricCard label="Open" value={formatNumber(displayEtf.open)} />
+                                    <MetricCard label="Previous Close" value={formatNumber(displayEtf.previousClose)} />
+                                    <MetricCard label="Day's Range" value={displayEtf.daysRange || 'n/a'} />
+                                    <MetricCard label="52-Week Low" value={formatNumber(displayEtf.fiftyTwoWeekLow)} />
+                                    <MetricCard label="52-Week High" value={formatNumber(displayEtf.fiftyTwoWeekHigh)} />
+                                </div>
                             </div>
-                          </div>
                         </div>
                     )}
                   </div>

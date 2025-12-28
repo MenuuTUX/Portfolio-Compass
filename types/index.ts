@@ -49,6 +49,14 @@ export interface ETF {
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
   dividendGrowth5Y?: number;
+
+  // New ETF Specific Metrics
+  inceptionDate?: string;
+  payoutFrequency?: string;
+  payoutRatio?: number;
+  holdingsCount?: number;
+  bondMaturity?: number;
+  bondDuration?: number;
 }
 
 export interface PortfolioItem extends ETF {
