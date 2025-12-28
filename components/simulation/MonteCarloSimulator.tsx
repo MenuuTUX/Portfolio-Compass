@@ -34,6 +34,7 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [richPortfolio, setRichPortfolio] = useState<Portfolio>(portfolio);
+  const [analyticSharpe, setAnalyticSharpe] = useState<number>(0);
 
   // Animation Ref
   const animationFrameRef = useRef<number>(0);
@@ -185,6 +186,27 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
     const currentPrices = validItems.map(item => item.price);
     const totalWeight = validItems.reduce((sum, item) => sum + item.weight, 0);
     const weights = validItems.map(item => item.weight / (totalWeight || 1));
+
+    // Calculate Analytic Sharpe Ratio
+    // Exp Daily Return = sum(w * mu)
+    let expDailyRet = 0;
+    for(let i=0; i<weights.length; i++) expDailyRet += weights[i] * meanReturns[i];
+
+    // Exp Daily Variance = w^T * Cov * w
+    // Variance = sum_i sum_j w_i * w_j * cov[i][j]
+    let expDailyVar = 0;
+    for(let i=0; i<weights.length; i++) {
+        for(let j=0; j<weights.length; j++) {
+            expDailyVar += weights[i] * weights[j] * covMatrix[i][j];
+        }
+    }
+
+    const annRet = expDailyRet * 252;
+    const annVol = Math.sqrt(expDailyVar) * Math.sqrt(252);
+    const riskFree = 0.04;
+
+    setAnalyticSharpe(annVol > 0 ? (annRet - riskFree) / annVol : 0);
+
     const numDays = timeHorizonYears * 252;
 
     const paths = generateMonteCarloPaths(
@@ -268,44 +290,6 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
       };
   }, [simulationComplete, initialInvestment]);
 
-  // Calculate Sharpe Ratio (Simplified)
-  const sharpeRatio = useMemo(() => {
-     if (!riskMetrics || !portfolio.length) return 0;
-     // Annualized Return of the Median path
-     const totalReturn = (riskMetrics.medianOutcome - initialInvestment) / initialInvestment;
-     const annualReturn = Math.pow(1 + totalReturn, 1 / timeHorizonYears) - 1;
-
-     // Annualized Volatility (approx from worst case deviation)
-     // 95% VaR corresponds to ~1.65 sigma.
-     // (Mean - Worst5) / 1.65 approx equals Sigma * sqrt(T)? No.
-     // Let's use standard deviation of the final returns across simulations
-     if (!allPathsRef.current.length) return 0;
-     const finalValues = allPathsRef.current.map(p => p[p.length - 1]);
-     const mean = finalValues.reduce((a,b) => a+b, 0) / finalValues.length;
-     const variance = finalValues.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / finalValues.length;
-     const stdDev = Math.sqrt(variance);
-
-     // Volatility of the portfolio value?
-     // Annualized Volatility approx = (StdDev / Mean) / sqrt(T)?
-     // Let's stick to standard definition: E[Rp - Rf] / Sigma_p
-     const rf = 0.04; // 4% Risk Free
-     // Sigma_p is the annualized standard deviation of returns.
-     // We have 10-year cumulative distribution.
-     // This is tricky to back out from final values only.
-     // Simplification: Sharpe = (AnnualReturn - Rf) / (ImpliedVolatility)
-     // Implied Volatility ~ (ln(P95) - ln(P05)) / (2 * 1.65 * sqrt(T)) ?
-
-     // Let's just use the median annual return vs "Risk" (Probability of Loss) or just omitted if too complex?
-     // User asked for Sharpe.
-     // I will use a placeholder calculation based on the daily returns of the simulations.
-     // Actually I have meanReturns and Covariance from setup.
-     // Expected Portfolio Return = weights * meanReturns.
-     // Expected Portfolio Volatility = sqrt(w' * Cov * w).
-     // Sharpe = (ExpRet * 252 - 0.04) / (ExpVol * sqrt(252))
-     // I can calculate this in prepareSimulation and store it.
-
-     return 0; // Placeholder
-  }, [riskMetrics]);
 
   return (
     <div className="h-full flex flex-col space-y-6">
@@ -428,7 +412,11 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
                            <XAxis dataKey="day" stroke="#555" tickFormatter={(d) => `Y${Math.floor(d/252)}`} />
                            <YAxis stroke="#555" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                           <Tooltip contentStyle={{ backgroundColor: '#000', borderColor: '#333' }} formatter={(val: number) => formatCurrency(val)} labelFormatter={(d) => `Year ${(d/252).toFixed(1)}`} />
+                           <Tooltip
+                              contentStyle={{ backgroundColor: '#000', borderColor: '#333' }}
+                              formatter={(val: any) => formatCurrency(Number(val))}
+                              labelFormatter={(d) => `Year ${(d/252).toFixed(1)}`}
+                           />
                            <Area type="monotone" dataKey="p95" stroke="none" fill="url(#coneGradient)" fillOpacity={1} />
                        </AreaChart>
                    </ResponsiveContainer>
@@ -466,7 +454,10 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                        <div className="text-xs text-neutral-400">Est. Value at Risk</div>
                        <div className="text-xl font-bold text-yellow-400">{formatCurrency(riskMetrics.vaR > 0 ? riskMetrics.vaR : 0)}</div>
                    </div>
-                   {/* Sharpe Ratio could be added here if calculated */}
+                   <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-white/5">
+                       <div className="text-xs text-neutral-400">Sharpe Ratio</div>
+                       <div className="text-xl font-bold text-blue-400">{analyticSharpe.toFixed(2)}</div>
+                   </div>
                </motion.div>
            )}
        </AnimatePresence>
