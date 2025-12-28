@@ -8,7 +8,8 @@ export interface GreedyOptimizationParams {
     expectedReturn: number;
   }[];
   covarianceMatrix: number[][];
-  lambda: number;
+  lambda?: number;
+  riskProfile?: 'conservative' | 'balanced' | 'growth';
   budget: number;
   initialShares?: Record<string, number>;
 }
@@ -37,7 +38,16 @@ export interface GreedyOptimizationResult {
  *      - Subtract cost from budget.
  */
 export function optimizePortfolioGreedy(params: GreedyOptimizationParams): GreedyOptimizationResult {
-  const { candidates, covarianceMatrix, lambda, budget, initialShares = {} } = params;
+  const { candidates, covarianceMatrix, lambda: paramLambda, riskProfile, budget, initialShares = {} } = params;
+
+  let lambda = paramLambda ?? 1.0;
+  if (riskProfile) {
+      switch (riskProfile) {
+          case 'conservative': lambda = 10.0; break;
+          case 'balanced': lambda = 5.0; break;
+          case 'growth': lambda = 1.0; break;
+      }
+  }
 
   const numAssets = candidates.length;
   // If no assets or no budget, just return current state
