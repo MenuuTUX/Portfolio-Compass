@@ -22,12 +22,15 @@ interface RiskState {
   latestScore: number;
 }
 
+type StrategyMode = 'Conservative' | 'Balanced' | 'Growth';
+
 export default function OptimizationPanel({ portfolio, onApply, onCalibrating }: OptimizationPanelProps) {
   const [investmentAmount, setInvestmentAmount] = useState<number>(7000);
   const [result, setResult] = useState<GreedyOptimizationResult | null>(null);
   const [proposedShares, setProposedShares] = useState<Record<string, number>>({});
   const [isApplying, setIsApplying] = useState(false);
   const [riskState, setRiskState] = useState<RiskState | null>(null);
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>('Balanced');
 
   // Fetch Risk State
   useEffect(() => {
@@ -50,8 +53,13 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
     onCalibrating?.(true);
     const timer = setTimeout(() => {
       if (portfolio.length > 0) {
-        // Use dynamic lambda if available, else default to 1.0
-        const currentLambda = riskState?.lambda || 1.0;
+        // Calculate current portfolio value to determine remaining budget
+        let currentPortfolioValue = 0;
+        portfolio.forEach(p => {
+          currentPortfolioValue += (p.price || 0) * (p.shares || 0);
+        });
+
+        const effectiveBudget = Math.max(0, investmentAmount - currentPortfolioValue);
 
         const candidates = portfolio.map(p => ({
             ticker: p.ticker,
@@ -70,8 +78,8 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
         const res = optimizePortfolioGreedy({
             candidates,
             covarianceMatrix,
-            lambda: currentLambda,
-            budget: investmentAmount,
+            riskProfile: strategyMode.toLowerCase() as any,
+            budget: effectiveBudget,
             initialShares: Object.fromEntries(portfolio.map(p => [p.ticker, p.shares || 0]))
         });
 
@@ -81,7 +89,7 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       onCalibrating?.(false);
     }, 300); // 300ms debounce
     return () => clearTimeout(timer);
-  }, [investmentAmount, portfolio, onCalibrating, riskState]);
+  }, [investmentAmount, portfolio, onCalibrating, riskState, strategyMode]);
 
   // Ensure calibration state is reset on unmount
   useEffect(() => {
@@ -127,20 +135,46 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       const currentAdded = proposedShares[ticker] || 0;
       const nextVal = currentAdded + delta;
 
-      if (nextVal < 0) return;
-
       const item = portfolio.find(p => p.ticker === ticker);
       if (!item) return;
 
+      // Allow selling up to the current holding amount
+      // currentAdded is the 'delta'. if it is -5, it means we are selling 5 shares.
+      // We cannot sell more than item.shares.
+      // So currentAdded + delta cannot be less than -item.shares
+      const minVal = -(item.shares || 0);
+
+      if (nextVal < minVal) return;
+
       const costDelta = new Decimal(item.price || 0).times(delta);
+
+      // projectedMetrics.usedBudget is strictly the cost of *added* (delta) shares.
+      // If delta is negative, this reduces the used budget.
       const newUsedBudget = projectedMetrics.usedBudget.plus(costDelta);
+
+      // Calculate current holdings value (Initial state)
+      let currentHoldingsValue = new Decimal(0);
+      portfolio.forEach(p => {
+          currentHoldingsValue = currentHoldingsValue.plus(new Decimal(p.price || 0).times(p.shares || 0));
+      });
+
+      // Total proposed value = Initial Holdings + Cost of Changes
+      const totalProposedValue = currentHoldingsValue.plus(newUsedBudget);
       const budgetLimit = new Decimal(investmentAmount);
 
       const nextShares = { ...proposedShares };
       nextShares[ticker] = nextVal;
 
-      if (delta > 0 && newUsedBudget.greaterThan(budgetLimit)) {
-          let remainingDeficit = newUsedBudget.minus(budgetLimit);
+      if (delta > 0 && totalProposedValue.greaterThan(budgetLimit)) {
+          let remainingDeficit = totalProposedValue.minus(budgetLimit);
+
+          // Auto-reduce "added" shares first to stay within budget
+          // We filter for items where we have added shares (delta > 0)
+          // Extending this to "sell" initial shares automatically is complex, so we stick to reducing additions.
+          // BUT, we should probably allow reducing *any* share that has value > 0?
+          // For now, keep existing logic: reduce from items that have positive delta.
+          // If the user wants to buy more, they must manually sell something else (create negative delta).
+
           const otherTickers = Object.keys(nextShares).filter(t => t !== ticker && nextShares[t] > 0);
 
           for (const other of otherTickers) {
@@ -150,17 +184,17 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
               if (!otherItem) continue;
 
               const otherPrice = new Decimal(otherItem.price || 0);
-              const availableShares = nextShares[other];
+              const availableAddedShares = nextShares[other]; // Only reduce the 'added' portion automatically
 
               const sharesToRemove = Math.ceil(remainingDeficit.div(otherPrice).toNumber());
-              const actualRemove = Math.min(availableShares, sharesToRemove);
+              const actualRemove = Math.min(availableAddedShares, sharesToRemove);
 
               nextShares[other] -= actualRemove;
               remainingDeficit = remainingDeficit.minus(otherPrice.times(actualRemove));
           }
 
           if (remainingDeficit.greaterThan(0)) {
-              return;
+              return; // Cannot afford even after reducing other additions
           }
       }
 
@@ -215,24 +249,41 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
     <div className="flex flex-col h-full bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
       {/* Header */}
       <div className="p-6 border-b border-white/10 bg-black/20">
-        <div className="flex justify-between items-start mb-4">
-            <div className="flex items-center gap-2 text-emerald-400">
-                <Activity className="w-5 h-5" />
-                <h2 className="font-bold text-lg tracking-wide uppercase">Greedy Optimizer</h2>
+        <div className="flex flex-col gap-4 mb-4">
+            <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-emerald-400">
+                    <Activity className="w-5 h-5" />
+                    <h2 className="font-bold text-lg tracking-wide uppercase">Greedy Optimizer</h2>
+                </div>
+
+                {/* Market Regime Badge */}
+                {riskState && (
+                    <div className="flex flex-col items-end">
+                        <div className={cn("flex items-center gap-1.5 text-xs font-bold uppercase px-2 py-1 rounded-full bg-white/5 border border-white/10", getRegimeColor())}>
+                            {getRegimeIcon()}
+                            <span>{getRegimeLabel()}</span>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* Market Regime Badge */}
-            {riskState && (
-                <div className="flex flex-col items-end">
-                    <div className={cn("flex items-center gap-1.5 text-xs font-bold uppercase px-2 py-1 rounded-full bg-white/5 border border-white/10", getRegimeColor())}>
-                        {getRegimeIcon()}
-                        <span>{getRegimeLabel()}</span>
-                    </div>
-                    <div className="text-[10px] text-neutral-500 mt-1">
-                        Risk Aversion (λ): {riskState.lambda.toFixed(2)}
-                    </div>
-                </div>
-            )}
+             {/* Strategy Mode Selector */}
+             <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-white/10">
+                {(['Conservative', 'Balanced', 'Growth'] as StrategyMode[]).map((mode) => (
+                    <button
+                        key={mode}
+                        onClick={() => setStrategyMode(mode)}
+                        className={cn(
+                            "flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all",
+                            strategyMode === mode
+                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_-3px_rgba(16,185,129,0.3)]"
+                                : "text-neutral-500 hover:text-neutral-300 hover:bg-white/5"
+                        )}
+                    >
+                        {mode}
+                    </button>
+                ))}
+             </div>
         </div>
 
         <div className="relative group">
@@ -248,9 +299,10 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500 font-medium">USD</span>
         </div>
+        <div className="text-right text-[10px] text-neutral-500 mt-1 mr-1">Target Total Portfolio Value</div>
 
         <div className="mt-2 flex justify-between text-xs text-neutral-500">
-             <span>Allocated: ${projectedMetrics.usedBudget.toNumber().toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+             <span>Proposed New Value: ${projectedMetrics.futureTotalValue.toNumber().toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
              <span>Budget: ${investmentAmount.toLocaleString()}</span>
         </div>
       </div>
@@ -289,6 +341,9 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
                const sharesToAdd = proposedShares[item.ticker] || 0;
                const newWeight = projectedMetrics.newWeights[item.ticker] || item.weight;
 
+               // Min shares limit: we cannot sell more than we have
+               const minSharesDelta = -(item.shares || 0);
+
                return (
                  <motion.div
                    key={item.ticker}
@@ -301,12 +356,15 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
                          <button
                             onClick={() => handleShareChange(item.ticker, -1)}
                             className="p-1 rounded bg-white/10 hover:bg-white/20 text-white disabled:opacity-30"
-                            disabled={sharesToAdd <= 0}
+                            disabled={sharesToAdd <= minSharesDelta}
                          >
                             <Minus className="w-3 h-3" />
                          </button>
-                         <span className={cn("text-sm font-mono w-6 text-center", sharesToAdd > 0 ? "text-emerald-400 font-bold" : "text-neutral-500")}>
-                            {sharesToAdd}
+                         <span className={cn("text-sm font-mono w-6 text-center",
+                            sharesToAdd > 0 ? "text-emerald-400 font-bold" :
+                            sharesToAdd < 0 ? "text-rose-400 font-bold" : "text-neutral-500"
+                         )}>
+                            {sharesToAdd > 0 ? `+${sharesToAdd}` : sharesToAdd}
                          </span>
                          <button
                             onClick={() => handleShareChange(item.ticker, 1)}
