@@ -109,7 +109,7 @@ export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) 
       </AnimatePresence>
 
       <div
-        className="flex-1 min-h-0 overflow-auto custom-scrollbar relative"
+        className="flex-1 min-h-0 overflow-auto custom-scrollbar relative pt-6"
         onMouseLeave={() => setHoveredCell(null)}
       >
         <div
@@ -127,7 +127,7 @@ export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) 
                  <div key={`col-${j}`} className="sticky top-0 z-10 bg-[#0a0a0a] flex items-end justify-center pb-2">
                      <span
                        className={`
-                         text-[10px] font-bold rotate-[-45deg] origin-bottom-left translate-x-2 translate-y-2 whitespace-nowrap transition-colors
+                         text-[10px] font-bold rotate-[-45deg] origin-bottom-left translate-x-3 -translate-y-1 whitespace-nowrap transition-colors
                          ${hoveredCell && hoveredCell.col === j ? 'text-white scale-110' : 'text-neutral-400'}
                        `}
                      >
