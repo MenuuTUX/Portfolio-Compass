@@ -17,6 +17,10 @@ interface PortfolioTreemapProps {
 const CustomizedContent = (props: any) => {
   const { root, depth, x, y, width, height, index, payload, colors, rank, name } = props;
 
+  // Filter out the root node (depth 0) or the wrapper named 'Portfolio'
+  // ensuring we only render the leaf nodes (assets)
+  if (depth === 0 || name === 'Portfolio') return null;
+
   // Safety check: ensure payload exists
   if (!payload) return null;
 
@@ -64,7 +68,7 @@ const CustomizedContent = (props: any) => {
 
 export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
   // Transform data for Treemap
-  // Treemap expects a hierarchical structure with a single root for correct rendering
+  // Recharts Treemap requires a single root object to calculate relative proportions correctly.
   const data = React.useMemo(() => {
     // Filter out items with no weight to prevent rendering issues
     const validItems = portfolio.filter(item => item.weight > 0);
@@ -122,7 +126,6 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
           <Treemap
             data={data}
             dataKey="size"
-            aspectRatio={4 / 3}
             stroke="#fff"
             fill="#8884d8"
             content={<CustomizedContent />}
@@ -132,7 +135,7 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
-                  // Skip the root node if accidentally hovered or if structure leaks
+                  // Skip the root node if accidentally hovered
                   if (d.name === 'Portfolio') return null;
 
                   return (
