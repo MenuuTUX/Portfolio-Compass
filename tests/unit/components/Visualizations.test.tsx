@@ -18,7 +18,7 @@ mock.module('recharts', () => {
             <div data-testid="bar-chart">
                  {/* Render logic to verify data passing */}
                  {data.map((d: any, i: number) => (
-                    <div key={i} data-testid="bar-chart-item">{d.name}: {d.weight}</div>
+                    <div key={i} data-testid="bar-chart-item">{d.name}: {d.weight.toFixed(2)}</div>
                  ))}
                  {children}
             </div>
@@ -28,6 +28,7 @@ mock.module('recharts', () => {
         YAxis: () => <div data-testid="y-axis" />,
         CartesianGrid: () => <div data-testid="grid" />,
         ReferenceLine: () => <div data-testid="ref-line" />,
+        Label: () => <div data-testid="label" />,
         Sector: () => <div data-testid="sector" />
     };
 });
@@ -67,17 +68,31 @@ describe('Visualization Components', () => {
     });
 
     describe('PortfolioBarChart', () => {
-        it('renders with portfolio items', () => {
+        it('renders with look-through holdings', () => {
+            // Test case:
+            // ETF1: 50% of portfolio. Holds 50% AAPL, 50% MSFT.
+            // Stock1: 40% of portfolio (GOOGL).
+            // Cash Buffer: 100 - (50+40) = 10%.
+            // Expected Effective Weights:
+            // AAPL: 50% * 50% = 25%
+            // MSFT: 50% * 50% = 25%
+            // GOOGL: 40%
+            // Cash: 10%
+
             const portfolio = [
                 {
-                    ticker: 'AAPL',
+                    ticker: 'ETF1',
                     weight: 50,
-                    price: 150,
-                    shares: 10,
-                    changePercent: 1.5,
+                    price: 100,
+                    shares: 1,
+                    changePercent: 0,
                     history: [],
                     metrics: { mer: 0, yield: 0 },
-                    allocation: { equities: 100, bonds: 0, cash: 0 }
+                    allocation: { equities: 100, bonds: 0, cash: 0 },
+                    holdings: [
+                        { ticker: 'AAPL', name: 'Apple', weight: 50 },
+                        { ticker: 'MSFT', name: 'Microsoft', weight: 50 }
+                    ]
                 },
                 {
                     ticker: 'GOOGL',
@@ -93,15 +108,16 @@ describe('Visualization Components', () => {
 
             render(<PortfolioBarChart portfolio={portfolio} />);
 
-            expect(screen.getByText('Portfolio Allocation (Equity vs Cash)')).toBeTruthy();
+            expect(screen.getByText('Portfolio Look-Through Allocation')).toBeTruthy();
             expect(screen.getByTestId('bar-chart')).toBeTruthy();
 
-            // Verify items
-            expect(screen.getByText('AAPL: 50')).toBeTruthy();
-            expect(screen.getByText('GOOGL: 40')).toBeTruthy();
+            // Verify items with effective weights
+            expect(screen.getByText('AAPL: 25.00')).toBeTruthy();
+            expect(screen.getByText('MSFT: 25.00')).toBeTruthy();
+            expect(screen.getByText('GOOGL: 40.00')).toBeTruthy();
 
             // Check for Cash Buffer (100 - 90 = 10)
-            expect(screen.getByText('Cash Buffer: 10')).toBeTruthy();
+            expect(screen.getByText('Cash: 10.00')).toBeTruthy();
         });
 
         it('renders empty state', () => {
