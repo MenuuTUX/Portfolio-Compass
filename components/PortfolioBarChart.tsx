@@ -17,7 +17,7 @@ import {
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import { Portfolio } from '@/types';
-import { getAssetIconUrl } from '@/lib/etf-providers';
+import { TickIcon } from './TickIcon';
 
 interface PortfolioBarChartProps {
   portfolio: Portfolio;
@@ -25,37 +25,30 @@ interface PortfolioBarChartProps {
 
 // Custom Y-Axis Tick Component
 const CustomYAxisTick = (props: any) => {
-  const { x, y, payload } = props;
-  const { value: ticker } = payload; // ticker symbol
+  const { x, y, payload, riskMap } = props;
+  const { value: ticker } = payload;
 
-  // Infer icon using STOCK logic for individual holdings
-  let iconUrl: string | null = null;
-  if (ticker === 'Cash' || ticker === 'Other') {
-      // No icon
-  } else {
-      iconUrl = getAssetIconUrl(ticker, ticker, 'STOCK');
-  }
+  // Determine if this row is high risk
+  const isHighRisk = riskMap && riskMap[ticker] && riskMap[ticker] > 10;
+  const isCriticalRisk = riskMap && riskMap[ticker] && riskMap[ticker] > 20;
 
   return (
     <g transform={`translate(${x},${y})`}>
-      {iconUrl && (
-        <image
-          x={-80} // Shift icon far left
-          y={-10}
-          href={iconUrl}
-          width={20}
-          height={20}
-          preserveAspectRatio="xMidYMid slice"
-          style={{ clipPath: 'circle(50%)' }}
-        />
+      <TickIcon ticker={ticker} x={0} y={0} />
+
+      {isCriticalRisk && (
+         <g transform="translate(-105, -8)">
+            <AlertTriangle size={14} className="text-red-500" stroke="currentColor" fill="#ef4444" />
+         </g>
       )}
+
       <text
-        x={-10} // Text always right-aligned near the axis tick
+        x={-10}
         y={4}
         textAnchor="end"
-        fill="#fff"
+        fill={isCriticalRisk ? '#ef4444' : isHighRisk ? '#f97316' : '#fff'}
         fontSize={12}
-        fontWeight="500"
+        fontWeight={isHighRisk ? '700' : '500'}
       >
         {ticker}
       </text>
@@ -96,7 +89,7 @@ const getRiskColor = (totalWeight: number) => {
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
   // 1. Identify Unique Sources (ETFs + Direct)
   // 2. Build Data Structure
-  const { chartData, sources } = useMemo(() => {
+  const { chartData, sources, riskMap } = useMemo(() => {
     const aggregatedData: {
         [holdingTicker: string]: {
             totalWeight: number;
@@ -229,7 +222,13 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
         return a.localeCompare(b);
     });
 
-    return { chartData: data, sources: sourceList };
+    // Create a risk map for the Y-Axis tick to access
+    const rMap: Record<string, number> = {};
+    data.forEach(d => {
+        rMap[d.name] = d.totalWeight;
+    });
+
+    return { chartData: data, sources: sourceList, riskMap: rMap };
 
   }, [portfolio]);
 
@@ -280,11 +279,13 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                 <YAxis
                     type="category"
                     dataKey="name"
-                    width={100}
+                    width={120} // Increased width to avoid overlap
                     stroke="#fff"
-                    tick={<CustomYAxisTick />}
+                    tick={<CustomYAxisTick riskMap={riskMap} />}
                     interval={0}
-                />
+                >
+                    <Label value="Holdings" angle={-90} position="insideLeft" fill="#666" fontSize={12} style={{ textAnchor: 'middle' }} />
+                </YAxis>
                 <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                     content={({ active, payload }) => {
@@ -341,13 +342,13 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
 
                 {/* Reference Lines for Risk Thresholds */}
                 <ReferenceLine x={5} stroke={RISK_COLORS.WARN} strokeDasharray="3 3" strokeOpacity={0.5}>
-                    <Label value="5% Guideline" position="insideTopRight" fill={RISK_COLORS.WARN} fontSize={10} angle={-90} dx={10} dy={10} />
+                    <Label value="5% Guideline" position="insideTop" fill={RISK_COLORS.WARN} fontSize={10} dy={-10} />
                 </ReferenceLine>
                 <ReferenceLine x={10} stroke={RISK_COLORS.HIGH} strokeDasharray="3 3" strokeOpacity={0.7}>
-                    <Label value="10% Warning" position="insideTopRight" fill={RISK_COLORS.HIGH} fontSize={10} angle={-90} dx={10} dy={10} />
+                    <Label value="10% Warning" position="insideTop" fill={RISK_COLORS.HIGH} fontSize={10} dy={-10} />
                 </ReferenceLine>
                 <ReferenceLine x={20} stroke={RISK_COLORS.CRIT} strokeDasharray="3 3">
-                    <Label value="20% Critical" position="insideTopRight" fill={RISK_COLORS.CRIT} fontSize={10} angle={-90} dx={10} dy={10} />
+                    <Label value="20% Critical" position="insideTop" fill={RISK_COLORS.CRIT} fontSize={10} dy={-10} />
                 </ReferenceLine>
 
                 {sources.map((source) => {
