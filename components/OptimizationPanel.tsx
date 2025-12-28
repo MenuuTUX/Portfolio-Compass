@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { PortfolioItem } from '@/types';
 import { optimizePortfolioGreedy, GreedyOptimizationResult } from '@/lib/optimizer';
-import { Check, ArrowRight, DollarSign, TrendingDown, Layers, Activity, Minus, Plus } from 'lucide-react';
+import { Check, ArrowRight, DollarSign, TrendingDown, Layers, Activity, Minus, Plus, ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Decimal } from 'decimal.js';
@@ -14,30 +14,43 @@ interface OptimizationPanelProps {
   onCalibrating?: (isCalibrating: boolean) => void;
 }
 
+interface RiskState {
+  sentimentEma: number;
+  riskRegime: 'RISK_ON' | 'NEUTRAL' | 'RISK_OFF';
+  lambda: number;
+  latestScore: number;
+}
+
 export default function OptimizationPanel({ portfolio, onApply, onCalibrating }: OptimizationPanelProps) {
   const [investmentAmount, setInvestmentAmount] = useState<number>(7000);
   const [result, setResult] = useState<GreedyOptimizationResult | null>(null);
   const [proposedShares, setProposedShares] = useState<Record<string, number>>({});
   const [isApplying, setIsApplying] = useState(false);
+  const [riskState, setRiskState] = useState<RiskState | null>(null);
+
+  // Fetch Risk State
+  useEffect(() => {
+    async function fetchRisk() {
+        try {
+            const res = await fetch('/api/market/sentiment');
+            if (res.ok) {
+                const data = await res.json();
+                setRiskState(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch risk state", e);
+        }
+    }
+    fetchRisk();
+  }, []);
 
   // Debounced calculation for initial recommendation
   useEffect(() => {
     onCalibrating?.(true);
     const timer = setTimeout(() => {
       if (portfolio.length > 0) {
-        // Prepare data for the new optimizer
-        // NOTE: The optimizer requires Expected Returns and Covariance Matrix.
-        // In this frontend context, we might not have them calculated if they come from backend.
-        // For the purpose of this rewrite (replacing logic), I will mock/derive simple values
-        // to make the component compile and function "visually", or use available metrics if possible.
-        // Ideally, `portfolio` items should have `metrics` or `scores` populated.
-        // The previous `calculateSmartDistribution` used overlap.
-        // The new one uses Sharpe.
-        // I will attempt to derive 'expectedReturn' from a simple proxy (e.g. 5Y Beta * Market Return or historical yield).
-        // Since I can't fetch new data here easily without a hook rewrite, I'll use a simplified assumption:
-        // Expected Return ~ Yield + (Beta * 0.05).
-        // Covariance: Identity matrix for now (assuming uncorrelated) to unblock the build,
-        // as proper covariance requires historical price series analysis which is heavy for frontend.
+        // Use dynamic lambda if available, else default to 1.0
+        const currentLambda = riskState?.lambda || 1.0;
 
         const candidates = portfolio.map(p => ({
             ticker: p.ticker,
@@ -47,7 +60,6 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
 
         const n = portfolio.length;
         // Simple diagonal covariance matrix based on Beta (volatility proxy)
-        // Volatility ~ Beta * 0.15
         const covarianceMatrix = Array(n).fill(0).map(() => Array(n).fill(0));
         for(let i=0; i<n; i++) {
             const vol = (portfolio[i].beta || 1.0) * 0.15;
@@ -57,18 +69,18 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
         const res = optimizePortfolioGreedy({
             candidates,
             covarianceMatrix,
-            lambda: 1.0, // Risk aversion
+            lambda: currentLambda,
             budget: investmentAmount,
             initialShares: Object.fromEntries(portfolio.map(p => [p.ticker, p.shares || 0]))
         });
 
         setResult(res);
-        setProposedShares(res.addedShares); // We track *added* shares in this UI
+        setProposedShares(res.addedShares);
       }
       onCalibrating?.(false);
     }, 300); // 300ms debounce
     return () => clearTimeout(timer);
-  }, [investmentAmount, portfolio, onCalibrating]);
+  }, [investmentAmount, portfolio, onCalibrating, riskState]);
 
   // Ensure calibration state is reset on unmount
   useEffect(() => {
@@ -78,11 +90,9 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
   const projectedMetrics = useMemo(() => {
     if (!result) return null;
 
-    // Calculate new total value with manual overrides
     let futureTotalValue = new Decimal(0);
     const futureShares: Record<string, number> = {};
 
-    // Sum existing portfolio + proposed additions
     portfolio.forEach(p => {
        const added = proposedShares[p.ticker] || 0;
        const total = (p.shares || 0) + added;
@@ -99,7 +109,6 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
         });
     }
 
-    // Calculate budget used by proposed shares
     let usedBudget = new Decimal(0);
     Object.entries(proposedShares).forEach(([ticker, count]) => {
         const item = portfolio.find(p => p.ticker === ticker);
@@ -117,7 +126,7 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       const currentAdded = proposedShares[ticker] || 0;
       const nextVal = currentAdded + delta;
 
-      if (nextVal < 0) return; // Cannot add negative shares
+      if (nextVal < 0) return;
 
       const item = portfolio.find(p => p.ticker === ticker);
       if (!item) return;
@@ -126,15 +135,11 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       const newUsedBudget = projectedMetrics.usedBudget.plus(costDelta);
       const budgetLimit = new Decimal(investmentAmount);
 
-      // Create a copy to modify
       const nextShares = { ...proposedShares };
       nextShares[ticker] = nextVal;
 
       if (delta > 0 && newUsedBudget.greaterThan(budgetLimit)) {
-          // Fallback: Decrement any other asset with >0 shares
           let remainingDeficit = newUsedBudget.minus(budgetLimit);
-
-          // Get all other tickers with added shares
           const otherTickers = Object.keys(nextShares).filter(t => t !== ticker && nextShares[t] > 0);
 
           for (const other of otherTickers) {
@@ -146,7 +151,6 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
               const otherPrice = new Decimal(otherItem.price || 0);
               const availableShares = nextShares[other];
 
-              // How many shares to remove?
               const sharesToRemove = Math.ceil(remainingDeficit.div(otherPrice).toNumber());
               const actualRemove = Math.min(availableShares, sharesToRemove);
 
@@ -155,7 +159,7 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
           }
 
           if (remainingDeficit.greaterThan(0)) {
-              return; // Block the action
+              return;
           }
       }
 
@@ -173,19 +177,55 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
 
   if (!result || !projectedMetrics) return <div className="p-6 text-neutral-400">Initializing Optimizer...</div>;
 
-  // Visual metric: Use Utility as "Score" proxy (scaled loosely for display)
-  // or just show nothing since "Overlap Score" is gone.
-  // The user prompt replaced overlap with utility.
-  // I will rename "Overlap Score" to "Utility Score"
-  const utilityScore = Math.min(100, Math.max(0, result.utility * 1000)); // Arbitrary scaling for UI
+  const utilityScore = Math.min(100, Math.max(0, result.utility * 1000));
+
+  // Risk Regime Display Logic
+  const getRegimeIcon = () => {
+      switch(riskState?.riskRegime) {
+          case 'RISK_ON': return <ShieldCheck className="w-4 h-4 text-emerald-400" />;
+          case 'RISK_OFF': return <ShieldAlert className="w-4 h-4 text-rose-400" />;
+          default: return <Shield className="w-4 h-4 text-amber-400" />;
+      }
+  };
+
+  const getRegimeLabel = () => {
+      switch(riskState?.riskRegime) {
+          case 'RISK_ON': return "Aggressive Mode";
+          case 'RISK_OFF': return "Defensive Mode";
+          default: return "Balanced Mode";
+      }
+  };
+
+  const getRegimeColor = () => {
+     switch(riskState?.riskRegime) {
+         case 'RISK_ON': return "text-emerald-400";
+         case 'RISK_OFF': return "text-rose-400";
+         default: return "text-amber-400";
+     }
+  };
 
   return (
     <div className="flex flex-col h-full bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
       {/* Header */}
       <div className="p-6 border-b border-white/10 bg-black/20">
-        <div className="flex items-center gap-2 mb-4 text-emerald-400">
-          <Activity className="w-5 h-5" />
-          <h2 className="font-bold text-lg tracking-wide uppercase">Greedy Optimizer</h2>
+        <div className="flex justify-between items-start mb-4">
+            <div className="flex items-center gap-2 text-emerald-400">
+                <Activity className="w-5 h-5" />
+                <h2 className="font-bold text-lg tracking-wide uppercase">Greedy Optimizer</h2>
+            </div>
+
+            {/* Market Regime Badge */}
+            {riskState && (
+                <div className="flex flex-col items-end">
+                    <div className={cn("flex items-center gap-1.5 text-xs font-bold uppercase px-2 py-1 rounded-full bg-white/5 border border-white/10", getRegimeColor())}>
+                        {getRegimeIcon()}
+                        <span>{getRegimeLabel()}</span>
+                    </div>
+                    <div className="text-[10px] text-neutral-500 mt-1">
+                        Risk Aversion (λ): {riskState.lambda.toFixed(2)}
+                    </div>
+                </div>
+            )}
         </div>
 
         <div className="relative group">
