@@ -1,178 +1,6 @@
 import { PortfolioItem } from '@/types';
 import { Decimal } from 'decimal.js';
 
-export interface SmartDistributionResult {
-  newShares: Record<string, number>;
-  newWeights: Record<string, number>;
-  topOverlaps: { ticker: string; exposure: number }[];
-  beforeScore: number;
-  afterScore: number;
-}
-
-interface StockExposure {
-  ticker: string;
-  exposure: Decimal;
-}
-
-/**
- * Calculates overlap and concentration scores for a given portfolio state (shares map).
- * If no shares map is provided, it uses the portfolio's current shares.
- */
-function analyzePortfolioState(
-  portfolio: PortfolioItem[],
-  sharesMap?: Record<string, number>
-) {
-  const stockExposures: Record<string, Decimal> = {};
-  let totalPortfolioValue = new Decimal(0);
-
-  // 1. Calculate Total Value and Individual Asset Values
-  const assetValues = portfolio.map(asset => {
-    const shares = sharesMap ? (sharesMap[asset.ticker] || 0) : (asset.shares || 0);
-    const price = new Decimal(asset.price || 0);
-    const value = price.times(shares);
-    totalPortfolioValue = totalPortfolioValue.plus(value);
-    return { ticker: asset.ticker, value, asset };
-  });
-
-  if (totalPortfolioValue.isZero()) {
-    return { score: 0, topOverlaps: [] };
-  }
-
-  // 2. Calculate Exposure to Underlying Stocks
-  assetValues.forEach(({ value, asset }) => {
-    const assetWeight = value.div(totalPortfolioValue); // 0 to 1
-
-    if (asset.holdings && asset.holdings.length > 0) {
-      asset.holdings.forEach(holding => {
-        const holdingWeight = new Decimal(holding.weight || 0).div(100);
-        const exposure = assetWeight.times(holdingWeight);
-
-        if (!stockExposures[holding.ticker]) {
-          stockExposures[holding.ticker] = new Decimal(0);
-        }
-        stockExposures[holding.ticker] = stockExposures[holding.ticker].plus(exposure);
-      });
-    } else if (asset.assetType === 'STOCK' || (!asset.assetType && asset.ticker)) {
-       // Single stock exposure
-       if (!stockExposures[asset.ticker]) stockExposures[asset.ticker] = new Decimal(0);
-       stockExposures[asset.ticker] = stockExposures[asset.ticker].plus(assetWeight);
-    }
-  });
-
-  // 3. Sort and Score
-  const sortedStocks = Object.entries(stockExposures)
-    .sort(([, a], [, b]) => b.minus(a).toNumber())
-    .map(([ticker, exposure]) => ({
-      ticker,
-      exposure: exposure.times(100).toNumber()
-    }));
-
-  const topOverlaps = sortedStocks.slice(0, 5); // User requested Top 5 for the list
-  // Score based on top 10 sum for robustness (similar to before), but let's stick to consistent logic
-  const concentrationScore = sortedStocks.slice(0, 10).reduce((sum, item) => sum + item.exposure, 0);
-
-  return {
-    score: Math.min(concentrationScore, 100),
-    topOverlaps
-  };
-}
-
-/**
- * Smartly distributes a cash budget to minimize overlap.
- * Returns integer share recommendations, new weights, and risk analysis.
- */
-export function calculateSmartDistribution(
-  portfolio: PortfolioItem[],
-  budget: number
-): SmartDistributionResult {
-
-  // 1. Analyze Current State ("Before")
-  const currentShares: Record<string, number> = {};
-  portfolio.forEach(p => currentShares[p.ticker] = p.shares || 0);
-
-  const { score: beforeScore, topOverlaps: currentTopOverlaps } = analyzePortfolioState(portfolio, currentShares);
-  const heavyStockTickers = new Set(currentTopOverlaps.filter(t => t.exposure > 0).map(t => t.ticker));
-
-  // 2. Score Assets for Suitability (Inverse to Overlap)
-  const assetScores: { ticker: string; score: number; price: number }[] = [];
-  let totalScore = 0;
-
-  portfolio.forEach(asset => {
-    let overlapMetric = new Decimal(0);
-
-    if (asset.holdings && asset.holdings.length > 0) {
-      asset.holdings.forEach(h => {
-        if (heavyStockTickers.has(h.ticker)) {
-           overlapMetric = overlapMetric.plus(new Decimal(h.weight || 0));
-        }
-      });
-    } else if (asset.assetType === 'STOCK' || (!asset.assetType && asset.ticker)) {
-        if (heavyStockTickers.has(asset.ticker)) overlapMetric = new Decimal(100);
-    }
-
-    // Score = 100 / (1 + Overlap%). Higher is better.
-    const score = 100 / (1 + overlapMetric.toNumber());
-    assetScores.push({ ticker: asset.ticker, score, price: asset.price || 0 });
-    totalScore += score;
-  });
-
-  // 3. Distribute Budget to Shares (Integer Constraint)
-  const newShares: Record<string, number> = {};
-  let remainingBudget = new Decimal(budget);
-
-  // Sort by score descending to prioritize best assets
-  assetScores.sort((a, b) => b.score - a.score);
-
-  assetScores.forEach(asset => {
-    if (totalScore === 0) return;
-    if (asset.price <= 0) return;
-
-    const targetAllocation = new Decimal(budget).times(asset.score / totalScore);
-    const sharesToBuy = Math.floor(targetAllocation.div(asset.price).toNumber());
-
-    if (sharesToBuy > 0) {
-      newShares[asset.ticker] = sharesToBuy;
-      // We don't strictly subtract from remaining budget in the loop to allow parallel distribution logic,
-      // but strictly speaking, we are just calculating "Target Buy".
-      // The prompt asks for "Distribute... heavily into assets".
-    }
-  });
-
-  // 4. Calculate Future State ("After")
-  const futureShares: Record<string, number> = { ...currentShares };
-  Object.entries(newShares).forEach(([ticker, count]) => {
-    futureShares[ticker] = (futureShares[ticker] || 0) + count;
-  });
-
-  const { score: afterScore, topOverlaps: futureTopOverlaps } = analyzePortfolioState(portfolio, futureShares);
-
-  // 5. Calculate New Weights
-  const newWeights: Record<string, number> = {};
-  let futureTotalValue = new Decimal(0);
-
-  portfolio.forEach(p => {
-    const s = futureShares[p.ticker] || 0;
-    const val = new Decimal(p.price || 0).times(s);
-    futureTotalValue = futureTotalValue.plus(val);
-  });
-
-  if (!futureTotalValue.isZero()) {
-    portfolio.forEach(p => {
-      const s = futureShares[p.ticker] || 0;
-      const val = new Decimal(p.price || 0).times(s);
-      newWeights[p.ticker] = val.div(futureTotalValue).times(100).toNumber();
-    });
-  }
-
-  return {
-    newShares,
-    newWeights,
-    topOverlaps: currentTopOverlaps, // Show the current "bad actors" that drove the decision
-    beforeScore,
-    afterScore
-  };
-}
-
 export interface GreedyOptimizationParams {
   candidates: {
     ticker: string;
@@ -197,6 +25,11 @@ export interface GreedyOptimizationResult {
  * Implements a Greedy Marginal Utility optimization algorithm for discrete portfolio construction.
  * Objective: Maximize U(w) = w^T*mu - lambda * w^T * Sigma * w
  * Constraint: Discrete shares.
+ *
+ * Algorithm Steps:
+ * 1. Calculate Marginal Utility: MU_i = mu_i - 2*lambda*(Sigma*w)_i
+ * 2. Look-Ahead: Simulate buying $100 worth. Select asset maximizing Sharpe Ratio of resulting portfolio.
+ * 3. Subtract cost from budget, update portfolio weights.
  */
 export function optimizePortfolioGreedy(params: GreedyOptimizationParams): GreedyOptimizationResult {
   const { candidates, covarianceMatrix, lambda, budget, initialShares = {} } = params;
@@ -237,10 +70,22 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
   const calculateUtility = (shares: Float64Array): number => {
       const w = new Float64Array(numAssets);
       let term1 = 0;
+      let totalCurrentValue = 0;
+
+      // Compute weights based on current portfolio value?
+      // Or based on targetWealth?
+      // To compare Utilities, we should normalize consistently.
+      // Usually U is defined on weights summing to 1.
+      // So we calculate actual weights of the portfolio represented by `shares`.
+
+      for(let i=0; i<numAssets; i++) totalCurrentValue += shares[i] * candidates[i].price;
+      if (totalCurrentValue === 0) return 0;
+
       for (let i = 0; i < numAssets; i++) {
-          w[i] = (shares[i] * candidates[i].price) / targetWealth;
+          w[i] = (shares[i] * candidates[i].price) / totalCurrentValue;
           term1 += w[i] * candidates[i].expectedReturn;
       }
+
       let term2 = 0;
       for (let i = 0; i < numAssets; i++) {
           let rowSum = 0;
@@ -250,6 +95,37 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
           term2 += w[i] * rowSum;
       }
       return term1 - lambda * term2;
+  };
+
+  // Helper to calculate Sharpe Ratio for a given share configuration
+  // Sharpe = (mu_p - rf) / sigma_p
+  // Assuming Rf = 0.04 as per standard.
+  const calculateSharpe = (shares: Float64Array): number => {
+      const w = new Float64Array(numAssets);
+      let mu_p = 0;
+      let totalVal = 0;
+      for(let i=0; i<numAssets; i++) totalVal += shares[i] * candidates[i].price;
+
+      if (totalVal === 0) return 0;
+
+      for (let i = 0; i < numAssets; i++) {
+          w[i] = (shares[i] * candidates[i].price) / totalVal;
+          mu_p += w[i] * candidates[i].expectedReturn;
+      }
+
+      let var_p = 0;
+      for (let i = 0; i < numAssets; i++) {
+          let rowSum = 0;
+          for (let j = 0; j < numAssets; j++) {
+              rowSum += covarianceMatrix[i][j] * w[j];
+          }
+          var_p += w[i] * rowSum;
+      }
+
+      const sigma_p = Math.sqrt(var_p);
+      if (sigma_p === 0) return 0; // Avoid div by zero
+
+      return (mu_p - 0.04) / sigma_p;
   };
 
   // Greedy Loop
@@ -268,17 +144,10 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
       }
 
       let bestIdx = -1;
-      let bestSimulatedUtility = -Infinity;
-
-      // Look-Ahead Simulation:
-      // Instead of relying on instantaneous MU, we simulate adding a "Step" (approx $100)
-      // and calculate the resulting Utility. This satisfies the "avoid local optima" requirement
-      // by evaluating the integral of the gradient over the step.
+      let bestSimulatedMetric = -Infinity; // Sharpe Ratio
 
       const currentTotalShares = new Float64Array(numAssets);
       for(let i=0; i<numAssets; i++) currentTotalShares[i] = currentShares[i] + addedShares[i];
-
-      const currentUtility = calculateUtility(currentTotalShares);
 
       for(let i=0; i<numAssets; i++) {
           if (candidates[i].price > budgetNum) continue;
@@ -294,21 +163,16 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
           const tempShares = new Float64Array(currentTotalShares);
           tempShares[i] += sharesToBuy;
 
-          const simulatedU = calculateUtility(tempShares);
+          const simulatedMetric = calculateSharpe(tempShares);
 
-          if (simulatedU > bestSimulatedUtility) {
-              bestSimulatedUtility = simulatedU;
+          // We want to maximize the resulting Sharpe
+          if (simulatedMetric > bestSimulatedMetric) {
+              bestSimulatedMetric = simulatedMetric;
               bestIdx = i;
           }
       }
 
-      // If no valid move improves Utility (relative to current), stop?
-      // Or just pick the best move even if it lowers U (unlikely in buildup phase unless purely risk)?
-      // Standard: Stop if best move is < current.
-      // But if we have cash drag, maybe we tolerate slight U drop if we assume cash U is bad?
-      // Assuming cash U=0 (implicit). If U > 0, we improve.
-      // If U drops, we stop.
-      if (bestIdx === -1 || bestSimulatedUtility < currentUtility) {
+      if (bestIdx === -1) {
           break;
       }
 
@@ -337,16 +201,11 @@ export function optimizePortfolioGreedy(params: GreedyOptimizationParams): Greed
       finalValue += totalS * candidates[i].price;
   }
 
-  // Recalculate weights based on actual final value for consistency
   const baseValue = finalValue || 1;
   for(let i=0; i<numAssets; i++) {
       finalWeightsResult[candidates[i].ticker] = (finalSharesResult[candidates[i].ticker] * candidates[i].price) / baseValue;
   }
 
-  // Calculate Utility using Target Wealth (consistent with optimization)
-  // OR Final Value?
-  // Usually, optimization objective and reported utility should match.
-  // We optimized U(w_target). We should report U(w_target).
   const utility = calculateUtility(finalTotalShares);
 
   return {

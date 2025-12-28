@@ -99,3 +99,10 @@ model PortfolioItem {
   shares    Decimal  @default(0)
   etf       Etf    @relation(fields: [etfId], references: [ticker])
 }
+
+model MarketSentiment {
+  id     Int      @id @default(autoincrement())
+  date   DateTime @unique
+  score  Float
+  rating String
+}
