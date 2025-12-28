@@ -13,7 +13,7 @@ import OptimizationPanel from './OptimizationPanel';
 import AlgorithmExplainer from './AlgorithmExplainer';
 import RiskReturnScatter from './RiskReturnScatter';
 import CorrelationHeatmap from './CorrelationHeatmap';
-import PortfolioTreemap from './PortfolioTreemap';
+import PortfolioBarChart from './PortfolioBarChart';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 
 interface PortfolioBuilderProps {
@@ -29,7 +29,8 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
 
   // New internal view state for the Builder section
-  const [builderView, setBuilderView] = useState<'LIST' | 'TREEMAP' | 'RISK'>('LIST');
+  // Renamed 'TREEMAP' to 'ALLOCATION'
+  const [builderView, setBuilderView] = useState<'LIST' | 'ALLOCATION' | 'RISK'>('LIST');
 
   const [isOptimizerActive, setIsOptimizerActive] = useState(true);
   const [isCalibrating, setIsCalibrating] = useState(false);
@@ -191,13 +192,13 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             List View
           </button>
           <button
-            onClick={() => setBuilderView('TREEMAP')}
+            onClick={() => setBuilderView('ALLOCATION')}
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
-              builderView === 'TREEMAP' ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500" : "text-neutral-400 hover:text-white hover:bg-white/5"
+              builderView === 'ALLOCATION' ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500" : "text-neutral-400 hover:text-white hover:bg-white/5"
             )}
           >
-            Tree Map
+            Allocation
           </button>
           <button
              onClick={() => setBuilderView('RISK')}
@@ -301,9 +302,9 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                     </div>
                 )}
 
-                {builderView === 'TREEMAP' && (
+                {builderView === 'ALLOCATION' && (
                     <div className="h-full min-h-[600px] overflow-hidden">
-                        <PortfolioTreemap portfolio={portfolio} />
+                        <PortfolioBarChart portfolio={portfolio} />
                     </div>
                 )}
 
