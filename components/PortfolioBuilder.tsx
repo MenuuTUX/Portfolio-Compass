@@ -23,10 +23,11 @@ interface PortfolioBuilderProps {
   onRemove: (ticker: string) => void;
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
+  onBatchUpdate: (updates: { ticker: string; weight?: number; shares?: number }[]) => void;
   onClear: () => void;
 }
 
-export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear }: PortfolioBuilderProps) {
+export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onBatchUpdate, onClear }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
 
   // New internal view state for the Builder section
@@ -34,6 +35,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
 
   const [isOptimizerActive, setIsOptimizerActive] = useState(true);
   const [isCalibrating, setIsCalibrating] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   // Calculate aggregate metrics using Decimal for precision (Layer 1)
   const { totalWeight, totalValue } = useMemo(() => {
@@ -209,7 +211,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
         */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 min-h-[800px]">
           {/* Main Content Area (Left 2/3) */}
-          <div className={cn("lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300", isCalibrating && "blur-sm opacity-50 pointer-events-none")}>
+          <div className={cn("lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300", (isCalibrating || isApplying) && "blur-sm opacity-50 pointer-events-none")}>
 
             {/* Header Stats */}
              {portfolio.length > 0 && (
@@ -320,14 +322,28 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                 portfolio={portfolio}
                 onCalibrating={setIsCalibrating}
                 onApply={(newShares, newWeights) => {
-                  Object.entries(newShares).forEach(([ticker, additionalShares]) => {
-                     const currentShares = portfolio.find(p => p.ticker === ticker)?.shares || 0;
-                     handleUpdateShares(ticker, currentShares + additionalShares);
-                  });
-                  Object.entries(newWeights).forEach(([ticker, weight]) => {
-                    handleUpdateWeight(ticker, weight);
-                  });
-                  setIsOptimizerActive(false);
+                  setIsApplying(true);
+
+                  setTimeout(() => {
+                    const updates: { ticker: string; weight?: number; shares?: number }[] = [];
+                    const allTickers = new Set([...Object.keys(newShares), ...Object.keys(newWeights)]);
+
+                    allTickers.forEach(ticker => {
+                      const item = portfolio.find(p => p.ticker === ticker);
+                      const currentShares = item?.shares || 0;
+                      const additionalShares = newShares[ticker] || 0;
+
+                      updates.push({
+                        ticker,
+                        shares: currentShares + additionalShares,
+                        weight: newWeights[ticker]
+                      });
+                    });
+
+                    onBatchUpdate(updates);
+                    setIsApplying(false);
+                    setIsOptimizerActive(false);
+                  }, 1500);
                 }}
               />
             ) : (
