@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
   Label,
+  Legend,
 } from 'recharts';
 import { motion } from 'framer-motion';
 import { Portfolio } from '@/types';
@@ -60,142 +61,160 @@ const CustomYAxisTick = (props: any) => {
   );
 };
 
+// Distinct colors for sources
+const SOURCE_COLORS = [
+    '#10b981', // Direct (Emerald-500)
+    '#3b82f6', // Blue-500
+    '#8b5cf6', // Violet-500
+    '#f59e0b', // Amber-500
+    '#ef4444', // Red-500
+    '#ec4899', // Pink-500
+    '#06b6d4', // Cyan-500
+    '#84cc16', // Lime-500
+    '#6366f1', // Indigo-500
+    '#14b8a6', // Teal-500
+    '#f97316', // Orange-500
+    '#d946ef', // Fuchsia-500
+];
+
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
-  const data = useMemo(() => {
-    // Structure to track weight and contributors
-    const aggregatedWeights: {
-        [ticker: string]: {
-            weight: number;
+  // 1. Identify Unique Sources (ETFs + Direct)
+  // 2. Build Data Structure
+  const { chartData, sources } = useMemo(() => {
+    const aggregatedData: {
+        [holdingTicker: string]: {
+            totalWeight: number;
             name: string;
             isCash: boolean;
-            contributors: { etf: string; weight: number }[]
+            sources: { [source: string]: number }; // source -> weight
         }
     } = {};
 
-    let totalMappedWeight = 0;
+    const uniqueSources = new Set<string>();
 
-    // 1. Unwrap Holdings
     portfolio.forEach(item => {
         const itemWeight = item.weight; // Portfolio weight %
+        const sourceName = item.ticker; // The ETF or Stock ticker acting as source
 
         // Check if ETF has holdings data
         if (item.holdings && item.holdings.length > 0) {
+            uniqueSources.add(sourceName);
+
             // Distribute weight among holdings
             let holdingsSumPercent = 0;
 
             item.holdings.forEach(h => {
-                // Effective Weight = (Portfolio Weight) * (Holding Weight %) / 100
                 const effectiveWeight = (itemWeight * h.weight) / 100;
 
-                if (aggregatedWeights[h.ticker]) {
-                    aggregatedWeights[h.ticker].weight += effectiveWeight;
-                    aggregatedWeights[h.ticker].contributors.push({ etf: item.ticker, weight: effectiveWeight });
-                } else {
-                    aggregatedWeights[h.ticker] = {
-                        weight: effectiveWeight,
+                if (!aggregatedData[h.ticker]) {
+                    aggregatedData[h.ticker] = {
+                        totalWeight: 0,
                         name: h.name,
                         isCash: false,
-                        contributors: [{ etf: item.ticker, weight: effectiveWeight }]
+                        sources: {}
                     };
                 }
+
+                aggregatedData[h.ticker].totalWeight += effectiveWeight;
+                aggregatedData[h.ticker].sources[sourceName] = (aggregatedData[h.ticker].sources[sourceName] || 0) + effectiveWeight;
+
                 holdingsSumPercent += h.weight;
             });
 
-            // Handle unmapped residue within ETF (often Cash or Other)
+            // Handle residue (Other/Cash inside ETF)
             const residue = Math.max(0, 100 - holdingsSumPercent);
             if (residue > 1) {
                 const effectiveResidue = (itemWeight * residue) / 100;
-                 if (aggregatedWeights['Other']) {
-                    aggregatedWeights['Other'].weight += effectiveResidue;
-                    // We don't track contributors for generic 'Other' as closely, but we could
-                    aggregatedWeights['Other'].contributors.push({ etf: item.ticker, weight: effectiveResidue });
-                } else {
-                    aggregatedWeights['Other'] = {
-                        weight: effectiveResidue,
-                        name: 'Other Assets',
-                        isCash: false,
-                        contributors: [{ etf: item.ticker, weight: effectiveResidue }]
-                    };
-                }
-            }
+                const otherKey = 'Other';
 
-            totalMappedWeight += itemWeight;
+                if (!aggregatedData[otherKey]) {
+                     aggregatedData[otherKey] = { totalWeight: 0, name: 'Other Assets', isCash: false, sources: {} };
+                }
+                aggregatedData[otherKey].totalWeight += effectiveResidue;
+                aggregatedData[otherKey].sources[sourceName] = (aggregatedData[otherKey].sources[sourceName] || 0) + effectiveResidue;
+            }
 
         } else {
-            // It's a Stock or an ETF without holdings data (treat as opaque asset)
-            if (aggregatedWeights[item.ticker]) {
-                aggregatedWeights[item.ticker].weight += itemWeight;
-                aggregatedWeights[item.ticker].contributors.push({ etf: '(Direct)', weight: itemWeight });
-            } else {
-                aggregatedWeights[item.ticker] = {
-                    weight: itemWeight,
+            // It's a Stock or an ETF without holdings data (treat as Direct/Opaque)
+            // We label the source as 'Direct' if it's a Stock, or the ETF name if it's an ETF?
+            // User example: "10% of nvidia stock... But I also have QQQ".
+            // If I hold NVDA directly, source is "Direct".
+            // If I hold QQQ directly (and it has no holdings data?), it contributes to "QQQ".
+
+            // Wait, if it has no holdings data, it is the holding itself.
+            // If I hold NVDA directly, item.ticker is NVDA.
+            // So holdingTicker is NVDA. Source is "Direct"?
+
+            const isStock = item.assetType === 'STOCK'; // We assume assetType exists or infer
+            // Actually item doesn't have assetType on PortfolioItem always, but we can infer.
+            // If it has no holdings, we treat it as the asset itself.
+
+            const holdingKey = item.ticker;
+            const sourceKey = 'Direct'; // Or 'Portfolio'
+            uniqueSources.add(sourceKey);
+
+            if (!aggregatedData[holdingKey]) {
+                aggregatedData[holdingKey] = {
+                    totalWeight: 0,
                     name: item.name,
-                    isCash: false,
-                    contributors: [{ etf: '(Direct)', weight: itemWeight }]
+                    isCash: false, // Unless it's Cash
+                    sources: {}
                 };
             }
-            totalMappedWeight += itemWeight;
+
+            aggregatedData[holdingKey].totalWeight += itemWeight;
+            aggregatedData[holdingKey].sources[sourceKey] = (aggregatedData[holdingKey].sources[sourceKey] || 0) + itemWeight;
         }
     });
 
-    // 2. Calculate Portfolio Cash Buffer
-    // This is the unallocated portion of the top-level portfolio
+    // 2. Portfolio Cash Buffer
     const totalPortfolioAllocated = portfolio.reduce((sum, item) => sum + item.weight, 0);
     const cashBuffer = Math.max(0, 100 - totalPortfolioAllocated);
 
     if (cashBuffer > 0.01) {
-        if (aggregatedWeights['Cash']) {
-             aggregatedWeights['Cash'].weight += cashBuffer;
-             aggregatedWeights['Cash'].contributors.push({ etf: 'Portfolio Cash', weight: cashBuffer });
-        } else {
-             aggregatedWeights['Cash'] = {
-                 weight: cashBuffer,
-                 name: 'Cash Buffer',
-                 isCash: true,
-                 contributors: [{ etf: 'Portfolio Cash', weight: cashBuffer }]
-             };
+        uniqueSources.add('Direct'); // Cash is direct
+        if (!aggregatedData['Cash']) {
+             aggregatedData['Cash'] = { totalWeight: 0, name: 'Cash Buffer', isCash: true, sources: {} };
         }
+        aggregatedData['Cash'].totalWeight += cashBuffer;
+        aggregatedData['Cash'].sources['Direct'] = (aggregatedData['Cash'].sources['Direct'] || 0) + cashBuffer;
     }
 
-    // 3. Convert to Array and Sort Contributors
-    let chartData = Object.entries(aggregatedWeights).map(([ticker, data]) => {
-        // Sort contributors by weight desc
-        data.contributors.sort((a, b) => b.weight - a.weight);
-
-        return {
-            name: ticker, // Ticker is the key
-            fullName: data.name,
-            weight: data.weight,
-            isCash: data.isCash,
-            contributors: data.contributors,
-            fill: data.isCash ? '#525252' : '#10b981'
+    // 3. Convert to Array and Sort
+    let data = Object.entries(aggregatedData).map(([ticker, d]) => {
+        // Flatten sources into the object for Recharts
+        const flat: any = {
+            name: ticker,
+            fullName: d.name,
+            totalWeight: d.totalWeight,
+            isCash: d.isCash,
         };
+        Object.entries(d.sources).forEach(([src, w]) => {
+            flat[src] = w;
+        });
+        return flat;
     });
 
-    // 4. Sort and Top N
-    chartData.sort((a, b) => b.weight - a.weight);
+    data.sort((a, b) => b.totalWeight - a.totalWeight);
 
-    // If too many items, slice and group
+    // Limit items
     const MAX_ITEMS = 25;
-    if (chartData.length > MAX_ITEMS) {
-        const top = chartData.slice(0, MAX_ITEMS);
-        const others = chartData.slice(MAX_ITEMS);
-        const othersWeight = others.reduce((sum, item) => sum + item.weight, 0);
-
-        if (othersWeight > 0.01) {
-            top.push({
-                name: 'Other',
-                fullName: 'Other Holdings',
-                weight: othersWeight,
-                isCash: false,
-                contributors: [], // Too complex to list all
-                fill: '#737373'
-            });
-        }
-        return top;
+    if (data.length > MAX_ITEMS) {
+        data = data.slice(0, MAX_ITEMS);
+        // Note: collapsing "Other" in a stacked chart is hard because we lose source breakdown.
+        // We'll just truncate for now.
     }
 
-    return chartData;
+    // Prepare Source List for Legend/Stacking
+    // Prioritize 'Direct' first
+    const sourceList = Array.from(uniqueSources).sort((a, b) => {
+        if (a === 'Direct') return -1;
+        if (b === 'Direct') return 1;
+        return a.localeCompare(b);
+    });
+
+    return { chartData: data, sources: sourceList };
+
   }, [portfolio]);
 
   if (portfolio.length === 0) {
@@ -206,8 +225,13 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
     );
   }
 
-  // Calculate dynamic height based on item count to ensure bars are readable
-  const chartHeight = Math.max(400, data.length * 40);
+  // Assign colors
+  const colorMap: Record<string, string> = {};
+  sources.forEach((src, idx) => {
+      colorMap[src] = SOURCE_COLORS[idx % SOURCE_COLORS.length];
+  });
+
+  const chartHeight = Math.max(400, chartData.length * 40);
 
   return (
     <motion.div
@@ -217,82 +241,87 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
     >
       <div className="flex flex-col gap-1 mb-6">
           <h3 className="text-lg font-bold text-white">Portfolio Look-Through Allocation</h3>
-          <p className="text-xs text-neutral-400">Breakdown of individual underlying holdings across all ETFs.</p>
+          <p className="text-xs text-neutral-400">Breakdown of individual underlying holdings stacked by source.</p>
       </div>
 
       <div className="flex-1 overflow-auto custom-scrollbar">
-          {/* We use a fixed width container inside overflow for the chart */}
           <div style={{ height: chartHeight, minHeight: 400, width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
             <BarChart
-                data={data}
+                data={chartData}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 100, bottom: 20 }} // Increased left margin for icons
+                margin={{ top: 5, right: 30, left: 100, bottom: 20 }}
             >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#333" />
                 <XAxis
                     type="number"
                     domain={[0, 'dataMax']}
                     stroke="#666"
-                    tickFormatter={(val) => `${Number(val).toFixed(0)}%`} // Fixed decimal issue
+                    tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
                 >
                     <Label value="Effective Weight (%)" offset={0} position="insideBottom" fill="#666" fontSize={12} dy={10} />
                 </XAxis>
                 <YAxis
                     type="category"
                     dataKey="name"
-                    width={100} // Increased width for YAxis to prevent overlap
+                    width={100}
                     stroke="#fff"
                     tick={<CustomYAxisTick />}
                     interval={0}
                 />
                 <Tooltip
-                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                    const d = payload[0].payload;
-                    return (
-                        <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg text-xs shadow-xl z-50 min-w-[200px]">
-                            <div className="font-bold text-white mb-1 text-sm">{d.name}</div>
-                            <div className="text-neutral-400 mb-2">{d.fullName}</div>
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                        const d = payload[0].payload;
+                        return (
+                            <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg text-xs shadow-xl z-50 min-w-[200px]">
+                                <div className="font-bold text-white mb-1 text-sm">{d.name}</div>
+                                <div className="text-neutral-400 mb-2">{d.fullName}</div>
 
-                            <div className="flex justify-between gap-4 border-t border-white/10 pt-2 mb-2">
-                                <span className="text-neutral-300">Total Weight:</span>
-                                <span className="text-emerald-400 font-mono font-bold">{d.weight.toFixed(2)}%</span>
-                            </div>
+                                <div className="flex justify-between gap-4 border-t border-white/10 pt-2 mb-2">
+                                    <span className="text-neutral-300">Total Weight:</span>
+                                    <span className="text-emerald-400 font-mono font-bold">{d.totalWeight.toFixed(2)}%</span>
+                                </div>
 
-                            {d.contributors && d.contributors.length > 0 && (
                                 <div className="flex flex-col gap-1 border-t border-white/10 pt-2">
-                                    <span className="text-xs text-neutral-500 font-semibold mb-1">CONTRIBUTION SOURCE</span>
-                                    {d.contributors.slice(0, 5).map((c: any, idx: number) => (
+                                    <span className="text-xs text-neutral-500 font-semibold mb-1">BREAKDOWN</span>
+                                    {/* Sort payload by value desc */}
+                                    {payload.sort((a: any, b: any) => (b.value || 0) - (a.value || 0)).map((entry: any, idx: number) => (
                                         <div key={idx} className="flex justify-between gap-4">
-                                            <span className="text-neutral-400">{c.etf}</span>
-                                            <span className="text-neutral-200 font-mono">{c.weight.toFixed(2)}%</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                                                <span className="text-neutral-400">{entry.name}</span>
+                                            </div>
+                                            <span className="text-neutral-200 font-mono">{Number(entry.value).toFixed(2)}%</span>
                                         </div>
                                     ))}
-                                    {d.contributors.length > 5 && (
-                                        <div className="text-xs text-neutral-600 italic mt-1">
-                                            + {d.contributors.length - 5} more...
-                                        </div>
-                                    )}
                                 </div>
-                            )}
-                        </div>
-                    );
-                    }
-                    return null;
-                }}
+                            </div>
+                        );
+                        }
+                        return null;
+                    }}
                 />
-                <Bar
-                    dataKey="weight"
-                    radius={[0, 4, 4, 0]}
-                    barSize={20}
-                    isAnimationActive={false}
-                >
-                    {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                </Bar>
+                <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ paddingBottom: '20px', fontSize: '12px' }}
+                    iconType="circle"
+                    formatter={(value) => <span className="text-neutral-400 ml-1">{value}</span>}
+                />
+                {sources.map((source) => (
+                    <Bar
+                        key={source}
+                        dataKey={source}
+                        stackId="a" // Enables stacking
+                        fill={colorMap[source]}
+                        radius={[0, 4, 4, 0]} // Only last item gets radius? Recharts handles this usually
+                        // But for stacked, radius applies to the chunk. We might want radius only on the last chunk.
+                        // Recharts <Bar> radius applies to the bar segment.
+                        // We can leave it 0 or small.
+                    />
+                ))}
             </BarChart>
             </ResponsiveContainer>
           </div>

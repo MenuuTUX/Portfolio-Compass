@@ -18,7 +18,7 @@ mock.module('recharts', () => {
             <div data-testid="bar-chart">
                  {/* Render logic to verify data passing */}
                  {data.map((d: any, i: number) => (
-                    <div key={i} data-testid="bar-chart-item">{d.name}: {d.weight.toFixed(2)}</div>
+                    <div key={i} data-testid="bar-chart-item">{d.name}: {d.totalWeight.toFixed(2)}</div>
                  ))}
                  {children}
             </div>
@@ -29,7 +29,8 @@ mock.module('recharts', () => {
         CartesianGrid: () => <div data-testid="grid" />,
         ReferenceLine: () => <div data-testid="ref-line" />,
         Label: () => <div data-testid="label" />,
-        Sector: () => <div data-testid="sector" />
+        Sector: () => <div data-testid="sector" />,
+        Legend: () => <div data-testid="legend" />
     };
 });
 
