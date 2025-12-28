@@ -90,6 +90,8 @@ describe('Visualization Components', () => {
             // But verify the container is there
             expect(screen.getByText('Portfolio Weight Allocation')).toBeTruthy();
             expect(screen.getByTestId('treemap')).toBeTruthy();
+            expect(screen.getByText('AAPL')).toBeTruthy();
+            expect(screen.getByText('GOOGL')).toBeTruthy();
         });
 
         it('renders empty state', () => {

@@ -95,11 +95,7 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
        };
     });
 
-    // Wrap in a root node
-    return [{
-        name: 'Portfolio',
-        children: children
-    }];
+    return children;
   }, [portfolio]);
 
   if (portfolio.length === 0 || data.length === 0) {
@@ -132,8 +128,6 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
-                  // Skip the root node if accidentally hovered or if structure leaks
-                  if (d.name === 'Portfolio') return null;
 
                   return (
                     <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs shadow-xl z-50">
