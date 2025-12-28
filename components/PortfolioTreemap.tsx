@@ -96,7 +96,7 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
 
   if (portfolio.length === 0) {
     return (
-        <div className="w-full h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
+        <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
             No assets in portfolio
         </div>
     );
@@ -106,10 +106,10 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-[500px] glass-panel p-4 rounded-xl flex flex-col"
+      className="w-full h-full glass-panel p-4 rounded-xl flex flex-col"
     >
       <h3 className="text-sm font-medium text-neutral-400 mb-4">Portfolio Weight Allocation</h3>
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
             data={data}

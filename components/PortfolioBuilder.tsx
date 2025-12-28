@@ -137,7 +137,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-7xl mx-auto w-full flex flex-col"
+        className="max-w-7xl mx-auto w-full flex flex-col flex-1"
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 flex-shrink-0">
           <div>
@@ -202,11 +202,16 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
            </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 h-[75vh] min-h-[600px]">
+        {/*
+            Expanded Height Layout:
+            - Changed h-[75vh] to flex-1 with min-h for better responsiveness
+            - Added gap-8 for spacing
+        */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 min-h-[800px]">
           {/* Main Content Area (Left 2/3) */}
           <div className={cn("lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300", isCalibrating && "blur-sm opacity-50 pointer-events-none")}>
 
-            {/* Header Stats - Only show in LIST or TREEMAP, maybe redundant for Risk but good for context */}
+            {/* Header Stats */}
              {portfolio.length > 0 && (
               <div className="flex flex-col gap-2 mb-4 flex-shrink-0">
                 <div className="p-4 rounded-lg border border-white/10 bg-white/5 flex justify-between items-center">
@@ -229,7 +234,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             {/* View Switcher Logic */}
             <div className="flex-1 min-h-0 relative flex flex-col">
                 {builderView === 'LIST' && (
-                    <div className="flex-1 border border-white/5 rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden">
+                    <div className="flex-1 border border-white/5 rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden min-h-[500px]">
                       {displayPortfolio.length === 0 ? (
                         <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
                           Select ETFs from the Market Engine to build your portfolio.
@@ -289,13 +294,20 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                 )}
 
                 {builderView === 'TREEMAP' && (
-                    <PortfolioTreemap portfolio={portfolio} />
+                    <div className="h-full min-h-[600px] overflow-hidden">
+                        <PortfolioTreemap portfolio={portfolio} />
+                    </div>
                 )}
 
                 {builderView === 'RISK' && (
-                    <div className="flex flex-col gap-4 overflow-y-auto pr-1 custom-scrollbar h-full">
-                       <RiskReturnScatter items={portfolio} />
-                       <CorrelationHeatmap assets={portfolio.map(p => p.ticker)} />
+                    <div className="flex flex-col gap-6 overflow-y-auto pr-1 custom-scrollbar h-full min-h-[800px]">
+                       {/* Increased heights for charts to be less compact */}
+                       <div className="min-h-[400px]">
+                            <RiskReturnScatter items={portfolio} />
+                       </div>
+                       <div className="min-h-[400px]">
+                            <CorrelationHeatmap assets={portfolio.map(p => p.ticker)} />
+                       </div>
                     </div>
                 )}
             </div>
