@@ -1,10 +1,9 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Portfolio, PortfolioItem } from '@/types';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
@@ -15,8 +14,7 @@ import AlgorithmExplainer from './AlgorithmExplainer';
 import RiskReturnScatter from './RiskReturnScatter';
 import CorrelationHeatmap from './CorrelationHeatmap';
 import PortfolioTreemap from './PortfolioTreemap';
-
-const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
+import SectorPieChart, { COLORS } from './SectorPieChart';
 
 interface PortfolioBuilderProps {
   portfolio: Portfolio;
@@ -59,7 +57,15 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
      return portfolio.reduce((acc: { [key: string]: number }, item) => {
       if (item.sectors) {
         Object.entries(item.sectors).forEach(([sector, amount]) => {
-          acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
+          // Normalize sector name: Title Case and remove underscores
+          const normalizedSector = sector
+            .replace(/_/g, ' ')
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+          acc[normalizedSector] = (acc[normalizedSector] || 0) + (amount * (item.weight / 100));
         });
       }
       return acc;
@@ -114,7 +120,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
 
   const pieData = Object.entries(sectorAllocation).map(([name, value]) => ({
     name, value: value * 100
-  })).filter(x => x.value > 0);
+  })).filter(x => x.value > 0).sort((a, b) => b.value - a.value);
 
   // Virtualizer setup
   const rowVirtualizer = useVirtualizer({
@@ -351,51 +357,11 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                 <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">Sector X-Ray</h3>
                 <div className="w-full h-[300px] flex-shrink-0">
                   {pieData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {pieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0.5)" />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                          itemStyle={{ color: '#fff' }}
-                          formatter={(value: number) => `${value.toFixed(2)}%`}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    <SectorPieChart data={pieData} />
                   ) : (
                     <div className="h-full flex items-center justify-center text-neutral-600 text-sm">
                       Add holdings to see exposure
                     </div>
-                  )}
-                  {pieData.length > 0 && (
-                      <table className="sr-only">
-                        <caption>Portfolio Sector Allocation</caption>
-                        <thead>
-                          <tr>
-                            <th scope="col">Sector</th>
-                            <th scope="col">Allocation</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pieData.map((entry, index) => (
-                            <tr key={index}>
-                              <td>{entry.name}</td>
-                              <td>{entry.value.toFixed(1)}%</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
                   )}
                 </div>
                 {pieData.length > 0 && (
