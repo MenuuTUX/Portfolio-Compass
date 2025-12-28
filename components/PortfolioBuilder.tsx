@@ -12,6 +12,9 @@ import { Decimal } from 'decimal.js';
 import WealthProjector from './WealthProjector';
 import OptimizationPanel from './OptimizationPanel';
 import AlgorithmExplainer from './AlgorithmExplainer';
+import RiskReturnScatter from './RiskReturnScatter';
+import CorrelationHeatmap from './CorrelationHeatmap';
+import PortfolioTreemap from './PortfolioTreemap';
 
 const COLORS = ['#10b981', '#3b82f6', '#f43f5e', '#f59e0b', '#8b5cf6'];
 
@@ -25,6 +28,10 @@ interface PortfolioBuilderProps {
 
 export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onClear }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
+
+  // New internal view state for the Builder section
+  const [builderView, setBuilderView] = useState<'LIST' | 'TREEMAP' | 'RISK'>('LIST');
+
   const [isOptimizerActive, setIsOptimizerActive] = useState(true);
   const [isCalibrating, setIsCalibrating] = useState(false);
 
@@ -50,9 +57,6 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
      return portfolio.reduce((acc: { [key: string]: number }, item) => {
       if (item.sectors) {
         Object.entries(item.sectors).forEach(([sector, amount]) => {
-          // Calculation using number here for simplicity as it feeds into Recharts which needs numbers
-          // But strictly we could use Decimal if precision was critical for the pie chart.
-          // Given visual nature, number is fine here, but let's be consistent with weights.
           acc[sector] = (acc[sector] || 0) + (amount * (item.weight / 100));
         });
       }
@@ -69,7 +73,6 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   // Sync portfolio props to displayPortfolio with debounce logic
   useEffect(() => {
     if (isInteracting.current) {
-      // If interacting, update values in place but preserve order
       setDisplayPortfolio(prev => {
         const newPortfolio = [...prev];
         portfolio.forEach(updatedItem => {
@@ -77,15 +80,12 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           if (index !== -1) {
             newPortfolio[index] = updatedItem;
           } else {
-            // New item added while interacting? Append it.
             newPortfolio.push(updatedItem);
           }
         });
-        // Handle removals
         return newPortfolio.filter(p => portfolio.some(pi => pi.ticker === p.ticker));
       });
     } else {
-      // If not interacting, sort by weight descending
       setDisplayPortfolio([...portfolio].sort((a, b) => b.weight - a.weight));
     }
   }, [portfolio]);
@@ -96,7 +96,6 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
 
     sortTimeout.current = setTimeout(() => {
       isInteracting.current = false;
-      // Trigger a re-sort by updating from current portfolio
       setDisplayPortfolio([...portfolio].sort((a, b) => b.weight - a.weight));
     }, 3000);
   };
@@ -119,7 +118,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   const rowVirtualizer = useVirtualizer({
     count: displayPortfolio.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 120, // Estimate row height (slightly larger to be safe)
+    estimateSize: () => 120,
     overscan: 5,
   });
 
@@ -133,12 +132,12 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   }
 
   return (
-    <section className="py-12 md:py-24 px-4 min-h-screen flex flex-col">
+    <section className="py-12 md:py-24 px-4 h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar flex flex-col">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-7xl mx-auto w-full flex flex-col"
+        className="max-w-7xl mx-auto w-full flex flex-col flex-1"
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 flex-shrink-0">
           <div>
@@ -146,7 +145,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
             <p className="text-sm md:text-base text-neutral-400">Construct your custom allocation. Target 100% weight.</p>
           </div>
           <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-            <button
+             <button
               onClick={() => setIsOptimizerActive(!isOptimizerActive)}
               className={cn(
                 "flex-1 md:flex-none justify-center px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer border",
@@ -172,15 +171,52 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 h-[75vh] min-h-[600px]">
-          {/* Holdings List */}
+        {/* View Tabs */}
+        <div className="flex space-x-2 mb-6 border-b border-white/10 pb-1 overflow-x-auto">
+          <button
+            onClick={() => setBuilderView('LIST')}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
+              builderView === 'LIST' ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500" : "text-neutral-400 hover:text-white hover:bg-white/5"
+            )}
+          >
+            List View
+          </button>
+          <button
+            onClick={() => setBuilderView('TREEMAP')}
+            className={cn(
+              "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
+              builderView === 'TREEMAP' ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500" : "text-neutral-400 hover:text-white hover:bg-white/5"
+            )}
+          >
+            Tree Map
+          </button>
+          <button
+             onClick={() => setBuilderView('RISK')}
+             className={cn(
+               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
+               builderView === 'RISK' ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500" : "text-neutral-400 hover:text-white hover:bg-white/5"
+             )}
+           >
+             Risk Analysis
+           </button>
+        </div>
+
+        {/*
+            Expanded Height Layout:
+            - Changed h-[75vh] to flex-1 with min-h for better responsiveness
+            - Added gap-8 for spacing
+        */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 min-h-[800px]">
+          {/* Main Content Area (Left 2/3) */}
           <div className={cn("lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300", isCalibrating && "blur-sm opacity-50 pointer-events-none")}>
-            {portfolio.length > 0 && (
+
+            {/* Header Stats */}
+             {portfolio.length > 0 && (
               <div className="flex flex-col gap-2 mb-4 flex-shrink-0">
                 <div className="p-4 rounded-lg border border-white/10 bg-white/5 flex justify-between items-center">
                   <span className="font-medium text-white">Total Portfolio Value</span>
                   <span className="font-bold text-xl text-emerald-400">
-                    {/* Convert Decimal to number for display formatting */}
                     ${totalValue.toNumber().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -195,85 +231,102 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
               </div>
             )}
 
-            <div className="flex-1 min-h-0 border border-white/5 rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden">
-              {displayPortfolio.length === 0 ? (
-                <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
-                  Select ETFs from the Market Engine to build your portfolio.
-                </div>
-              ) : (
-                <div ref={parentRef} className="overflow-auto h-full w-full custom-scrollbar">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-white/10 shadow-sm">
-                      <tr>
-                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[30%]">Asset</th>
-                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider hidden md:table-cell w-[20%]">Metrics</th>
-                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[25%] md:w-[15%]">Position</th>
-                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider hidden md:table-cell w-[25%]">Allocation</th>
-                        <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider text-right w-[10%]">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody
-                      style={{
-                        height: `${rowVirtualizer.getTotalSize()}px`,
-                        width: '100%',
-                        position: 'relative',
-                      }}
-                    >
-                      {rowVirtualizer.getVirtualItems().length > 0 && (
-                        // We use a single spacer row at the top to push content down
-                        <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
-                          <td colSpan={5} style={{ border: 0, padding: 0 }} />
-                        </tr>
-                      )}
+            {/* View Switcher Logic */}
+            <div className="flex-1 min-h-0 relative flex flex-col">
+                {builderView === 'LIST' && (
+                    <div className="flex-1 border border-white/5 rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden min-h-[500px]">
+                      {displayPortfolio.length === 0 ? (
+                        <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
+                          Select ETFs from the Market Engine to build your portfolio.
+                        </div>
+                      ) : (
+                        <div ref={parentRef} className="overflow-auto h-full w-full custom-scrollbar">
+                          <table className="w-full text-left border-collapse">
+                            <thead className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-white/10 shadow-sm">
+                              <tr>
+                                <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[30%]">Asset</th>
+                                <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider hidden md:table-cell w-[20%]">Metrics</th>
+                                <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[25%] md:w-[15%]">Position</th>
+                                <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider hidden md:table-cell w-[25%]">Allocation</th>
+                                <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider text-right w-[10%]">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody
+                              style={{
+                                height: `${rowVirtualizer.getTotalSize()}px`,
+                                width: '100%',
+                                position: 'relative',
+                              }}
+                            >
+                              {rowVirtualizer.getVirtualItems().length > 0 && (
+                                <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }}>
+                                  <td colSpan={5} style={{ border: 0, padding: 0 }} />
+                                </tr>
+                              )}
 
-                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                         const item = displayPortfolio[virtualRow.index];
-                         return (
-                           <PortfolioItemRow
-                             key={item.ticker}
-                             item={item}
-                             virtualRow={virtualRow}
-                             measureElement={rowVirtualizer.measureElement}
-                             onRemove={onRemove}
-                             onUpdateWeight={handleUpdateWeight}
-                             onUpdateShares={handleUpdateShares}
-                           />
-                         );
-                      })}
+                              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                                 const item = displayPortfolio[virtualRow.index];
+                                 return (
+                                   <PortfolioItemRow
+                                     key={item.ticker}
+                                     item={item}
+                                     virtualRow={virtualRow}
+                                     measureElement={rowVirtualizer.measureElement}
+                                     onRemove={onRemove}
+                                     onUpdateWeight={handleUpdateWeight}
+                                     onUpdateShares={handleUpdateShares}
+                                   />
+                                 );
+                              })}
 
-                       {rowVirtualizer.getVirtualItems().length > 0 && (
-                        // Spacer at the bottom
-                        <tr style={{
-                          height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px`
-                        }}>
-                          <td colSpan={5} style={{ border: 0, padding: 0 }} />
-                        </tr>
+                               {rowVirtualizer.getVirtualItems().length > 0 && (
+                                <tr style={{
+                                  height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px`
+                                }}>
+                                  <td colSpan={5} style={{ border: 0, padding: 0 }} />
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    </div>
+                )}
+
+                {builderView === 'TREEMAP' && (
+                    <div className="h-full min-h-[600px] overflow-hidden">
+                        <PortfolioTreemap portfolio={portfolio} />
+                    </div>
+                )}
+
+                {builderView === 'RISK' && (
+                    <div className="flex flex-col gap-6 overflow-y-auto pr-1 custom-scrollbar h-full min-h-[800px]">
+                       {/* Increased heights for charts to be less compact */}
+                       <div className="min-h-[400px]">
+                            <RiskReturnScatter items={portfolio} />
+                       </div>
+                       <div className="min-h-[400px]">
+                            <CorrelationHeatmap assets={portfolio.map(p => p.ticker)} />
+                       </div>
+                    </div>
+                )}
             </div>
           </div>
 
-          {/* Visualization */}
+          {/* Right Column (Optimizer / Stats) */}
           <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar pr-1">
             {isOptimizerActive && portfolio.length > 0 ? (
               <OptimizationPanel
                 portfolio={portfolio}
                 onCalibrating={setIsCalibrating}
                 onApply={(newShares, newWeights) => {
-                  // 1. Update Shares
                   Object.entries(newShares).forEach(([ticker, additionalShares]) => {
                      const currentShares = portfolio.find(p => p.ticker === ticker)?.shares || 0;
                      handleUpdateShares(ticker, currentShares + additionalShares);
                   });
-
-                  // 2. Update Weights
                   Object.entries(newWeights).forEach(([ticker, weight]) => {
                     handleUpdateWeight(ticker, weight);
                   });
-
                   setIsOptimizerActive(false);
                 }}
               />
@@ -310,23 +363,23 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
                     </div>
                   )}
                   {pieData.length > 0 && (
-                    <table className="sr-only">
-                      <caption>Portfolio Sector Allocation</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">Sector</th>
-                          <th scope="col">Allocation</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pieData.map((entry, index) => (
-                          <tr key={index}>
-                            <td>{entry.name}</td>
-                            <td>{entry.value.toFixed(1)}%</td>
+                      <table className="sr-only">
+                        <caption>Portfolio Sector Allocation</caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">Sector</th>
+                            <th scope="col">Allocation</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {pieData.map((entry, index) => (
+                            <tr key={index}>
+                              <td>{entry.name}</td>
+                              <td>{entry.value.toFixed(1)}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                   )}
                 </div>
                 {pieData.length > 0 && (
