@@ -60,6 +60,10 @@ export interface EtfDetails {
   earningsDate?: string;
   dividend?: Decimal;
   exDividendDate?: string;
+  inceptionDate?: string;
+  payoutFrequency?: string;
+  payoutRatio?: Decimal;
+  holdingsCount?: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -370,6 +374,10 @@ export async function fetchEtfDetails(
   const fiftyTwoWeekRange = stockProfile?.fiftyTwoWeekRange;
   const earningsDate = stockProfile?.earningsDate;
   const exDividendDate = stockProfile?.exDividendDate;
+  const inceptionDate = stockProfile?.inceptionDate;
+  const payoutFrequency = stockProfile?.payoutFrequency;
+  const payoutRatio = toDecimal(stockProfile?.payoutRatio);
+  const holdingsCount = stockProfile?.holdingsCount;
 
   // Extract Top Holdings
   let holdingsList: { ticker: string; name: string; sector: string | null; weight: Decimal }[] | undefined;
@@ -413,6 +421,10 @@ export async function fetchEtfDetails(
     beta: beta5Y, // Alias beta to beta5Y
     earningsDate,
     dividend,
-    exDividendDate
+    exDividendDate,
+    inceptionDate,
+    payoutFrequency,
+    payoutRatio,
+    holdingsCount
   };
 }

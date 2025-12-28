@@ -90,6 +90,12 @@ export async function syncEtfDetails(
         daysRange: details.daysRange || null,
         fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
 
+        // New ETF Metrics
+        inceptionDate: details.inceptionDate || null,
+        payoutFrequency: details.payoutFrequency || null,
+        payoutRatio: details.payoutRatio || null,
+        holdingsCount: details.holdingsCount || null,
+
         name: details.name,
         currency: 'USD',
         exchange: 'Unknown',
@@ -125,6 +131,12 @@ export async function syncEtfDetails(
         earningsDate: details.earningsDate || null,
         daysRange: details.daysRange || null,
         fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
+
+        // New ETF Metrics
+        inceptionDate: details.inceptionDate || null,
+        payoutFrequency: details.payoutFrequency || null,
+        payoutRatio: details.payoutRatio || null,
+        holdingsCount: details.holdingsCount || null,
 
         assetType: details.assetType,
         isDeepAnalysisLoaded: true,

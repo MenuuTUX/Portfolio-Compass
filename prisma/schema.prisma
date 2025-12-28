@@ -41,6 +41,14 @@ model Etf {
   daysRange        String?
   fiftyTwoWeekRange String?
 
+  // New ETF Metrics
+  inceptionDate    String?
+  payoutFrequency  String?
+  payoutRatio      Decimal?
+  holdingsCount    Int?
+  bondMaturity     Decimal?
+  bondDuration     Decimal?
+
   assetType      String          @default("ETF")
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
