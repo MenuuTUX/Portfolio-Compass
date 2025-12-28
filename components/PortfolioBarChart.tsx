@@ -25,43 +25,29 @@ const CustomYAxisTick = (props: any) => {
   const { x, y, payload } = props;
   const { value: ticker } = payload; // ticker symbol
 
-  // We need 'name' and 'assetType' to fetch the icon correctly.
-  // However, YAxis tick only receives the value (ticker).
-  // We can infer or pass a lookup map.
-  // For simplicity, we'll try to guess or use the ticker.
-  // Ideally, we pass the icon URL in the payload or lookup.
-  // Since we can't easily pass rich objects to ticks in Recharts 2.x without custom logic,
-  // we will try to resolve the icon here or use a simplified approach.
-
-  // Actually, we can assume it's a Stock or ETF.
-  // For 'Cash', we use a static icon or null.
-
+  // Infer icon using STOCK logic for individual holdings
   let iconUrl: string | null = null;
   if (ticker === 'Cash' || ticker === 'Other') {
-      // No icon or specific icon
+      // No icon
   } else {
-      // We don't have the full name here easily unless we pass a lookup map.
-      // But getAssetIconUrl supports fallback to ticker icon.
       iconUrl = getAssetIconUrl(ticker, ticker, 'STOCK');
-      // Treating as STOCK ensures we look for Ticker Icon first, which is what we want for holdings.
-      // (Most holdings are stocks).
   }
 
   return (
     <g transform={`translate(${x},${y})`}>
       {iconUrl && (
         <image
-          x={-35}
+          x={-80} // Shift icon far left
           y={-10}
           href={iconUrl}
           width={20}
           height={20}
           preserveAspectRatio="xMidYMid slice"
-          style={{ clipPath: 'circle(50%)' }} // Attempt circular clip via style, might not work in all SVGs
+          style={{ clipPath: 'circle(50%)' }}
         />
       )}
       <text
-        x={iconUrl ? -10 : -5}
+        x={-10} // Text always right-aligned near the axis tick
         y={4}
         textAnchor="end"
         fill="#fff"
@@ -76,7 +62,16 @@ const CustomYAxisTick = (props: any) => {
 
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
   const data = useMemo(() => {
-    const aggregatedWeights: { [ticker: string]: { weight: number; name: string; isCash: boolean } } = {};
+    // Structure to track weight and contributors
+    const aggregatedWeights: {
+        [ticker: string]: {
+            weight: number;
+            name: string;
+            isCash: boolean;
+            contributors: { etf: string; weight: number }[]
+        }
+    } = {};
+
     let totalMappedWeight = 0;
 
     // 1. Unwrap Holdings
@@ -94,32 +89,33 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
 
                 if (aggregatedWeights[h.ticker]) {
                     aggregatedWeights[h.ticker].weight += effectiveWeight;
+                    aggregatedWeights[h.ticker].contributors.push({ etf: item.ticker, weight: effectiveWeight });
                 } else {
                     aggregatedWeights[h.ticker] = {
                         weight: effectiveWeight,
                         name: h.name,
-                        isCash: false
+                        isCash: false,
+                        contributors: [{ etf: item.ticker, weight: effectiveWeight }]
                     };
                 }
                 holdingsSumPercent += h.weight;
             });
 
             // Handle unmapped residue within ETF (often Cash or Other)
-            // If holdings sum to < 100%, the rest is effectively 'Other' or 'Cash' inside the ETF
-            // We'll treat it as 'Other' for now to distinguish from Portfolio Cash
-            /*
-               Actually, usually it's "Other". But let's check if we want to be that granular.
-               For QQQ, holdings sum to ~100%.
-               Let's ignore residue inside ETF for simplicity unless it's large,
-               OR attribute it to "Other".
-            */
             const residue = Math.max(0, 100 - holdingsSumPercent);
             if (residue > 1) {
                 const effectiveResidue = (itemWeight * residue) / 100;
                  if (aggregatedWeights['Other']) {
                     aggregatedWeights['Other'].weight += effectiveResidue;
+                    // We don't track contributors for generic 'Other' as closely, but we could
+                    aggregatedWeights['Other'].contributors.push({ etf: item.ticker, weight: effectiveResidue });
                 } else {
-                    aggregatedWeights['Other'] = { weight: effectiveResidue, name: 'Other Assets', isCash: false };
+                    aggregatedWeights['Other'] = {
+                        weight: effectiveResidue,
+                        name: 'Other Assets',
+                        isCash: false,
+                        contributors: [{ etf: item.ticker, weight: effectiveResidue }]
+                    };
                 }
             }
 
@@ -129,11 +125,13 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
             // It's a Stock or an ETF without holdings data (treat as opaque asset)
             if (aggregatedWeights[item.ticker]) {
                 aggregatedWeights[item.ticker].weight += itemWeight;
+                aggregatedWeights[item.ticker].contributors.push({ etf: '(Direct)', weight: itemWeight });
             } else {
                 aggregatedWeights[item.ticker] = {
                     weight: itemWeight,
                     name: item.name,
-                    isCash: false
+                    isCash: false,
+                    contributors: [{ etf: '(Direct)', weight: itemWeight }]
                 };
             }
             totalMappedWeight += itemWeight;
@@ -148,19 +146,31 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
     if (cashBuffer > 0.01) {
         if (aggregatedWeights['Cash']) {
              aggregatedWeights['Cash'].weight += cashBuffer;
+             aggregatedWeights['Cash'].contributors.push({ etf: 'Portfolio Cash', weight: cashBuffer });
         } else {
-             aggregatedWeights['Cash'] = { weight: cashBuffer, name: 'Cash Buffer', isCash: true };
+             aggregatedWeights['Cash'] = {
+                 weight: cashBuffer,
+                 name: 'Cash Buffer',
+                 isCash: true,
+                 contributors: [{ etf: 'Portfolio Cash', weight: cashBuffer }]
+             };
         }
     }
 
-    // 3. Convert to Array
-    let chartData = Object.entries(aggregatedWeights).map(([ticker, data]) => ({
-        name: ticker, // Ticker is the key
-        fullName: data.name,
-        weight: data.weight,
-        isCash: data.isCash,
-        fill: data.isCash ? '#525252' : '#10b981'
-    }));
+    // 3. Convert to Array and Sort Contributors
+    let chartData = Object.entries(aggregatedWeights).map(([ticker, data]) => {
+        // Sort contributors by weight desc
+        data.contributors.sort((a, b) => b.weight - a.weight);
+
+        return {
+            name: ticker, // Ticker is the key
+            fullName: data.name,
+            weight: data.weight,
+            isCash: data.isCash,
+            contributors: data.contributors,
+            fill: data.isCash ? '#525252' : '#10b981'
+        };
+    });
 
     // 4. Sort and Top N
     chartData.sort((a, b) => b.weight - a.weight);
@@ -178,6 +188,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                 fullName: 'Other Holdings',
                 weight: othersWeight,
                 isCash: false,
+                contributors: [], // Too complex to list all
                 fill: '#737373'
             });
         }
@@ -216,21 +227,21 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
             <BarChart
                 data={data}
                 layout="vertical"
-                margin={{ top: 5, right: 30, left: 50, bottom: 20 }} // Increased left margin for icons
+                margin={{ top: 5, right: 30, left: 100, bottom: 20 }} // Increased left margin for icons
             >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#333" />
                 <XAxis
                     type="number"
                     domain={[0, 'dataMax']}
                     stroke="#666"
-                    tickFormatter={(val) => `${val}%`}
+                    tickFormatter={(val) => `${Number(val).toFixed(0)}%`} // Fixed decimal issue
                 >
                     <Label value="Effective Weight (%)" offset={0} position="insideBottom" fill="#666" fontSize={12} dy={10} />
                 </XAxis>
                 <YAxis
                     type="category"
                     dataKey="name"
-                    width={50}
+                    width={100} // Increased width for YAxis to prevent overlap
                     stroke="#fff"
                     tick={<CustomYAxisTick />}
                     interval={0}
@@ -241,13 +252,31 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                     if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                        <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg text-xs shadow-xl z-50 min-w-[150px]">
-                        <div className="font-bold text-white mb-1 text-sm">{d.name}</div>
-                        <div className="text-neutral-400 mb-2">{d.fullName}</div>
-                        <div className="flex justify-between gap-4 border-t border-white/10 pt-2">
-                            <span className="text-neutral-400">Weight:</span>
-                            <span className="text-emerald-400 font-mono font-bold">{d.weight.toFixed(2)}%</span>
-                        </div>
+                        <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg text-xs shadow-xl z-50 min-w-[200px]">
+                            <div className="font-bold text-white mb-1 text-sm">{d.name}</div>
+                            <div className="text-neutral-400 mb-2">{d.fullName}</div>
+
+                            <div className="flex justify-between gap-4 border-t border-white/10 pt-2 mb-2">
+                                <span className="text-neutral-300">Total Weight:</span>
+                                <span className="text-emerald-400 font-mono font-bold">{d.weight.toFixed(2)}%</span>
+                            </div>
+
+                            {d.contributors && d.contributors.length > 0 && (
+                                <div className="flex flex-col gap-1 border-t border-white/10 pt-2">
+                                    <span className="text-xs text-neutral-500 font-semibold mb-1">CONTRIBUTION SOURCE</span>
+                                    {d.contributors.slice(0, 5).map((c: any, idx: number) => (
+                                        <div key={idx} className="flex justify-between gap-4">
+                                            <span className="text-neutral-400">{c.etf}</span>
+                                            <span className="text-neutral-200 font-mono">{c.weight.toFixed(2)}%</span>
+                                        </div>
+                                    ))}
+                                    {d.contributors.length > 5 && (
+                                        <div className="text-xs text-neutral-600 italic mt-1">
+                                            + {d.contributors.length - 5} more...
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     );
                     }
