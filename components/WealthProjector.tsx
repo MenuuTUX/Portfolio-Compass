@@ -5,7 +5,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
 import { motion } from 'framer-motion';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import MonteCarloSimulator from './simulation/MonteCarloSimulator';
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
@@ -13,22 +14,21 @@ interface WealthProjectorProps {
 }
 
 export default function WealthProjector({ portfolio, onBack }: WealthProjectorProps) {
+  const [mode, setMode] = useState<'SIMPLE' | 'MONTE_CARLO'>('SIMPLE');
+
+  // Simple Projection Logic (Legacy)
   const [initialInvestment, setInitialInvestment] = useState<number>(10000);
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
 
-  // Calculate Weighted Average Return (Simplified Assumption based on Yield + 5% Capital Appreciation)
-  let weightedReturn = 0.07; // Default 7%
-
+  // Calculate Weighted Average Return
+  let weightedReturn = 0.07;
   if (portfolio.length > 0) {
     const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
     if (totalWeight > 0) {
       weightedReturn = portfolio.reduce((acc, item) => {
-        // Estimated Return = Yield + 5% (Base Capital Growth assumption for equities)
-        // Bond heavy? Adjust. This is a "toy" model for the demo.
         let growthRate = 0.06;
         if (item.ticker.includes('ZAG')) growthRate = 0.01;
-
         const estimatedTotalReturn = (item.metrics.yield / 100) + growthRate;
         return acc + (estimatedTotalReturn * (item.weight / totalWeight));
       }, 0);
@@ -53,9 +53,24 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   }
 
   const projectionData = data;
-
   const finalAmount = projectionData.length > 0 ? projectionData[projectionData.length - 1].balance : 0;
   const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
+
+  if (mode === 'MONTE_CARLO') {
+      return (
+          <section className="py-12 px-4 max-w-7xl mx-auto h-full overflow-y-auto">
+             <div className="flex justify-end mb-4">
+                  <button
+                    onClick={() => setMode('SIMPLE')}
+                    className="text-sm text-neutral-400 hover:text-white underline"
+                  >
+                      Switch to Simple Projection
+                  </button>
+             </div>
+             <MonteCarloSimulator portfolio={portfolio} onBack={onBack} />
+          </section>
+      );
+  }
 
   return (
     <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
@@ -64,21 +79,31 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex items-center gap-4 mb-12">
-          {onBack && (
-            <button
-              onClick={onBack}
-              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-              title="Back to Portfolio"
-              aria-label="Back to Portfolio"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-          )}
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
-            <p className="text-neutral-400">Monte Carlo simulation based on your portfolio&apos;s weighted yield + growth assumptions.</p>
+        <div className="flex items-center justify-between mb-12">
+          <div className="flex items-center gap-4">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+                title="Back to Portfolio"
+                aria-label="Back to Portfolio"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+            )}
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
+              <p className="text-neutral-400">Project your future wealth based on portfolio assumptions.</p>
+            </div>
           </div>
+
+          <button
+             onClick={() => setMode('MONTE_CARLO')}
+             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
+          >
+             <Sparkles className="w-4 h-4" />
+             Try Monte Carlo Simulation
+          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-20">
