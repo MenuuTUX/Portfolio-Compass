@@ -66,7 +66,12 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
   // Transform data for Treemap
   // Treemap expects a hierarchical structure with a single root for correct rendering
   const data = React.useMemo(() => {
-    const children = portfolio.map((item) => {
+    // Filter out items with no weight to prevent rendering issues
+    const validItems = portfolio.filter(item => item.weight > 0);
+
+    if (validItems.length === 0) return [];
+
+    const children = validItems.map((item) => {
        const change = item.changePercent || 0;
        const isPositive = change >= 0;
 
@@ -97,10 +102,10 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
     }];
   }, [portfolio]);
 
-  if (portfolio.length === 0) {
+  if (portfolio.length === 0 || data.length === 0) {
     return (
         <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
-            No assets in portfolio
+            {portfolio.length === 0 ? "No assets in portfolio" : "No assets with allocation > 0%"}
         </div>
     );
   }
@@ -121,6 +126,7 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
             stroke="#fff"
             fill="#8884d8"
             content={<CustomizedContent />}
+            isAnimationActive={false} // Disable animation to prevent layout thrashing
           >
              <Tooltip
               content={({ active, payload }) => {
@@ -130,7 +136,7 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
                   if (d.name === 'Portfolio') return null;
 
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs shadow-xl">
+                    <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs shadow-xl z-50">
                       <div className="font-bold text-white mb-1">{d.name}</div>
                       <div className="space-y-1">
                         <div className="flex justify-between gap-4">

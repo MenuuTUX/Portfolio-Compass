@@ -164,7 +164,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                   />
                   <Tooltip
                     contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
-                    formatter={(value: number) => formatCurrency(value)}
+                    formatter={(value: any) => formatCurrency(Number(value))}
                   />
                   <Area
                     type="monotone"
