@@ -410,14 +410,35 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                                 </linearGradient>
                            </defs>
                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                           <XAxis dataKey="day" stroke="#555" tickFormatter={(d) => `Y${Math.floor(d/252)}`} />
-                           <YAxis stroke="#555" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                       <XAxis
+                          dataKey="day"
+                          stroke="#555"
+                          tickFormatter={(d) => `Y${Math.floor(d/252)}`}
+                          minTickGap={30}
+                       />
+                       <YAxis
+                          stroke="#555"
+                          tickFormatter={(value) => {
+                            if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+                            if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
+                            return `$${value}`;
+                          }}
+                          width={60}
+                       />
                            <Tooltip
                               contentStyle={{ backgroundColor: '#000', borderColor: '#333' }}
                               formatter={(val: any) => formatCurrency(Number(val))}
                               labelFormatter={(d) => `Year ${(d/252).toFixed(1)}`}
                            />
-                           <Area type="monotone" dataKey="p95" stroke="none" fill="url(#coneGradient)" fillOpacity={1} />
+                       <Area
+                          type="monotone"
+                          dataKey="p95"
+                          stroke="#10b981"
+                          strokeWidth={1}
+                          strokeOpacity={0.5}
+                          fill="url(#coneGradient)"
+                          fillOpacity={1}
+                       />
                        </AreaChart>
                    </ResponsiveContainer>
                    <div className="absolute inset-0 pointer-events-none">
