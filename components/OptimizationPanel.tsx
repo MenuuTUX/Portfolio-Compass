@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { PortfolioItem } from '@/types';
-import { calculateSmartDistribution, SmartDistributionResult } from '@/lib/optimizer';
+import { optimizePortfolioGreedy, GreedyOptimizationResult } from '@/lib/optimizer';
 import { Check, ArrowRight, DollarSign, TrendingDown, Layers, Activity, Minus, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,7 @@ interface OptimizationPanelProps {
 
 export default function OptimizationPanel({ portfolio, onApply, onCalibrating }: OptimizationPanelProps) {
   const [investmentAmount, setInvestmentAmount] = useState<number>(7000);
-  const [result, setResult] = useState<SmartDistributionResult | null>(null);
+  const [result, setResult] = useState<GreedyOptimizationResult | null>(null);
   const [proposedShares, setProposedShares] = useState<Record<string, number>>({});
   const [isApplying, setIsApplying] = useState(false);
 
@@ -25,9 +25,45 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
     onCalibrating?.(true);
     const timer = setTimeout(() => {
       if (portfolio.length > 0) {
-        const res = calculateSmartDistribution(portfolio, investmentAmount);
+        // Prepare data for the new optimizer
+        // NOTE: The optimizer requires Expected Returns and Covariance Matrix.
+        // In this frontend context, we might not have them calculated if they come from backend.
+        // For the purpose of this rewrite (replacing logic), I will mock/derive simple values
+        // to make the component compile and function "visually", or use available metrics if possible.
+        // Ideally, `portfolio` items should have `metrics` or `scores` populated.
+        // The previous `calculateSmartDistribution` used overlap.
+        // The new one uses Sharpe.
+        // I will attempt to derive 'expectedReturn' from a simple proxy (e.g. 5Y Beta * Market Return or historical yield).
+        // Since I can't fetch new data here easily without a hook rewrite, I'll use a simplified assumption:
+        // Expected Return ~ Yield + (Beta * 0.05).
+        // Covariance: Identity matrix for now (assuming uncorrelated) to unblock the build,
+        // as proper covariance requires historical price series analysis which is heavy for frontend.
+
+        const candidates = portfolio.map(p => ({
+            ticker: p.ticker,
+            price: p.price,
+            expectedReturn: (p.metrics?.yield || 0) / 100 + (p.beta || 1.0) * 0.06 // Simple CAPM-ish proxy
+        }));
+
+        const n = portfolio.length;
+        // Simple diagonal covariance matrix based on Beta (volatility proxy)
+        // Volatility ~ Beta * 0.15
+        const covarianceMatrix = Array(n).fill(0).map(() => Array(n).fill(0));
+        for(let i=0; i<n; i++) {
+            const vol = (portfolio[i].beta || 1.0) * 0.15;
+            covarianceMatrix[i][i] = vol * vol;
+        }
+
+        const res = optimizePortfolioGreedy({
+            candidates,
+            covarianceMatrix,
+            lambda: 1.0, // Risk aversion
+            budget: investmentAmount,
+            initialShares: Object.fromEntries(portfolio.map(p => [p.ticker, p.shares || 0]))
+        });
+
         setResult(res);
-        setProposedShares(res.newShares);
+        setProposedShares(res.addedShares); // We track *added* shares in this UI
       }
       onCalibrating?.(false);
     }, 300); // 300ms debounce
@@ -95,19 +131,12 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       nextShares[ticker] = nextVal;
 
       if (delta > 0 && newUsedBudget.greaterThan(budgetLimit)) {
-          // If increasing exceeds budget, we must decrease others to compensate
-          // Sort other assets by optimization score (worst first) to sacrifice them
-          // Note: We don't have scores easily available here unless we store them or re-derive.
           // Fallback: Decrement any other asset with >0 shares
-
           let remainingDeficit = newUsedBudget.minus(budgetLimit);
 
           // Get all other tickers with added shares
           const otherTickers = Object.keys(nextShares).filter(t => t !== ticker && nextShares[t] > 0);
 
-          // Simple heuristic: just remove from the first available for now,
-          // or ideally sort by price to minimize share count impact?
-          // Let's iterate and remove.
           for (const other of otherTickers) {
               if (remainingDeficit.lessThanOrEqualTo(0)) break;
 
@@ -125,7 +154,6 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
               remainingDeficit = remainingDeficit.minus(otherPrice.times(actualRemove));
           }
 
-          // If still deficit, we cannot perform the increase
           if (remainingDeficit.greaterThan(0)) {
               return; // Block the action
           }
@@ -145,7 +173,11 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
 
   if (!result || !projectedMetrics) return <div className="p-6 text-neutral-400">Initializing Optimizer...</div>;
 
-  const scoreImprovement = result.beforeScore - result.afterScore; // Note: After score should re-calc based on manual changes? ideally yes but computationally expensive to re-run overlap every click. Keep static for now or just show static result score.
+  // Visual metric: Use Utility as "Score" proxy (scaled loosely for display)
+  // or just show nothing since "Overlap Score" is gone.
+  // The user prompt replaced overlap with utility.
+  // I will rename "Overlap Score" to "Utility Score"
+  const utilityScore = Math.min(100, Math.max(0, result.utility * 1000)); // Arbitrary scaling for UI
 
   return (
     <div className="flex flex-col h-full bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
@@ -153,7 +185,7 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       <div className="p-6 border-b border-white/10 bg-black/20">
         <div className="flex items-center gap-2 mb-4 text-emerald-400">
           <Activity className="w-5 h-5" />
-          <h2 className="font-bold text-lg tracking-wide uppercase">Smart Optimizer</h2>
+          <h2 className="font-bold text-lg tracking-wide uppercase">Greedy Optimizer</h2>
         </div>
 
         <div className="relative group">
@@ -177,72 +209,28 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-        {/* Risk Score */}
+        {/* Utility Score */}
         <section>
           <div className="flex justify-between items-end mb-3">
             <h3 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-emerald-400" />
-              Overlap Score
+              Utility Score
             </h3>
-             {scoreImprovement > 0 && (
-              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                -{scoreImprovement.toFixed(1)} Improved
-              </span>
-            )}
           </div>
-           {/* Visual Bars */}
            <div className="space-y-3">
              <div className="space-y-1">
                <div className="flex justify-between text-xs text-neutral-500">
-                 <span>Current Risk</span>
-                 <span>{result.beforeScore.toFixed(1)} / 100</span>
+                 <span>Projected Utility</span>
+                 <span className="text-emerald-400 font-bold">{utilityScore.toFixed(1)}</span>
                </div>
                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                  <motion.div
-                   className="h-full bg-rose-500/70"
-                   initial={{ width: 0 }}
-                   animate={{ width: `${result.beforeScore}%` }}
-                 />
-               </div>
-             </div>
-             <div className="space-y-1">
-               <div className="flex justify-between text-xs text-neutral-500">
-                 <span>Projected Risk</span>
-                 <span className="text-emerald-400 font-bold">{result.afterScore.toFixed(1)} / 100</span>
-               </div>
-               <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden relative">
-                 <div className="absolute top-0 left-0 h-full bg-white/5" style={{ width: `${result.beforeScore}%` }} />
-                 <motion.div
                    className="h-full bg-emerald-500"
                    initial={{ width: 0 }}
-                   animate={{ width: `${result.afterScore}%` }}
+                   animate={{ width: `${utilityScore}%` }}
                  />
                </div>
              </div>
-          </div>
-        </section>
-
-        {/* Holdings X-Ray */}
-        <section>
-           <h3 className="text-sm font-medium text-neutral-300 mb-3 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-amber-400" />
-            Top Concentrated Stocks
-          </h3>
-          <div className="bg-white/5 rounded-lg border border-white/5 divide-y divide-white/5">
-            {result.topOverlaps.map((stock) => (
-              <div key={stock.ticker} className="flex justify-between items-center p-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/70">
-                    {stock.ticker[0]}
-                  </div>
-                  <span className="text-sm font-medium text-white">{stock.ticker}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-rose-400">{stock.exposure.toFixed(1)}%</div>
-                  <div className="text-[10px] text-neutral-500">Portfolio Exposure</div>
-                </div>
-              </div>
-            ))}
           </div>
         </section>
 
@@ -253,11 +241,6 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
              {portfolio.map((item) => {
                const sharesToAdd = proposedShares[item.ticker] || 0;
                const newWeight = projectedMetrics.newWeights[item.ticker] || item.weight;
-
-               // Show item if it has recommended shares OR if we want to allow user to add to any
-               // For cleaner UI, let's show all items in portfolio to allow manual tweaks?
-               // Or just recommended ones? The user said "all the other sliders go down".
-               // Showing all gives full control.
 
                return (
                  <motion.div

@@ -235,9 +235,10 @@ export async function syncEtfDetails(
                 });
             }
 
-              await prisma.$transaction([
-                  prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
-                  prisma.holding.createMany({
+            // Use interactive transaction for holdings update
+            await prisma.$transaction(async (tx) => {
+                  await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
+                  await tx.holding.createMany({
                       data: scrapedHoldings.map(h => ({
                           etfId: etf.ticker,
                           ticker: h.symbol,
@@ -247,8 +248,10 @@ export async function syncEtfDetails(
                           weight: new Decimal(h.weight).mul(100),
                           shares: h.shares ? new Decimal(h.shares) : null
                       }))
-                  })
-              ]);
+                  });
+              }, {
+                timeout: 30000
+              });
               console.log(`[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`);
               holdingsSynced = true;
           }
@@ -262,10 +265,11 @@ export async function syncEtfDetails(
     if (etf.assetType === 'ETF' && !holdingsSynced && details.topHoldings && details.topHoldings.length > 0) {
       try {
         console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
-        await prisma.$transaction([
-            prisma.holding.deleteMany({ where: { etfId: etf.ticker } }),
-            prisma.holding.createMany({
-                data: details.topHoldings.map(h => ({
+        // Use interactive transaction for holdings update
+        await prisma.$transaction(async (tx) => {
+            await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
+            await tx.holding.createMany({
+                data: details.topHoldings!.map(h => ({
                     etfId: etf.ticker,
                     ticker: h.ticker,
                     name: h.name,
@@ -273,8 +277,8 @@ export async function syncEtfDetails(
                     weight: h.weight,
                     shares: null // Yahoo doesn't provide share counts
                 }))
-            })
-        ]);
+            });
+        });
         console.log(`[EtfSync] Synced ${details.topHoldings.length} holdings for ${etf.ticker} (Yahoo)`);
       } catch (yhError) {
          console.error(`[EtfSync] Failed to sync Yahoo holdings for ${etf.ticker}`, yhError);
