@@ -10,6 +10,7 @@ interface CorrelationHeatmapProps {
 
 export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) {
   const [showInfo, setShowInfo] = useState(false);
+  const [hoveredCell, setHoveredCell] = useState<{ row: number; col: number } | null>(null);
 
   // Logic: Mock correlation matrix
   // Uses a deterministic hash based on ticker pairs so values are consistent (but fake).
@@ -42,11 +43,22 @@ export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) 
   }, [assets]);
 
   // Color logic
-  const getColor = (value: number) => {
-    if (value === 1.0) return 'bg-emerald-900/40 border-emerald-500/20 text-emerald-600'; // Self
-    if (value > 0.7) return 'bg-rose-900/40 border-rose-500/20 text-rose-400'; // High correlation (Bad for div)
-    if (value < 0.3) return 'bg-blue-900/40 border-blue-500/20 text-blue-400'; // Low correlation (Good for div)
-    return 'bg-emerald-900/20 border-emerald-500/10 text-emerald-400'; // Moderate
+  const getColor = (value: number, isHovered: boolean, isRelated: boolean, hasHover: boolean) => {
+    let base = '';
+
+    if (value === 1.0) base = 'bg-emerald-900/40 border-emerald-500/20 text-emerald-600'; // Self
+    else if (value > 0.7) base = 'bg-rose-900/40 border-rose-500/20 text-rose-400'; // High correlation
+    else if (value < 0.3) base = 'bg-blue-900/40 border-blue-500/20 text-blue-400'; // Low correlation
+    else base = 'bg-emerald-900/20 border-emerald-500/10 text-emerald-400'; // Moderate
+
+    // Interaction states
+    if (hasHover) {
+      if (isHovered) return `${base} ring-2 ring-white/50 scale-105 z-20 shadow-lg brightness-110`;
+      if (isRelated) return `${base} brightness-110 opacity-100`; // Keep related row/col standard brightness
+      return `${base} opacity-30 grayscale`; // Dim everything else
+    }
+
+    return base;
   };
 
   if (n === 0) return null;
@@ -96,7 +108,10 @@ export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) 
         )}
       </AnimatePresence>
 
-      <div className="flex-1 min-h-0 overflow-auto custom-scrollbar relative">
+      <div
+        className="flex-1 min-h-0 overflow-auto custom-scrollbar relative"
+        onMouseLeave={() => setHoveredCell(null)}
+      >
         <div
             className="grid gap-1 min-w-max"
             style={{
@@ -104,11 +119,18 @@ export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) 
             gridTemplateRows: `auto repeat(${n}, minmax(40px, 1fr))`
             }}
         >
-             {/* Header Row */}
-             <div className="sticky top-0 left-0 z-20 bg-[#0a0a0a]"></div> {/* Top-Left Corner */}
-             {assets.map((ticker, i) => (
-                 <div key={`col-${i}`} className="sticky top-0 z-10 bg-[#0a0a0a] flex items-end justify-center pb-2">
-                     <span className="text-[10px] font-bold text-neutral-400 rotate-[-45deg] origin-bottom-left translate-x-2 translate-y-2 whitespace-nowrap">
+             {/* Header Row (Corner) */}
+             <div className="sticky top-0 left-0 z-20 bg-[#0a0a0a]"></div>
+
+             {/* Header Row (Columns) */}
+             {assets.map((ticker, j) => (
+                 <div key={`col-${j}`} className="sticky top-0 z-10 bg-[#0a0a0a] flex items-end justify-center pb-2">
+                     <span
+                       className={`
+                         text-[10px] font-bold rotate-[-45deg] origin-bottom-left translate-x-2 translate-y-2 whitespace-nowrap transition-colors
+                         ${hoveredCell && hoveredCell.col === j ? 'text-white scale-110' : 'text-neutral-400'}
+                       `}
+                     >
                          {ticker}
                      </span>
                  </div>
@@ -119,35 +141,84 @@ export default function CorrelationHeatmap({ assets }: CorrelationHeatmapProps) 
             <React.Fragment key={`row-${i}`}>
                 {/* Row Label */}
                  <div className="sticky left-0 z-10 bg-[#0a0a0a] flex items-center justify-end pr-2">
-                    <span className="text-[10px] font-bold text-neutral-400">{assets[i]}</span>
+                    <span
+                      className={`
+                        text-[10px] font-bold transition-colors
+                        ${hoveredCell && hoveredCell.row === i ? 'text-white scale-110' : 'text-neutral-400'}
+                      `}
+                    >
+                      {assets[i]}
+                    </span>
                  </div>
 
                 {/* Cells */}
-                {row.map((val, j) => (
-                <div
-                    key={`${i}-${j}`}
-                    className={`
-                    w-full h-10 min-w-[40px] rounded-sm border flex items-center justify-center
-                    transition-all duration-200 relative group
-                    ${getColor(val)}
-                    `}
-                    title={`${assets[i]} vs ${assets[j]}: ${val.toFixed(2)}`}
-                >
-                    <span className="text-[9px] font-medium opacity-70 group-hover:opacity-100">
-                         {val === 1.0 ? '' : val.toFixed(2)}
-                    </span>
-                </div>
-                ))}
+                {row.map((val, j) => {
+                  const isHovered = hoveredCell?.row === i && hoveredCell?.col === j;
+                  const isRelated = hoveredCell?.row === i || hoveredCell?.col === j;
+
+                  return (
+                    <div
+                        key={`${i}-${j}`}
+                        className={`
+                        w-full h-10 min-w-[40px] rounded-sm border flex items-center justify-center
+                        transition-all duration-300 cursor-crosshair
+                        ${getColor(val, isHovered, isRelated, !!hoveredCell)}
+                        `}
+                        onMouseEnter={() => setHoveredCell({ row: i, col: j })}
+                    >
+                        <span className={`text-[9px] font-medium transition-opacity ${isHovered ? 'opacity-100' : 'opacity-70'}`}>
+                            {val === 1.0 ? '' : val.toFixed(2)}
+                        </span>
+                    </div>
+                  );
+                })}
             </React.Fragment>
             ))}
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 mt-4 pt-3 border-t border-white/5 text-[10px] text-neutral-500">
-        <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-blue-500/40 rounded-sm"></div> Low (&lt;0.3)</div>
-        <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-emerald-500/20 rounded-sm"></div> Mod</div>
-        <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-rose-500/40 rounded-sm"></div> High (&gt;0.7)</div>
+      {/* Legend or Interaction Detail Box */}
+      <div className="h-16 mt-3 border-t border-white/5 pt-2 flex items-center relative">
+        <AnimatePresence mode="wait">
+          {hoveredCell ? (
+            <motion.div
+              key="detail"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              transition={{ duration: 0.15 }}
+              className="w-full flex justify-between items-center"
+            >
+              <div className="flex flex-col">
+                <span className="text-xs text-neutral-400 font-medium">
+                  {assets[hoveredCell.row]} <span className="text-neutral-600">vs</span> {assets[hoveredCell.col]}
+                </span>
+                <span className={`text-lg font-bold ${
+                  matrix[hoveredCell.row][hoveredCell.col] > 0.7 ? 'text-rose-400' :
+                  matrix[hoveredCell.row][hoveredCell.col] < 0.3 ? 'text-blue-400' : 'text-emerald-400'
+                }`}>
+                  {matrix[hoveredCell.row][hoveredCell.col].toFixed(2)}
+                </span>
+              </div>
+              <div className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded bg-white/5 border border-white/10 text-neutral-300">
+                {matrix[hoveredCell.row][hoveredCell.col] > 0.7 ? 'High Correlation' :
+                 matrix[hoveredCell.row][hoveredCell.col] < 0.3 ? 'Diversified' : 'Moderate'}
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="legend"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="w-full flex flex-wrap gap-4 text-[10px] text-neutral-500"
+            >
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-blue-500/40 rounded-sm"></div> Low (&lt;0.3)</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-emerald-500/20 rounded-sm"></div> Mod</div>
+              <div className="flex items-center gap-1.5"><div className="w-2 h-2 bg-rose-500/40 rounded-sm"></div> High (&gt;0.7)</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
