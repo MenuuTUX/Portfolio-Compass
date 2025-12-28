@@ -12,8 +12,10 @@ import {
   Cell,
   Label,
   Legend,
+  ReferenceLine,
 } from 'recharts';
 import { motion } from 'framer-motion';
+import { AlertTriangle } from 'lucide-react';
 import { Portfolio } from '@/types';
 import { getAssetIconUrl } from '@/lib/etf-providers';
 
@@ -63,19 +65,33 @@ const CustomYAxisTick = (props: any) => {
 
 // Distinct colors for sources
 const SOURCE_COLORS = [
-    '#10b981', // Direct (Emerald-500)
+    '#10b981', // Direct (Emerald-500) - Placeholder, will be overridden dynamically
     '#3b82f6', // Blue-500
     '#8b5cf6', // Violet-500
-    '#f59e0b', // Amber-500
+    '#0ea5e9', // Sky-500
     '#ef4444', // Red-500
     '#ec4899', // Pink-500
     '#06b6d4', // Cyan-500
     '#84cc16', // Lime-500
     '#6366f1', // Indigo-500
     '#14b8a6', // Teal-500
-    '#f97316', // Orange-500
     '#d946ef', // Fuchsia-500
 ];
+
+// Risk Colors
+const RISK_COLORS = {
+    SAFE: '#10b981',    // < 5% (Emerald-500)
+    WARN: '#f59e0b',    // 5-10% (Amber-500)
+    HIGH: '#f97316',    // 10-20% (Orange-500)
+    CRIT: '#ef4444',    // > 20% (Red-500)
+};
+
+const getRiskColor = (totalWeight: number) => {
+    if (totalWeight > 20) return RISK_COLORS.CRIT;
+    if (totalWeight > 10) return RISK_COLORS.HIGH;
+    if (totalWeight > 5) return RISK_COLORS.WARN;
+    return RISK_COLORS.SAFE;
+};
 
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
   // 1. Identify Unique Sources (ETFs + Direct)
@@ -281,8 +297,20 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
 
                                 <div className="flex justify-between gap-4 border-t border-white/10 pt-2 mb-2">
                                     <span className="text-neutral-300">Total Weight:</span>
-                                    <span className="text-emerald-400 font-mono font-bold">{d.totalWeight.toFixed(2)}%</span>
+                                    <span
+                                        className="font-mono font-bold"
+                                        style={{ color: getRiskColor(d.totalWeight) }}
+                                    >
+                                        {d.totalWeight.toFixed(2)}%
+                                    </span>
                                 </div>
+
+                                {d.totalWeight > 10 && (
+                                    <div className="flex items-center gap-2 mb-3 bg-red-500/10 border border-red-500/30 p-2 rounded text-red-200">
+                                        <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                                        <span>Concentration Risk: Exceeds recommended 10% cap.</span>
+                                    </div>
+                                )}
 
                                 <div className="flex flex-col gap-1 border-t border-white/10 pt-2">
                                     <span className="text-xs text-neutral-500 font-semibold mb-1">BREAKDOWN</span>
@@ -310,18 +338,41 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                     iconType="circle"
                     formatter={(value) => <span className="text-neutral-400 ml-1">{value}</span>}
                 />
-                {sources.map((source) => (
-                    <Bar
-                        key={source}
-                        dataKey={source}
-                        stackId="a" // Enables stacking
-                        fill={colorMap[source]}
-                        radius={[0, 4, 4, 0]} // Only last item gets radius? Recharts handles this usually
-                        // But for stacked, radius applies to the chunk. We might want radius only on the last chunk.
-                        // Recharts <Bar> radius applies to the bar segment.
-                        // We can leave it 0 or small.
-                    />
-                ))}
+
+                {/* Reference Lines for Risk Thresholds */}
+                <ReferenceLine x={5} stroke={RISK_COLORS.WARN} strokeDasharray="3 3" strokeOpacity={0.5}>
+                    <Label value="5% Guideline" position="insideTopRight" fill={RISK_COLORS.WARN} fontSize={10} angle={-90} dx={10} dy={10} />
+                </ReferenceLine>
+                <ReferenceLine x={10} stroke={RISK_COLORS.HIGH} strokeDasharray="3 3" strokeOpacity={0.7}>
+                    <Label value="10% Warning" position="insideTopRight" fill={RISK_COLORS.HIGH} fontSize={10} angle={-90} dx={10} dy={10} />
+                </ReferenceLine>
+                <ReferenceLine x={20} stroke={RISK_COLORS.CRIT} strokeDasharray="3 3">
+                    <Label value="20% Critical" position="insideTopRight" fill={RISK_COLORS.CRIT} fontSize={10} angle={-90} dx={10} dy={10} />
+                </ReferenceLine>
+
+                {sources.map((source) => {
+                    if (source === 'Direct') {
+                        return (
+                            <Bar
+                                key={source}
+                                dataKey={source}
+                                stackId="a"
+                            >
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={getRiskColor(entry.totalWeight)} />
+                                ))}
+                            </Bar>
+                        );
+                    }
+                    return (
+                        <Bar
+                            key={source}
+                            dataKey={source}
+                            stackId="a"
+                            fill={colorMap[source]}
+                        />
+                    );
+                })}
             </BarChart>
             </ResponsiveContainer>
           </div>
