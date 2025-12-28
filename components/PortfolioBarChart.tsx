@@ -287,7 +287,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                                 <div className="flex flex-col gap-1 border-t border-white/10 pt-2">
                                     <span className="text-xs text-neutral-500 font-semibold mb-1">BREAKDOWN</span>
                                     {/* Sort payload by value desc */}
-                                    {payload.sort((a: any, b: any) => (b.value || 0) - (a.value || 0)).map((entry: any, idx: number) => (
+                                    {[...payload].sort((a: any, b: any) => (b.value || 0) - (a.value || 0)).map((entry: any, idx: number) => (
                                         <div key={idx} className="flex justify-between gap-4">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
