@@ -1,7 +1,7 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { Decimal } from 'decimal.js';
 
-// Mocks
+// Define mocks
 const mockPrismaUpsert = mock(() => Promise.resolve({}));
 const mockPrismaFindFirst = mock(() => Promise.resolve(null));
 const mockPrismaFindUnique = mock(() => Promise.resolve(null));
@@ -9,9 +9,31 @@ const mockPrismaDeleteMany = mock(() => Promise.resolve({ count: 0 }));
 const mockPrismaCreateMany = mock(() => Promise.resolve({ count: 0 }));
 const mockPrismaUpdate = mock(() => Promise.resolve({}));
 const mockPrismaCreate = mock(() => Promise.resolve({}));
-const mockPrismaTransaction = mock(() => Promise.resolve([]));
 // Added missing mock for etfAllocation.upsert
 const mockPrismaAllocationUpsert = mock(() => Promise.resolve({}));
+
+// Mock Transaction Client
+const mockTx = {
+    etfSector: {
+        deleteMany: mockPrismaDeleteMany,
+        createMany: mockPrismaCreateMany,
+    },
+    etfAllocation: {
+        upsert: mockPrismaAllocationUpsert,
+    },
+    etfHistory: {
+        deleteMany: mockPrismaDeleteMany,
+        createMany: mockPrismaCreateMany,
+    },
+    holding: {
+        deleteMany: mockPrismaDeleteMany,
+        createMany: mockPrismaCreateMany,
+    }
+};
+
+const mockPrismaTransaction = mock(async (callback) => {
+    return await callback(mockTx);
+});
 
 const mockFetchEtfDetails = mock(() => Promise.resolve(null));
 const mockGetEtfHoldings = mock(() => Promise.resolve([]));
@@ -36,7 +58,7 @@ mock.module('@/lib/db', () => {
         findUnique: mockPrismaFindUnique,
         update: mockPrismaUpdate,
         create: mockPrismaCreate,
-        upsert: mockPrismaAllocationUpsert, // Added here
+        upsert: mockPrismaAllocationUpsert,
       },
       holding: {
         deleteMany: mockPrismaDeleteMany,
@@ -162,7 +184,10 @@ describe('Lib: syncEtfDetails', () => {
       // Verify transaction calls
       expect(mockPrismaTransaction).toHaveBeenCalled();
 
+      // Since we use a transaction, deleteMany and createMany are called on the mockTx object
+      // which references the same mockPrismaCreateMany function
       const createCalls = mockPrismaCreateMany.mock.calls;
+
       const holdingCreateCall = createCalls.find(call => {
           const arg = call[0];
           return arg && arg.data && Array.isArray(arg.data) && arg.data.some((h: any) => h.ticker === 'A');
