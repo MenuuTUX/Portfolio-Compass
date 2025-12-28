@@ -10,12 +10,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  Label,
   Legend,
   ReferenceLine,
+  ReferenceArea,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { Portfolio } from '@/types';
 import { TickIcon } from './TickIcon';
 
@@ -23,19 +23,19 @@ interface PortfolioBarChartProps {
   portfolio: Portfolio;
 }
 
-// Biopunk / Neon Aesthetic Palette
+// Biopunk / Neon Aesthetic Palette (Lighter/Brighter)
 const PALETTE = {
-  emerald: { main: '#10b981', dark: '#047857' },
-  blue: { main: '#3b82f6', dark: '#1d4ed8' },
-  violet: { main: '#8b5cf6', dark: '#6d28d9' },
-  cyan: { main: '#06b6d4', dark: '#0e7490' },
-  rose: { main: '#f43f5e', dark: '#be123c' },
-  amber: { main: '#f59e0b', dark: '#b45309' },
-  fuchsia: { main: '#d946ef', dark: '#a21caf' },
-  sky: { main: '#0ea5e9', dark: '#0369a1' },
-  indigo: { main: '#6366f1', dark: '#4338ca' },
-  lime: { main: '#84cc16', dark: '#4d7c0f' },
-  teal: { main: '#14b8a6', dark: '#0f766e' },
+  emerald: { main: '#34d399', dark: '#059669' }, // Lighter Emerald
+  blue: { main: '#60a5fa', dark: '#2563eb' },    // Lighter Blue
+  violet: { main: '#a78bfa', dark: '#7c3aed' },  // Lighter Violet
+  cyan: { main: '#22d3ee', dark: '#0891b2' },    // Lighter Cyan
+  rose: { main: '#fb7185', dark: '#e11d48' },    // Lighter Rose
+  amber: { main: '#fcd34d', dark: '#d97706' },   // Lighter Amber
+  fuchsia: { main: '#e879f9', dark: '#c026d3' }, // Lighter Fuchsia
+  sky: { main: '#38bdf8', dark: '#0284c7' },     // Lighter Sky
+  indigo: { main: '#818cf8', dark: '#4f46e5' },  // Lighter Indigo
+  lime: { main: '#a3e635', dark: '#65a30d' },   // Lighter Lime
+  teal: { main: '#2dd4bf', dark: '#0d9488' },    // Lighter Teal
 };
 
 const SOURCE_COLORS = [
@@ -49,12 +49,12 @@ const SOURCE_COLORS = [
   PALETTE.lime,
 ];
 
-// Risk Colors (Neon)
+// Risk Colors (Neon Pastel / Lighter)
 const RISK_COLORS = {
-  SAFE: '#10b981', // Emerald
-  WARN: '#facc15', // Yellow/Amber
-  HIGH: '#fb923c', // Orange
-  CRIT: '#f43f5e', // Rose
+  SAFE: '#6ee7b7', // Emerald-300
+  WARN: '#fcd34d', // Amber-300
+  HIGH: '#fdba74', // Orange-300
+  CRIT: '#fda4af', // Rose-300
 };
 
 const getRiskColor = (totalWeight: number) => {
@@ -100,7 +100,7 @@ const CustomYAxisTick = (props: any) => {
 };
 
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
-  const { chartData, sources, riskMap } = useMemo(() => {
+  const { chartData, sources, riskMap, maxWeight } = useMemo(() => {
     const aggregatedData: {
       [holdingTicker: string]: {
         totalWeight: number;
@@ -216,11 +216,16 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
     });
 
     const rMap: Record<string, number> = {};
+    let maxW = 0;
     data.forEach((d) => {
       rMap[d.name] = d.totalWeight;
+      if (d.totalWeight > maxW) maxW = d.totalWeight;
     });
 
-    return { chartData: data, sources: sourceList, riskMap: rMap };
+    // Ensure X-Axis covers at least the zones (up to 25% to give buffer for 20% zone)
+    if (maxW < 25) maxW = 25;
+
+    return { chartData: data, sources: sourceList, riskMap: rMap, maxWeight: maxW };
   }, [portfolio]);
 
   if (portfolio.length === 0) {
@@ -244,15 +249,15 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
             <h3 className="text-xl font-bold text-white tracking-tight">Portfolio Look-Through</h3>
             <div className="flex items-center gap-4 text-xs">
                 <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                    <span className="w-2 h-2 rounded-full" style={{ background: RISK_COLORS.SAFE, boxShadow: `0 0 8px ${RISK_COLORS.SAFE}80` }} />
                     <span className="text-neutral-400">Safe</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                    <span className="w-2 h-2 rounded-full" style={{ background: RISK_COLORS.WARN, boxShadow: `0 0 8px ${RISK_COLORS.WARN}80` }} />
                     <span className="text-neutral-400">Warning</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                    <span className="w-2 h-2 rounded-full" style={{ background: RISK_COLORS.CRIT, boxShadow: `0 0 8px ${RISK_COLORS.CRIT}80` }} />
                     <span className="text-neutral-400">Critical</span>
                 </div>
             </div>
@@ -269,48 +274,47 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
               data={chartData}
               layout="vertical"
               margin={{ top: 10, right: 30, left: 100, bottom: 20 }}
-              barSize={20} // Sleek bars
+              barSize={20}
             >
               <defs>
-                {/* Direct/Risk Gradients */}
+                {/* Lighter Risk Gradients for Bars */}
                 <linearGradient id="gradDirectSafe" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={RISK_COLORS.SAFE} stopOpacity={0.8}/>
-                    <stop offset="100%" stopColor={RISK_COLORS.SAFE} stopOpacity={1}/>
+                    <stop offset="0%" stopColor={RISK_COLORS.SAFE} stopOpacity={0.6}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.SAFE} stopOpacity={0.9}/>
                 </linearGradient>
                 <linearGradient id="gradDirectWarn" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={RISK_COLORS.WARN} stopOpacity={0.8}/>
-                    <stop offset="100%" stopColor={RISK_COLORS.WARN} stopOpacity={1}/>
+                    <stop offset="0%" stopColor={RISK_COLORS.WARN} stopOpacity={0.6}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.WARN} stopOpacity={0.9}/>
                 </linearGradient>
                 <linearGradient id="gradDirectHigh" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={RISK_COLORS.HIGH} stopOpacity={0.8}/>
-                    <stop offset="100%" stopColor={RISK_COLORS.HIGH} stopOpacity={1}/>
+                    <stop offset="0%" stopColor={RISK_COLORS.HIGH} stopOpacity={0.6}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.HIGH} stopOpacity={0.9}/>
                 </linearGradient>
                 <linearGradient id="gradDirectCrit" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor={RISK_COLORS.CRIT} stopOpacity={0.8}/>
-                    <stop offset="100%" stopColor={RISK_COLORS.CRIT} stopOpacity={1}/>
+                    <stop offset="0%" stopColor={RISK_COLORS.CRIT} stopOpacity={0.6}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.CRIT} stopOpacity={0.9}/>
                 </linearGradient>
 
-                {/* Source Gradients */}
+                {/* Source Gradients (Lighter) */}
                 {SOURCE_COLORS.map((color, idx) => (
                     <linearGradient key={`gradSource${idx}`} id={`gradSource${idx}`} x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor={color.main} stopOpacity={0.7} />
-                        <stop offset="100%" stopColor={color.main} stopOpacity={1} />
+                        <stop offset="0%" stopColor={color.main} stopOpacity={0.5} />
+                        <stop offset="100%" stopColor={color.main} stopOpacity={0.9} />
                     </linearGradient>
                 ))}
               </defs>
 
-              <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#ffffff" strokeOpacity={0.05} />
+              <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#ffffff" strokeOpacity={0.03} />
 
               <XAxis
                 type="number"
-                domain={[0, 'dataMax']}
+                domain={[0, maxWeight]}
                 stroke="#525252"
                 tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
                 tick={{ fill: '#737373', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
-              >
-              </XAxis>
+              />
 
               <YAxis
                 type="category"
@@ -382,14 +386,28 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                 iconSize={8}
               />
 
-              {/* Aesthetic Reference Lines */}
-              <ReferenceLine x={5} stroke={RISK_COLORS.WARN} strokeDasharray="2 4" strokeOpacity={0.4} />
-              <ReferenceLine x={10} stroke={RISK_COLORS.HIGH} strokeDasharray="2 4" strokeOpacity={0.5} />
-              <ReferenceLine x={20} stroke={RISK_COLORS.CRIT} strokeDasharray="2 4" strokeOpacity={0.6} />
+              {/* Concentration Areas (Background Zones) */}
+              {/* Safe Zone: 0-5% */}
+              <ReferenceArea x1={0} x2={5} fill={RISK_COLORS.SAFE} fillOpacity={0.03} />
+
+              {/* Warning Zone: 5-10% */}
+              <ReferenceArea x1={5} x2={10} fill={RISK_COLORS.WARN} fillOpacity={0.03} />
+
+              {/* High Risk Zone: 10-20% */}
+              <ReferenceArea x1={10} x2={20} fill={RISK_COLORS.HIGH} fillOpacity={0.03} />
+
+              {/* Critical Zone: 20%+ */}
+              <ReferenceArea x1={20} fill={RISK_COLORS.CRIT} fillOpacity={0.03} />
+
+              {/* Divider Lines (Optional, subtle) */}
+              <ReferenceLine x={5} stroke={RISK_COLORS.WARN} strokeDasharray="2 4" strokeOpacity={0.3} />
+              <ReferenceLine x={10} stroke={RISK_COLORS.HIGH} strokeDasharray="2 4" strokeOpacity={0.4} />
+              <ReferenceLine x={20} stroke={RISK_COLORS.CRIT} strokeDasharray="2 4" strokeOpacity={0.5} />
 
               {sources.map((source, index) => {
                 const isLast = index === sources.length - 1;
-                const radius: [number, number, number, number] = isLast ? [0, 4, 4, 0] : [0, 0, 0, 0];
+                // Rounder bars: [0, 6, 6, 0]
+                const radius: [number, number, number, number] = isLast ? [0, 6, 6, 0] : [0, 0, 0, 0];
 
                 if (source === 'Direct') {
                   return (
@@ -411,11 +429,6 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                   );
                 }
 
-                // Assign a color from palette cyclically
-                // Note: SOURCE_COLORS index must exclude 'Direct' logic if we want consistency,
-                // but here 'sources' includes Direct.
-                // We should map based on source name hash or index to keep it consistent?
-                // The current index is fine as long as order is stable.
                 const colorIdx = index % SOURCE_COLORS.length;
 
                 return (
