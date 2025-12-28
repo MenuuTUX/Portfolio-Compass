@@ -17,6 +17,9 @@ interface PortfolioTreemapProps {
 const CustomizedContent = (props: any) => {
   const { root, depth, x, y, width, height, index, payload, colors, rank, name } = props;
 
+  // Safety check: ensure payload exists
+  if (!payload) return null;
+
   return (
     <g>
       <rect
@@ -61,18 +64,12 @@ const CustomizedContent = (props: any) => {
 
 export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
   // Transform data for Treemap
-  // Treemap expects hierarchical data or flat array with 'value'
+  // Treemap expects a hierarchical structure with a single root for correct rendering
   const data = React.useMemo(() => {
-    return portfolio.map((item) => {
-       // Daily change determines color intensity/hue
-       // Green for positive, Red for negative.
-       // Opacity or brightness could vary, but for simplicity we pick a solid color from palette.
-
-       const change = item.changePercent || 0; // Assuming changePercent is daily change
+    const children = portfolio.map((item) => {
+       const change = item.changePercent || 0;
        const isPositive = change >= 0;
 
-       // Calculate opacity based on magnitude? For now just static colors to keep it simple and clean.
-       // Or map to a scale.
        let fill = '#525252';
        if (isPositive) {
          if (change > 1.5) fill = '#10b981'; // Emerald 500
@@ -92,6 +89,12 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
          fill: fill,
        };
     });
+
+    // Wrap in a root node
+    return [{
+        name: 'Portfolio',
+        children: children
+    }];
   }, [portfolio]);
 
   if (portfolio.length === 0) {
@@ -123,6 +126,9 @@ export default function PortfolioTreemap({ portfolio }: PortfolioTreemapProps) {
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
+                  // Skip the root node if accidentally hovered or if structure leaks
+                  if (d.name === 'Portfolio') return null;
+
                   return (
                     <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs shadow-xl">
                       <div className="font-bold text-white mb-1">{d.name}</div>
