@@ -13,7 +13,24 @@ export interface AssetWithCompositeScore {
 }
 
 /**
- * Forecasts expected returns based on Benchmark Volatility Scaling.
+ * Forecasts expected return for a single asset based on Benchmark Volatility Scaling.
+ * mu = R_free + (zScore * sigma_benchmark)
+ *
+ * @param zScore - The composite Z-Score of the asset.
+ * @param benchmarkVol - The volatility of the benchmark (sigma_benchmark), defaults to 0.15.
+ * @param riskFreeRate - The base risk-free rate (alpha), defaults to 0.04.
+ * @returns Expected return (mu).
+ */
+export function forecastExpectedReturn(
+  zScore: number,
+  benchmarkVol: number = 0.15,
+  riskFreeRate: number = 0.04
+): number {
+  return riskFreeRate + (zScore * benchmarkVol);
+}
+
+/**
+ * Forecasts expected returns based on Benchmark Volatility Scaling for a list of assets.
  * mu_i = alpha + (CompositeZScore_i * sigma_benchmark)
  *
  * @param assets - List of assets with composite scores.
@@ -27,7 +44,7 @@ export function forecastExpectedReturns<T extends AssetWithCompositeScore>(
   riskFreeRate: number = 0.04
 ): number[] {
   return assets.map(asset => {
-    return riskFreeRate + (asset.scores.composite * benchmarkVol);
+    return forecastExpectedReturn(asset.scores.composite, benchmarkVol, riskFreeRate);
   });
 }
 
