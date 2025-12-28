@@ -15,7 +15,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 import { Portfolio } from '@/types';
 import { TickIcon } from './TickIcon';
 
@@ -23,32 +23,75 @@ interface PortfolioBarChartProps {
   portfolio: Portfolio;
 }
 
+// Biopunk / Neon Aesthetic Palette
+const PALETTE = {
+  emerald: { main: '#10b981', dark: '#047857' },
+  blue: { main: '#3b82f6', dark: '#1d4ed8' },
+  violet: { main: '#8b5cf6', dark: '#6d28d9' },
+  cyan: { main: '#06b6d4', dark: '#0e7490' },
+  rose: { main: '#f43f5e', dark: '#be123c' },
+  amber: { main: '#f59e0b', dark: '#b45309' },
+  fuchsia: { main: '#d946ef', dark: '#a21caf' },
+  sky: { main: '#0ea5e9', dark: '#0369a1' },
+  indigo: { main: '#6366f1', dark: '#4338ca' },
+  lime: { main: '#84cc16', dark: '#4d7c0f' },
+  teal: { main: '#14b8a6', dark: '#0f766e' },
+};
+
+const SOURCE_COLORS = [
+  PALETTE.blue,
+  PALETTE.violet,
+  PALETTE.cyan,
+  PALETTE.fuchsia,
+  PALETTE.indigo,
+  PALETTE.sky,
+  PALETTE.teal,
+  PALETTE.lime,
+];
+
+// Risk Colors (Neon)
+const RISK_COLORS = {
+  SAFE: '#10b981', // Emerald
+  WARN: '#facc15', // Yellow/Amber
+  HIGH: '#fb923c', // Orange
+  CRIT: '#f43f5e', // Rose
+};
+
+const getRiskColor = (totalWeight: number) => {
+  if (totalWeight > 20) return RISK_COLORS.CRIT;
+  if (totalWeight > 10) return RISK_COLORS.HIGH;
+  if (totalWeight > 5) return RISK_COLORS.WARN;
+  return RISK_COLORS.SAFE;
+};
+
 // Custom Y-Axis Tick Component
 const CustomYAxisTick = (props: any) => {
   const { x, y, payload, riskMap } = props;
   const { value: ticker } = payload;
 
-  // Determine if this row is high risk
-  const isHighRisk = riskMap && riskMap[ticker] && riskMap[ticker] > 10;
-  const isCriticalRisk = riskMap && riskMap[ticker] && riskMap[ticker] > 20;
+  const totalWeight = riskMap?.[ticker] || 0;
+  const isHighRisk = totalWeight > 10;
+  const isCriticalRisk = totalWeight > 20;
 
   return (
     <g transform={`translate(${x},${y})`}>
       <TickIcon ticker={ticker} x={0} y={0} />
 
       {isCriticalRisk && (
-         <g transform="translate(-105, -8)">
-            <AlertTriangle size={14} className="text-red-500" stroke="currentColor" fill="#ef4444" />
-         </g>
+        <g transform="translate(-115, -9)">
+          <circle cx={7} cy={7} r={10} fill={RISK_COLORS.CRIT} fillOpacity={0.2} />
+          <AlertTriangle size={14} color={RISK_COLORS.CRIT} />
+        </g>
       )}
 
       <text
         x={-10}
         y={4}
         textAnchor="end"
-        fill={isCriticalRisk ? '#ef4444' : isHighRisk ? '#f97316' : '#fff'}
+        fill={isCriticalRisk ? RISK_COLORS.CRIT : isHighRisk ? RISK_COLORS.HIGH : '#e5e5e5'}
         fontSize={12}
-        fontWeight={isHighRisk ? '700' : '500'}
+        fontWeight={isHighRisk ? '600' : '400'}
+        className="font-mono tracking-tight"
       >
         {ticker}
       </text>
@@ -56,327 +99,339 @@ const CustomYAxisTick = (props: any) => {
   );
 };
 
-// Distinct colors for sources
-const SOURCE_COLORS = [
-    '#10b981', // Direct (Emerald-500) - Placeholder, will be overridden dynamically
-    '#3b82f6', // Blue-500
-    '#8b5cf6', // Violet-500
-    '#0ea5e9', // Sky-500
-    '#ef4444', // Red-500
-    '#ec4899', // Pink-500
-    '#06b6d4', // Cyan-500
-    '#84cc16', // Lime-500
-    '#6366f1', // Indigo-500
-    '#14b8a6', // Teal-500
-    '#d946ef', // Fuchsia-500
-];
-
-// Risk Colors
-const RISK_COLORS = {
-    SAFE: '#10b981',    // < 5% (Emerald-500)
-    WARN: '#f59e0b',    // 5-10% (Amber-500)
-    HIGH: '#f97316',    // 10-20% (Orange-500)
-    CRIT: '#ef4444',    // > 20% (Red-500)
-};
-
-const getRiskColor = (totalWeight: number) => {
-    if (totalWeight > 20) return RISK_COLORS.CRIT;
-    if (totalWeight > 10) return RISK_COLORS.HIGH;
-    if (totalWeight > 5) return RISK_COLORS.WARN;
-    return RISK_COLORS.SAFE;
-};
-
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
-  // 1. Identify Unique Sources (ETFs + Direct)
-  // 2. Build Data Structure
   const { chartData, sources, riskMap } = useMemo(() => {
     const aggregatedData: {
-        [holdingTicker: string]: {
-            totalWeight: number;
-            name: string;
-            isCash: boolean;
-            sources: { [source: string]: number }; // source -> weight
-        }
+      [holdingTicker: string]: {
+        totalWeight: number;
+        name: string;
+        isCash: boolean;
+        sources: { [source: string]: number };
+      };
     } = {};
 
     const uniqueSources = new Set<string>();
 
-    portfolio.forEach(item => {
-        const itemWeight = item.weight; // Portfolio weight %
-        const sourceName = item.ticker; // The ETF or Stock ticker acting as source
+    portfolio.forEach((item) => {
+      const itemWeight = item.weight;
+      const sourceName = item.ticker;
 
-        // Check if ETF has holdings data
-        if (item.holdings && item.holdings.length > 0) {
-            uniqueSources.add(sourceName);
+      if (item.holdings && item.holdings.length > 0) {
+        uniqueSources.add(sourceName);
+        let holdingsSumPercent = 0;
 
-            // Distribute weight among holdings
-            let holdingsSumPercent = 0;
+        item.holdings.forEach((h) => {
+          const effectiveWeight = (itemWeight * h.weight) / 100;
+          if (!aggregatedData[h.ticker]) {
+            aggregatedData[h.ticker] = {
+              totalWeight: 0,
+              name: h.name,
+              isCash: false,
+              sources: {},
+            };
+          }
+          aggregatedData[h.ticker].totalWeight += effectiveWeight;
+          aggregatedData[h.ticker].sources[sourceName] =
+            (aggregatedData[h.ticker].sources[sourceName] || 0) + effectiveWeight;
+          holdingsSumPercent += h.weight;
+        });
 
-            item.holdings.forEach(h => {
-                const effectiveWeight = (itemWeight * h.weight) / 100;
-
-                if (!aggregatedData[h.ticker]) {
-                    aggregatedData[h.ticker] = {
-                        totalWeight: 0,
-                        name: h.name,
-                        isCash: false,
-                        sources: {}
-                    };
-                }
-
-                aggregatedData[h.ticker].totalWeight += effectiveWeight;
-                aggregatedData[h.ticker].sources[sourceName] = (aggregatedData[h.ticker].sources[sourceName] || 0) + effectiveWeight;
-
-                holdingsSumPercent += h.weight;
-            });
-
-            // Handle residue (Other/Cash inside ETF)
-            const residue = Math.max(0, 100 - holdingsSumPercent);
-            if (residue > 1) {
-                const effectiveResidue = (itemWeight * residue) / 100;
-                const otherKey = 'Other';
-
-                if (!aggregatedData[otherKey]) {
-                     aggregatedData[otherKey] = { totalWeight: 0, name: 'Other Assets', isCash: false, sources: {} };
-                }
-                aggregatedData[otherKey].totalWeight += effectiveResidue;
-                aggregatedData[otherKey].sources[sourceName] = (aggregatedData[otherKey].sources[sourceName] || 0) + effectiveResidue;
-            }
-
-        } else {
-            // It's a Stock or an ETF without holdings data (treat as Direct/Opaque)
-            // We label the source as 'Direct' if it's a Stock, or the ETF name if it's an ETF?
-            // User example: "10% of nvidia stock... But I also have QQQ".
-            // If I hold NVDA directly, source is "Direct".
-            // If I hold QQQ directly (and it has no holdings data?), it contributes to "QQQ".
-
-            // Wait, if it has no holdings data, it is the holding itself.
-            // If I hold NVDA directly, item.ticker is NVDA.
-            // So holdingTicker is NVDA. Source is "Direct"?
-
-            const isStock = item.assetType === 'STOCK'; // We assume assetType exists or infer
-            // Actually item doesn't have assetType on PortfolioItem always, but we can infer.
-            // If it has no holdings, we treat it as the asset itself.
-
-            const holdingKey = item.ticker;
-            const sourceKey = 'Direct'; // Or 'Portfolio'
-            uniqueSources.add(sourceKey);
-
-            if (!aggregatedData[holdingKey]) {
-                aggregatedData[holdingKey] = {
-                    totalWeight: 0,
-                    name: item.name,
-                    isCash: false, // Unless it's Cash
-                    sources: {}
-                };
-            }
-
-            aggregatedData[holdingKey].totalWeight += itemWeight;
-            aggregatedData[holdingKey].sources[sourceKey] = (aggregatedData[holdingKey].sources[sourceKey] || 0) + itemWeight;
+        const residue = Math.max(0, 100 - holdingsSumPercent);
+        if (residue > 1) {
+          const effectiveResidue = (itemWeight * residue) / 100;
+          const otherKey = 'Other';
+          if (!aggregatedData[otherKey]) {
+            aggregatedData[otherKey] = {
+              totalWeight: 0,
+              name: 'Other Assets',
+              isCash: false,
+              sources: {},
+            };
+          }
+          aggregatedData[otherKey].totalWeight += effectiveResidue;
+          aggregatedData[otherKey].sources[sourceName] =
+            (aggregatedData[otherKey].sources[sourceName] || 0) + effectiveResidue;
         }
+      } else {
+        const holdingKey = item.ticker;
+        const sourceKey = 'Direct';
+        uniqueSources.add(sourceKey);
+
+        if (!aggregatedData[holdingKey]) {
+          aggregatedData[holdingKey] = {
+            totalWeight: 0,
+            name: item.name,
+            isCash: false,
+            sources: {},
+          };
+        }
+        aggregatedData[holdingKey].totalWeight += itemWeight;
+        aggregatedData[holdingKey].sources[sourceKey] =
+          (aggregatedData[holdingKey].sources[sourceKey] || 0) + itemWeight;
+      }
     });
 
-    // 2. Portfolio Cash Buffer
     const totalPortfolioAllocated = portfolio.reduce((sum, item) => sum + item.weight, 0);
     const cashBuffer = Math.max(0, 100 - totalPortfolioAllocated);
 
     if (cashBuffer > 0.01) {
-        uniqueSources.add('Direct'); // Cash is direct
-        if (!aggregatedData['Cash']) {
-             aggregatedData['Cash'] = { totalWeight: 0, name: 'Cash Buffer', isCash: true, sources: {} };
-        }
-        aggregatedData['Cash'].totalWeight += cashBuffer;
-        aggregatedData['Cash'].sources['Direct'] = (aggregatedData['Cash'].sources['Direct'] || 0) + cashBuffer;
+      uniqueSources.add('Direct');
+      if (!aggregatedData['Cash']) {
+        aggregatedData['Cash'] = {
+          totalWeight: 0,
+          name: 'Cash Buffer',
+          isCash: true,
+          sources: {},
+        };
+      }
+      aggregatedData['Cash'].totalWeight += cashBuffer;
+      aggregatedData['Cash'].sources['Direct'] =
+        (aggregatedData['Cash'].sources['Direct'] || 0) + cashBuffer;
     }
 
-    // 3. Convert to Array and Sort
     let data = Object.entries(aggregatedData).map(([ticker, d]) => {
-        // Flatten sources into the object for Recharts
-        const flat: any = {
-            name: ticker,
-            fullName: d.name,
-            totalWeight: d.totalWeight,
-            isCash: d.isCash,
-        };
-        Object.entries(d.sources).forEach(([src, w]) => {
-            flat[src] = w;
-        });
-        return flat;
+      const flat: any = {
+        name: ticker,
+        fullName: d.name,
+        totalWeight: d.totalWeight,
+        isCash: d.isCash,
+      };
+      Object.entries(d.sources).forEach(([src, w]) => {
+        flat[src] = w;
+      });
+      return flat;
     });
 
     data.sort((a, b) => b.totalWeight - a.totalWeight);
 
-    // Limit items
     const MAX_ITEMS = 25;
     if (data.length > MAX_ITEMS) {
-        data = data.slice(0, MAX_ITEMS);
-        // Note: collapsing "Other" in a stacked chart is hard because we lose source breakdown.
-        // We'll just truncate for now.
+      data = data.slice(0, MAX_ITEMS);
     }
 
-    // Prepare Source List for Legend/Stacking
-    // Prioritize 'Direct' first
     const sourceList = Array.from(uniqueSources).sort((a, b) => {
-        if (a === 'Direct') return -1;
-        if (b === 'Direct') return 1;
-        return a.localeCompare(b);
+      if (a === 'Direct') return -1;
+      if (b === 'Direct') return 1;
+      return a.localeCompare(b);
     });
 
-    // Create a risk map for the Y-Axis tick to access
     const rMap: Record<string, number> = {};
-    data.forEach(d => {
-        rMap[d.name] = d.totalWeight;
+    data.forEach((d) => {
+      rMap[d.name] = d.totalWeight;
     });
 
     return { chartData: data, sources: sourceList, riskMap: rMap };
-
   }, [portfolio]);
 
   if (portfolio.length === 0) {
     return (
-        <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
-            No assets in portfolio
-        </div>
+      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
+        No assets in portfolio
+      </div>
     );
   }
 
-  // Assign colors
-  const colorMap: Record<string, string> = {};
-  sources.forEach((src, idx) => {
-      colorMap[src] = SOURCE_COLORS[idx % SOURCE_COLORS.length];
-  });
-
-  const chartHeight = Math.max(400, chartData.length * 40);
+  const chartHeight = Math.max(450, chartData.length * 45); // Slightly taller rows
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col"
+      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col border border-white/5 bg-gradient-to-br from-stone-950/50 to-stone-900/50"
     >
-      <div className="flex flex-col gap-1 mb-6">
-          <h3 className="text-lg font-bold text-white">Portfolio Look-Through Allocation</h3>
-          <p className="text-xs text-neutral-400">Breakdown of individual underlying holdings stacked by source.</p>
+      <div className="flex flex-col gap-1 mb-8">
+        <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-white tracking-tight">Portfolio Look-Through</h3>
+            <div className="flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                    <span className="text-neutral-400">Safe</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                    <span className="text-neutral-400">Warning</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                    <span className="text-neutral-400">Critical</span>
+                </div>
+            </div>
+        </div>
+        <p className="text-sm text-neutral-500 font-light">
+          Breakdown of individual underlying holdings stacked by source.
+        </p>
       </div>
 
-      <div className="flex-1 overflow-auto custom-scrollbar">
-          <div style={{ height: chartHeight, minHeight: 400, width: '100%' }}>
-            <ResponsiveContainer width="100%" height="100%">
+      <div className="flex-1 overflow-auto custom-scrollbar pr-2">
+        <div style={{ height: chartHeight, minHeight: 400, width: '100%' }}>
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart
-                data={chartData}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 100, bottom: 20 }}
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 10, right: 30, left: 100, bottom: 20 }}
+              barSize={20} // Sleek bars
             >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#333" />
-                <XAxis
-                    type="number"
-                    domain={[0, 'dataMax']}
-                    stroke="#666"
-                    tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
-                >
-                    <Label value="Effective Weight (%)" offset={0} position="insideBottom" fill="#666" fontSize={12} dy={10} />
-                </XAxis>
-                <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={120} // Increased width to avoid overlap
-                    stroke="#fff"
-                    tick={<CustomYAxisTick riskMap={riskMap} />}
-                    interval={0}
-                >
-                    <Label value="Holdings" angle={-90} position="insideLeft" fill="#666" fontSize={12} style={{ textAnchor: 'middle' }} />
-                </YAxis>
-                <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                    content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                        const d = payload[0].payload;
-                        return (
-                            <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg text-xs shadow-xl z-50 min-w-[200px]">
-                                <div className="font-bold text-white mb-1 text-sm">{d.name}</div>
-                                <div className="text-neutral-400 mb-2">{d.fullName}</div>
+              <defs>
+                {/* Direct/Risk Gradients */}
+                <linearGradient id="gradDirectSafe" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={RISK_COLORS.SAFE} stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.SAFE} stopOpacity={1}/>
+                </linearGradient>
+                <linearGradient id="gradDirectWarn" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={RISK_COLORS.WARN} stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.WARN} stopOpacity={1}/>
+                </linearGradient>
+                <linearGradient id="gradDirectHigh" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={RISK_COLORS.HIGH} stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.HIGH} stopOpacity={1}/>
+                </linearGradient>
+                <linearGradient id="gradDirectCrit" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={RISK_COLORS.CRIT} stopOpacity={0.8}/>
+                    <stop offset="100%" stopColor={RISK_COLORS.CRIT} stopOpacity={1}/>
+                </linearGradient>
 
-                                <div className="flex justify-between gap-4 border-t border-white/10 pt-2 mb-2">
-                                    <span className="text-neutral-300">Total Weight:</span>
-                                    <span
-                                        className="font-mono font-bold"
-                                        style={{ color: getRiskColor(d.totalWeight) }}
-                                    >
-                                        {d.totalWeight.toFixed(2)}%
-                                    </span>
-                                </div>
+                {/* Source Gradients */}
+                {SOURCE_COLORS.map((color, idx) => (
+                    <linearGradient key={`gradSource${idx}`} id={`gradSource${idx}`} x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={color.main} stopOpacity={0.7} />
+                        <stop offset="100%" stopColor={color.main} stopOpacity={1} />
+                    </linearGradient>
+                ))}
+              </defs>
 
-                                {d.totalWeight > 10 && (
-                                    <div className="flex items-center gap-2 mb-3 bg-red-500/10 border border-red-500/30 p-2 rounded text-red-200">
-                                        <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                                        <span>Concentration Risk: Exceeds recommended 10% cap.</span>
-                                    </div>
-                                )}
+              <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#ffffff" strokeOpacity={0.05} />
 
-                                <div className="flex flex-col gap-1 border-t border-white/10 pt-2">
-                                    <span className="text-xs text-neutral-500 font-semibold mb-1">BREAKDOWN</span>
-                                    {/* Sort payload by value desc */}
-                                    {[...payload].sort((a: any, b: any) => (b.value || 0) - (a.value || 0)).map((entry: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between gap-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                                                <span className="text-neutral-400">{entry.name}</span>
-                                            </div>
-                                            <span className="text-neutral-200 font-mono">{Number(entry.value).toFixed(2)}%</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                        }
-                        return null;
-                    }}
-                />
-                <Legend
-                    verticalAlign="top"
-                    align="right"
-                    wrapperStyle={{ paddingBottom: '20px', fontSize: '12px' }}
-                    iconType="circle"
-                    formatter={(value) => <span className="text-neutral-400 ml-1">{value}</span>}
-                />
+              <XAxis
+                type="number"
+                domain={[0, 'dataMax']}
+                stroke="#525252"
+                tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
+                tick={{ fill: '#737373', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+              >
+              </XAxis>
 
-                {/* Reference Lines for Risk Thresholds */}
-                <ReferenceLine x={5} stroke={RISK_COLORS.WARN} strokeDasharray="3 3" strokeOpacity={0.5}>
-                    <Label value="5% Guideline" position="insideTop" fill={RISK_COLORS.WARN} fontSize={10} dy={-10} />
-                </ReferenceLine>
-                <ReferenceLine x={10} stroke={RISK_COLORS.HIGH} strokeDasharray="3 3" strokeOpacity={0.7}>
-                    <Label value="10% Warning" position="insideTop" fill={RISK_COLORS.HIGH} fontSize={10} dy={-10} />
-                </ReferenceLine>
-                <ReferenceLine x={20} stroke={RISK_COLORS.CRIT} strokeDasharray="3 3">
-                    <Label value="20% Critical" position="insideTop" fill={RISK_COLORS.CRIT} fontSize={10} dy={-10} />
-                </ReferenceLine>
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={120}
+                stroke="transparent"
+                tick={<CustomYAxisTick riskMap={riskMap} />}
+                interval={0}
+              />
 
-                {sources.map((source) => {
-                    if (source === 'Direct') {
-                        return (
-                            <Bar
-                                key={source}
-                                dataKey={source}
-                                stackId="a"
-                            >
-                                {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={getRiskColor(entry.totalWeight)} />
-                                ))}
-                            </Bar>
-                        );
-                    }
+              <Tooltip
+                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload;
                     return (
-                        <Bar
-                            key={source}
-                            dataKey={source}
-                            stackId="a"
-                            fill={colorMap[source]}
-                        />
+                      <div className="bg-stone-950/95 backdrop-blur-xl border border-white/10 p-4 rounded-xl text-xs shadow-2xl z-50 min-w-[220px]">
+                        <div className="font-bold text-white mb-0.5 text-base tracking-tight">{d.name}</div>
+                        <div className="text-neutral-500 mb-3 font-medium">{d.fullName}</div>
+
+                        <div className="flex justify-between gap-6 border-t border-white/5 pt-3 mb-3">
+                          <span className="text-neutral-400 font-medium">Total Weight</span>
+                          <span
+                            className="font-mono font-bold text-base"
+                            style={{ color: getRiskColor(d.totalWeight) }}
+                          >
+                            {d.totalWeight.toFixed(2)}%
+                          </span>
+                        </div>
+
+                        {d.totalWeight > 10 && (
+                          <div className="flex items-start gap-2 mb-4 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg text-rose-200">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                            <span className="leading-snug">Concentration exceeds recommended limit ({d.totalWeight > 20 ? '20%' : '10%'}).</span>
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                          <span className="text-[10px] uppercase tracking-wider text-neutral-600 font-bold mb-1">Source Breakdown</span>
+                          {[...payload]
+                            .sort((a: any, b: any) => (b.value || 0) - (a.value || 0))
+                            .map((entry: any, idx: number) => (
+                              <div key={idx} className="flex justify-between gap-4 items-center">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-1.5 h-1.5 rounded-full shadow-sm"
+                                    style={{ backgroundColor: entry.color }}
+                                  />
+                                  <span className="text-neutral-300 font-medium">{entry.name}</span>
+                                </div>
+                                <span className="text-neutral-400 font-mono font-medium">
+                                  {Number(entry.value).toFixed(2)}%
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
                     );
-                })}
+                  }
+                  return null;
+                }}
+              />
+
+              <Legend
+                verticalAlign="top"
+                align="right"
+                wrapperStyle={{ paddingBottom: '20px', fontSize: '11px', opacity: 0.8 }}
+                iconType="circle"
+                iconSize={8}
+              />
+
+              {/* Aesthetic Reference Lines */}
+              <ReferenceLine x={5} stroke={RISK_COLORS.WARN} strokeDasharray="2 4" strokeOpacity={0.4} />
+              <ReferenceLine x={10} stroke={RISK_COLORS.HIGH} strokeDasharray="2 4" strokeOpacity={0.5} />
+              <ReferenceLine x={20} stroke={RISK_COLORS.CRIT} strokeDasharray="2 4" strokeOpacity={0.6} />
+
+              {sources.map((source, index) => {
+                const isLast = index === sources.length - 1;
+                const radius: [number, number, number, number] = isLast ? [0, 4, 4, 0] : [0, 0, 0, 0];
+
+                if (source === 'Direct') {
+                  return (
+                    <Bar
+                      key={source}
+                      dataKey={source}
+                      stackId="a"
+                      radius={radius}
+                    >
+                      {chartData.map((entry, i) => {
+                          let fillId = "url(#gradDirectSafe)";
+                          if (entry.totalWeight > 20) fillId = "url(#gradDirectCrit)";
+                          else if (entry.totalWeight > 10) fillId = "url(#gradDirectHigh)";
+                          else if (entry.totalWeight > 5) fillId = "url(#gradDirectWarn)";
+
+                          return <Cell key={`cell-${i}`} fill={fillId} strokeWidth={0} />;
+                      })}
+                    </Bar>
+                  );
+                }
+
+                // Assign a color from palette cyclically
+                // Note: SOURCE_COLORS index must exclude 'Direct' logic if we want consistency,
+                // but here 'sources' includes Direct.
+                // We should map based on source name hash or index to keep it consistent?
+                // The current index is fine as long as order is stable.
+                const colorIdx = index % SOURCE_COLORS.length;
+
+                return (
+                  <Bar
+                    key={source}
+                    dataKey={source}
+                    stackId="a"
+                    fill={`url(#gradSource${colorIdx})`}
+                    radius={radius}
+                    strokeWidth={0}
+                  />
+                );
+              })}
             </BarChart>
-            </ResponsiveContainer>
-          </div>
+          </ResponsiveContainer>
+        </div>
       </div>
     </motion.div>
   );
