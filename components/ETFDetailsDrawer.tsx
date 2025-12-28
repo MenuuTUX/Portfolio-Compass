@@ -474,18 +474,21 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                         <Tooltip
                           contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                           itemStyle={{ color: '#fff' }}
-                          formatter={(value: number, name: string, item: any) => {
+                          formatter={(value: any, name: any, item: any) => {
+                            // Ensure value is treated as a number safely
+                            const numValue = Number(value);
+
                             if (showComparison) {
                               if (name === 'spyPrice') {
-                                return [`${value != null ? value.toFixed(2) : '0.00'}%`, 'SPY'];
+                                return [`${!isNaN(numValue) ? numValue.toFixed(2) : '0.00'}%`, 'SPY'];
                               }
-                              return [`${value.toFixed(2)}%`, displayEtf.ticker];
+                              return [`${!isNaN(numValue) ? numValue.toFixed(2) : '0.00'}%`, displayEtf.ticker];
                             }
                             if (name === 'spyPrice') {
                               const original = item.payload.originalSpyPrice;
                               return [original ? formatCurrency(original) : 'N/A', 'SPY'];
                             }
-                            return [formatCurrency(value), displayEtf.ticker];
+                            return [formatCurrency(numValue), displayEtf.ticker];
                           }}
                           labelFormatter={(label) => new Date(label).toLocaleDateString() + ' ' + new Date(label).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         />
