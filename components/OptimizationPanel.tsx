@@ -7,6 +7,7 @@ import { Check, ArrowRight, DollarSign, TrendingDown, Layers, Activity, Minus, P
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Decimal } from 'decimal.js';
+import OptimizationDiffChart from './OptimizationDiffChart';
 
 interface OptimizationPanelProps {
   portfolio: PortfolioItem[];
@@ -117,7 +118,7 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
         }
     });
 
-    return { newWeights, usedBudget, futureTotalValue };
+    return { newWeights, usedBudget, futureTotalValue, futureShares };
   }, [portfolio, proposedShares, result]);
 
   const handleShareChange = (ticker: string, delta: number) => {
@@ -203,6 +204,12 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
          default: return "text-amber-400";
      }
   };
+
+  // Construct proposed portfolio items for the Diff Chart
+  const proposedPortfolioItems = portfolio.map(item => ({
+      ...item,
+      shares: projectedMetrics.futureShares[item.ticker] || 0,
+  }));
 
   return (
     <div className="flex flex-col h-full bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
@@ -332,7 +339,10 @@ export default function OptimizationPanel({ portfolio, onApply, onCalibrating }:
         </section>
       </div>
 
-      <div className="p-6 border-t border-white/10 bg-black/20">
+      <div className="p-6 border-t border-white/10 bg-black/20 flex flex-col gap-4">
+        {/* Diff Chart Preview */}
+        <OptimizationDiffChart current={portfolio} proposed={proposedPortfolioItems} />
+
         <button
           onClick={handleApply}
           disabled={isApplying || Object.values(proposedShares).every(s => s === 0)}
