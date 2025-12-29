@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
       allocation: true,
     };
     if (includeHistory) {
-      includeObj.history = { orderBy: { date: 'asc' } };
+      includeObj.history = {
+          where: { interval: '1d' },
+          orderBy: { date: 'asc' }
+      };
     }
     if (includeHoldings) {
       includeObj.holdings = { orderBy: { weight: 'desc' } };
@@ -96,7 +99,8 @@ export async function GET(request: NextRequest) {
                 const liveData = await fetchMarketSnapshot(missingTickers);
 
                 // Use p-limit to restrict concurrent DB writes
-                const limit = pLimit(1); // Strict limit for connection pool safety
+                // Now that DB max pool is 5, we can allow slightly more concurrency (e.g., 2)
+                const limit = pLimit(2);
 
                 const upsertPromises = liveData.map((item) => limit(async () => {
                     try {
@@ -158,7 +162,7 @@ export async function GET(request: NextRequest) {
 
         try {
             const liveData = await fetchMarketSnapshot(defaultTickers);
-            const limit = pLimit(1); // Strict limit for connection pool safety
+            const limit = pLimit(2); // Slightly increased concurrency
 
             const seedPromises = liveData.map((item) => limit(async () => {
                 try {
@@ -208,11 +212,6 @@ export async function GET(request: NextRequest) {
 
     if ((query || tickersParam) && etfs.length > 0) {
       // Staleness check logic
-      // Note: We relaxed the check to also include cases where we just fetched a batch via tickersParam
-      // But we must be careful not to sync storm.
-      // If tickersParam is present (portfolio view), we rely on the `fetchMarketSnapshot` above for basic price updates.
-      // We only do deep sync if explicitly requested (not common for list view) or if data is REALLY old/missing.
-
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
@@ -243,13 +242,21 @@ export async function GET(request: NextRequest) {
              console.log(`[API] Found ${staleEtfs.length} stale ETFs for request. Syncing...`);
         }
 
-        const limit = pLimit(1); // Strict limit for heavy sync operations
+        const limit = pLimit(3); // Increased concurrency limit now that we have more DB connections (max 5)
 
         if (isFullHistoryRequested) {
            // If user specifically requested full details (Details Drawer), we must block and sync
            console.log(`[API] Full details requested for stale/incomplete items. Performing blocking sync...`);
 
-           await Promise.all(staleEtfs.map((staleEtf: any) => limit(async () => {
+           // CRITICAL FIX: Limit the number of items we sync in one request to avoid Vercel timeouts (10s/60s).
+           // If there are 20 items, we only sync the first 3. The rest will remain stale but readable.
+           const maxSyncItems = 3;
+           const itemsToSync = staleEtfs.slice(0, maxSyncItems);
+           if (staleEtfs.length > maxSyncItems) {
+               console.warn(`[API] Capping sync to ${maxSyncItems} items (out of ${staleEtfs.length}) to prevent timeout.`);
+           }
+
+           await Promise.all(itemsToSync.map((staleEtf: any) => limit(async () => {
              try {
                 // Perform full sync (no interval restrictions)
                 const synced = await syncEtfDetails(staleEtf.ticker);
@@ -266,11 +273,12 @@ export async function GET(request: NextRequest) {
            })));
         } else {
             // Fire-and-forget background sync for list views
-            //console.log(`[API] Syncing in background (non-blocking)...`);
+            // Limit the background noise too
+            const maxBackgroundSyncs = 5;
+            const itemsToSync = staleEtfs.slice(0, maxBackgroundSyncs);
 
             // We don't await this Promise.all, but we still want to limit the concurrency
-            // of the operations happening in the background to avoid swamping the pool
-            Promise.all(staleEtfs.map((staleEtf: any) => limit(() =>
+            Promise.all(itemsToSync.map((staleEtf: any) => limit(() =>
                 syncEtfDetails(staleEtf.ticker, ['1d']).catch(err =>
                     console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
                 )
@@ -303,7 +311,7 @@ export async function GET(request: NextRequest) {
     if (limitedTargets.length > 0 && !tickersParam) {
       console.log(`[API] Processing fallback strategy for missing targets: ${limitedTargets.join(', ')}`);
 
-      const limit = pLimit(1);
+      const limit = pLimit(2);
 
       {
         try {
