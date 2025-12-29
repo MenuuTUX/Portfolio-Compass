@@ -22,7 +22,9 @@ describe('PortfolioShareCard', () => {
         totalInvested: 3000,
         dividends: 500,
         years: 10,
-        scenario: 'Simple Growth'
+        scenario: 'Simple Growth',
+        growthType: 'Simple' as const,
+        percentageGrowth: 400
     };
 
     const mockChartData = [
@@ -39,12 +41,11 @@ describe('PortfolioShareCard', () => {
             />
         );
 
-        expect(getByText("Test User's Portfolio")).toBeInTheDocument();
-        expect(getAllByText('$3,000.00')[0]).toBeInTheDocument(); // Total Value
+        expect(getByText("by Test User")).toBeInTheDocument();
+        expect(getByText("My Growth Portfolio")).toBeInTheDocument();
         expect(getByText('12.00%')).toBeInTheDocument(); // Proj. Return
-        expect(getByText('2.00%')).toBeInTheDocument(); // Yield
+        expect(getByText('Avg Yield: 2.00%')).toBeInTheDocument(); // Yield text is now in description
         expect(getByText('$15,000.00')).toBeInTheDocument(); // Projected Value
-        expect(getByText('Simple Growth')).toBeInTheDocument(); // Scenario
     });
 
     it('renders top holdings list', () => {

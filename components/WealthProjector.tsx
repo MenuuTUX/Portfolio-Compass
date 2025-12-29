@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Sparkles, RefreshCw, Share2, Download, X, Loader2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import MonteCarloSimulator from './simulation/MonteCarloSimulator';
 import { calculatePortfolioHistoricalStats } from '@/lib/math/portfolio-stats';
 import { PortfolioShareButton } from './PortfolioShareButton';
@@ -97,7 +97,8 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
         invested: initialInvestment + (monthlyContribution * i),
         dividends: Math.round(accumulatedDividends),
         // For chart data in share card
-        value: Math.round(balance)
+        value: Math.round(balance),
+        dividendValue: Math.round(accumulatedDividends)
       });
     }
 
@@ -113,6 +114,11 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   const finalAmount = projectionData.length > 0 ? projectionData[projectionData.length - 1].balance : 0;
   const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
   const totalDividends = projectionData.length > 0 ? projectionData[projectionData.length - 1].dividends : 0;
+
+  // Percentage Growth Calculation
+  const percentageGrowth = initialInvestment > 0
+    ? ((finalAmount - initialInvestment) / initialInvestment) * 100
+    : 0;
 
   if (mode === 'MONTE_CARLO') {
       return (
@@ -166,9 +172,14 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                     totalInvested: totalInvested,
                     dividends: totalDividends,
                     years: years,
-                    scenario: "Simple Projection"
+                    scenario: "Simple Projection",
+                    growthType: 'Simple',
+                    percentageGrowth: percentageGrowth
                 }}
-                chartData={projectionData.map(d => ({ value: d.balance }))}
+                chartData={projectionData.map(d => ({
+                    value: d.balance,
+                    dividendValue: d.dividends
+                }))}
             />
 
             <button
