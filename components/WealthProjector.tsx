@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
 import { motion } from 'framer-motion';
@@ -55,42 +55,61 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
       }
   }, [portfolio]);
 
-  // Calculate Weighted Average Return
-  // Prefer historical return if available, else fallback to heuristic
+  // Calculate Weighted Average Return & Yield
   let weightedReturn = historicalReturn !== null ? historicalReturn : 0.07;
+  let weightedYield = 0;
 
-  if (historicalReturn === null && portfolio.length > 0) {
+  if (portfolio.length > 0) {
     const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
     if (totalWeight > 0) {
-      weightedReturn = portfolio.reduce((acc, item) => {
-        let growthRate = 0.06;
-        if (item.ticker.includes('ZAG')) growthRate = 0.01;
-        const estimatedTotalReturn = (item.metrics.yield / 100) + growthRate;
-        return acc + (estimatedTotalReturn * (item.weight / totalWeight));
+      // Calculate Yield specifically
+      weightedYield = portfolio.reduce((acc, item) => {
+         // item.metrics.yield is typically a percentage (e.g. 1.5 for 1.5%)
+         // Check if yield exists, default to 0
+         const yieldVal = item.metrics?.yield || 0;
+         return acc + ((yieldVal / 100) * (item.weight / totalWeight));
       }, 0);
-    } else {
-      weightedReturn = 0;
+
+      // If no historical return, calculate heuristic total return
+      if (historicalReturn === null) {
+        weightedReturn = portfolio.reduce((acc, item) => {
+          let growthRate = 0.06;
+          if (item.ticker.includes('ZAG')) growthRate = 0.01;
+          const estimatedTotalReturn = ((item.metrics?.yield || 0) / 100) + growthRate;
+          return acc + (estimatedTotalReturn * (item.weight / totalWeight));
+        }, 0);
+      }
     }
   }
 
   let balance = initialInvestment;
+  let accumulatedDividends = 0;
   const data = [];
   const monthlyRate = weightedReturn / 12;
+  const monthlyYieldRate = weightedYield / 12;
 
   for (let i = 0; i <= years * 12; i++) {
     if (i % 12 === 0) {
       data.push({
         year: `Y${i / 12}`,
         balance: Math.round(balance),
-        invested: initialInvestment + (monthlyContribution * i)
+        invested: initialInvestment + (monthlyContribution * i),
+        dividends: Math.round(accumulatedDividends)
       });
     }
+
+    // Calculate dividend for this month based on current balance
+    const monthlyDividend = balance * monthlyYieldRate;
+    accumulatedDividends += monthlyDividend;
+
+    // Compound balance
     balance = (balance + monthlyContribution) * (1 + monthlyRate);
   }
 
   const projectionData = data;
   const finalAmount = projectionData.length > 0 ? projectionData[projectionData.length - 1].balance : 0;
   const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
+  const totalDividends = projectionData.length > 0 ? projectionData[projectionData.length - 1].dividends : 0;
 
   if (mode === 'MONTE_CARLO') {
       return (
@@ -198,20 +217,30 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
               />
             </div>
 
-            <div className="pt-6 border-t border-white/10">
-              <div className="text-sm text-neutral-400 mb-1">Projected Annual Return</div>
-              <div className="text-2xl font-bold text-emerald-400">{(weightedReturn * 100).toFixed(2)}%</div>
+            <div className="pt-6 border-t border-white/10 space-y-4">
+              <div>
+                <div className="text-sm text-neutral-400 mb-1">Projected Annual Return</div>
+                <div className="text-2xl font-bold text-emerald-400">{(weightedReturn * 100).toFixed(2)}%</div>
+              </div>
+              <div>
+                <div className="text-sm text-neutral-400 mb-1">Avg. Dividend Yield</div>
+                <div className="text-xl font-bold text-blue-400">{(weightedYield * 100).toFixed(2)}%</div>
+              </div>
             </div>
           </div>
 
           {/* Chart */}
           <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5">
-            <div className="flex justify-between items-end mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div>
                 <div className="text-sm text-neutral-400">Projected Wealth</div>
-                <div className="text-4xl font-bold text-white">{formatCurrency(finalAmount)}</div>
+                <div className="text-3xl font-bold text-white">{formatCurrency(finalAmount)}</div>
               </div>
-              <div className="text-right hidden sm:block">
+              <div>
+                 <div className="text-sm text-neutral-400">Est. Dividends Gained</div>
+                 <div className="text-3xl font-bold text-blue-400">{formatCurrency(totalDividends)}</div>
+              </div>
+              <div className="text-left sm:text-right">
                 <div className="text-sm text-neutral-400">Total Invested</div>
                 <div className="text-xl font-medium text-neutral-300">{formatCurrency(totalInvested)}</div>
               </div>
@@ -242,6 +271,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                   <Area
                     type="monotone"
                     dataKey="balance"
+                    name="Projected Balance"
                     stroke="#10b981"
                     fillOpacity={1}
                     fill="url(#colorBalance)"
@@ -249,8 +279,17 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                   <Area
                     type="monotone"
                     dataKey="invested"
+                    name="Total Invested"
                     stroke="#525252"
                     strokeDasharray="5 5"
+                    fill="transparent"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="dividends"
+                    name="Accumulated Dividends"
+                    stroke="#60a5fa"
+                    strokeWidth={2}
                     fill="transparent"
                   />
                 </AreaChart>
@@ -262,6 +301,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                     <th scope="col">Year</th>
                     <th scope="col">Projected Balance</th>
                     <th scope="col">Total Invested</th>
+                    <th scope="col">Accumulated Dividends</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,6 +310,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                       <td>{item.year}</td>
                       <td>{formatCurrency(item.balance)}</td>
                       <td>{formatCurrency(item.invested)}</td>
+                      <td>{formatCurrency(item.dividends)}</td>
                     </tr>
                   ))}
                 </tbody>
