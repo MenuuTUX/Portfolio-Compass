@@ -430,27 +430,37 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                               formatter={(val: any) => formatCurrency(Number(val))}
                               labelFormatter={(d) => `Year ${(d/252).toFixed(1)}`}
                            />
+                       {/* 95th Percentile Area with explicit stroke for Best Case */}
                        <Area
                           type="monotone"
                           dataKey="p95"
-                          stroke="#10b981"
-                          strokeWidth={1}
-                          strokeOpacity={0.5}
+                          name="Best Case (95th)"
+                          stroke="#34d399"
+                          strokeWidth={2}
                           fill="url(#coneGradient)"
                           fillOpacity={1}
                        />
+                       {/* Median Line */}
+                       <Area
+                          type="monotone"
+                          dataKey="median"
+                          name="Median Outcome"
+                          stroke="#10b981"
+                          strokeWidth={3}
+                          fill="none"
+                       />
+                       {/* 5th Percentile Line (Worst Case) */}
+                       <Area
+                          type="monotone"
+                          dataKey="p05"
+                          name="Worst Case (5th)"
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          fill="none"
+                       />
                        </AreaChart>
                    </ResponsiveContainer>
-                   <div className="absolute inset-0 pointer-events-none">
-                       <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={coneChartData}>
-                                <XAxis dataKey="day" hide domain={[0, timeHorizonYears * 252]} />
-                                <YAxis hide domain={['auto', 'auto']} />
-                                <Area type="monotone" dataKey="median" stroke="#10b981" strokeWidth={2} fill="none" />
-                                <Area type="monotone" dataKey="p05" stroke="#ef4444" strokeWidth={1} strokeDasharray="4 4" fill="none" />
-                            </AreaChart>
-                       </ResponsiveContainer>
-                   </div>
                </motion.div>
            )}
        </div>

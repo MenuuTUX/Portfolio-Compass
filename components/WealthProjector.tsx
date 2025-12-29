@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import MonteCarloSimulator from './simulation/MonteCarloSimulator';
+import { calculatePortfolioHistoricalStats } from '@/lib/math/portfolio-stats';
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
@@ -16,14 +17,33 @@ interface WealthProjectorProps {
 export default function WealthProjector({ portfolio, onBack }: WealthProjectorProps) {
   const [mode, setMode] = useState<'SIMPLE' | 'MONTE_CARLO'>('SIMPLE');
 
-  // Simple Projection Logic (Legacy)
+  // Simple Projection Logic
   const [initialInvestment, setInitialInvestment] = useState<number>(10000);
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
+  const [historicalReturn, setHistoricalReturn] = useState<number | null>(null);
+
+  useEffect(() => {
+      // Try to get historical stats if available
+      // Check if we have history
+      const hasHistory = portfolio.some(p => p.history && p.history.length > 30);
+      if (hasHistory) {
+          try {
+              const stats = calculatePortfolioHistoricalStats(portfolio);
+              if (stats.annualizedReturn !== 0) {
+                  setHistoricalReturn(stats.annualizedReturn);
+              }
+          } catch (e) {
+              console.warn("Failed to calc historical stats for simple projection", e);
+          }
+      }
+  }, [portfolio]);
 
   // Calculate Weighted Average Return
-  let weightedReturn = 0.07;
-  if (portfolio.length > 0) {
+  // Prefer historical return if available, else fallback to heuristic
+  let weightedReturn = historicalReturn !== null ? historicalReturn : 0.07;
+
+  if (historicalReturn === null && portfolio.length > 0) {
     const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
     if (totalWeight > 0) {
       weightedReturn = portfolio.reduce((acc, item) => {
