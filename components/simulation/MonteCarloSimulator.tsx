@@ -334,9 +334,12 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                         growthType: 'Monte Carlo',
                         percentageGrowth: percentageGrowth
                     }}
-                    chartData={coneChartData.map((d: { median: number, dividends: number }) => ({
+                    // PASSING RANGE DATA IMPLICITLY VIA MIN/MAX PROPS
+                    chartData={coneChartData.map((d: { median: number, dividends: number, p05: number, p95: number }) => ({
                         value: d.median,
-                        dividendValue: d.dividends
+                        dividendValue: d.dividends,
+                        min: d.p05, // Worst Case (5th percentile)
+                        max: d.p95  // Best Case (95th percentile)
                     }))}
                 />
              )}
