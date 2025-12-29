@@ -8,7 +8,7 @@ import {
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio, ETF } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, RefreshCw, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, RefreshCw, AlertCircle, Info, Loader2, Share2, Download, X } from 'lucide-react';
 import {
   calculateLogReturns,
   calculateCovarianceMatrix,
@@ -17,6 +17,7 @@ import {
   calculateCone
 } from '@/lib/monte-carlo';
 import { Decimal } from 'decimal.js';
+import { PortfolioShareButton } from '../PortfolioShareButton';
 
 interface MonteCarloSimulatorProps {
   portfolio: Portfolio;
@@ -276,9 +277,6 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
 
       return median.map((m: number, i: number) => {
         // Calculate accumulated dividends for this step based on median value
-        // Note: This is an approximation assuming reinvestment is NOT included in accumulated figure (i.e. simple payout accumulation)
-        // OR if it IS reinvested, it tracks how much value came from dividends.
-        // Given we are tracking "Dividends Gained", accumulating the payout amount is correct.
         if (i > 0) {
            accumulatedDividends += m * dailyYieldRate;
         }
@@ -309,6 +307,11 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
       };
   }, [simulationComplete, initialInvestment, coneChartData]);
 
+  // Calculate CAGR from median outcome for accurate "Annual Return" display
+  const medianCAGR = useMemo(() => {
+      if (!riskMetrics || initialInvestment <= 0) return 0;
+      return Math.pow(riskMetrics.medianOutcome / initialInvestment, 1 / timeHorizonYears) - 1;
+  }, [riskMetrics, initialInvestment, timeHorizonYears]);
 
   return (
     <div className="h-full flex flex-col space-y-6">
@@ -333,6 +336,23 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
           </div>
 
           <div className="flex items-center gap-3">
+             {simulationComplete && riskMetrics && (
+                <PortfolioShareButton
+                    portfolio={portfolio}
+                    metrics={{
+                        totalValue: currentPortfolioValue,
+                        annualReturn: medianCAGR, // Using accurate Median CAGR
+                        yield: weightedYield,
+                        projectedValue: riskMetrics.medianOutcome,
+                        totalInvested: initialInvestment,
+                        dividends: riskMetrics.totalDividends,
+                        years: timeHorizonYears,
+                        scenario: "Monte Carlo Median"
+                    }}
+                    chartData={coneChartData.map(d => ({ value: d.median }))}
+                />
+             )}
+
              {!isSimulating && (
                  <button
                     onClick={prepareSimulation}
