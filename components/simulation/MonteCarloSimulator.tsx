@@ -8,7 +8,7 @@ import {
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio, ETF } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Play, RefreshCw, AlertCircle, Info, Loader2, Share2, Download, X } from 'lucide-react';
+import { ArrowLeft, Play, RefreshCw, AlertCircle, Info, Loader2 } from 'lucide-react';
 import {
   calculateLogReturns,
   calculateCovarianceMatrix,
@@ -313,6 +313,12 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
       return Math.pow(riskMetrics.medianOutcome / initialInvestment, 1 / timeHorizonYears) - 1;
   }, [riskMetrics, initialInvestment, timeHorizonYears]);
 
+  // Percentage Growth Calculation
+  const percentageGrowth = useMemo(() => {
+      if (!riskMetrics || initialInvestment <= 0) return 0;
+      return ((riskMetrics.medianOutcome - initialInvestment) / initialInvestment) * 100;
+  }, [riskMetrics, initialInvestment]);
+
   return (
     <div className="h-full flex flex-col space-y-6">
        {/* Header */}
@@ -347,9 +353,14 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                         totalInvested: initialInvestment,
                         dividends: riskMetrics.totalDividends,
                         years: timeHorizonYears,
-                        scenario: "Monte Carlo Median"
+                        scenario: "Monte Carlo Median",
+                        growthType: 'Monte Carlo',
+                        percentageGrowth: percentageGrowth
                     }}
-                    chartData={coneChartData.map((d: { median: number }) => ({ value: d.median }))}
+                    chartData={coneChartData.map((d: { median: number, dividends: number }) => ({
+                        value: d.median,
+                        dividendValue: d.dividends
+                    }))}
                 />
              )}
 
