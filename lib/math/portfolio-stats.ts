@@ -1,5 +1,6 @@
 import { Portfolio } from '@/types';
 import { calculateLogReturns, calculateCovarianceMatrix } from '@/lib/monte-carlo';
+import { alignPriceHistory } from '@/lib/finance';
 
 /**
  * Calculates historical portfolio statistics (Annualized Return, Annualized Volatility)
@@ -22,46 +23,46 @@ export function calculatePortfolioHistoricalStats(portfolio: Portfolio, riskFree
 
     const weights = validItems.map(item => item.weight / totalWeight);
 
-    // Find latest start date to align series
-    const startDates = validItems.map(item => new Date(item.history[0].date).getTime());
-    const latestStartDate = Math.max(...startDates);
+    // Use robust alignment
+    const historicalDataInputs = validItems.map(item => item.history || []);
+    const finalPrices = alignPriceHistory(historicalDataInputs);
 
-    const alignedPrices: number[][] = [];
-    let referenceDates: number[] = [];
-
-    validItems.forEach((item, index) => {
-        const filteredHistory = item.history.filter(h => new Date(h.date).getTime() >= latestStartDate);
-        const prices = filteredHistory.map(h => h.price);
-
-        if (index === 0) {
-            referenceDates = filteredHistory.map(h => new Date(h.date).getTime());
-        }
-
-        alignedPrices.push(prices);
-    });
-
-    const minLen = Math.min(...alignedPrices.map(arr => arr.length));
-    if (minLen < 2) return { annualizedReturn: 0, annualizedVolatility: 0 };
-
-    // Truncate to minLen
-    const finalPrices = alignedPrices.map(arr => arr.slice(arr.length - minLen));
-    referenceDates = referenceDates.slice(referenceDates.length - minLen);
-
-    // Calculate Time Span in Years
-    const startDate = referenceDates[0];
-    const endDate = referenceDates[referenceDates.length - 1];
-    const timeSpanYears = (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
-
-    // Safety check: Do not extrapolate if history is less than 6 months (0.5 years)
-    // Short-term data (e.g., 1 week of +5% return) can lead to absurd annualized projections (e.g. 1100%).
-    if (timeSpanYears < 0.5) {
+    if (finalPrices.length === 0 || finalPrices[0].length < 2) {
         return { annualizedReturn: 0, annualizedVolatility: 0 };
     }
 
-    // Calculate Average Sample Interval (dt) in years
+    // We need to approximate timeSpanYears.
+    // alignPriceHistory aligns to the date set.
+    // We can infer the span from the number of samples if we assume daily trading (252 days/year).
+    // Or better, we should probably return dates from alignPriceHistory too?
+    // The previous implementation used referenceDates from the first item.
+    // Let's assume typical daily data for now: samples / 252.
+    // BUT, the previous code calculated exact time span from dates.
+
+    // To be precise without changing alignPriceHistory signature too much,
+    // we can re-derive the span from the inputs and the fact that we aligned them.
+    // Or we can just use the "N samples / 252" approximation which is standard for annualized vol.
+    // Annualized Vol = Daily Vol * sqrt(252).
+    // Annualized Return = Daily Return * 252.
+
+    // However, the existing code calculates `dt` and `samplesPerYear`.
+    // Let's look at how it did it:
+    // const timeSpanYears = (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
+    // const dt = timeSpanYears / (N - 1);
+    // const samplesPerYear = 1 / dt;
+
+    // If we assume daily data (which is what we have), samplesPerYear is approx 252.
+    // Let's stick to the standard 252 for simplicity and robustness,
+    // rather than relying on exact timestamps which might have gaps (weekends) that skew "dt" if we treat it as continuous time.
+    // Actually, finance usually treats "trading days" as the unit of time, so dt = 1/252.
+
+    const samplesPerYear = 252;
     const N = finalPrices[0].length;
-    const dt = timeSpanYears / (N - 1);
-    const samplesPerYear = 1 / dt;
+
+    // Safety check: Do not extrapolate if history is less than 6 months (approx 126 trading days)
+    if (N < 126) {
+        return { annualizedReturn: 0, annualizedVolatility: 0 };
+    }
 
     // Calculate Log Returns
     const returnsMatrix = finalPrices.map(prices => calculateLogReturns(prices));

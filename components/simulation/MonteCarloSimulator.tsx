@@ -6,6 +6,7 @@ import {
   LineChart, Line
 } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
+import { alignPriceHistory } from '@/lib/finance';
 import { Portfolio, ETF } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Play, RefreshCw, AlertCircle, Info, Loader2 } from 'lucide-react';
@@ -145,22 +146,15 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
       return;
     }
 
-    // Align Dates
-    const startDates = validItems.map(item => new Date(item.history[0].date).getTime());
-    const latestStartDate = Math.max(...startDates);
+    // Align Dates using robust forward-filling
+    const historicalDataInputs = validItems.map(item => item.history || []);
+    const finalPrices = alignPriceHistory(historicalDataInputs);
 
-    const alignedPrices: number[][] = [];
-    validItems.forEach(item => {
-        const filtered = item.history.filter(h => new Date(h.date).getTime() >= latestStartDate);
-        alignedPrices.push(filtered.map(h => h.price));
-    });
-
-    const minLen = Math.min(...alignedPrices.map(arr => arr.length));
-    if (minLen < 30) {
+    // Check if we have sufficient aligned history
+    if (finalPrices.length === 0 || finalPrices[0].length < 30) {
         setError("Not enough overlapping history (need > 30 days).");
         return;
     }
-    const finalPrices = alignedPrices.map(arr => arr.slice(arr.length - minLen));
 
     const returnsMatrix = finalPrices.map(prices => calculateLogReturns(prices));
     const meanReturns = returnsMatrix.map(returns => {
