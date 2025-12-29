@@ -349,7 +349,7 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                         years: timeHorizonYears,
                         scenario: "Monte Carlo Median"
                     }}
-                    chartData={coneChartData.map(d => ({ value: d.median }))}
+                    chartData={coneChartData.map((d: { median: number }) => ({ value: d.median }))}
                 />
              )}
 
