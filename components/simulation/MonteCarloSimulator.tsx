@@ -45,6 +45,7 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [richPortfolio, setRichPortfolio] = useState<Portfolio>(portfolio);
   const [analyticSharpe, setAnalyticSharpe] = useState<number>(0);
+  const [weightedYield, setWeightedYield] = useState<number>(0);
 
   // Animation Ref
   const animationFrameRef = useRef<number>(0);
@@ -183,13 +184,10 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
     const totalWeight = validItems.reduce((sum, item) => sum + item.weight, 0);
     const weights = validItems.map(item => item.weight / (totalWeight || 1));
 
-    // Calculate Analytic Sharpe Ratio
-    // Exp Daily Return = sum(w * mu)
+    // Calculate Analytic Sharpe Ratio & Weighted Yield
     let expDailyRet = 0;
     for(let i=0; i<weights.length; i++) expDailyRet += weights[i] * meanReturns[i];
 
-    // Exp Daily Variance = w^T * Cov * w
-    // Variance = sum_i sum_j w_i * w_j * cov[i][j]
     let expDailyVar = 0;
     for(let i=0; i<weights.length; i++) {
         for(let j=0; j<weights.length; j++) {
@@ -202,6 +200,13 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
     const riskFree = 0.04;
 
     setAnalyticSharpe(annVol > 0 ? (annRet - riskFree) / annVol : 0);
+
+    const calculatedYield = validItems.reduce((acc, item) => {
+      const yieldVal = item.metrics?.yield || 0;
+      return acc + ((yieldVal / 100) * (item.weight / totalWeight));
+    }, 0);
+    setWeightedYield(calculatedYield);
+
 
     const numDays = timeHorizonYears * 252;
 
@@ -266,25 +271,43 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
   const coneChartData = useMemo(() => {
       if (!simulationComplete || !coneRef.current) return [];
       const { median, p05, p95 } = coneRef.current;
-      return median.map((m: number, i: number) => ({
+      const dailyYieldRate = weightedYield / 252;
+      let accumulatedDividends = 0;
+
+      return median.map((m: number, i: number) => {
+        // Calculate accumulated dividends for this step based on median value
+        // Note: This is an approximation assuming reinvestment is NOT included in accumulated figure (i.e. simple payout accumulation)
+        // OR if it IS reinvested, it tracks how much value came from dividends.
+        // Given we are tracking "Dividends Gained", accumulating the payout amount is correct.
+        if (i > 0) {
+           accumulatedDividends += m * dailyYieldRate;
+        }
+
+        return {
           day: i,
           median: m,
           p05: p05[i],
-          p95: p95[i]
-      }));
-  }, [simulationComplete]);
+          p95: p95[i],
+          dividends: accumulatedDividends
+        };
+      });
+  }, [simulationComplete, weightedYield]);
 
   const riskMetrics = useMemo(() => {
-      if (!simulationComplete || !allPathsRef.current.length) return null;
+      if (!simulationComplete || !allPathsRef.current.length || !coneChartData.length) return null;
       const finalValues = allPathsRef.current.map(p => p[p.length - 1]);
       finalValues.sort((a, b) => a - b);
+
+      const totalDividends = coneChartData[coneChartData.length - 1]?.dividends || 0;
+
       return {
           medianOutcome: finalValues[Math.floor(finalValues.length * 0.5)],
           worst5Outcome: finalValues[Math.floor(finalValues.length * 0.05)],
           best5Outcome: finalValues[Math.floor(finalValues.length * 0.95)],
-          vaR: initialInvestment - finalValues[Math.floor(finalValues.length * 0.05)]
+          vaR: initialInvestment - finalValues[Math.floor(finalValues.length * 0.05)],
+          totalDividends
       };
-  }, [simulationComplete, initialInvestment]);
+  }, [simulationComplete, initialInvestment, coneChartData]);
 
 
   return (
@@ -467,6 +490,16 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                           strokeDasharray="4 4"
                           fill="none"
                        />
+                       {/* Accumulated Dividends Line */}
+                       <Area
+                          type="monotone"
+                          dataKey="dividends"
+                          name="Accumulated Dividends (Est)"
+                          stroke="#60a5fa"
+                          strokeWidth={2}
+                          strokeDasharray="2 2"
+                          fill="none"
+                       />
                        </AreaChart>
                    </ResponsiveContainer>
                </motion.div>
@@ -476,26 +509,28 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
        {/* Results */}
        <AnimatePresence>
            {simulationComplete && riskMetrics && (
-               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                    <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-white/5">
                        <div className="text-xs text-neutral-400">Median Outcome</div>
-                       <div className="text-2xl font-bold text-white">{formatCurrency(riskMetrics.medianOutcome)}</div>
+                       <div className="text-xl font-bold text-white">{formatCurrency(riskMetrics.medianOutcome)}</div>
                    </div>
                    <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-white/5">
                        <div className="text-xs text-neutral-400">Best Case (95th)</div>
-                       <div className="text-xl font-bold text-emerald-300">{formatCurrency(riskMetrics.best5Outcome)}</div>
+                       <div className="text-lg font-bold text-emerald-300">{formatCurrency(riskMetrics.best5Outcome)}</div>
                    </div>
                    <div className="glass-card p-4 rounded-xl border-l-4 border-rose-500 bg-white/5">
                        <div className="text-xs text-neutral-400">Worst Case (5th)</div>
-                       <div className="text-xl font-bold text-rose-400">{formatCurrency(riskMetrics.worst5Outcome)}</div>
+                       <div className="text-lg font-bold text-rose-400">{formatCurrency(riskMetrics.worst5Outcome)}</div>
                    </div>
-                   <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-white/5">
-                       <div className="text-xs text-neutral-400">Est. Value at Risk</div>
-                       <div className="text-xl font-bold text-yellow-400">{formatCurrency(riskMetrics.vaR > 0 ? riskMetrics.vaR : 0)}</div>
-                   </div>
+                    {/* New Dividends Card */}
                    <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-white/5">
-                       <div className="text-xs text-neutral-400">Sharpe Ratio</div>
-                       <div className="text-xl font-bold text-blue-400">{analyticSharpe.toFixed(2)}</div>
+                       <div className="text-xs text-neutral-400">Est. Dividends</div>
+                       <div className="text-lg font-bold text-blue-400">{formatCurrency(riskMetrics.totalDividends)}</div>
+                   </div>
+                   {/* Combined VaR and Sharpe into one if needed, or expand grid */}
+                   <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-white/5">
+                       <div className="text-xs text-neutral-400">Value at Risk</div>
+                       <div className="text-lg font-bold text-yellow-400">{formatCurrency(riskMetrics.vaR > 0 ? riskMetrics.vaR : 0)}</div>
                    </div>
                </motion.div>
            )}
