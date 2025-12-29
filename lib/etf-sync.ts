@@ -60,7 +60,7 @@ export async function syncEtfDetails(
       }
     }
 
-    // 3. Upsert ETF Record
+    // 3. Upsert ETF Record (Lightweight)
     const etf = await prisma.etf.upsert({
       where: { ticker: details.ticker },
       update: {
@@ -145,10 +145,9 @@ export async function syncEtfDetails(
 
     console.log(`[EtfSync] Upserted base record for ${etf.ticker}`);
 
-    // Sequential child relation updates using Interactive Transaction
-    // This allows us to use 'timeout' which is not supported in sequential array operations
+    // 4 & 5. Update Sectors & Allocation (Separate Transaction - Fast)
     await prisma.$transaction(async (tx) => {
-        // 4. Update Sectors
+        // Sectors
         if (Object.keys(details.sectors).length > 0) {
             await tx.etfSector.deleteMany({ where: { etfId: etf.ticker } });
             await tx.etfSector.createMany({
@@ -160,15 +159,20 @@ export async function syncEtfDetails(
             });
         }
 
-        // 5. Update Allocation
+        // Allocation
         await tx.etfAllocation.upsert({
             where: { etfId: etf.ticker },
             update: { stocks_weight, bonds_weight, cash_weight },
             create: { etfId: etf.ticker, stocks_weight, bonds_weight, cash_weight }
         });
+    }, {
+        timeout: 10000 // 10s is plenty for this
+    });
 
-        // 6. Update History
-        if (details.history && details.history.length > 0) {
+    // 6. Update History (Separate Transaction - Heavy)
+    // We split this to release the DB connection after metadata update and before heavy history processing
+    if (details.history && details.history.length > 0) {
+        await prisma.$transaction(async (tx) => {
             // Identify which intervals we have in the new data
             const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
             const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
@@ -204,13 +208,20 @@ export async function syncEtfDetails(
             if (dailyHistory.length > 0) {
                 // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
                 const dates = dailyHistory.map((h: any) => new Date(h.date));
-                await tx.etfHistory.deleteMany({
-                    where: {
-                        etfId: etf.ticker,
-                        interval: '1d',
-                        date: { in: dates }
-                    }
-                });
+                // Optimization: If dates array is huge (>2000), 'in' clause might be slow.
+                // But for incremental sync it's small.
+                // For full sync, we might just delete all for '1d' if fromDate is undefined?
+                // But let's stick to safe logic.
+
+                if (dates.length > 0) {
+                    await tx.etfHistory.deleteMany({
+                        where: {
+                            etfId: etf.ticker,
+                            interval: '1d',
+                            date: { in: dates }
+                        }
+                    });
+                }
 
                 await tx.etfHistory.createMany({
                     data: dailyHistory.map((h: any) => ({
@@ -222,13 +233,13 @@ export async function syncEtfDetails(
                     skipDuplicates: true
                 });
             }
-        }
-    }, {
-        timeout: 60000, // 60 seconds
-        maxWait: 10000
-    });
+        }, {
+            timeout: 60000, // 60s for history
+            maxWait: 20000
+        });
+    }
 
-    // 7. Update Holdings
+    // 7. Update Holdings (Separate Transaction)
     let holdingsSynced = false;
 
     // Try StockAnalysis.com first (Only for ETFs)
