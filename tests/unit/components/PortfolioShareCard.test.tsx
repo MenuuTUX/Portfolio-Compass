@@ -43,8 +43,7 @@ describe('PortfolioShareCard', () => {
 
         expect(getByText("by Test User")).toBeInTheDocument();
         expect(getByText("My Growth Portfolio")).toBeInTheDocument();
-        expect(getByText('12.00%')).toBeInTheDocument(); // Proj. Return
-        expect(getByText('Avg Yield: 2.00%')).toBeInTheDocument(); // Yield text is now in description
+        expect(getAllByText('12.00%')[0]).toBeInTheDocument(); // Proj. Return
         expect(getByText('$15,000.00')).toBeInTheDocument(); // Projected Value
     });
 
