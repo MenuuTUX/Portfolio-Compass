@@ -53,10 +53,10 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
 
   // Effect to sync initialInvestment with portfolio value if it loads later and we are at default
   useEffect(() => {
-    if (currentPortfolioValue > 0 && initialInvestment === 10000) {
+    if (currentPortfolioValue > 0) {
       setInitialInvestment(currentPortfolioValue);
     }
-  }, [currentPortfolioValue, initialInvestment]);
+  }, [currentPortfolioValue]);
 
   // Load full history if needed
   const ensureFullHistory = useCallback(async () => {
