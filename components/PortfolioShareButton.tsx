@@ -106,12 +106,12 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
                     </button>
 
                     {/* PREVIEW COLUMN */}
-                    <div className="flex-1 bg-[#050505] relative flex items-center justify-center p-8 min-h-[400px] md:min-h-full">
+                    <div className="flex-1 bg-[#050505] relative flex items-center justify-center p-8 min-h-[400px] md:min-h-full overflow-hidden order-1 md:order-1">
                          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.05]" />
 
-                         {/* Scale container to fit the large card into the view */}
-                         <div className="relative w-full h-full flex items-center justify-center">
-                            <div className="transform scale-[0.35] md:scale-[0.45] origin-center shadow-2xl shadow-emerald-900/20 border border-white/5 rounded-xl overflow-hidden">
+                         {/* Scale container to fit the large card into the view - ABSOLUTE to prevent layout flow expansion */}
+                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none">
+                            <div className="transform scale-[0.35] md:scale-[0.45] origin-center shadow-2xl shadow-emerald-900/20 border border-white/5 rounded-xl overflow-hidden pointer-events-auto">
                                 {/* This is the LIVE rendered card used for both preview and generation */}
                                 <PortfolioShareCard
                                     ref={cardRef}
@@ -123,16 +123,16 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
                                 />
                             </div>
                          </div>
-                         <div className="absolute bottom-4 left-0 w-full text-center text-xs text-neutral-500">
+                         <div className="absolute bottom-4 left-0 w-full text-center text-xs text-neutral-500 pointer-events-none">
                             Preview (1080 x 1350px)
                          </div>
                     </div>
 
                     {/* CONTROLS COLUMN */}
-                    <div className="w-full md:w-[400px] bg-[#111] p-8 flex flex-col border-l border-white/10">
+                    <div className="w-full md:w-[400px] bg-[#111] p-8 flex flex-col border-l border-white/10 shrink-0 relative z-10 order-2 md:order-2">
                         <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-white mb-2">Export Snapshot</h3>
-                            <p className="text-neutral-400 text-sm">Customize and share your portfolio analysis card with the community.</p>
+                            <h3 className="text-2xl font-bold text-white mb-2">Customize Card</h3>
+                            <p className="text-neutral-400 text-sm">Edit the details below to personalize your portfolio snapshot.</p>
                         </div>
 
                         <div className="space-y-6 flex-1">
