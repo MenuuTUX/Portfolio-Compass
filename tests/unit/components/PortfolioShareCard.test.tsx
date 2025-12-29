@@ -41,9 +41,13 @@ describe('PortfolioShareCard', () => {
             />
         );
 
-        expect(getByText("by Test User")).toBeInTheDocument();
-        expect(getByText("My Growth Portfolio")).toBeInTheDocument();
-        expect(getAllByText('12.00%')[0]).toBeInTheDocument(); // Proj. Return
+        expect(getByText("Prepared for")).toBeInTheDocument();
+        expect(getByText("Test User")).toBeInTheDocument();
+        expect(getByText("Portfolio Compass")).toBeInTheDocument();
+        expect(getByText("Institutional Grade")).toBeInTheDocument();
+
+        // Check for calculated stats
+        expect(getAllByText('12.00%')[0]).toBeInTheDocument(); // CAGR
         expect(getByText('$15,000.00')).toBeInTheDocument(); // Projected Value
     });
 
@@ -60,5 +64,23 @@ describe('PortfolioShareCard', () => {
         expect(getAllByText('60.0%')[0]).toBeInTheDocument();
         expect(getAllByText('MSFT')[0]).toBeInTheDocument();
         expect(getAllByText('40.0%')[0]).toBeInTheDocument();
+    });
+
+    it('renders Monte Carlo range indicator when data is present', () => {
+         const monteCarloData = [
+            { value: 3000, min: 2900, max: 3100 },
+            { value: 5000, min: 4000, max: 6000 }
+         ];
+
+         const { getByText } = render(
+            <PortfolioShareCard
+                portfolio={mockPortfolio}
+                metrics={{...mockMetrics, growthType: 'Monte Carlo'}}
+                chartData={monteCarloData}
+            />
+        );
+
+        expect(getByText("Range")).toBeInTheDocument();
+        expect(getByText("Median")).toBeInTheDocument();
     });
 });
