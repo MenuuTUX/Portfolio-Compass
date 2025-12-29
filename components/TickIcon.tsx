@@ -1,9 +1,8 @@
 
 import React, { useState } from 'react';
 import { getAssetIconUrl } from '@/lib/etf-providers';
-import { motion } from 'framer-motion';
 
-export const TickIcon = ({ ticker, x, y }: { ticker: string; x: number; y: number }) => {
+export const TickIcon = ({ ticker, x, y, assetType = 'STOCK' }: { ticker: string; x: number; y: number; assetType?: string }) => {
     const [hasError, setHasError] = useState(false);
 
     // Logic: if it's "Other" or "Cash", no icon.
@@ -12,7 +11,7 @@ export const TickIcon = ({ ticker, x, y }: { ticker: string; x: number; y: numbe
 
     if (ticker === 'Cash' || ticker === 'Other') return null;
 
-    const iconUrl = getAssetIconUrl(ticker, ticker, 'STOCK');
+    const iconUrl = getAssetIconUrl(ticker, ticker, assetType);
 
     if (!iconUrl || hasError) {
         // Fallback: Circle with First Letter
