@@ -100,7 +100,9 @@ export async function GET(request: NextRequest) {
 
                 // Use p-limit to restrict concurrent DB writes
                 // Now that DB max pool is 5, we can allow slightly more concurrency (e.g., 2)
-                const limit = pLimit(2);
+            // Use p-limit to restrict concurrent DB writes
+            // Reduced to 1 to prevent connection pool exhaustion (MaxClientsInSessionMode)
+            const limit = pLimit(1);
 
                 const upsertPromises = liveData.map((item) => limit(async () => {
                     try {
@@ -123,8 +125,13 @@ export async function GET(request: NextRequest) {
                             },
                             include: includeObj
                         });
-                    } catch (createError) {
-                         console.error(`[API] Failed to upsert ETF ${item.ticker}:`, createError);
+                    } catch (createError: any) {
+                         // Downgrade connection errors to warnings
+                         if (createError.toString().includes('MaxClientsInSessionMode') || createError.toString().includes('DriverAdapterError')) {
+                             console.warn(`[API] DB Busy (upsert) for ${item.ticker}, using live data fallback.`);
+                         } else {
+                             console.error(`[API] Failed to upsert ETF ${item.ticker}:`, createError);
+                         }
 
                          // Fallback: Use live data directly if DB write fails
                          // Construct an object matching the Prisma Etf shape expected by formattedEtfs
@@ -162,7 +169,7 @@ export async function GET(request: NextRequest) {
 
         try {
             const liveData = await fetchMarketSnapshot(defaultTickers);
-            const limit = pLimit(2); // Slightly increased concurrency
+            const limit = pLimit(1); // Serial execution to save connections
 
             const seedPromises = liveData.map((item) => limit(async () => {
                 try {
@@ -242,7 +249,8 @@ export async function GET(request: NextRequest) {
              console.log(`[API] Found ${staleEtfs.length} stale ETFs for request. Syncing...`);
         }
 
-        const limit = pLimit(3); // Increased concurrency limit now that we have more DB connections (max 5)
+        // Reduced concurrency to 1 to prevent DB pool exhaustion during heavy syncs
+        const limit = pLimit(1);
 
         if (isFullHistoryRequested) {
            // If user specifically requested full details (Details Drawer), we must block and sync
@@ -279,9 +287,13 @@ export async function GET(request: NextRequest) {
 
             // We don't await this Promise.all, but we still want to limit the concurrency
             Promise.all(itemsToSync.map((staleEtf: any) => limit(() =>
-                syncEtfDetails(staleEtf.ticker, ['1d']).catch(err =>
-                    console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err)
-                )
+                syncEtfDetails(staleEtf.ticker, ['1d']).catch(err => {
+                    if (err.toString().includes('MaxClientsInSessionMode') || err.toString().includes('DriverAdapterError')) {
+                        console.warn(`[API] DB Busy (sync) for ${staleEtf.ticker}, skipping sync.`);
+                    } else {
+                        console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err);
+                    }
+                })
             )));
         }
       }
@@ -311,7 +323,8 @@ export async function GET(request: NextRequest) {
     if (limitedTargets.length > 0 && !tickersParam) {
       console.log(`[API] Processing fallback strategy for missing targets: ${limitedTargets.join(', ')}`);
 
-      const limit = pLimit(2);
+      // Serial execution for fallback
+      const limit = pLimit(1);
 
       {
         try {
