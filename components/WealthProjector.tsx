@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import MonteCarloSimulator from './simulation/MonteCarloSimulator';
 import { calculatePortfolioHistoricalStats } from '@/lib/math/portfolio-stats';
 
@@ -17,11 +17,27 @@ interface WealthProjectorProps {
 export default function WealthProjector({ portfolio, onBack }: WealthProjectorProps) {
   const [mode, setMode] = useState<'SIMPLE' | 'MONTE_CARLO'>('SIMPLE');
 
+  // Calculate current portfolio value
+  const currentPortfolioValue = portfolio.reduce((sum, item) => {
+    return sum + (item.price * (item.shares || 0));
+  }, 0);
+
   // Simple Projection Logic
-  const [initialInvestment, setInitialInvestment] = useState<number>(10000);
+  // Initialize with portfolio value if > 0, else 10000
+  const [initialInvestment, setInitialInvestment] = useState<number>(() => {
+    return currentPortfolioValue > 0 ? currentPortfolioValue : 10000;
+  });
+
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
   const [historicalReturn, setHistoricalReturn] = useState<number | null>(null);
+
+  // Effect to sync initialInvestment with portfolio value if it loads later and we are at default
+  useEffect(() => {
+    if (currentPortfolioValue > 0 && initialInvestment === 10000) {
+      setInitialInvestment(currentPortfolioValue);
+    }
+  }, [currentPortfolioValue, initialInvestment]);
 
   useEffect(() => {
       // Try to get historical stats if available
@@ -130,7 +146,19 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
           {/* Controls */}
           <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-white/5 border border-white/5">
             <div>
-              <label htmlFor="initial-investment" className="text-sm text-neutral-400 block mb-2">Initial Investment</label>
+              <div className="flex items-center justify-between mb-2">
+                 <label htmlFor="initial-investment" className="text-sm text-neutral-400 block">Starting Balance</label>
+                 {currentPortfolioValue > 0 && initialInvestment !== currentPortfolioValue && (
+                     <button
+                        onClick={() => setInitialInvestment(currentPortfolioValue)}
+                        className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                        title="Reset to current portfolio value"
+                     >
+                        <RefreshCw className="w-3 h-3" />
+                        Sync
+                     </button>
+                 )}
+              </div>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-neutral-400">$</span>
                 <input
