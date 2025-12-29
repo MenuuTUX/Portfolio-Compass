@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line } from 'recharts';
 import { cn, formatCurrency } from '@/lib/utils';
 import { Portfolio } from '@/types';
@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import MonteCarloSimulator from './simulation/MonteCarloSimulator';
 import { calculatePortfolioHistoricalStats } from '@/lib/math/portfolio-stats';
+import { PortfolioShareButton } from './PortfolioShareButton';
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
@@ -94,7 +95,10 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
         year: `Y${i / 12}`,
         balance: Math.round(balance),
         invested: initialInvestment + (monthlyContribution * i),
-        dividends: Math.round(accumulatedDividends)
+        dividends: Math.round(accumulatedDividends),
+        // For chart data in share card
+        value: Math.round(balance),
+        dividendValue: Math.round(accumulatedDividends)
       });
     }
 
@@ -110,6 +114,11 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   const finalAmount = projectionData.length > 0 ? projectionData[projectionData.length - 1].balance : 0;
   const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
   const totalDividends = projectionData.length > 0 ? projectionData[projectionData.length - 1].dividends : 0;
+
+  // Percentage Growth Calculation
+  const percentageGrowth = initialInvestment > 0
+    ? ((finalAmount - initialInvestment) / initialInvestment) * 100
+    : 0;
 
   if (mode === 'MONTE_CARLO') {
       return (
@@ -152,13 +161,35 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             </div>
           </div>
 
-          <button
-             onClick={() => setMode('MONTE_CARLO')}
-             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
-          >
-             <Sparkles className="w-4 h-4" />
-             Try Monte Carlo Simulation
-          </button>
+          <div className="flex items-center gap-3">
+            <PortfolioShareButton
+                portfolio={portfolio}
+                metrics={{
+                    totalValue: currentPortfolioValue,
+                    annualReturn: weightedReturn,
+                    yield: weightedYield,
+                    projectedValue: finalAmount,
+                    totalInvested: totalInvested,
+                    dividends: totalDividends,
+                    years: years,
+                    scenario: "Simple Projection",
+                    growthType: 'Simple',
+                    percentageGrowth: percentageGrowth
+                }}
+                chartData={projectionData.map(d => ({
+                    value: d.balance,
+                    dividendValue: d.dividends
+                }))}
+            />
+
+            <button
+               onClick={() => setMode('MONTE_CARLO')}
+               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
+            >
+               <Sparkles className="w-4 h-4" />
+               Try Monte Carlo
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-20">
@@ -318,6 +349,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             </div>
           </div>
         </div>
+
       </motion.div>
     </section>
   );
