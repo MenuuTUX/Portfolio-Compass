@@ -25,9 +25,11 @@ interface MonteCarloSimulatorProps {
 
 export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSimulatorProps) {
   // Calculate current portfolio value
-  const currentPortfolioValue = portfolio.reduce((sum, item) => {
-    return sum + (item.price * (item.shares || 0));
-  }, 0);
+  const currentPortfolioValue = useMemo(() => {
+    return portfolio.reduce((sum, item) => {
+      return sum + (item.price * (item.shares || 0));
+    }, 0);
+  }, [portfolio]);
 
   // State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -37,9 +39,7 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
   const [timeHorizonYears, setTimeHorizonYears] = useState(10);
 
   // Initialize with portfolio value if > 0, else 10000
-  const [initialInvestment, setInitialInvestment] = useState<number>(() => {
-      return currentPortfolioValue > 0 ? currentPortfolioValue : 10000;
-  });
+  const [initialInvestment, setInitialInvestment] = useState<number>(currentPortfolioValue || 10000);
 
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -59,13 +59,13 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
   }, [currentPortfolioValue, initialInvestment]);
 
   // Load full history if needed
-  const ensureFullHistory = useCallback(async () => {
+  const ensureFullHistory = useCallback(async (): Promise<Portfolio | null> => {
       // Check if we have enough history (e.g. > 100 points) for all items
       const needsFetch = portfolio.some(item => !item.history || item.history.length < 200);
 
       if (!needsFetch) {
           setRichPortfolio(portfolio);
-          return true;
+          return portfolio;
       }
 
       setIsLoadingHistory(true);
@@ -90,11 +90,11 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
 
           setRichPortfolio(newPortfolio);
           setIsLoadingHistory(false);
-          return true;
+          return newPortfolio;
       } catch (e: any) {
           setError(`Error loading data: ${e.message}`);
           setIsLoadingHistory(false);
-          return false;
+          return null;
       }
   }, [portfolio]);
 
@@ -106,37 +106,14 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
         return;
     }
 
-    const success = await ensureFullHistory();
-    if (!success) return;
+    const fetchedPortfolio = await ensureFullHistory();
+    if (!fetchedPortfolio) return;
 
     setError(null);
     setSimulationComplete(false);
     setCurrentDayIndex(0);
 
-    // Re-fetch logic locally to avoid state race condition
-    let activePortfolio = richPortfolio;
-    const needsFetch = portfolio.some(item => !item.history || item.history.length < 200);
-
-    if (needsFetch) {
-         setIsLoadingHistory(true);
-         try {
-            const tickers = portfolio.map(p => p.ticker).join(',');
-            const res = await fetch(`/api/etfs/search?tickers=${tickers}&full=true`);
-            if (!res.ok) throw new Error("Failed to fetch historical data");
-            const richEtfs: ETF[] = await res.json();
-
-            activePortfolio = portfolio.map(item => {
-                const richItem = richEtfs.find(e => e.ticker === item.ticker);
-                return richItem ? { ...item, history: richItem.history } : item;
-            });
-            setRichPortfolio(activePortfolio);
-         } catch(e: any) {
-             setError(e.message);
-             setIsLoadingHistory(false);
-             return;
-         }
-         setIsLoadingHistory(false);
-    }
+    const activePortfolio = fetchedPortfolio;
 
     // Now proceed with `activePortfolio`
     const validItems = activePortfolio.filter(item => item.history && item.history.length > 30);
