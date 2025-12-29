@@ -69,13 +69,15 @@ const CustomYAxisTick = (props: any) => {
   const { x, y, payload, riskMap } = props;
   const { value: ticker } = payload;
 
+  const assetType = props.assetTypeMap?.[ticker] || 'STOCK';
+
   const totalWeight = riskMap?.[ticker] || 0;
   const isHighRisk = totalWeight > 10;
   const isCriticalRisk = totalWeight > 20;
 
   return (
     <g transform={`translate(${x},${y})`}>
-      <TickIcon ticker={ticker} x={0} y={0} />
+      <TickIcon ticker={ticker} x={0} y={0} assetType={assetType} />
 
       {isCriticalRisk && (
         <g transform="translate(-115, -9)">
@@ -100,12 +102,13 @@ const CustomYAxisTick = (props: any) => {
 };
 
 export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps) {
-  const { chartData, sources, riskMap, maxWeight } = useMemo(() => {
+  const { chartData, sources, riskMap, maxWeight, assetTypeMap } = useMemo(() => {
     const aggregatedData: {
       [holdingTicker: string]: {
         totalWeight: number;
         name: string;
         isCash: boolean;
+        assetType: string;
         sources: { [source: string]: number };
       };
     } = {};
@@ -127,6 +130,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
               totalWeight: 0,
               name: h.name,
               isCash: false,
+              assetType: 'STOCK', // Default to STOCK for look-through holdings
               sources: {},
             };
           }
@@ -145,6 +149,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
               totalWeight: 0,
               name: 'Other Assets',
               isCash: false,
+              assetType: 'STOCK',
               sources: {},
             };
           }
@@ -162,6 +167,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
             totalWeight: 0,
             name: item.name,
             isCash: false,
+            assetType: item.assetType || 'STOCK', // Use actual asset type for direct holdings
             sources: {},
           };
         }
@@ -181,6 +187,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
           totalWeight: 0,
           name: 'Cash Buffer',
           isCash: true,
+          assetType: 'Cash',
           sources: {},
         };
       }
@@ -195,6 +202,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
         fullName: d.name,
         totalWeight: d.totalWeight,
         isCash: d.isCash,
+        assetType: d.assetType,
       };
       Object.entries(d.sources).forEach(([src, w]) => {
         flat[src] = w;
@@ -216,16 +224,18 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
     });
 
     const rMap: Record<string, number> = {};
+    const aMap: Record<string, string> = {}; // Asset Type Map
     let maxW = 0;
     data.forEach((d) => {
       rMap[d.name] = d.totalWeight;
+      aMap[d.name] = d.assetType;
       if (d.totalWeight > maxW) maxW = d.totalWeight;
     });
 
     // Ensure X-Axis covers at least the zones (up to 25% to give buffer for 20% zone)
     if (maxW < 25) maxW = 25;
 
-    return { chartData: data, sources: sourceList, riskMap: rMap, maxWeight: maxW };
+    return { chartData: data, sources: sourceList, riskMap: rMap, maxWeight: maxW, assetTypeMap: aMap };
   }, [portfolio]);
 
   if (portfolio.length === 0) {
@@ -321,7 +331,7 @@ export default function PortfolioBarChart({ portfolio }: PortfolioBarChartProps)
                 dataKey="name"
                 width={120}
                 stroke="transparent"
-                tick={<CustomYAxisTick riskMap={riskMap} />}
+                tick={<CustomYAxisTick riskMap={riskMap} assetTypeMap={assetTypeMap} />}
                 interval={0}
               />
 
