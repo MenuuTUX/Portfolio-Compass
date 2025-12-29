@@ -52,7 +52,10 @@ export async function GET(request: NextRequest) {
       allocation: true,
     };
     if (includeHistory) {
-      includeObj.history = { orderBy: { date: 'asc' } };
+      includeObj.history = {
+          where: { interval: '1d' },
+          orderBy: { date: 'asc' }
+      };
     }
     if (includeHoldings) {
       includeObj.holdings = { orderBy: { weight: 'desc' } };
