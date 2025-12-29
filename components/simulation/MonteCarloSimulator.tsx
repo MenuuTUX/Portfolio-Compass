@@ -24,13 +24,23 @@ interface MonteCarloSimulatorProps {
 }
 
 export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSimulatorProps) {
+  // Calculate current portfolio value
+  const currentPortfolioValue = portfolio.reduce((sum, item) => {
+    return sum + (item.price * (item.shares || 0));
+  }, 0);
+
   // State
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationComplete, setSimulationComplete] = useState(false);
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
   const [numSimulations, setNumSimulations] = useState(50);
   const [timeHorizonYears, setTimeHorizonYears] = useState(10);
-  const [initialInvestment, setInitialInvestment] = useState(10000);
+
+  // Initialize with portfolio value if > 0, else 10000
+  const [initialInvestment, setInitialInvestment] = useState<number>(() => {
+      return currentPortfolioValue > 0 ? currentPortfolioValue : 10000;
+  });
+
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [richPortfolio, setRichPortfolio] = useState<Portfolio>(portfolio);
@@ -40,6 +50,13 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
   const animationFrameRef = useRef<number>(0);
   const allPathsRef = useRef<number[][]>([]);
   const coneRef = useRef<any>(null);
+
+  // Effect to sync initialInvestment with portfolio value if it loads later and we are at default
+  useEffect(() => {
+    if (currentPortfolioValue > 0 && initialInvestment === 10000) {
+      setInitialInvestment(currentPortfolioValue);
+    }
+  }, [currentPortfolioValue, initialInvestment]);
 
   // Load full history if needed
   const ensureFullHistory = useCallback(async () => {
@@ -91,27 +108,6 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
 
     const success = await ensureFullHistory();
     if (!success) return;
-
-    // Use richPortfolio for calculations
-    // Note: ensureFullHistory is async and sets state.
-    // Wait, setting state is async. We can't use richPortfolio immediately if we just set it.
-    // Optimization: ensureFullHistory should return the data or we use an effect.
-    // Or simpler: We check richPortfolio state in an effect or use a ref.
-    // For now, let's just re-trigger prepare if we just fetched?
-    // Actually, `ensureFullHistory` updating state will cause re-render.
-    // But we need to chain the execution.
-    // Let's refactor: separate "Run" click from "Calculate".
-
-    // BUT to keep it simple:
-    // We can just rely on the fact that if we needed to fetch, we won't have data yet.
-    // So we can't run synchronously.
-
-    // Better pattern:
-    // 1. User clicks Run.
-    // 2. We check history. If missing, we fetch.
-    // 3. Once fetched, we proceed.
-
-    // Let's just do it in one async function, passing the data along.
 
     setError(null);
     setSimulationComplete(false);
@@ -330,7 +326,19 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
        {/* Parameters */}
        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
            <div className="glass-panel p-4 rounded-xl bg-white/5 border border-white/5">
-              <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold mb-2 block">Investment</label>
+              <div className="flex items-center justify-between mb-2">
+                 <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold block">Investment</label>
+                 {currentPortfolioValue > 0 && initialInvestment !== currentPortfolioValue && (
+                     <button
+                        onClick={() => setInitialInvestment(currentPortfolioValue)}
+                        className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                        title="Reset to current portfolio value"
+                     >
+                        <RefreshCw className="w-3 h-3" />
+                        Sync
+                     </button>
+                 )}
+              </div>
               <div className="flex items-center gap-2">
                  <span className="text-neutral-500">$</span>
                  <input
