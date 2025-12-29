@@ -628,11 +628,15 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
           {/* Search Bar with Smart Autocomplete */}
           <div className="relative w-full md:w-96" ref={searchContainerRef}>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10">
+              <div
+                className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10"
+                aria-hidden="true"
+              >
                 <Search className="h-6 w-6 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all" />
               </div>
               <input
                 type="text"
+                aria-label="Search tickers"
                 placeholder="Search ticker or name..."
                 className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
                 value={search}
@@ -648,6 +652,8 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
             <AnimatePresence>
               {showSuggestions && suggestions.length > 0 && (
                 <motion.ul
+                  role="listbox"
+                  aria-label="Search suggestions"
                   initial={{ opacity: 0, y: -10, height: 0 }}
                   animate={{ opacity: 1, y: 0, height: 'auto' }}
                   exit={{ opacity: 0, y: -10, height: 0 }}
