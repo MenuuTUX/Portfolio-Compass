@@ -48,9 +48,23 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
     // 3. Asset Allocation
     const assetAllocation = portfolio.reduce((acc, item) => {
         const w = item.weight / totalWeight;
-        acc.equities += (item.allocation?.equities || 0) * w;
-        acc.bonds += (item.allocation?.bonds || 0) * w;
-        acc.cash += (item.allocation?.cash || 0) * w;
+        // Check if allocation values are 0-100 or 0-1
+        // Usually Yahoo Finance / Scrapers return 0-1 decimals, but some might be %.
+        // We'll normalize to 0-1 here.
+        let e = item.allocation?.equities || 0;
+        let b = item.allocation?.bonds || 0;
+        let c = item.allocation?.cash || 0;
+
+        // Heuristic: if any value > 1, assume percentage and divide by 100
+        if (e > 1 || b > 1 || c > 1) {
+             e /= 100;
+             b /= 100;
+             c /= 100;
+        }
+
+        acc.equities += e * w;
+        acc.bonds += b * w;
+        acc.cash += c * w;
         return acc;
     }, { equities: 0, bonds: 0, cash: 0 });
 
@@ -137,7 +151,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
     return (
       <div
         ref={ref}
-        className="w-[1080px] h-[1350px] bg-[#0a0a0a] text-white p-16 flex flex-col relative overflow-hidden font-sans"
+        className="w-[1080px] h-[1350px] bg-[#0a0a0a] text-white p-12 flex flex-col relative overflow-hidden font-sans"
         style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
         {/* Subtle Professional Backgrounds - Toned down */}
@@ -146,7 +160,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.02] pointer-events-none" />
 
         {/* HEADER */}
-        <div className="flex justify-between items-start mb-12 relative z-10 border-b border-white/10 pb-8">
+        <div className="flex justify-between items-start mb-10 relative z-10 border-b border-white/10 pb-6">
           <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center shadow-2xl shadow-emerald-900/20 ring-1 ring-white/10">
                     <Share2 className="w-8 h-8 text-white" />
@@ -169,7 +183,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         </div>
 
         {/* METRICS GRID - More Professional Card Style */}
-        <div className="grid grid-cols-4 gap-6 mb-10 relative z-10">
+        <div className="grid grid-cols-4 gap-6 mb-8 relative z-10">
             <div className="bg-[#111] border border-white/10 rounded-xl p-6 shadow-xl relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <TrendingUp className="w-12 h-12" />
@@ -211,7 +225,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         </div>
 
         {/* RISK & ALLOCATION BAR */}
-        <div className="grid grid-cols-12 gap-6 mb-10 relative z-10 h-[140px]">
+        <div className="grid grid-cols-12 gap-6 mb-8 relative z-10 h-[140px]">
             {/* Asset Allocation */}
             <div className="col-span-5 bg-[#111] border border-white/10 rounded-xl p-6 flex flex-col justify-center">
                 <div className="flex items-center gap-2 mb-4">
@@ -268,7 +282,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         </div>
 
         {/* CHART SECTION */}
-        <div className="flex-1 mb-10 relative z-10 bg-[#111] border border-white/10 rounded-2xl p-8 shadow-xl flex flex-col">
+        <div className="flex-1 mb-8 relative z-10 bg-[#111] border border-white/10 rounded-2xl p-8 shadow-xl flex flex-col min-h-0">
             <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-emerald-500" />
@@ -292,7 +306,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
                 </div>
             </div>
 
-            <div className="relative flex-1 w-full border-l border-b border-white/10 pl-2 pb-2">
+            <div className="relative flex-1 w-full border-l border-b border-white/10 pl-2 pb-2 min-h-0">
                  <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
                     <defs>
                         <linearGradient id="chartGradientMain" x1="0" y1="0" x2="0" y2="1">
