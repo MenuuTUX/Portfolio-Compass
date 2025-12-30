@@ -33,7 +33,7 @@ export default function FearGreedGauge() {
 
   if (loading) {
     return (
-      <div className="w-full h-48 bg-white/5 rounded-2xl animate-pulse flex items-center justify-center">
+      <div className="w-full h-full min-h-[12rem] bg-white/5 rounded-2xl animate-pulse flex items-center justify-center">
         <span className="text-white/20">Loading Market Sentiment...</span>
       </div>
     );
@@ -41,7 +41,7 @@ export default function FearGreedGauge() {
 
   if (error || !data) {
     return (
-      <div className="w-full h-48 bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2">
+      <div className="w-full h-full min-h-[12rem] bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2">
         <span className="text-white/40">Sentiment Data Unavailable</span>
         <button
           onClick={() => window.location.reload()}
@@ -110,7 +110,7 @@ export default function FearGreedGauge() {
   };
 
   return (
-    <div className="w-full bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+    <div className="w-full h-full min-h-[12rem] bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
 
       {/* Bottom Gradient Glow */}
       <div
