@@ -1,6 +1,7 @@
 import YahooFinance from 'yahoo-finance2';
 import { Decimal } from './decimal';
 import { getStockProfile } from './scrapers/stock-analysis';
+import { findRedditCommunity } from './reddit-finder';
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -45,7 +46,7 @@ export interface EtfDetails {
     close: Decimal;
     interval?: string;
   }[];
-  // Expanded Metrics
+  // Extended Metrics
   marketCap?: Decimal;
   revenue?: Decimal;
   netIncome?: Decimal;
@@ -64,6 +65,7 @@ export interface EtfDetails {
   payoutFrequency?: string;
   payoutRatio?: Decimal;
   holdingsCount?: number;
+  redditUrl?: string | null;
 }
 
 // -----------------------------------------------------------------------------
@@ -172,6 +174,10 @@ export async function fetchEtfDetails(
   } catch (e) {
       console.warn(`Failed to fetch Stock Analysis profile for ${resolvedTicker}:`, e);
   }
+
+  // Find Reddit Community (Async but awaited for simplicity here, or we could let it be null if we wanted absolute speed)
+  const name = quoteSummary.price?.shortName || quoteSummary.price?.longName || resolvedTicker;
+  const redditUrl = await findRedditCommunity(resolvedTicker, name);
 
   const fetchHistoryInterval = async (interval: '1h' | '1d' | '1wk' | '1mo', period1: Date) => {
     try {
@@ -425,6 +431,7 @@ export async function fetchEtfDetails(
     inceptionDate,
     payoutFrequency,
     payoutRatio,
-    holdingsCount
+    holdingsCount,
+    redditUrl
   };
 }

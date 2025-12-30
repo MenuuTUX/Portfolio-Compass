@@ -487,6 +487,9 @@ export async function GET(request: NextRequest) {
         bondMaturity: etf.bondMaturity ? safeDecimal(etf.bondMaturity) : undefined,
         bondDuration: etf.bondDuration ? safeDecimal(etf.bondDuration) : undefined,
 
+        // Social
+        redditUrl: etf.redditUrl || undefined,
+
         allocation: {
           equities: etf.allocation?.stocks_weight ? safeDecimal(etf.allocation.stocks_weight) : 0,
           bonds: etf.allocation?.bonds_weight ? safeDecimal(etf.allocation.bonds_weight) : 0,
