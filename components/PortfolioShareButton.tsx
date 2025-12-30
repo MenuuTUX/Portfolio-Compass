@@ -10,10 +10,11 @@ interface PortfolioShareButtonProps {
   portfolio: ShareCardProps['portfolio'];
   metrics: ShareCardProps['metrics'];
   chartData: ShareCardProps['chartData'];
+  spyData?: ShareCardProps['spyData'];
   disabled?: boolean;
 }
 
-export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }: PortfolioShareButtonProps) {
+export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, disabled }: PortfolioShareButtonProps) {
   const [showModal, setShowModal] = useState(false);
   const [userName, setUserName] = useState('');
   const [portfolioName, setPortfolioName] = useState('');
@@ -105,7 +106,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
                     </button>
 
                     {/* PREVIEW COLUMN */}
-                    <div className="flex-1 bg-[#050505] relative flex items-center justify-center p-8 min-h-[500px] overflow-hidden order-1 md:order-1 border-r border-white/5">
+                    <div className="flex-1 bg-[#050505] relative flex items-center justify-center p-8 min-h-[650px] overflow-hidden order-1 md:order-1 border-r border-white/5">
                          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.05]" />
 
                          {/* Preview Header */}
@@ -115,7 +116,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
 
                          {/* Scale container to fit the large card into the view - ABSOLUTE to prevent layout flow expansion */}
                          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none pb-12">
-                            <div className="transform scale-[0.40] lg:scale-[0.45] origin-center shadow-2xl shadow-black border border-white/10 rounded-[40px] overflow-hidden pointer-events-auto ring-1 ring-white/5">
+                            <div className="transform scale-[0.40] lg:scale-[0.42] origin-center shadow-2xl shadow-black border border-white/10 rounded-[40px] overflow-hidden pointer-events-auto ring-1 ring-white/5">
                                 {/* This is the LIVE rendered card used for both preview and generation */}
                                 <PortfolioShareCard
                                     ref={cardRef}
@@ -124,6 +125,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
                                     portfolio={portfolio}
                                     metrics={metrics}
                                     chartData={chartData}
+                                    spyData={spyData}
                                 />
                             </div>
                          </div>

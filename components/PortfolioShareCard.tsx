@@ -26,10 +26,13 @@ export interface ShareCardProps {
     min?: number; // For Monte Carlo Worst Case
     max?: number; // For Monte Carlo Best Case
   }[];
+  spyData?: {
+    value: number;
+  }[];
 }
 
 export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProps>(
-  ({ userName, portfolioName, portfolio, metrics, chartData }, ref) => {
+  ({ userName, portfolioName, portfolio, metrics, chartData, spyData }, ref) => {
 
     // 1. Calculate Top Holdings
     const topHoldings = [...portfolio].sort((a, b) => b.weight - a.weight).slice(0, 6); // Top 6 for clean grid
@@ -95,57 +98,68 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
 
 
     // Chart Logic
-    const width = 1000; // Full width inside padding
-    const height = 280;
-    const padding = 10;
+    const fullWidth = 1000;
+    const fullHeight = 280;
+    const margin = { top: 30, right: 30, bottom: 40, left: 80 };
+    const width = fullWidth - margin.left - margin.right;
+    const height = fullHeight - margin.top - margin.bottom;
 
     const values = chartData.map(d => d.value);
+    const spyValues = spyData ? spyData.map(d => d.value) : [];
 
     const hasRange = chartData.some(d => d.min !== undefined && d.max !== undefined);
-    const allMax = hasRange
-        ? chartData.map(d => d.max || d.value)
-        : values;
 
-    const minVal = 0;
-    const maxVal = allMax.length > 0 ? Math.max(...allMax) : 100;
+    // Calculate global max including SPY
+    const portfolioMax = hasRange
+        ? Math.max(...chartData.map(d => d.max || d.value))
+        : Math.max(...values);
+    const spyMax = spyValues.length > 0 ? Math.max(...spyValues) : 0;
+
+    const minVal = 0; // Always start at 0 for wealth charts usually, or min investment
+    const maxVal = Math.max(portfolioMax, spyMax) || 100;
     const range = maxVal - minVal || 1;
+
+    // Helper for scaling X and Y
+    const getX = (i: number, len: number) => (i / (len - 1)) * width;
+    const getY = (val: number) => height - ((val - minVal) / range) * height;
 
     let pathD = "", areaD = "";
     let rangeAreaD = "";
+    let spyPathD = "";
 
     if (values.length > 1) {
-        // Main Trend (Median or Simple)
-        const points = values.map((val, i) => {
-            const x = (i / (values.length - 1)) * (width - padding * 2) + padding;
-            const y = height - ((val - minVal) / range) * (height - padding * 2) - padding;
-            return `${x},${y}`;
-        });
+        // Main Trend (Portfolio)
+        const points = values.map((val, i) => `${getX(i, values.length)},${getY(val)}`);
         pathD = `M ${points[0]} L ${points.join(' L ')}`;
-        areaD = `${pathD} L ${width-padding},${height} L ${padding},${height} Z`;
+        areaD = `${pathD} L ${width},${height} L 0,${height} Z`;
 
         // Range (Cone) for Monte Carlo
         if (hasRange) {
-            const upperPoints = chartData.map((d, i) => {
-                const val = d.max || d.value;
-                const x = (i / (chartData.length - 1)) * (width - padding * 2) + padding;
-                const y = height - ((val - minVal) / range) * (height - padding * 2) - padding;
-                return `${x},${y}`;
-            });
-            const lowerPoints = chartData.map((d, i) => {
-                const val = d.min || d.value;
-                const x = (i / (chartData.length - 1)) * (width - padding * 2) + padding;
-                const y = height - ((val - minVal) / range) * (height - padding * 2) - padding;
-                return `${x},${y}`;
-            });
+            const upperPoints = chartData.map((d, i) => `${getX(i, chartData.length)},${getY(d.max || d.value)}`);
+            const lowerPoints = chartData.map((d, i) => `${getX(i, chartData.length)},${getY(d.min || d.value)}`);
 
             rangeAreaD = `M ${upperPoints[0].split(',')[0]},${upperPoints[0].split(',')[1]} ` +
                          `L ${upperPoints.join(' L ')} ` +
                          `L ${lowerPoints.reverse().join(' L ')} Z`;
         }
+
+        // SPY Trend
+        if (spyValues.length > 1) {
+             const spyPoints = spyValues.map((val, i) => `${getX(i, spyValues.length)},${getY(val)}`);
+             spyPathD = `M ${spyPoints[0]} L ${spyPoints.join(' L ')}`;
+        }
     }
 
-    // Format Helpers
-    const formatPct = (val: number) => `${(val * 100).toFixed(2)}%`;
+    // Axes Logic
+    const yTicks = 5;
+    const yTickValues = Array.from({ length: yTicks + 1 }, (_, i) => minVal + (range * (i / yTicks)));
+
+    // Format Y Tick (e.g. $100k, $1M)
+    const formatYTick = (val: number) => {
+        if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+        if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
+        return `$${val}`;
+    };
 
     return (
       <div
@@ -288,36 +302,35 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
             </div>
         </div>
 
-        {/* WEALTH CHART (Monte Carlo Vague) */}
+        {/* WEALTH CHART */}
         <div className="mb-8 bg-[#111] border border-white/10 rounded-2xl p-8 relative overflow-hidden flex-1 min-h-[300px]">
-             <div className="flex justify-between items-center mb-6">
+             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-3">
                     <TrendingUp className="w-5 h-5 text-emerald-500" />
-                    Wealth Trajectory
+                    Wealth Growth vs S&P 500
                 </h3>
                 <div className="flex gap-6 text-xs font-medium">
-                    {hasRange ? (
-                         <>
-                            <div className="flex items-center gap-2 text-emerald-400/50">
-                                <div className="w-3 h-3 rounded bg-emerald-500/10 border border-emerald-500/30"></div>
-                                Possible Outcomes (90% CI)
-                            </div>
-                            <div className="flex items-center gap-2 text-emerald-400">
-                                <div className="w-3 h-1 rounded-full bg-emerald-500"></div>
-                                Median Projection
-                            </div>
-                         </>
-                    ) : (
-                        <div className="flex items-center gap-2 text-emerald-400">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            Portfolio Value
+                     <div className="flex items-center gap-2 text-emerald-400">
+                        <div className="w-3 h-1 rounded-full bg-emerald-500"></div>
+                        Your Portfolio
+                     </div>
+                     {spyData && (
+                        <div className="flex items-center gap-2 text-amber-400">
+                           <div className="w-3 h-1 bg-amber-500 border-b border-amber-500 border-dashed"></div>
+                           S&P 500 (Benchmark)
                         </div>
-                    )}
+                     )}
+                     {hasRange && (
+                        <div className="flex items-center gap-2 text-emerald-400/50">
+                            <div className="w-3 h-3 rounded bg-emerald-500/10 border border-emerald-500/30"></div>
+                            90% Confidence Interval
+                        </div>
+                     )}
                 </div>
             </div>
 
-            <div className="relative w-full h-[220px] pb-2">
-                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+            <div className="relative w-full h-[220px]">
+                <svg width="100%" height="100%" viewBox={`0 0 ${fullWidth} ${fullHeight}`} className="overflow-visible">
                     <defs>
                         <linearGradient id="chartGradientMain2" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
@@ -325,14 +338,65 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
                         </linearGradient>
                     </defs>
 
-                    {/* Monte Carlo Range (Subtle) */}
-                    {hasRange && rangeAreaD && (
-                        <path d={rangeAreaD} fill="#10b981" fillOpacity="0.08" stroke="none" style={{ filter: 'blur(4px)' }} />
-                    )}
+                    {/* CHART GROUP - TRANSFORMED BY MARGIN */}
+                    <g transform={`translate(${margin.left}, ${margin.top})`}>
 
-                    {/* Main Line */}
-                    {pathD && !hasRange && <path d={areaD} fill="url(#chartGradientMain2)" stroke="none" />}
-                    {pathD && <path d={pathD} fill="none" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
+                        {/* Y-AXIS Grid & Labels */}
+                        {yTickValues.map((val, i) => {
+                             const yPos = getY(val);
+                             return (
+                                 <g key={`y-${i}`}>
+                                     {/* Grid Line */}
+                                     <line x1={0} y1={yPos} x2={width} y2={yPos} stroke="#333" strokeDasharray="3 3" />
+                                     {/* Label */}
+                                     <text x={-10} y={yPos} dy="0.32em" textAnchor="end" fill="#666" fontSize="10" fontFamily="monospace">
+                                         {formatYTick(val)}
+                                     </text>
+                                 </g>
+                             )
+                        })}
+
+                        {/* Y-Axis Heading */}
+                        <text x={-40} y={height/2} transform={`rotate(-90, -50, ${height/2})`} textAnchor="middle" fill="#555" fontSize="10" fontWeight="bold" letterSpacing="1">
+                            PORTFOLIO VALUE (USD)
+                        </text>
+
+                        {/* X-AXIS Labels */}
+                        <g transform={`translate(0, ${height + 15})`}>
+                             <text x={0} y={0} dy="0.71em" textAnchor="start" fill="#666" fontSize="10" fontFamily="monospace">Year 0</text>
+                             <text x={width/2} y={0} dy="0.71em" textAnchor="middle" fill="#666" fontSize="10" fontFamily="monospace">Year {metrics.years / 2}</text>
+                             <text x={width} y={0} dy="0.71em" textAnchor="end" fill="#666" fontSize="10" fontFamily="monospace">Year {metrics.years}</text>
+
+                             {/* X-Axis Heading */}
+                             <text x={width/2} y={20} dy="0.71em" textAnchor="middle" fill="#555" fontSize="10" fontWeight="bold" letterSpacing="1">
+                                TIME HORIZON
+                             </text>
+                        </g>
+
+                        {/* Monte Carlo Range (Subtle) */}
+                        {hasRange && rangeAreaD && (
+                            <path d={rangeAreaD} fill="#10b981" fillOpacity="0.08" stroke="none" style={{ filter: 'blur(4px)' }} />
+                        )}
+
+                        {/* SPY Line (Benchmark) */}
+                        {spyPathD && (
+                             <path
+                                d={spyPathD}
+                                fill="none"
+                                stroke="#f59e0b"
+                                strokeWidth="2"
+                                strokeDasharray="6 6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                opacity="0.8"
+                             />
+                        )}
+
+                        {/* Main Portfolio Line */}
+                        {pathD && !hasRange && <path d={areaD} fill="url(#chartGradientMain2)" stroke="none" />}
+                        {pathD && <path d={pathD} fill="none" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
+
+                    </g>
                 </svg>
             </div>
         </div>
