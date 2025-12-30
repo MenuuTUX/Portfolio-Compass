@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Share2, Download, X, Loader2, Eye, ExternalLink, Settings2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { PortfolioShareCard, ShareCardProps } from './PortfolioShareCard';
+import { encodePortfolioData } from '@/lib/steganography';
 
 interface PortfolioShareButtonProps {
   portfolio: ShareCardProps['portfolio'];
@@ -26,11 +27,50 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
     // Small delay to ensure render
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    return await toPng(cardRef.current, {
+    // 1. Generate visual PNG
+    const baseDataUrl = await toPng(cardRef.current, {
         cacheBust: true,
         backgroundColor: '#0a0a0a',
         quality: 1.0,
         pixelRatio: 2 // High res
+    });
+
+    // 2. Encode hidden data
+    return new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = async () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(img, 0, 0);
+
+                // Prepare payload
+                const payload = {
+                    type: 'PORTFOLIO_COMPASS_V1',
+                    portfolio,
+                    meta: {
+                        name: portfolioName,
+                        user: userName,
+                        date: new Date().toISOString()
+                    }
+                };
+
+                try {
+                    const finalDataUrl = await encodePortfolioData(canvas, payload);
+                    resolve(finalDataUrl);
+                } catch (e) {
+                    console.error("Steganography encoding failed", e);
+                    // Fallback to base image if encoding fails
+                    resolve(baseDataUrl);
+                }
+            } else {
+                resolve(baseDataUrl);
+            }
+        };
+        img.onerror = reject;
+        img.src = baseDataUrl;
     });
   };
 
@@ -51,7 +91,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
     } finally {
       setIsGenerating(false);
     }
-  }, [portfolioName]);
+  }, [portfolioName, portfolio, userName]);
 
   const handleNativeShare = useCallback(async () => {
       setIsGenerating(true);
@@ -76,7 +116,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
       } finally {
           setIsGenerating(false);
       }
-  }, [portfolioName]);
+  }, [portfolioName, portfolio, userName]);
 
   return (
     <>
@@ -130,7 +170,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
                             </div>
                          </div>
                          <div className="absolute bottom-6 left-0 w-full text-center text-xs text-neutral-600 font-mono pointer-events-none uppercase tracking-wider z-20">
-                            Dimensions: 1080 x 1350px (Social Portrait)
+                            Dimensions: 1080 x 1350px (Social Portrait) • Biopunk Encoding Active
                          </div>
                     </div>
 
@@ -144,7 +184,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
                                 <h3 className="text-2xl font-bold text-white tracking-tight">Report Settings</h3>
                             </div>
                             <p className="text-neutral-400 text-sm leading-relaxed">
-                                Customize the header details for your institutional-grade portfolio report.
+                                Customize the header details for your institutional-grade portfolio report. Hidden biometric data will be embedded.
                             </p>
                         </div>
 
@@ -179,7 +219,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
                                 <p className="mb-2 font-bold text-white flex items-center gap-2">
                                     <Share2 className="w-4 h-4 text-emerald-500" /> Community
                                 </p>
-                                Share this report on <a href="https://www.reddit.com/r/investing/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline cursor-pointer">r/investing</a> or <a href="https://www.reddit.com/r/Etf/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline cursor-pointer">r/Etf</a> to get professional feedback on your allocation strategy.
+                                Share this report on <a href="https://www.reddit.com/r/investing/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline cursor-pointer">r/investing</a> or <a href="https://www.reddit.com/r/Etf/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline cursor-pointer">r/Etf</a>.
                             </div>
                         </div>
 

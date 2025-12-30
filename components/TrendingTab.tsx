@@ -9,15 +9,16 @@ import { z } from 'zod';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
-import InstitutionalPortfolios from './InstitutionalPortfolios';
+import ImportPortfolioButton from './ImportPortfolioButton';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => Promise<void>;
     portfolio?: PortfolioItem[];
     onRemoveFromPortfolio?: (ticker: string) => void;
+    onImportPortfolio?: (items: PortfolioItem[]) => void;
 }
 
-export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemoveFromPortfolio }: TrendingTabProps) {
+export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemoveFromPortfolio, onImportPortfolio }: TrendingTabProps) {
     // Separate state for different sections to allow progressive loading
     const [trendingItems, setTrendingItems] = useState<ETF[]>([]);
     const [discountedItems, setDiscountedItems] = useState<ETF[]>([]);
@@ -134,9 +135,17 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
 
-            <div className="mb-12 grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-                <InstitutionalPortfolios />
-                <FearGreedGauge />
+            <div className="mb-8 flex items-start justify-between relative">
+                <div className="flex-1">
+                    <FearGreedGauge />
+                </div>
+
+                {/* Upload Button aligned top-right as per mockup */}
+                <div className="absolute top-4 right-4 z-10">
+                    {onImportPortfolio && (
+                        <ImportPortfolioButton onImport={onImportPortfolio} />
+                    )}
+                </div>
             </div>
 
             {/* Stock Sections */}
