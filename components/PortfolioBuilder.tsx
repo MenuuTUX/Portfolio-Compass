@@ -9,6 +9,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
 import { Decimal } from 'decimal.js';
 import WealthProjector from './WealthProjector';
+import ContributePopup from './ContributePopup';
 import OptimizationPanel from './OptimizationPanel';
 import AlgorithmExplainer from './AlgorithmExplainer';
 import RiskReturnScatter from './RiskReturnScatter';
@@ -27,6 +28,7 @@ interface PortfolioBuilderProps {
 
 export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, onUpdateShares, onBatchUpdate, onClear }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<'BUILDER' | 'PROJECTION'>('BUILDER');
+  const [showContributePopup, setShowContributePopup] = useState(false);
 
   // New internal view state for the Builder section
   // Renamed 'TREEMAP' to 'ALLOCATION'
@@ -133,10 +135,13 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
 
   if (viewMode === 'PROJECTION') {
     return (
-      <WealthProjector
-        portfolio={portfolio}
-        onBack={() => setViewMode('BUILDER')}
-      />
+      <>
+        {showContributePopup && <ContributePopup onClose={() => setShowContributePopup(false)} />}
+        <WealthProjector
+          portfolio={portfolio}
+          onBack={() => setViewMode('BUILDER')}
+        />
+      </>
     );
   }
 
@@ -166,7 +171,10 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
               Optimization Mode
             </button>
             <button
-              onClick={() => setViewMode('PROJECTION')}
+              onClick={() => {
+                setViewMode('PROJECTION');
+                setTimeout(() => setShowContributePopup(true), 800);
+              }}
               className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
               See Growth Projection
