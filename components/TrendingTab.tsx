@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe, Upload, Loader2, FileImage } from 'lucide-react';
 import { ETF, PortfolioItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { ETFSchema } from '@/schemas/assetSchema';
@@ -9,6 +9,9 @@ import { z } from 'zod';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
+import { decodePortfolioWatermark } from '@/lib/steganography';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMessageDrawer } from './MessageDrawer';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -26,8 +29,13 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
     // Separate loading states
     const [loadingStocks, setLoadingStocks] = useState(true);
+    const [isUploading, setIsUploading] = useState(false);
 
     const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const queryClient = useQueryClient();
+    const { showMessage } = useMessageDrawer();
 
     const MAG7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
     const JUSTBUY_TICKERS = ['XEQT.TO', 'VEQT.TO', 'VGRO.TO', 'XGRO.TO', 'VFV.TO', 'VUN.TO', 'ZEB.TO'];
@@ -121,6 +129,88 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
         fetchStocks();
     }, []);
 
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    showMessage({ type: 'error', title: 'Error', message: 'Could not process image.' });
+                    setIsUploading(false);
+                    return;
+                }
+
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Decode
+                const result = decodePortfolioWatermark(imageData);
+
+                if (result && result.portfolio.length > 0) {
+                    try {
+                        const newPortfolioMap: Record<string, any> = {};
+                        result.portfolio.forEach(p => {
+                            newPortfolioMap[p.ticker] = {
+                                ticker: p.ticker,
+                                shares: p.shares,
+                                weight: p.weight,
+                                costBasis: 0
+                            };
+                        });
+
+                        localStorage.setItem('portfolio_compass_v1', JSON.stringify(newPortfolioMap));
+                        await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+
+                        showMessage({
+                            type: 'success',
+                            title: 'Portfolio Cloned',
+                            message: `Successfully imported ${result.portfolio.length} assets from the image.`
+                        });
+
+                    } catch (err) {
+                        console.error("Save failed", err);
+                        showMessage({ type: 'error', title: 'Save Failed', message: 'Could not save the imported portfolio.' });
+                    }
+                } else {
+                    showMessage({
+                        type: 'error',
+                        title: 'No Data Found',
+                        message: 'Could not find any hidden portfolio data in this image. Make sure it is a valid Portfolio Compass report card.'
+                    });
+                }
+
+                URL.revokeObjectURL(objectUrl);
+                setIsUploading(false);
+            };
+
+            img.onerror = () => {
+                showMessage({ type: 'error', title: 'Invalid Image', message: 'The file provided is not a valid image.' });
+                setIsUploading(false);
+            };
+
+            img.src = objectUrl;
+
+        } catch (err) {
+            console.error("Upload failed", err);
+            setIsUploading(false);
+        }
+
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     // Helper to render skeleton
     const renderSkeleton = (count: number = 4) => (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -132,9 +222,48 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/png,image/jpeg"
+              className="hidden"
+            />
 
             <div className="mb-8">
-                <FearGreedGauge />
+                <div className="bg-[#0f0f0f] border border-white/5 rounded-3xl p-8 relative overflow-hidden mb-6">
+                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/10 to-blue-900/10" />
+
+                     <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                        <div className="flex-1 flex justify-center md:justify-start">
+                           <FearGreedGauge />
+                        </div>
+
+                        <div className="flex-1 flex flex-col items-center md:items-end text-center md:text-right">
+                            <h2 className="text-2xl font-bold text-white mb-2">Import Portfolio</h2>
+                            <p className="text-neutral-400 text-sm max-w-xs mb-6">
+                                Have a Portfolio Compass card? Upload it here to instantly clone the strategy and holdings.
+                            </p>
+
+                            <button
+                                onClick={handleUploadClick}
+                                disabled={isUploading}
+                                className="flex items-center gap-3 px-8 py-4 bg-[#161616] hover:bg-[#202020] border border-white/10 hover:border-emerald-500/50 rounded-2xl transition-all group"
+                            >
+                                <div className="p-2 rounded-full bg-emerald-500/10 text-emerald-500 group-hover:scale-110 transition-transform">
+                                    {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                                </div>
+                                <div className="text-left">
+                                    <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                                        {isUploading ? 'Scanning...' : 'Upload Card'}
+                                    </div>
+                                    <div className="text-xs text-neutral-500">Supports .PNG</div>
+                                </div>
+                            </button>
+                        </div>
+                     </div>
+                </div>
             </div>
 
             {/* Stock Sections */}
