@@ -7,6 +7,7 @@ import { Portfolio } from '@/types';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import MonteCarloSimulator from './simulation/MonteCarloSimulator';
+import SimulatorExplainer from './simulation/SimulatorExplainer';
 import { calculatePortfolioHistoricalStats } from '@/lib/math/portfolio-stats';
 import { PortfolioShareButton } from './PortfolioShareButton';
 
@@ -207,7 +208,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
           {/* Controls */}
           <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-white/5 border border-white/5">
             <div>
@@ -363,6 +364,11 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
               </table>
             </div>
           </div>
+        </div>
+
+        {/* Explainer Section */}
+        <div className="mb-12">
+           <SimulatorExplainer mode="SIMPLE" />
         </div>
 
       </motion.div>

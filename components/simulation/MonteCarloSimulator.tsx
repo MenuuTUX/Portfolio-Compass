@@ -18,6 +18,7 @@ import {
 } from '@/lib/monte-carlo';
 import { Decimal } from 'decimal.js';
 import { PortfolioShareButton } from '../PortfolioShareButton';
+import SimulatorExplainer from './SimulatorExplainer';
 
 interface MonteCarloSimulatorProps {
   portfolio: Portfolio;
@@ -564,6 +565,11 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                </motion.div>
            )}
        </AnimatePresence>
+
+       {/* Explainer Section */}
+       <div className="pb-12">
+          <SimulatorExplainer mode="MONTE_CARLO" />
+       </div>
     </div>
   );
 }
