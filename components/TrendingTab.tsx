@@ -11,7 +11,7 @@ import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
 import { decodePortfolioWatermark } from '@/lib/steganography';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMessageDrawer } from './MessageDrawer';
+import { useMessageDrawer } from './useMessageDrawer';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -35,7 +35,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const queryClient = useQueryClient();
-    const { showMessage } = useMessageDrawer();
+    const { showMessage, DrawerComponent } = useMessageDrawer();
 
     const MAG7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
     const JUSTBUY_TICKERS = ['XEQT.TO', 'VEQT.TO', 'VGRO.TO', 'XGRO.TO', 'VFV.TO', 'VUN.TO', 'ZEB.TO'];
@@ -340,6 +340,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 onClose={() => setSelectedItem(null)}
                 onTickerSelect={(ticker) => setSelectedItem({ ticker, name: ticker, price: 0, changePercent: 0, assetType: 'STOCK' } as ETF)}
             />
+            <DrawerComponent />
         </section>
     );
 }
