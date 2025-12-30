@@ -611,7 +611,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
   const displayedEtfs = sortedEtfs.slice(0, visibleCount);
 
   return (
-    <section className="py-12 md:py-24 px-4 max-w-7xl mx-auto h-[calc(100dvh-64px)] overflow-y-auto">
+    <section className="py-12 md:py-24 px-4 max-w-7xl mx-auto min-h-full">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

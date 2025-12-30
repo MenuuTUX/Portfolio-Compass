@@ -131,7 +131,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     );
 
     return (
-        <section className="py-12 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar">
+        <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
 
             <div className="mb-8">
                 <FearGreedGauge />
