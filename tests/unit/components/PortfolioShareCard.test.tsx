@@ -10,8 +10,8 @@ expect.extend(matchers);
 
 describe('PortfolioShareCard', () => {
     const mockPortfolio: Portfolio = [
-        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5 }, sectors: [{ sector: 'Technology', weight: 1 }] },
-        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8 }, sectors: [{ sector: 'Technology', weight: 1 }] }
+        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5, mer: 0 }, allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { 'Technology': 1 } },
+        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8, mer: 0 }, allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { 'Technology': 1 } }
     ];
 
     const mockMetrics = {

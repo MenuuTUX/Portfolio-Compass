@@ -68,15 +68,15 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
     // 4. Sector Exposure (Top 3)
     const sectors = portfolio.reduce((acc, item) => {
         const w = item.weight / totalWeight;
-        const itemSectors = item.sectors || [];
+        const itemSectors = item.sectors || {};
+        const sectorEntries = Object.entries(itemSectors);
 
-        if (itemSectors.length > 0) {
-            itemSectors.forEach(s => {
-                const rawName = s.sector || 'Unknown';
+        if (sectorEntries.length > 0) {
+            sectorEntries.forEach(([rawName, rawWeight]) => {
                 // Format name: replace underscores with spaces and Title Case
                 const sName = rawName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-                const sWeight = (Number(s.weight) || 0); // Assuming already 0-1 or 0-100?
+                const sWeight = (Number(rawWeight) || 0); // Assuming already 0-1 or 0-100?
                 // Usually item.sectors weights sum to 1. But let's check.
                 // If s.weight is > 1, assume 0-100.
                 const normalizedSWeight = sWeight > 1 ? sWeight / 100 : sWeight;
