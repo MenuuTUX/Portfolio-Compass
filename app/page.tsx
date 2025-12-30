@@ -103,7 +103,7 @@ export default function Home() {
               onClose={() => setIsSettingsOpen(false)}
             />
 
-            <div className="flex-1 pt-16 relative">
+            <div className="flex-1 pt-16 relative overflow-y-auto custom-scrollbar scroll-smooth">
               <AnimatePresence mode="wait">
                 {activeTab === 'TRENDING' && (
                   <TrendingTab

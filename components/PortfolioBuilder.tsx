@@ -146,7 +146,7 @@ export default function PortfolioBuilder({ portfolio, onRemove, onUpdateWeight, 
   }
 
   return (
-    <section className="py-12 md:py-24 px-4 h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar flex flex-col">
+    <section className="py-12 md:py-24 px-4 min-h-full flex flex-col">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
