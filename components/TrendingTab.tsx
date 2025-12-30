@@ -10,7 +10,6 @@ import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
 import ImportPortfolioButton from './ImportPortfolioButton';
-import InstitutionalPortfolios from './InstitutionalPortfolios';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -147,9 +146,6 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                         <ImportPortfolioButton onImport={onImportPortfolio} />
                     )}
                 </div>
-            <div className="mb-12 grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-                <InstitutionalPortfolios />
-                <FearGreedGauge />
             </div>
 
             {/* Stock Sections */}
