@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Share2, Download, X, Loader2, Eye, ExternalLink } from 'lucide-react';
+import { Share2, Download, X, Loader2, Eye, ExternalLink, Settings2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { PortfolioShareCard, ShareCardProps } from './PortfolioShareCard';
 
@@ -27,7 +27,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
 
     return await toPng(cardRef.current, {
         cacheBust: true,
-        backgroundColor: '#050505',
+        backgroundColor: '#0a0a0a',
         quality: 1.0,
         pixelRatio: 2 // High res
     });
@@ -40,7 +40,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
       if (!dataUrl) return;
 
       const link = document.createElement('a');
-      link.download = `portfolio-compass-${portfolioName.replace(/\s+/g, '-').toLowerCase() || 'snapshot'}.png`;
+      link.download = `portfolio-compass-${(portfolioName || 'report').replace(/\s+/g, '-').toLowerCase()}.png`;
       link.href = dataUrl;
       link.click();
 
@@ -59,16 +59,15 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
           if (!dataUrl) return;
 
           const blob = await (await fetch(dataUrl)).blob();
-          const file = new File([blob], `portfolio-compass.png`, { type: blob.type });
+          const file = new File([blob], `portfolio-compass-report.png`, { type: blob.type });
 
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
               await navigator.share({
-                  title: 'My Portfolio Compass Analysis',
-                  text: `Check out my ${portfolioName || 'Growth'} portfolio analysis on Portfolio Compass!`,
+                  title: 'Portfolio Compass Report',
+                  text: `Check out my ${portfolioName || 'Investment'} portfolio analysis on Portfolio Compass.`,
                   files: [file]
               });
           } else {
-              // Fallback if sharing files isn't supported but text is (unlikely for this flow, but safe)
                alert("Your browser doesn't support direct image sharing. Please download instead.");
           }
       } catch (err) {
@@ -86,17 +85,17 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 border border-emerald-500/30 text-emerald-100 rounded-xl font-medium transition-all shadow-[0_0_15px_-5px_rgba(16,185,129,0.2)] disabled:opacity-50 disabled:cursor-not-allowed group"
       >
          <Share2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-         Get Portfolio Info Card
+         Get Report Card
       </button>
 
       <AnimatePresence>
         {showModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md overflow-hidden">
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-[#111] border border-white/10 rounded-2xl w-full max-w-5xl shadow-2xl relative flex flex-col md:flex-row overflow-hidden max-h-[90vh]"
+                    className="bg-[#0f0f0f] border border-white/10 rounded-3xl w-full max-w-6xl shadow-2xl relative flex flex-col md:flex-row overflow-hidden max-h-[95vh]"
                 >
                     <button
                         onClick={() => setShowModal(false)}
@@ -106,12 +105,17 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
                     </button>
 
                     {/* PREVIEW COLUMN */}
-                    <div className="flex-1 bg-[#050505] relative flex items-center justify-center p-8 min-h-[400px] md:min-h-full overflow-hidden order-1 md:order-1">
+                    <div className="flex-1 bg-[#050505] relative flex items-center justify-center p-8 min-h-[500px] overflow-hidden order-1 md:order-1 border-r border-white/5">
                          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.05]" />
 
+                         {/* Preview Header */}
+                         <div className="absolute top-6 left-8 flex items-center gap-2 text-neutral-500 text-sm font-medium z-10">
+                            <Eye className="w-4 h-4" /> Preview Mode
+                         </div>
+
                          {/* Scale container to fit the large card into the view - ABSOLUTE to prevent layout flow expansion */}
-                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none">
-                            <div className="transform scale-[0.35] md:scale-[0.45] origin-center shadow-2xl shadow-emerald-900/20 border border-white/5 rounded-xl overflow-hidden pointer-events-auto">
+                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none pb-12">
+                            <div className="transform scale-[0.40] lg:scale-[0.45] origin-center shadow-2xl shadow-black border border-white/10 rounded-[40px] overflow-hidden pointer-events-auto ring-1 ring-white/5">
                                 {/* This is the LIVE rendered card used for both preview and generation */}
                                 <PortfolioShareCard
                                     ref={cardRef}
@@ -123,66 +127,77 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, disabled }
                                 />
                             </div>
                          </div>
-                         <div className="absolute bottom-4 left-0 w-full text-center text-xs text-neutral-500 pointer-events-none">
-                            Preview (1080 x 1350px)
+                         <div className="absolute bottom-6 left-0 w-full text-center text-xs text-neutral-600 font-mono pointer-events-none uppercase tracking-wider z-20">
+                            Dimensions: 1080 x 1350px (Social Portrait)
                          </div>
                     </div>
 
                     {/* CONTROLS COLUMN */}
-                    <div className="w-full md:w-[400px] bg-[#111] p-8 flex flex-col border-l border-white/10 shrink-0 relative z-10 order-2 md:order-2">
-                        <div className="mb-8">
-                            <h3 className="text-2xl font-bold text-white mb-2">Customize Card</h3>
-                            <p className="text-neutral-400 text-sm">Edit the details below to personalize your portfolio snapshot.</p>
+                    <div className="w-full md:w-[420px] bg-[#0f0f0f] p-8 flex flex-col shrink-0 relative z-10 order-2 md:order-2">
+                        <div className="mb-10">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-500">
+                                    <Settings2 className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">Report Settings</h3>
+                            </div>
+                            <p className="text-neutral-400 text-sm leading-relaxed">
+                                Customize the header details for your institutional-grade portfolio report.
+                            </p>
                         </div>
 
-                        <div className="space-y-6 flex-1">
-                            <div>
-                                <label className="block text-xs font-medium text-emerald-400 uppercase tracking-wider mb-2">Portfolio Name</label>
-                                <input
-                                    type="text"
-                                    value={portfolioName}
-                                    onChange={(e) => setPortfolioName(e.target.value)}
-                                    placeholder="e.g. High Growth Tech"
-                                    maxLength={24}
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-neutral-600"
-                                />
+                        <div className="space-y-8 flex-1">
+                            <div className="space-y-5">
+                                <div className="group">
+                                    <label className="block text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2.5">Portfolio Title</label>
+                                    <input
+                                        type="text"
+                                        value={portfolioName}
+                                        onChange={(e) => setPortfolioName(e.target.value)}
+                                        placeholder="Growth Strategy A"
+                                        maxLength={30}
+                                        className="w-full bg-[#161616] border border-white/10 rounded-xl px-4 py-4 text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-neutral-700 text-sm font-medium"
+                                    />
+                                </div>
+
+                                <div className="group">
+                                    <label className="block text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2.5">Investor Name</label>
+                                    <input
+                                        type="text"
+                                        value={userName}
+                                        onChange={(e) => setUserName(e.target.value)}
+                                        placeholder="J. Smith"
+                                        maxLength={24}
+                                        className="w-full bg-[#161616] border border-white/10 rounded-xl px-4 py-4 text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-neutral-700 text-sm font-medium"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-emerald-400 uppercase tracking-wider mb-2">Investor Name</label>
-                                <input
-                                    type="text"
-                                    value={userName}
-                                    onChange={(e) => setUserName(e.target.value)}
-                                    placeholder="e.g. Alex Trader"
-                                    maxLength={24}
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-neutral-600"
-                                />
-                            </div>
-
-                            <div className="p-4 rounded-lg bg-emerald-900/10 border border-emerald-500/20 text-sm text-neutral-300">
-                                <p className="mb-2 font-medium text-emerald-400">Pro Tip:</p>
-                                Share this on r/investing or r/etfs to get feedback on your allocation strategy!
+                            <div className="p-5 rounded-2xl bg-neutral-900/50 border border-white/5 text-sm text-neutral-400 leading-relaxed">
+                                <p className="mb-2 font-bold text-white flex items-center gap-2">
+                                    <Share2 className="w-4 h-4 text-emerald-500" /> Community
+                                </p>
+                                Share this report on <span className="text-emerald-400 hover:underline cursor-pointer">r/investing</span> or <span className="text-emerald-400 hover:underline cursor-pointer">r/etfs</span> to get professional feedback on your allocation strategy.
                             </div>
                         </div>
 
-                        <div className="mt-8 space-y-3">
+                        <div className="mt-10 space-y-4 pt-8 border-t border-white/5">
                              <button
                                 onClick={handleNativeShare}
                                 disabled={isGenerating}
-                                className="w-full py-4 bg-white text-black hover:bg-neutral-200 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <ExternalLink className="w-5 h-5" />}
-                                Share Directly
+                                Share Report Directly
                             </button>
 
                             <button
                                 onClick={handleDownload}
                                 disabled={isGenerating}
-                                className="w-full py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="w-full py-4 bg-[#161616] hover:bg-[#202020] text-white border border-white/10 rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-                                Download Image
+                                Download PNG Image
                             </button>
                         </div>
                     </div>

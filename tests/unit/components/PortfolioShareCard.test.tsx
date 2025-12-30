@@ -10,8 +10,8 @@ expect.extend(matchers);
 
 describe('PortfolioShareCard', () => {
     const mockPortfolio: Portfolio = [
-        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5 }, sectors: { 'Technology': 100 } },
-        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8 }, sectors: { 'Technology': 100 } }
+        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5, mer: 0 }, allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { 'Technology': 1 } },
+        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8, mer: 0 }, allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { 'Technology': 1 } }
     ];
 
     const mockMetrics = {
@@ -41,9 +41,13 @@ describe('PortfolioShareCard', () => {
             />
         );
 
-        expect(getByText("by Test User")).toBeInTheDocument();
-        expect(getByText("My Growth Portfolio")).toBeInTheDocument();
-        expect(getAllByText('12.00%')[0]).toBeInTheDocument(); // Proj. Return
+        expect(getByText("Prepared for")).toBeInTheDocument();
+        expect(getByText("Test User")).toBeInTheDocument();
+        expect(getByText("Portfolio Compass")).toBeInTheDocument();
+        expect(getByText("Institutional Grade")).toBeInTheDocument();
+
+        // Check for calculated stats
+        expect(getAllByText('12.00%')[0]).toBeInTheDocument(); // CAGR
         expect(getByText('$15,000.00')).toBeInTheDocument(); // Projected Value
     });
 
@@ -60,5 +64,24 @@ describe('PortfolioShareCard', () => {
         expect(getAllByText('60.0%')[0]).toBeInTheDocument();
         expect(getAllByText('MSFT')[0]).toBeInTheDocument();
         expect(getAllByText('40.0%')[0]).toBeInTheDocument();
+    });
+
+    it('renders Monte Carlo range indicator when data is present', () => {
+         const monteCarloData = [
+            { value: 3000, min: 2900, max: 3100 },
+            { value: 5000, min: 4000, max: 6000 }
+         ];
+
+         const { getByText } = render(
+            <PortfolioShareCard
+                portfolio={mockPortfolio}
+                metrics={{...mockMetrics, growthType: 'Monte Carlo'}}
+                chartData={monteCarloData}
+            />
+        );
+
+        // Updated text matching based on new design
+        expect(getByText("Possible Outcomes (90% CI)")).toBeInTheDocument();
+        expect(getByText("Median Projection")).toBeInTheDocument();
     });
 });
