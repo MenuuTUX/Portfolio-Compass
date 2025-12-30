@@ -268,6 +268,23 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
       });
   }, [simulationComplete, weightedYield]);
 
+  // SPY Comparison Data (Deterministic for Share Card)
+  const spyData = useMemo(() => {
+     if (!simulationComplete) return [];
+     const spyAnnualRet = 0.10; // 10%
+     const dailyRate = Math.pow(1 + spyAnnualRet, 1/252) - 1;
+
+     // Generate same length as cone data
+     const days = coneChartData.length;
+     const data = [];
+     let val = initialInvestment;
+     for(let i=0; i<days; i++) {
+        data.push({ value: val });
+        val *= (1 + dailyRate);
+     }
+     return data;
+  }, [simulationComplete, coneChartData, initialInvestment]);
+
   const riskMetrics = useMemo(() => {
       if (!simulationComplete || !allPathsRef.current.length || !coneChartData.length) return null;
       const finalValues = allPathsRef.current.map(p => p[p.length - 1]);
@@ -341,6 +358,7 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
                         min: d.p05, // Worst Case (5th percentile)
                         max: d.p95  // Best Case (95th percentile)
                     }))}
+                    spyData={spyData}
                 />
              )}
 
