@@ -84,10 +84,17 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   }
 
   let balance = initialInvestment;
+  let spyBalance = initialInvestment; // For SPY Comparison
   let accumulatedDividends = 0;
   const data = [];
+  const spyData = [];
+
   const monthlyRate = weightedReturn / 12;
   const monthlyYieldRate = weightedYield / 12;
+
+  // SPY Assumptions: 10% Annual Return
+  const spyAnnualReturn = 0.10;
+  const spyMonthlyRate = spyAnnualReturn / 12;
 
   for (let i = 0; i <= years * 12; i++) {
     if (i % 12 === 0) {
@@ -100,6 +107,10 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
         value: Math.round(balance),
         dividendValue: Math.round(accumulatedDividends)
       });
+
+      spyData.push({
+          value: Math.round(spyBalance)
+      });
     }
 
     // Calculate dividend for this month based on current balance
@@ -108,6 +119,9 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
 
     // Compound balance
     balance = (balance + monthlyContribution) * (1 + monthlyRate);
+
+    // Compound SPY balance
+    spyBalance = (spyBalance + monthlyContribution) * (1 + spyMonthlyRate);
   }
 
   const projectionData = data;
@@ -180,6 +194,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
                     value: d.balance,
                     dividendValue: d.dividends
                 }))}
+                spyData={spyData}
             />
 
             <button
