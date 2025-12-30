@@ -10,8 +10,8 @@ expect.extend(matchers);
 
 describe('PortfolioShareCard', () => {
     const mockPortfolio: Portfolio = [
-        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5 }, sectors: { 'Technology': 100 } },
-        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8 }, sectors: { 'Technology': 100 } }
+        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5 }, sectors: [{ sector: 'Technology', weight: 1 }] },
+        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8 }, sectors: [{ sector: 'Technology', weight: 1 }] }
     ];
 
     const mockMetrics = {
@@ -80,7 +80,8 @@ describe('PortfolioShareCard', () => {
             />
         );
 
-        expect(getByText("Range")).toBeInTheDocument();
-        expect(getByText("Median")).toBeInTheDocument();
+        // Updated text matching based on new design
+        expect(getByText("Possible Outcomes (90% CI)")).toBeInTheDocument();
+        expect(getByText("Median Projection")).toBeInTheDocument();
     });
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Portfolio } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Share2, TrendingUp, Shield, PieChart, Activity, DollarSign, Layers } from 'lucide-react';
+import { Share2, TrendingUp, Shield, Layers, PieChart, Activity, DollarSign } from 'lucide-react';
 import { getAssetIconUrl } from '@/lib/etf-providers';
 
 export interface ShareCardProps {
@@ -31,8 +31,8 @@ export interface ShareCardProps {
 export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProps>(
   ({ userName, portfolioName, portfolio, metrics, chartData }, ref) => {
 
-    // 1. Calculate Top Holdings (Increased to 10 for focus)
-    const topHoldings = [...portfolio].sort((a, b) => b.weight - a.weight).slice(0, 10);
+    // 1. Calculate Top Holdings
+    const topHoldings = [...portfolio].sort((a, b) => b.weight - a.weight).slice(0, 6); // Top 6 for clean grid
 
     // 2. Calculate Portfolio Stats (Weighted)
     const totalWeight = portfolio.reduce((sum, item) => sum + item.weight, 0) || 1;
@@ -52,6 +52,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         let b = item.allocation?.bonds || 0;
         let c = item.allocation?.cash || 0;
 
+        // Normalize if > 1 (e.g. 80 instead of 0.8)
         if (e > 1 || b > 1 || c > 1) {
              e /= 100;
              b /= 100;
@@ -64,13 +65,41 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         return acc;
     }, { equities: 0, bonds: 0, cash: 0 });
 
+    // 4. Sector Exposure (Top 3)
+    const sectors = portfolio.reduce((acc, item) => {
+        const w = item.weight / totalWeight;
+        const itemSectors = item.sectors || [];
+
+        if (itemSectors.length > 0) {
+            itemSectors.forEach(s => {
+                const rawName = s.sector || 'Unknown';
+                // Format name: replace underscores with spaces and Title Case
+                const sName = rawName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+                const sWeight = (Number(s.weight) || 0); // Assuming already 0-1 or 0-100?
+                // Usually item.sectors weights sum to 1. But let's check.
+                // If s.weight is > 1, assume 0-100.
+                const normalizedSWeight = sWeight > 1 ? sWeight / 100 : sWeight;
+                acc[sName] = (acc[sName] || 0) + (normalizedSWeight * w);
+            });
+        } else {
+             acc['Unknown'] = (acc['Unknown'] || 0) + w;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+
+    const topSectors = Object.entries(sectors)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 3)
+        .map(([name, weight]) => ({ name, weight }));
+
+
     // Chart Logic
-    const width = 600; // Adjusted for Left Column width
-    const height = 300;
+    const width = 1000; // Full width inside padding
+    const height = 280;
     const padding = 10;
 
     const values = chartData.map(d => d.value);
-    const divValues = chartData.map(d => d.dividendValue || 0);
 
     const hasRange = chartData.some(d => d.min !== undefined && d.max !== undefined);
     const allMax = hasRange
@@ -82,7 +111,6 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
     const range = maxVal - minVal || 1;
 
     let pathD = "", areaD = "";
-    let divPathD = "", divAreaD = "";
     let rangeAreaD = "";
 
     if (values.length > 1) {
@@ -94,15 +122,6 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         });
         pathD = `M ${points[0]} L ${points.join(' L ')}`;
         areaD = `${pathD} L ${width-padding},${height} L ${padding},${height} Z`;
-
-        // Dividends
-        const divPoints = divValues.map((val, i) => {
-            const x = (i / (values.length - 1)) * (width - padding * 2) + padding;
-            const y = height - ((val - minVal) / range) * (height - padding * 2) - padding;
-            return `${x},${y}`;
-        });
-        divPathD = `M ${divPoints[0]} L ${divPoints.join(' L ')}`;
-        divAreaD = `${divPathD} L ${width-padding},${height} L ${padding},${height} Z`;
 
         // Range (Cone) for Monte Carlo
         if (hasRange) {
@@ -125,177 +144,243 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
         }
     }
 
+    // Format Helpers
+    const formatPct = (val: number) => `${(val * 100).toFixed(2)}%`;
+
     return (
       <div
         ref={ref}
-        className="w-[1080px] h-[1080px] bg-[#0a0a0a] text-white p-10 flex flex-col relative overflow-hidden font-sans"
+        className="w-[1080px] h-[1350px] bg-[#0a0a0a] text-white p-12 flex flex-col relative overflow-hidden font-sans"
         style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
-        {/* Backgrounds */}
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-emerald-900/10 blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-indigo-900/10 blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.02] pointer-events-none" />
+        {/* Background Effects */}
+        <div className="absolute top-[-20%] right-[-10%] w-[1000px] h-[1000px] bg-emerald-900/10 blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[1000px] h-[1000px] bg-indigo-900/10 blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.03] pointer-events-none" />
 
         {/* HEADER */}
-        <div className="flex justify-between items-start mb-8 relative z-10 border-b border-white/10 pb-6 shrink-0">
+        <div className="flex justify-between items-start mb-12 relative z-10 border-b border-white/10 pb-8 shrink-0">
           <div className="flex items-center gap-5">
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 flex items-center justify-center shadow-2xl shadow-emerald-900/20 ring-1 ring-white/10">
-                    <Share2 className="w-7 h-7 text-white" />
+                <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-2xl shadow-emerald-900/40 ring-1 ring-white/10">
+                    <Share2 className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Portfolio Compass</h1>
-                    <div className="flex items-center gap-2">
-                         <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Institutional Grade</span>
+                    <h1 className="text-4xl font-bold tracking-tight text-white mb-2 font-display" style={{ fontFamily: 'var(--font-space)' }}>Portfolio Compass</h1>
+                    <div className="flex items-center gap-3">
+                         <span className="px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Institutional Grade</span>
                          <span className="text-neutral-500 text-xs font-medium uppercase tracking-wide">Analysis Report</span>
                     </div>
                 </div>
           </div>
           <div className="text-right">
-             <h2 className="text-2xl font-bold text-white mb-1 tracking-tight">{portfolioName || "Investment Portfolio"}</h2>
-             <p className="text-neutral-400 text-sm font-medium">Prepared for <span className="text-white">{userName || "Investor"}</span></p>
+             <div className="inline-block px-3 py-1 rounded-full bg-white/5 text-neutral-400 text-xs font-medium mb-2 border border-white/5">
+                 {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+             </div>
+             <h2 className="text-3xl font-bold text-white mb-1 tracking-tight">{portfolioName || "Investment Portfolio"}</h2>
+             <p className="text-neutral-400 text-base font-medium">Prepared for <span className="text-white font-semibold">{userName || "Investor"}</span></p>
           </div>
         </div>
 
-        {/* MAIN CONTENT GRID (2 Columns) */}
-        <div className="grid grid-cols-12 gap-8 flex-1 min-h-0 relative z-10">
-
-            {/* LEFT COLUMN: Chart & Metrics (Cols 7/12) */}
-            <div className="col-span-7 flex flex-col gap-6 h-full">
-
-                {/* CHART */}
-                <div className="bg-[#111] border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col relative overflow-hidden flex-shrink-0">
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-base font-bold text-white flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-emerald-500" />
-                            Wealth Trajectory
-                        </h3>
-                        <div className="flex gap-4 text-[10px] font-medium">
-                            {hasRange && (
-                                <div className="flex items-center gap-1.5 text-emerald-600/60">
-                                    <div className="w-2 h-2 rounded bg-emerald-500/20 border border-emerald-500/50"></div>
-                                    Range
-                                </div>
-                            )}
-                            <div className="flex items-center gap-1.5 text-emerald-400">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                {hasRange ? "Median" : "Value"}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="relative w-full h-[240px] border-l border-b border-white/10 pl-2 pb-2">
-                        <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
-                            <defs>
-                                <linearGradient id="chartGradientMain" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.3" />
-                                    <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
-                                </linearGradient>
-                            </defs>
-                            {/* Monte Carlo Range */}
-                            {hasRange && rangeAreaD && (
-                                <path d={rangeAreaD} fill="#10b981" fillOpacity="0.1" stroke="none" />
-                            )}
-                            {/* Main Line */}
-                            {pathD && !hasRange && <path d={areaD} fill="url(#chartGradientMain)" stroke="none" />}
-                            {pathD && <path d={pathD} fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
-                        </svg>
-                    </div>
+        {/* KEY METRICS GRID (4 Columns) */}
+        <div className="grid grid-cols-4 gap-6 mb-8 relative z-10">
+            {/* Projected Value */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
+                <div className="absolute top-4 right-4 text-emerald-500/20 group-hover:text-emerald-500/40 transition-colors">
+                     <TrendingUp className="w-6 h-6" />
                 </div>
-
-                {/* KEY METRICS GRID */}
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-[#111] border border-white/10 rounded-xl p-5 shadow-lg">
-                        <div className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mb-1">Projected Value</div>
-                        <div className="text-2xl font-bold text-white tracking-tight">{formatCurrency(metrics.projectedValue)}</div>
-                        <div className="text-[10px] text-neutral-400 mt-1 flex items-center gap-1">
-                            <span className="w-1 h-1 rounded-full bg-emerald-500"></span>
-                            {metrics.years} Year Horizon
-                        </div>
-                    </div>
-                    <div className="bg-[#111] border border-white/10 rounded-xl p-5 shadow-lg">
-                        <div className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mb-1">Total Return</div>
-                        <div className="text-2xl font-bold text-emerald-400 tracking-tight">+{metrics.percentageGrowth.toFixed(0)}%</div>
-                        <div className="text-[10px] text-neutral-400 mt-1">{metrics.growthType} Model</div>
-                    </div>
-                    <div className="bg-[#111] border border-white/10 rounded-xl p-5 shadow-lg">
-                        <div className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mb-1">CAGR</div>
-                        <div className="text-2xl font-bold text-white tracking-tight">{(metrics.annualReturn * 100).toFixed(2)}%</div>
-                    </div>
-                    <div className="bg-[#111] border border-white/10 rounded-xl p-5 shadow-lg">
-                        <div className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mb-1">Yield</div>
-                        <div className="text-2xl font-bold text-blue-400 tracking-tight">{formatCurrency(metrics.dividends)}</div>
-                    </div>
-                </div>
-
-                {/* ASSET ALLOCATION (Compact) */}
-                <div className="bg-[#111] border border-white/10 rounded-xl p-5 flex flex-col justify-center mt-auto">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <Layers className="w-3 h-3 text-neutral-400" />
-                            <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider">Allocation</span>
-                        </div>
-                        <div className="flex gap-3 text-[10px] font-medium text-neutral-400">
-                             <span>Eq: {(assetAllocation.equities*100).toFixed(0)}%</span>
-                             <span>Fix: {(assetAllocation.bonds*100).toFixed(0)}%</span>
-                        </div>
-                    </div>
-                    <div className="flex h-2 w-full rounded-full overflow-hidden bg-neutral-900">
-                        <div style={{ width: `${assetAllocation.equities * 100}%` }} className="bg-emerald-600" />
-                        <div style={{ width: `${assetAllocation.bonds * 100}%` }} className="bg-blue-600" />
-                        <div style={{ width: `${assetAllocation.cash * 100}%` }} className="bg-neutral-600" />
-                    </div>
+                <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">Projected Value</div>
+                <div className="text-3xl font-bold text-white tracking-tight mb-1">{formatCurrency(metrics.projectedValue)}</div>
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                    {metrics.years} Year Horizon
                 </div>
             </div>
 
-            {/* RIGHT COLUMN: Holdings Focus (Cols 5/12) */}
-            <div className="col-span-5 h-full flex flex-col">
-                <div className="flex justify-between items-center mb-4 px-1">
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-emerald-500" />
-                        Top Holdings
-                    </h3>
-                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{portfolio.length} ASSETS</span>
+            {/* Total Return */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-4 right-4 text-emerald-500/20">
+                     <Activity className="w-6 h-6" />
                 </div>
+                <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">Total Return</div>
+                <div className="text-3xl font-bold text-emerald-400 tracking-tight mb-1">+{metrics.percentageGrowth.toFixed(0)}%</div>
+                <div className="text-xs text-neutral-500 font-medium">{metrics.growthType} Model</div>
+            </div>
 
-                <div className="flex-1 bg-[#111] border border-white/10 rounded-2xl p-2 overflow-hidden flex flex-col gap-2">
-                    {topHoldings.map((item, i) => {
-                        const iconUrl = getAssetIconUrl(item.ticker, item.name, item.assetType);
-                        return (
-                            <div key={item.ticker} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 p-3 rounded-xl">
-                                <div className="w-9 h-9 rounded-lg bg-black/40 flex items-center justify-center p-1 overflow-hidden shrink-0 border border-white/5">
-                                    {iconUrl ? (
-                                        <img src={iconUrl} alt={item.ticker} className="w-full h-full object-contain opacity-90" crossOrigin="anonymous" />
-                                    ) : (
-                                        <span className="text-[9px] font-bold text-neutral-400">{item.ticker.slice(0, 3)}</span>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="font-bold text-white text-sm truncate">{item.ticker}</span>
-                                        <span className="font-mono text-emerald-400 text-sm font-medium">{item.weight.toFixed(1)}%</span>
-                                    </div>
-                                    <div className="w-full h-1 bg-neutral-800 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${Math.min(item.weight, 100)}%` }} />
-                                    </div>
-                                </div>
+            {/* Accumulated Yield */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-4 right-4 text-emerald-500/20">
+                     <DollarSign className="w-6 h-6" />
+                </div>
+                <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">Accumulated Yield</div>
+                <div className="text-3xl font-bold text-blue-400 tracking-tight mb-1">{formatCurrency(metrics.dividends)}</div>
+                <div className="text-xs text-neutral-500 font-medium">Reinvested Dividends</div>
+            </div>
+
+            {/* CAGR */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-4 right-4 text-emerald-500/20">
+                     <PieChart className="w-6 h-6" />
+                </div>
+                <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">CAGR</div>
+                <div className="text-3xl font-bold text-white tracking-tight mb-1">{(metrics.annualReturn * 100).toFixed(2)}%</div>
+                <div className="text-xs text-neutral-500 font-medium">Compound Annual Growth</div>
+            </div>
+        </div>
+
+        {/* MIDDLE SECTION: Allocation, Risk, Sectors */}
+        <div className="grid grid-cols-12 gap-6 mb-8 relative z-10">
+            {/* Asset Allocation (Col 4) */}
+            <div className="col-span-5 bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col justify-center">
+                 <div className="flex items-center gap-2 mb-4">
+                     <Layers className="w-4 h-4 text-emerald-500" />
+                     <span className="text-xs font-bold text-white uppercase tracking-wider">Asset Allocation</span>
+                 </div>
+                 <div className="flex h-4 w-full rounded-full overflow-hidden bg-neutral-900 mb-4 ring-1 ring-white/5">
+                        <div style={{ width: `${assetAllocation.equities * 100}%` }} className="bg-emerald-500" />
+                        <div style={{ width: `${assetAllocation.bonds * 100}%` }} className="bg-blue-500" />
+                        <div style={{ width: `${assetAllocation.cash * 100}%` }} className="bg-neutral-600" />
+                 </div>
+                 <div className="flex justify-between text-xs font-medium">
+                     <div className="flex items-center gap-2 text-emerald-400">
+                         <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                         Equities {(assetAllocation.equities * 100).toFixed(0)}%
+                     </div>
+                     <div className="flex items-center gap-2 text-blue-400">
+                         <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                         Fixed Income {(assetAllocation.bonds * 100).toFixed(0)}%
+                     </div>
+                 </div>
+            </div>
+
+            {/* Risk Profile (Col 3) */}
+            <div className="col-span-3 bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
+                 <div className="flex items-center gap-2 mb-2">
+                     <Activity className="w-4 h-4 text-rose-500" />
+                     <span className="text-xs font-bold text-white uppercase tracking-wider">Risk Profile</span>
+                 </div>
+                 <div className="flex justify-between items-end mb-2">
+                     <span className="text-neutral-400 text-xs font-medium">Beta</span>
+                     <span className="text-xl font-bold text-white">{weightedBeta.toFixed(2)}</span>
+                 </div>
+                 <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-4">
+                     <div className="h-full bg-rose-500 rounded-full" style={{ width: `${Math.min(weightedBeta * 50, 100)}%` }} />
+                 </div>
+                 <div className="flex justify-between items-end">
+                     <span className="text-neutral-400 text-xs font-medium">MER</span>
+                     <span className="text-xl font-bold text-white">{weightedMER.toFixed(2)}%</span>
+                 </div>
+            </div>
+
+            {/* Sector Exposure (Col 5) */}
+            <div className="col-span-4 bg-[#111] border border-white/10 rounded-2xl p-6">
+                 <div className="flex items-center gap-2 mb-4">
+                     <PieChart className="w-4 h-4 text-indigo-500" />
+                     <span className="text-xs font-bold text-white uppercase tracking-wider">Sector Exposure</span>
+                 </div>
+                 <div className="space-y-3">
+                     {topSectors.map((s, i) => (
+                         <div key={i} className="flex justify-between items-center text-sm">
+                             <span className="text-neutral-300 font-medium truncate max-w-[140px]">{s.name}</span>
+                             <span className="px-2 py-0.5 rounded bg-white/5 text-white font-mono text-xs border border-white/5">{(s.weight * 100).toFixed(0)}%</span>
+                         </div>
+                     ))}
+                 </div>
+            </div>
+        </div>
+
+        {/* WEALTH CHART (Monte Carlo Vague) */}
+        <div className="mb-8 bg-[#111] border border-white/10 rounded-2xl p-8 relative overflow-hidden flex-1 min-h-[300px]">
+             <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    Wealth Trajectory
+                </h3>
+                <div className="flex gap-6 text-xs font-medium">
+                    {hasRange ? (
+                         <>
+                            <div className="flex items-center gap-2 text-emerald-400/50">
+                                <div className="w-3 h-3 rounded bg-emerald-500/10 border border-emerald-500/30"></div>
+                                Possible Outcomes (90% CI)
                             </div>
-                        );
-                    })}
-                    {portfolio.length > 10 && (
-                        <div className="text-center text-[10px] text-neutral-500 mt-auto py-2 italic">
-                            + {portfolio.length - 10} other assets
+                            <div className="flex items-center gap-2 text-emerald-400">
+                                <div className="w-3 h-1 rounded-full bg-emerald-500"></div>
+                                Median Projection
+                            </div>
+                         </>
+                    ) : (
+                        <div className="flex items-center gap-2 text-emerald-400">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                            Portfolio Value
                         </div>
                     )}
                 </div>
             </div>
+
+            <div className="relative w-full h-[220px] pb-2">
+                <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+                    <defs>
+                        <linearGradient id="chartGradientMain2" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                        </linearGradient>
+                    </defs>
+
+                    {/* Monte Carlo Range (Subtle) */}
+                    {hasRange && rangeAreaD && (
+                        <path d={rangeAreaD} fill="#10b981" fillOpacity="0.08" stroke="none" style={{ filter: 'blur(4px)' }} />
+                    )}
+
+                    {/* Main Line */}
+                    {pathD && !hasRange && <path d={areaD} fill="url(#chartGradientMain2)" stroke="none" />}
+                    {pathD && <path d={pathD} fill="none" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
+                </svg>
+            </div>
+        </div>
+
+        {/* HOLDINGS GRID */}
+        <div className="relative z-10">
+             <div className="flex justify-between items-center mb-5 border-b border-white/10 pb-2">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-emerald-500" />
+                    Top Holdings
+                </h3>
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">{portfolio.length} TOTAL ASSETS</span>
+             </div>
+
+             <div className="grid grid-cols-2 gap-4">
+                  {topHoldings.map((item) => {
+                       const iconUrl = getAssetIconUrl(item.ticker, item.name, item.assetType);
+                       return (
+                           <div key={item.ticker} className="flex items-center gap-4 bg-[#151515] border border-white/10 p-4 rounded-xl">
+                               <div className="w-10 h-10 rounded-lg bg-black/40 flex items-center justify-center p-1.5 overflow-hidden shrink-0 border border-white/5">
+                                   {iconUrl ? (
+                                       <img src={iconUrl} alt={item.ticker} className="w-full h-full object-contain opacity-90" crossOrigin="anonymous" />
+                                   ) : (
+                                       <span className="text-[10px] font-bold text-neutral-400">{item.ticker.slice(0, 3)}</span>
+                                   )}
+                               </div>
+                               <div className="flex-1 min-w-0">
+                                   <div className="flex justify-between items-center mb-1.5">
+                                       <span className="font-bold text-white text-base truncate">{item.ticker}</span>
+                                       <span className="font-mono text-emerald-400 text-sm font-bold">{item.weight.toFixed(1)}%</span>
+                                   </div>
+                                   <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                                       <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${Math.min(item.weight, 100)}%` }} />
+                                   </div>
+                               </div>
+                           </div>
+                       );
+                  })}
+             </div>
         </div>
 
         {/* FOOTER */}
-        <div className="mt-auto pt-6 flex justify-between items-center relative z-10 border-t border-white/10 shrink-0">
+        <div className="mt-auto pt-8 flex justify-between items-center relative z-10 border-t border-white/10 shrink-0">
              <div className="flex items-center gap-2">
-                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                 <span className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider">Generated by Portfolio Compass</span>
+                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.6)]" />
+                 <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest">Generated by Portfolio Compass</span>
              </div>
-             <span className="text-[10px] text-neutral-500 font-mono">portfolio-compass.vercel.app</span>
+             <span className="text-xs text-neutral-500 font-mono">portfolio-compass.vercel.app</span>
         </div>
       </div>
     );
