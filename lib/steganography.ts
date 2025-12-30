@@ -35,8 +35,9 @@ function binaryToString(binary: string): string {
  */
 export function encodePortfolioWatermark(imageData: ImageData, portfolio: PortfolioItem[], budget: number): ImageData {
   // 1. Serialize Portfolio
+  // CORRECTED: Use p.ticker directly as PortfolioItem extends ETF
   const payloadData = `v1|${budget}|` + portfolio.map(p =>
-    `${p.item.symbol}:${p.shares}:${p.weight}`
+    `${p.ticker}:${p.shares}:${p.weight}`
   ).join(';');
 
   const fullPayload = HEADER_SEQUENCE + payloadData + "|END|";
@@ -86,10 +87,6 @@ export function encodePortfolioWatermark(imageData: ImageData, portfolio: Portfo
       }
 
       // Distribute desiredChange
-      // We change roughly half of pixels (Left) +X and half (Right) -X
-      // Total Shift = (BlockSize/2 * BlockSize) * (2 * Delta)
-      // Delta = DesiredChange / (BlockSize^2) roughly
-
       let delta = 0;
       if (desiredChange !== 0) {
           delta = Math.abs(desiredChange) / (BLOCK_SIZE * BLOCK_SIZE);
@@ -164,10 +161,6 @@ export function decodePortfolioWatermark(imageData: ImageData): { portfolio: any
   }
 
   const fullString = binaryToString(decodedBinary);
-
-  // Use regex to find all matches, but better handle noise in the header itself?
-  // No, if header is corrupt, we likely can't recover easily without complex logic.
-  // With REPEAT_COUNT=5, we hope one is clean.
 
   const matches = [...fullString.matchAll(new RegExp(HEADER_SEQUENCE, 'g'))];
 

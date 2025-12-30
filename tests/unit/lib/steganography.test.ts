@@ -20,8 +20,8 @@ describe('Steganography', () => {
     test('should encode and decode portfolio data correctly', () => {
         // CORRECTED: Use ticker directly
         const portfolio = [
-            { ticker: 'AAPL', shares: 10, weight: 50, item: { symbol: 'AAPL' } }, // Keeping item for legacy if needed, but root props matter
-            { ticker: 'MSFT', shares: 5, weight: 50, item: { symbol: 'MSFT' } }
+            { ticker: 'AAPL', shares: 10, weight: 50 },
+            { ticker: 'MSFT', shares: 5, weight: 50 }
         ];
         const budget = 10000;
 
@@ -46,7 +46,7 @@ describe('Steganography', () => {
     });
 
     test('should decode cleanly generated image', () => {
-         const portfolio = [{ ticker: 'SPY', shares: 1, weight: 100, item: { symbol: 'SPY' } }];
+         const portfolio = [{ ticker: 'SPY', shares: 1, weight: 100 }];
         const budget = 500;
         const width = 400; // Increased size to fit payload
         const height = 400;
