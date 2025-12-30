@@ -116,7 +116,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
 
                          {/* Scale container to fit the large card into the view - ABSOLUTE to prevent layout flow expansion */}
                          <div className="absolute inset-0 flex items-center justify-center overflow-hidden pointer-events-none pb-12">
-                            <div className="transform scale-[0.36] lg:scale-[0.36] origin-center shadow-2xl shadow-black border border-white/10 rounded-[40px] overflow-hidden pointer-events-auto ring-1 ring-white/5">
+                            <div className="transform scale-[0.20] lg:scale-[0.20] origin-center shadow-2xl shadow-black border border-white/10 rounded-[40px] overflow-hidden pointer-events-auto ring-1 ring-white/5">
                                 {/* This is the LIVE rendered card used for both preview and generation */}
                                 <PortfolioShareCard
                                     ref={cardRef}
@@ -130,7 +130,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
                             </div>
                          </div>
                          <div className="absolute bottom-6 left-0 w-full text-center text-xs text-neutral-600 font-mono pointer-events-none uppercase tracking-wider z-20">
-                            Width: 1080px (Social Portrait)
+                            Width: 1920px (Desktop / 4K)
                          </div>
                     </div>
 

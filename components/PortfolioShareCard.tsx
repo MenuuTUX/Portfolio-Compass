@@ -98,7 +98,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
 
 
     // Chart Logic
-    const fullWidth = 1000;
+    const fullWidth = 1840;
     const fullHeight = 280;
     const margin = { top: 30, right: 30, bottom: 40, left: 80 };
     const width = fullWidth - margin.left - margin.right;
@@ -164,7 +164,7 @@ export const PortfolioShareCard = React.forwardRef<HTMLDivElement, ShareCardProp
     return (
       <div
         ref={ref}
-        className="w-[1080px] min-h-[1350px] bg-[#0a0a0a] text-white p-10 flex flex-col relative font-sans"
+        className="w-[1920px] min-h-[1350px] bg-[#0a0a0a] text-white p-10 flex flex-col relative font-sans"
         style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
         {/* Background Effects */}
