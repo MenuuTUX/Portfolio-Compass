@@ -22,6 +22,7 @@ export interface MarketSnapshot {
   dailyChangePercent: Decimal;
   name: string;
   assetType: 'STOCK' | 'ETF';
+  redditUrl?: string | null;
 }
 
 export interface EtfDetails {
@@ -109,23 +110,30 @@ async function fetchWithFallback<T>(
 export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnapshot[]> {
   if (tickers.length === 0) return [];
 
-  const mapQuoteToSnapshot = (quote: any) => ({
-    ticker: quote.symbol,
-    price: new Decimal(quote.regularMarketPrice || 0),
-    dailyChange: new Decimal(quote.regularMarketChange || 0),
-    dailyChangePercent: normalizePercent(quote.regularMarketChangePercent),
-    name: quote.shortName || quote.longName || quote.symbol,
-    assetType: determineAssetType(quote.quoteType)
-  });
+  const mapQuoteToSnapshot = async (quote: any) => {
+    const name = quote.shortName || quote.longName || quote.symbol;
+    const resolvedTicker = quote.symbol;
+    const redditUrl = await findRedditCommunity(resolvedTicker, name);
+
+    return {
+        ticker: resolvedTicker,
+        price: new Decimal(quote.regularMarketPrice || 0),
+        dailyChange: new Decimal(quote.regularMarketChange || 0),
+        dailyChangePercent: normalizePercent(quote.regularMarketChangePercent),
+        name: name,
+        assetType: determineAssetType(quote.quoteType),
+        redditUrl
+    };
+  };
 
   try {
     // Attempt to fetch all tickers in one batch
     const results = await yf.quote(tickers);
     // Ensure we always return an array, even if yf returns something else (though for list input it returns list)
     if (Array.isArray(results)) {
-        return results.map(mapQuoteToSnapshot);
+        return Promise.all(results.map(mapQuoteToSnapshot));
     } else {
-        return [mapQuoteToSnapshot(results)];
+        return [await mapQuoteToSnapshot(results)];
     }
   } catch (error) {
     console.warn("Bulk fetch failed in fetchMarketSnapshot, attempting individual fallbacks:", error);
@@ -145,7 +153,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
     const individualResults = await Promise.all(promises);
     const validQuotes = individualResults.filter(q => q !== null);
 
-    return validQuotes.map(mapQuoteToSnapshot);
+    return Promise.all(validQuotes.map(mapQuoteToSnapshot));
   }
 }
 
