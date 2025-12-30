@@ -7,7 +7,7 @@ import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import TrendingTab from '@/components/TrendingTab';
 import SettingsDrawer from '@/components/SettingsDrawer';
-import { ETF } from '@/types';
+import { ETF, PortfolioItem } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useAddStock } from '@/hooks/useAddStock';
@@ -63,6 +63,15 @@ export default function Home() {
     queryClient.setQueryData(['portfolio'], []);
   };
 
+  const handleImportPortfolio = (items: PortfolioItem[]) => {
+    // 1. Save to local storage
+    savePortfolio(items);
+    // 2. Update React Query cache immediately
+    queryClient.setQueryData(['portfolio'], items);
+    // 3. Navigate to Portfolio tab to show result
+    startTransition(() => setActiveTab('PORTFOLIO'));
+  };
+
   return (
     <main className="min-h-screen bg-black overflow-hidden relative">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -111,6 +120,7 @@ export default function Home() {
                     onAddToPortfolio={handleAddToPortfolio}
                     portfolio={portfolio}
                     onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                    onImportPortfolio={handleImportPortfolio}
                   />
                 )}
                 {activeTab === 'PORTFOLIO' && (
