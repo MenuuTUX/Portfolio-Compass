@@ -9,6 +9,7 @@ import { z } from 'zod';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
+import InstitutionalPortfolios from './InstitutionalPortfolios';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -133,7 +134,8 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
 
-            <div className="mb-8">
+            <div className="mb-12 grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+                <InstitutionalPortfolios />
                 <FearGreedGauge />
             </div>
 
