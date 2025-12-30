@@ -179,7 +179,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
                                 <p className="mb-2 font-bold text-white flex items-center gap-2">
                                     <Share2 className="w-4 h-4 text-emerald-500" /> Community
                                 </p>
-                                Share this report on <span className="text-emerald-400 hover:underline cursor-pointer">r/investing</span> or <span className="text-emerald-400 hover:underline cursor-pointer">r/etfs</span> to get professional feedback on your allocation strategy.
+                                Share this report on <a href="https://www.reddit.com/r/investing/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline cursor-pointer">r/investing</a> or <a href="https://www.reddit.com/r/Etf/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline cursor-pointer">r/Etf</a> to get professional feedback on your allocation strategy.
                             </div>
                         </div>
 
