@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Share2, Download, X, Loader2, Eye, ExternalLink, Settings2 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { PortfolioShareCard, ShareCardProps } from './PortfolioShareCard';
+import { encodePortfolioWatermark } from '@/lib/steganography';
 
 interface PortfolioShareButtonProps {
   portfolio: ShareCardProps['portfolio'];
@@ -23,14 +24,48 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
 
   const generateImage = async () => {
     if (!cardRef.current) return null;
-    // Small delay to ensure render
-    await new Promise(resolve => setTimeout(resolve, 100));
 
-    return await toPng(cardRef.current, {
+    // 1. Generate Base PNG from DOM
+    const dataUrl = await toPng(cardRef.current, {
         cacheBust: true,
         backgroundColor: '#0a0a0a',
         quality: 1.0,
         pixelRatio: 2 // High res
+    });
+
+    // 2. Load into Canvas for Watermarking
+    return new Promise<string>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                resolve(dataUrl);
+                return;
+            }
+
+            ctx.drawImage(img, 0, 0);
+
+            try {
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Calculate Budget (Total Value)
+                const budget = portfolio.reduce((sum, item) => sum + (item.price * item.shares), 0);
+
+                // 3. Apply Watermark
+                const newImageData = encodePortfolioWatermark(imageData, portfolio, budget);
+                ctx.putImageData(newImageData, 0, 0);
+
+                resolve(canvas.toDataURL('image/png'));
+            } catch (e) {
+                console.error("Watermarking failed", e);
+                resolve(dataUrl); // Fallback to non-watermarked
+            }
+        };
+        img.onerror = reject;
+        img.src = dataUrl;
     });
   };
 
@@ -51,7 +86,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
     } finally {
       setIsGenerating(false);
     }
-  }, [portfolioName]);
+  }, [portfolioName, portfolio]); // Added portfolio dependency
 
   const handleNativeShare = useCallback(async () => {
       setIsGenerating(true);
@@ -76,7 +111,7 @@ export function PortfolioShareButton({ portfolio, metrics, chartData, spyData, d
       } finally {
           setIsGenerating(false);
       }
-  }, [portfolioName]);
+  }, [portfolioName, portfolio]);
 
   return (
     <>
