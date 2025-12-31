@@ -9,7 +9,7 @@ import { z } from 'zod';
 import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
-import ImportPortfolioButton from './ImportPortfolioButton';
+import ImportPortfolioCard from './ImportPortfolioCard';
 import InstitutionalPortfolios from './InstitutionalPortfolios';
 import { useBatchAddPortfolio } from '@/hooks/useBatchAddPortfolio';
 
@@ -139,10 +139,10 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
 
-            <div className="mb-8 flex flex-col md:flex-row items-start gap-6 relative">
+            <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
                 {/* Institutional Portfolios Section */}
-                <div className="w-full md:w-1/3">
+                <div className="w-full h-full">
                     <InstitutionalPortfolios
                         onBatchAdd={batchAddMutation.mutate}
                         isLoading={batchAddMutation.isPending}
@@ -150,14 +150,17 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 </div>
 
                 {/* Fear & Greed Index */}
-                <div className="flex-1 w-full">
-                    <FearGreedGauge />
+                <div className="w-full h-full">
+                    <FearGreedGauge className="h-full" />
                 </div>
 
-                {/* Upload Button aligned top-right as per mockup */}
-                <div className="absolute top-4 right-4 z-10 hidden md:block">
+                {/* Import Portfolio Card */}
+                <div className="w-full h-full">
                     {onImportPortfolio && (
-                        <ImportPortfolioButton onImport={onImportPortfolio} />
+                        <ImportPortfolioCard
+                            onImport={onImportPortfolio}
+                            className="h-full"
+                        />
                     )}
                 </div>
             </div>
