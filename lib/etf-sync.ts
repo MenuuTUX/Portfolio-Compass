@@ -127,7 +127,7 @@ export async function syncEtfDetails(
                 holdingsCount: details.holdingsCount || null,
 
                 // Social
-                redditUrl: details.redditUrl || null,
+                // redditUrl: details.redditUrl || null,
 
                 name: details.name,
                 currency: 'USD',
@@ -172,7 +172,7 @@ export async function syncEtfDetails(
                 holdingsCount: details.holdingsCount || null,
 
                 // Social
-                redditUrl: details.redditUrl || null,
+                // redditUrl: details.redditUrl || null,
 
                 assetType: details.assetType,
                 isDeepAnalysisLoaded: true,
