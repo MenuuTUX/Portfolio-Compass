@@ -139,7 +139,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
 
-            <div className="mb-8 flex flex-col md:flex-row items-start gap-6 relative">
+            <div className="mb-8 flex flex-col md:flex-row items-stretch gap-6 relative">
 
                 {/* Institutional Portfolios Section */}
                 <div className="w-full md:w-1/3">
@@ -151,7 +151,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
                 {/* Fear & Greed Index */}
                 <div className="flex-1 w-full">
-                    <FearGreedGauge />
+                    <FearGreedGauge className="h-full" />
                 </div>
 
                 {/* Upload Button aligned top-right as per mockup */}
