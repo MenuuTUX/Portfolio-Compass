@@ -14,6 +14,33 @@ export type FullEtf = Prisma.EtfGetPayload<{
   }
 }>;
 
+// Helper to retry transactions
+async function runTransactionWithRetry<T>(
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    options: { timeout?: number, maxWait?: number } = {},
+    retries = 3
+): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await prisma.$transaction(fn, options);
+        } catch (error: any) {
+            lastError = error;
+            // Retry on specific transaction errors
+            if (error.code === 'P2028' || // Transaction API error
+                error.message.includes('Unable to start a transaction') ||
+                error.message.includes('Transaction already closed')) {
+                console.warn(`[EtfSync] Transaction failed (attempt ${i + 1}/${retries}), retrying...`);
+                await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Linear backoff
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+}
+
+
 export async function syncEtfDetails(
   ticker: string,
   intervals?: ('1h' | '1d' | '1wk' | '1mo')[]
@@ -171,7 +198,7 @@ export async function syncEtfDetails(
     console.log(`[EtfSync] Upserted base record for ${etf.ticker}`);
 
     // 4 & 5. Update Sectors & Allocation (Separate Transaction - Fast)
-    await prisma.$transaction(async (tx) => {
+    await runTransactionWithRetry(async (tx) => {
         // Sectors
         if (Object.keys(details!.sectors).length > 0) {
             await tx.etfSector.deleteMany({ where: { etfId: etf.ticker } });
@@ -206,7 +233,7 @@ export async function syncEtfDetails(
     // 6. Update History (Separate Transaction - Heavy)
     // We split this to release the DB connection after metadata update and before heavy history processing
     if (details.history && details.history.length > 0) {
-        await prisma.$transaction(async (tx) => {
+        await runTransactionWithRetry(async (tx) => {
             // Identify which intervals we have in the new data
             const fetchedIntervals = new Set(details!.history.map((h: any) => h.interval));
             const dailyHistory = details!.history.filter((h: any) => h.interval === '1d');
@@ -294,7 +321,7 @@ export async function syncEtfDetails(
             }
 
             // Use interactive transaction for holdings update
-            await prisma.$transaction(async (tx) => {
+            await runTransactionWithRetry(async (tx) => {
                   await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
                   await tx.holding.createMany({
                       data: scrapedHoldings.map(h => ({
@@ -324,7 +351,7 @@ export async function syncEtfDetails(
       try {
         console.log(`[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`);
         // Use interactive transaction for holdings update
-        await prisma.$transaction(async (tx) => {
+        await runTransactionWithRetry(async (tx) => {
             await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
             await tx.holding.createMany({
                 data: details!.topHoldings!.map(h => ({

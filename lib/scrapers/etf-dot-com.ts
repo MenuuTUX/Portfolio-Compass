@@ -3,10 +3,17 @@ import * as cheerio from 'cheerio';
 const fetchWithUserAgent = async (url: string) => {
   return fetch(url, {
     headers: {
-       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-       'Accept-Language': 'en-US,en;q=0.5',
+       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+       'Accept-Language': 'en-US,en;q=0.9',
+       'Accept-Encoding': 'gzip, deflate, br',
        'Referer': 'https://www.google.com/',
+       'Upgrade-Insecure-Requests': '1',
+       'Sec-Fetch-Dest': 'document',
+       'Sec-Fetch-Mode': 'navigate',
+       'Sec-Fetch-Site': 'cross-site',
+       'Sec-Fetch-User': '?1',
+       'Cache-Control': 'max-age=0'
     }
   });
 }
@@ -15,7 +22,7 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
     const url = `https://www.etf.com/${ticker.toUpperCase()}`;
     try {
         const res = await fetchWithUserAgent(url);
-        // ETF.com often returns 403 to bots, but let's try.
+        // ETF.com often returns 403 to bots
         if (!res.ok) {
             console.warn(`ETF.com fetch failed for ${ticker}: ${res.status}`);
             return null;
@@ -77,7 +84,8 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
 
         return description.trim() || null;
     } catch (e) {
-        console.error('Error scraping etf.com:', e);
+        // Suppress generic network errors for scraping to reduce noise
+        // console.error('Error scraping etf.com:', e);
         return null;
     }
 }

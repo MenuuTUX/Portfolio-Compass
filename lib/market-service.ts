@@ -9,8 +9,6 @@ import pLimit from 'p-limit';
 // -----------------------------------------------------------------------------
 
 // Yahoo Finance requires a User-Agent to avoid 429 Too Many Requests (Rate Limiting)
-// However, passing fetchOptions to the constructor is not supported in the type definition.
-// We rely on the scraper fallback if Yahoo fails.
 const yf = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
 });
@@ -88,18 +86,59 @@ function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' {
   return 'STOCK';
 }
 
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries = 3,
+  baseDelay = 1000,
+  fallbackValue?: T
+): Promise<T> {
+  let attempt = 0;
+  while (attempt < retries) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      attempt++;
+      // Check for 429 specifically or generic network errors
+      const isRateLimit = error.message?.includes('429') || error.status === 429 || error.message?.includes('Too Many Requests');
+
+      if (attempt >= retries) {
+        if (fallbackValue !== undefined) {
+             console.warn(`Function failed after ${retries} attempts, returning fallback. Error: ${error.message}`);
+             return fallbackValue;
+        }
+        throw error;
+      }
+
+      const delay = baseDelay * Math.pow(2, attempt - 1) + (Math.random() * 500); // Exponential backoff + jitter
+      if (isRateLimit) {
+         console.warn(`Rate limit hit (429). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${retries})`);
+      }
+
+      await sleep(delay);
+    }
+  }
+  throw new Error('Unreachable');
+}
+
 async function fetchWithFallback<T>(
   ticker: string,
   fetchFn: (t: string) => Promise<T>
 ): Promise<{ data: T; resolvedTicker: string }> {
+  // Wrap the fetchFn with retry logic
+  const retryingFetch = (t: string) => retryWithBackoff(() => fetchFn(t), 3, 1000);
+
   try {
-    const data = await fetchFn(ticker);
+    const data = await retryingFetch(ticker);
     return { data, resolvedTicker: ticker };
   } catch (error: any) {
     if (ticker.endsWith('.TO')) throw error;
     try {
       const altTicker = `${ticker}.TO`;
-      const data = await fetchFn(altTicker);
+      const data = await retryingFetch(altTicker);
       return { data, resolvedTicker: altTicker };
     } catch (innerError) {
       throw error;
@@ -132,7 +171,9 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
 
   try {
     // Attempt to fetch all tickers in one batch from Yahoo
-    const results = await yf.quote(tickers);
+    // Wrapped in retry
+    const results = await retryWithBackoff(() => yf.quote(tickers), 2, 500);
+
     if (Array.isArray(results)) {
         return Promise.all(results.map(mapQuoteToSnapshot));
     } else {
@@ -142,11 +183,13 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
     console.warn("Bulk fetch failed in fetchMarketSnapshot, attempting individual Yahoo fallbacks:", error);
 
     // Use p-limit for fallback to be nice to scraper
-    const limit = pLimit(5);
+    // Reduced concurrency from 5 to 2 to minimize 429s
+    const limit = pLimit(2);
 
     const promises = tickers.map((t) => limit(async (): Promise<MarketSnapshot | null> => {
         try {
-            const q = await yf.quote(t);
+            // Individual retry is handled by retryWithBackoff here
+            const q = await retryWithBackoff(() => yf.quote(t), 3, 1000);
             return await mapQuoteToSnapshot(q);
         } catch (e) {
             console.warn(`Failed to fetch individual ticker ${t} from Yahoo. Trying scraper fallback...`);
@@ -275,11 +318,13 @@ export async function fetchEtfDetails(
       const now = new Date();
       if (period1 > now) return [];
 
-      const res = await yf.chart(resolvedTicker, {
+      // Wrapped in retry
+      const res = await retryWithBackoff(() => yf.chart(resolvedTicker, {
         period1,
         period2: now,
         interval,
-      });
+      }), 3, 1000, null); // Return null on failure instead of throwing to avoid breaking the whole fetch
+
       if (res && res.quotes) {
         return res.quotes
           .filter(q => q.close !== null && q.close !== undefined)
@@ -303,12 +348,28 @@ export async function fetchEtfDetails(
   const dMax = new Date(0); // 1970
   const d7d = new Date(); d7d.setDate(now.getDate() - 7); // 7 days for 1h data
 
-  const [h1h, h1d, h1wk, h1mo] = await Promise.all([
-    intervals.includes('1h') ? fetchHistoryInterval('1h', d7d) : Promise.resolve([]),
-    intervals.includes('1d') ? fetchHistoryInterval('1d', fromDate || d1y) : Promise.resolve([]),
-    intervals.includes('1wk') ? fetchHistoryInterval('1wk', d5y) : Promise.resolve([]),
-    intervals.includes('1mo') ? fetchHistoryInterval('1mo', dMax) : Promise.resolve([])
-  ]);
+  // Optimize: Run history fetches with limited concurrency
+  // Previous code used Promise.all for all 4. Now we do them sequentially or in smaller batches.
+  // Actually, '1d' is the most critical.
+
+  const historyResults = {
+      '1h': [] as any[],
+      '1d': [] as any[],
+      '1wk': [] as any[],
+      '1mo': [] as any[]
+  };
+
+  if (intervals.includes('1d')) {
+      historyResults['1d'] = await fetchHistoryInterval('1d', fromDate || d1y);
+  }
+
+  // Fetch others in parallel but only if 1d succeeded or we are okay with partials
+  const otherPromises = [];
+  if (intervals.includes('1h')) otherPromises.push(fetchHistoryInterval('1h', d7d).then(r => historyResults['1h'] = r));
+  if (intervals.includes('1wk')) otherPromises.push(fetchHistoryInterval('1wk', d5y).then(r => historyResults['1wk'] = r));
+  if (intervals.includes('1mo')) otherPromises.push(fetchHistoryInterval('1mo', dMax).then(r => historyResults['1mo'] = r));
+
+  await Promise.all(otherPromises);
 
   const currentPrice = quoteSummary.price?.regularMarketPrice;
   if (currentPrice) {
@@ -316,14 +377,14 @@ export async function fetchEtfDetails(
     const nowForCheck = new Date();
     const nowIso = nowForCheck.toISOString();
 
-    if (h1d.length > 0) {
-       const lastDate = new Date(h1d[h1d.length - 1].date);
+    if (historyResults['1d'].length > 0) {
+       const lastDate = new Date(historyResults['1d'][historyResults['1d'].length - 1].date);
        const isSameDay = lastDate.getDate() === nowForCheck.getDate() &&
                          lastDate.getMonth() === nowForCheck.getMonth() &&
                          lastDate.getFullYear() === nowForCheck.getFullYear();
 
        if (!isSameDay) {
-           h1d.push({
+           historyResults['1d'].push({
              date: nowIso,
              close: cpDecimal,
              interval: '1d'
@@ -332,7 +393,12 @@ export async function fetchEtfDetails(
     }
   }
 
-  const history = [...h1h, ...h1d, ...h1wk, ...h1mo];
+  const history = [
+      ...historyResults['1h'],
+      ...historyResults['1d'],
+      ...historyResults['1wk'],
+      ...historyResults['1mo']
+  ];
 
   const price = quoteSummary.price;
   const profile = quoteSummary.summaryProfile;
