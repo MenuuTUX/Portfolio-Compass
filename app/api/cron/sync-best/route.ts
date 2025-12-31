@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { syncEtfDetails } from '@/lib/etf-sync';
 import { isMarketOpen } from '@/lib/market-hours';
+import pLimit from 'p-limit';
 
 // Force dynamic to ensure we don't cache the result of the stale check
 export const dynamic = 'force-dynamic';
@@ -57,10 +58,14 @@ export async function GET(req: NextRequest) {
 
     console.log(`[Cron] Syncing stale ETFs: ${tickersToSync.join(', ')}`);
 
-    const results = await Promise.allSettled(tickersToSync.map((ticker: string) => {
+    // Use p-limit to strictly sequence these syncs
+    // Even though we only take 3-5, running them in parallel can trigger 429s
+    const limit = pLimit(1);
+
+    const results = await Promise.allSettled(tickersToSync.map((ticker: string) => limit(() => {
       console.log(`Incremental sync: ${ticker}`);
       return syncEtfDetails(ticker, ['1h', '1d']);
-    }));
+    })));
 
     const successCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'fulfilled' && (r as PromiseFulfilledResult<any>).value).length;
     const failedCount = results.filter((r: PromiseSettledResult<any>) => r.status === 'rejected' || (r.status === 'fulfilled' && !(r as PromiseFulfilledResult<any>).value)).length;
