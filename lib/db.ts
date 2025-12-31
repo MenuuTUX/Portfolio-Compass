@@ -16,12 +16,15 @@ const prismaClientSingleton = () => {
         throw new Error("DATABASE_URL is not defined in environment variables");
     }
 
+    // Optimization for Serverless (Vercel/Neon):
+    // Reduce max connections to avoid "MaxClientsInSessionMode" or "too many clients" errors.
+    // Serverless functions spin up many instances; if each takes 5 connections, we hit limits fast.
     const pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.DATABASE_URL.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-        max: 5, // Increased from 1 to 5 to allow concurrency and prevent client-side pool timeouts
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 10000, // Reduced wait time to fail fast if pool is truly exhausted
+        max: 2, // Reduced from 5 to 2 to prevent connection pool exhaustion in serverless
+        idleTimeoutMillis: 5000, // Reduced from 30s to 5s to release connections faster
+        connectionTimeoutMillis: 5000, // Reduced wait time
     });
 
     const adapter = new PrismaPg(pool);
