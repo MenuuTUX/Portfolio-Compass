@@ -200,9 +200,9 @@ describe('Lib: syncEtfDetails', () => {
           const holdingB = holdings.find((h: any) => h.ticker === 'B');
 
           // Expect weights to be multiplied by 100
-          // Convert Decimal to number for comparison
-          expect(holdingA.weight.toNumber()).toEqual(200); // 2.0 * 100
-          expect(holdingB.weight.toNumber()).toEqual(50);  // 0.5 * 100
+          // Verify string values ("200" and "50") as per toPrismaDecimalRequired
+          expect(holdingA.weight).toEqual("200"); // 2.0 * 100
+          expect(holdingB.weight).toEqual("50");  // 0.5 * 100
       }
   });
 });

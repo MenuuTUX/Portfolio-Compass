@@ -3,6 +3,7 @@ import { fetchEtfDetails, EtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
+import { toPrismaDecimal, toPrismaDecimalRequired } from '@/lib/prisma-utils';
 
 export type FullEtf = Prisma.EtfGetPayload<{
   include: {
@@ -73,28 +74,28 @@ export async function syncEtfDetails(
          etf = await prisma.etf.upsert({
             where: { ticker: details.ticker },
             update: {
-                price: details.price, // Decimal
-                daily_change: details.dailyChange, // Decimal
-                yield: details.dividendYield || null, // Decimal | null
-                mer: details.expenseRatio || null, // Decimal | null
-                beta5Y: details.beta5Y || null,
-                peRatio: details.peRatio || null,
-                forwardPe: details.forwardPe || null,
-                fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
-                fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+                price: toPrismaDecimalRequired(details.price),
+                daily_change: toPrismaDecimalRequired(details.dailyChange),
+                yield: toPrismaDecimal(details.dividendYield),
+                mer: toPrismaDecimal(details.expenseRatio),
+                beta5Y: toPrismaDecimal(details.beta5Y),
+                peRatio: toPrismaDecimal(details.peRatio),
+                forwardPe: toPrismaDecimal(details.forwardPe),
+                fiftyTwoWeekHigh: toPrismaDecimal(details.fiftyTwoWeekHigh),
+                fiftyTwoWeekLow: toPrismaDecimal(details.fiftyTwoWeekLow),
 
                 // Extended Metrics
-                marketCap: details.marketCap || null,
-                sharesOut: details.sharesOutstanding || null,
-                eps: details.eps || null,
-                revenue: details.revenue || null,
-                netIncome: details.netIncome || null,
-                dividend: details.dividend || null,
-                dividendGrowth5Y: details.dividendGrowth5Y || null,
+                marketCap: toPrismaDecimal(details.marketCap),
+                sharesOut: toPrismaDecimal(details.sharesOutstanding),
+                eps: toPrismaDecimal(details.eps),
+                revenue: toPrismaDecimal(details.revenue),
+                netIncome: toPrismaDecimal(details.netIncome),
+                dividend: toPrismaDecimal(details.dividend),
+                dividendGrowth5Y: toPrismaDecimal(details.dividendGrowth5Y),
                 exDividendDate: details.exDividendDate || null,
-                volume: details.volume || null,
-                open: details.open || null,
-                prevClose: details.previousClose || null,
+                volume: toPrismaDecimal(details.volume),
+                open: toPrismaDecimal(details.open),
+                prevClose: toPrismaDecimal(details.previousClose),
                 earningsDate: details.earningsDate || null,
                 daysRange: details.daysRange || null,
                 fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
@@ -102,7 +103,7 @@ export async function syncEtfDetails(
                 // New ETF Metrics
                 inceptionDate: details.inceptionDate || null,
                 payoutFrequency: details.payoutFrequency || null,
-                payoutRatio: details.payoutRatio || null,
+                payoutRatio: toPrismaDecimal(details.payoutRatio),
                 holdingsCount: details.holdingsCount || null,
 
                 // Social
@@ -119,27 +120,27 @@ export async function syncEtfDetails(
                 name: details.name,
                 currency: 'USD',
                 exchange: 'Unknown',
-                price: details.price, // Decimal
-                daily_change: details.dailyChange, // Decimal
-                yield: details.dividendYield || null,
-                mer: details.expenseRatio || null,
-                beta5Y: details.beta5Y || null,
-                peRatio: details.peRatio || null,
-                forwardPe: details.forwardPe || null,
-                fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
-                fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+                price: toPrismaDecimalRequired(details.price),
+                daily_change: toPrismaDecimalRequired(details.dailyChange),
+                yield: toPrismaDecimal(details.dividendYield),
+                mer: toPrismaDecimal(details.expenseRatio),
+                beta5Y: toPrismaDecimal(details.beta5Y),
+                peRatio: toPrismaDecimal(details.peRatio),
+                forwardPe: toPrismaDecimal(details.forwardPe),
+                fiftyTwoWeekHigh: toPrismaDecimal(details.fiftyTwoWeekHigh),
+                fiftyTwoWeekLow: toPrismaDecimal(details.fiftyTwoWeekLow),
 
                 // Extended Metrics
-                marketCap: details.marketCap || null,
-                sharesOut: details.sharesOutstanding || null,
-                eps: details.eps || null,
-                revenue: details.revenue || null,
-                netIncome: details.netIncome || null,
-                dividend: details.dividend || null,
+                marketCap: toPrismaDecimal(details.marketCap),
+                sharesOut: toPrismaDecimal(details.sharesOutstanding),
+                eps: toPrismaDecimal(details.eps),
+                revenue: toPrismaDecimal(details.revenue),
+                netIncome: toPrismaDecimal(details.netIncome),
+                dividend: toPrismaDecimal(details.dividend),
                 exDividendDate: details.exDividendDate || null,
-                volume: details.volume || null,
-                open: details.open || null,
-                prevClose: details.previousClose || null,
+                volume: toPrismaDecimal(details.volume),
+                open: toPrismaDecimal(details.open),
+                prevClose: toPrismaDecimal(details.previousClose),
                 earningsDate: details.earningsDate || null,
                 daysRange: details.daysRange || null,
                 fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
@@ -147,7 +148,7 @@ export async function syncEtfDetails(
                 // New ETF Metrics
                 inceptionDate: details.inceptionDate || null,
                 payoutFrequency: details.payoutFrequency || null,
-                payoutRatio: details.payoutRatio || null,
+                payoutRatio: toPrismaDecimal(details.payoutRatio),
                 holdingsCount: details.holdingsCount || null,
 
                 // Social
@@ -178,7 +179,7 @@ export async function syncEtfDetails(
                 data: Object.entries(details!.sectors).map(([sector, weight]) => ({
                     etfId: etf.ticker,
                     sector_name: sector,
-                    weight: weight // Decimal - properly inferred now
+                    weight: toPrismaDecimalRequired(weight)
                 }))
             });
         }
@@ -186,8 +187,17 @@ export async function syncEtfDetails(
         // Allocation
         await tx.etfAllocation.upsert({
             where: { etfId: etf.ticker },
-            update: { stocks_weight, bonds_weight, cash_weight },
-            create: { etfId: etf.ticker, stocks_weight, bonds_weight, cash_weight }
+            update: {
+                stocks_weight: toPrismaDecimalRequired(stocks_weight),
+                bonds_weight: toPrismaDecimalRequired(bonds_weight),
+                cash_weight: toPrismaDecimalRequired(cash_weight)
+            },
+            create: {
+                etfId: etf.ticker,
+                stocks_weight: toPrismaDecimalRequired(stocks_weight),
+                bonds_weight: toPrismaDecimalRequired(bonds_weight),
+                cash_weight: toPrismaDecimalRequired(cash_weight)
+            }
         });
     }, {
         timeout: 10000 // 10s is plenty for this
@@ -221,7 +231,7 @@ export async function syncEtfDetails(
                         data: otherHistory.map((h: any) => ({
                             etfId: etf.ticker,
                             date: new Date(h.date),
-                            close: h.close,
+                            close: toPrismaDecimalRequired(h.close),
                             interval: h.interval
                         }))
                     });
@@ -251,7 +261,7 @@ export async function syncEtfDetails(
                     data: dailyHistory.map((h: any) => ({
                         etfId: etf.ticker,
                         date: new Date(h.date),
-                        close: h.close,
+                        close: toPrismaDecimalRequired(h.close),
                         interval: '1d'
                     })),
                     skipDuplicates: true
@@ -293,8 +303,8 @@ export async function syncEtfDetails(
                           name: h.name,
                           sector: sectorMap.get(h.symbol) || 'Unknown',
                           // Normalize StockAnalysis decimal weights (0.05) to percentage (5.0) to match Yahoo
-                          weight: new Decimal(h.weight).mul(100),
-                          shares: h.shares ? new Decimal(h.shares) : null
+                          weight: toPrismaDecimalRequired(new Decimal(h.weight).mul(100)),
+                          shares: toPrismaDecimal(h.shares ? new Decimal(h.shares) : null)
                       }))
                   });
               }, {
@@ -322,7 +332,7 @@ export async function syncEtfDetails(
                     ticker: h.ticker,
                     name: h.name,
                     sector: h.sector || 'Unknown',
-                    weight: h.weight,
+                    weight: toPrismaDecimalRequired(h.weight),
                     shares: null // Yahoo doesn't provide share counts
                 }))
             });
