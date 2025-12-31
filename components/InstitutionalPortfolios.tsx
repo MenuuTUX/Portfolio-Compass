@@ -2,69 +2,27 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Plus, Shield, TrendingUp, Scale, X, ArrowRight } from 'lucide-react';
+import { Check, Plus, Shield, TrendingUp, Scale, X, Wallet } from 'lucide-react';
 import Image from 'next/image';
 import { BatchAddItem } from '@/hooks/useBatchAddPortfolio';
+import { INSTITUTIONAL_DATA, Institution } from '@/lib/institutional-portfolios';
+import { cn } from '@/lib/utils';
 
 interface InstitutionalPortfoliosProps {
     onBatchAdd: (items: BatchAddItem[]) => void;
     isLoading?: boolean;
 }
 
-const WEALTHSIMPLE_PORTFOLIOS = {
-    Growth: {
-        risk: 'Risk 8-10',
-        description: 'Maximize long-term growth with a higher allocation to equities.',
-        icon: TrendingUp,
-        holdings: [
-            { ticker: 'VTI', name: 'Vanguard Total Stock Market', weight: 25 },
-            { ticker: 'USMV', name: 'iShares Edge MSCI Min Vol USA', weight: 27 },
-            { ticker: 'EFA', name: 'iShares MSCI EAFE', weight: 14 },
-            { ticker: 'EEMV', name: 'iShares MSCI Emerging Mkts Min Vol', weight: 14 },
-            { ticker: 'XIC.TO', name: 'iShares Core S&P/TSX Capped', weight: 10 },
-            { ticker: 'ZFL.TO', name: 'BMO Long Federal Bond Index', weight: 7.5 },
-            { ticker: 'GLDM', name: 'SPDR Gold MiniShares', weight: 2.5 },
-        ]
-    },
-    Balanced: {
-        risk: 'Risk 4-6',
-        description: 'A mix of safety and growth for moderate risk tolerance.',
-        icon: Scale,
-        holdings: [
-            { ticker: 'VTI', name: 'Vanguard Total Stock Market', weight: 15 },
-            { ticker: 'USMV', name: 'iShares Edge MSCI Min Vol USA', weight: 15 },
-            { ticker: 'EFA', name: 'iShares MSCI EAFE', weight: 10 },
-            { ticker: 'EEMV', name: 'iShares MSCI Emerging Mkts Min Vol', weight: 10 },
-            { ticker: 'XIC.TO', name: 'iShares Core S&P/TSX Capped', weight: 10 },
-            { ticker: 'ZFL.TO', name: 'BMO Long Federal Bond Index', weight: 37.5 },
-            { ticker: 'GLDM', name: 'SPDR Gold MiniShares', weight: 2.5 },
-        ]
-    },
-    Conservative: {
-        risk: 'Risk 1-3',
-        description: 'Preserve capital with a focus on bonds and low volatility.',
-        icon: Shield,
-        holdings: [
-            { ticker: 'VTI', name: 'Vanguard Total Stock Market', weight: 10 },
-            { ticker: 'USMV', name: 'iShares Edge MSCI Min Vol USA', weight: 8 },
-            { ticker: 'EFA', name: 'iShares MSCI EAFE', weight: 6 },
-            { ticker: 'EEMV', name: 'iShares MSCI Emerging Mkts Min Vol', weight: 4 },
-            { ticker: 'XIC.TO', name: 'iShares Core S&P/TSX Capped', weight: 7 },
-            { ticker: 'ZFL.TO', name: 'BMO Long Federal Bond Index', weight: 62.5 },
-            { ticker: 'GLDM', name: 'SPDR Gold MiniShares', weight: 2.5 },
-        ]
-    }
-};
-
-type PortfolioType = keyof typeof WEALTHSIMPLE_PORTFOLIOS;
-
 export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false }: InstitutionalPortfoliosProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [selectedType, setSelectedType] = useState<PortfolioType>('Growth');
+    const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(null);
+    const [selectedType, setSelectedType] = useState<'Growth' | 'Balanced' | 'Conservative'>('Growth');
     const [added, setAdded] = useState(false);
+    const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
     const handleAdd = () => {
-        const portfolio = WEALTHSIMPLE_PORTFOLIOS[selectedType];
+        if (!selectedInstitution) return;
+
+        const portfolio = selectedInstitution.portfolios[selectedType];
         const items: BatchAddItem[] = portfolio.holdings.map(h => ({
             ticker: h.ticker,
             weight: h.weight,
@@ -75,63 +33,89 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
         setAdded(true);
         setTimeout(() => {
             setAdded(false);
-            setIsOpen(false);
+            // Optionally close the modal
+            // setSelectedInstitution(null);
         }, 2000);
     };
 
-    const activePortfolio = WEALTHSIMPLE_PORTFOLIOS[selectedType];
+    const handleImageError = (id: string) => {
+        setFailedImages(prev => new Set(prev).add(id));
+    };
+
+    const activePortfolio = selectedInstitution?.portfolios[selectedType];
+
+    // Helper to get the correct icon component
+    const getIcon = (iconName: string) => {
+        switch (iconName) {
+            case 'TrendingUp': return TrendingUp;
+            case 'Scale': return Scale;
+            case 'Shield': return Shield;
+            default: return Wallet;
+        }
+    };
+
+    const ActiveIcon = activePortfolio ? getIcon(activePortfolio.iconName) : Wallet;
 
     return (
-        <>
-            {/* Trigger Card */}
-            <div className="h-full flex flex-col gap-4">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-white/90 font-bold text-lg">Institutional Portfolios</h3>
-                </div>
+        <div className="h-full flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+                <h3 className="text-white/90 font-bold text-lg">Institutional Portfolios</h3>
+            </div>
 
-                <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setIsOpen(true)}
-                    className="flex-1 bg-stone-900/50 border border-white/10 rounded-3xl p-6 cursor-pointer hover:bg-stone-900/80 transition-colors group relative overflow-hidden min-h-[200px] flex flex-col justify-between"
-                >
-                    {/* Background decoration */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/5 rounded-bl-[100px] pointer-events-none group-hover:bg-yellow-400/10 transition-colors" />
+            {/* Gallery Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+                {INSTITUTIONAL_DATA.map((inst) => {
+                    const isImageFailed = failedImages.has(inst.id) || !inst.logo;
 
-                    <div className="relative z-10">
-                        <div className="text-xs uppercase tracking-widest font-bold text-stone-500 mb-2">
-                            Featured Provider
-                        </div>
-                        <div className="w-48 h-12 relative mb-4">
-                            <Image
-                                src="/logos/wealthsimple.png"
-                                alt="Wealthsimple"
-                                fill
-                                className="object-contain object-left"
-                                sizes="200px"
-                            />
-                        </div>
-                        <p className="text-stone-400 text-sm leading-relaxed max-w-[240px]">
-                            Explore and copy the exact portfolios used by Canada's leading robo-advisor.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-yellow-400/80 text-sm font-bold group-hover:gap-3 transition-all relative z-10 mt-4">
-                        Explore Portfolios <ArrowRight className="w-4 h-4" />
-                    </div>
-                </motion.div>
+                    return (
+                        <motion.div
+                            key={inst.id}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setSelectedInstitution(inst)}
+                            className="bg-stone-900/50 border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-stone-900/80 transition-colors group relative overflow-hidden flex flex-col items-center justify-center min-h-[120px]"
+                        >
+                            <div className={cn(
+                                "relative w-full h-10 mb-2 rounded-md p-1 flex items-center justify-center",
+                                isImageFailed ? "bg-transparent" : "bg-white/90"
+                            )}>
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                    {isImageFailed ? (
+                                        <div className={cn("text-lg font-bold text-center leading-tight", inst.themeColor)}>
+                                            {inst.name.replace(' Asset Management', '')}
+                                        </div>
+                                    ) : (
+                                        <Image
+                                            src={inst.logo}
+                                            alt={inst.name}
+                                            fill
+                                            className="object-contain object-center"
+                                            sizes="100px"
+                                            onError={() => handleImageError(inst.id)}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-[10px] text-stone-500 font-bold uppercase tracking-wider text-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                View Portfolios
+                            </div>
+                            {/* Hover Gradient */}
+                            <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`} />
+                        </motion.div>
+                    );
+                })}
             </div>
 
             {/* Modal / Popup */}
             <AnimatePresence>
-                {isOpen && (
+                {selectedInstitution && (
                     <>
                         {/* Backdrop */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            onClick={() => setIsOpen(false)}
+                            onClick={() => setSelectedInstitution(null)}
                             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
                         />
 
@@ -145,35 +129,48 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                             <div className="bg-white text-stone-900 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto">
 
                                 {/* Modal Header */}
-                                <div className="p-6 pb-2 flex items-start justify-between">
-                                    <div>
-                                        <div className="text-[10px] uppercase tracking-widest font-bold text-stone-500 mb-1">
-                                            Wealthsimple Portfolios
+                                <div className="p-6 pb-2 flex items-start justify-between bg-white z-10">
+                                    <div className="flex-1 pr-4">
+                                        <div className="h-8 w-32 relative mb-2 flex items-center">
+                                            {(failedImages.has(selectedInstitution.id) || !selectedInstitution.logo) ? (
+                                                 <h2 className={cn("text-2xl font-bold tracking-tight", selectedInstitution.themeColor.replace('text-', 'text-'))}>
+                                                    {selectedInstitution.name}
+                                                 </h2>
+                                            ) : (
+                                                <Image
+                                                    src={selectedInstitution.logo}
+                                                    alt={selectedInstitution.name}
+                                                    fill
+                                                    className="object-contain object-left"
+                                                    onError={() => handleImageError(selectedInstitution.id)}
+                                                />
+                                            )}
                                         </div>
-                                        <h3 className="text-2xl font-bold font-space tracking-tight">
-                                            Invest like the Big Guys
-                                        </h3>
+                                        <p className="text-sm text-stone-500 leading-snug">
+                                            {selectedInstitution.description}
+                                        </p>
                                     </div>
                                     <button
-                                        onClick={() => setIsOpen(false)}
-                                        className="p-2 hover:bg-stone-100 rounded-full transition-colors"
+                                        onClick={() => setSelectedInstitution(null)}
+                                        className="p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0"
                                     >
                                         <X className="w-5 h-5 text-stone-500" />
                                     </button>
                                 </div>
 
                                 {/* Tabs */}
-                                <div className="px-6 py-2">
+                                <div className="px-6 py-2 bg-white z-10">
                                     <div className="flex p-1 bg-stone-100 rounded-lg">
-                                        {(Object.keys(WEALTHSIMPLE_PORTFOLIOS) as PortfolioType[]).map((type) => (
+                                        {(['Growth', 'Balanced', 'Conservative'] as const).map((type) => (
                                             <button
                                                 key={type}
                                                 onClick={() => setSelectedType(type)}
-                                                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                                                className={cn(
+                                                    "flex-1 py-2 text-sm font-medium rounded-md transition-all",
                                                     selectedType === type
-                                                        ? 'bg-white text-stone-900 shadow-sm'
-                                                        : 'text-stone-500 hover:text-stone-700'
-                                                }`}
+                                                        ? "bg-white text-stone-900 shadow-sm"
+                                                        : "text-stone-500 hover:text-stone-700"
+                                                )}
                                             >
                                                 {type}
                                             </button>
@@ -182,64 +179,72 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                 </div>
 
                                 {/* Content Area */}
-                                <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar">
+                                <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar bg-white">
                                     <AnimatePresence mode="wait">
-                                        <motion.div
-                                            key={selectedType}
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
-                                            transition={{ duration: 0.2 }}
-                                        >
-                                            {/* Description */}
-                                            <div className="flex items-start gap-3 mb-6 p-4 bg-yellow-50 rounded-xl border border-yellow-100">
-                                                <div className="p-2 bg-yellow-400/20 rounded-full text-stone-900 shrink-0">
-                                                    <activePortfolio.icon className="w-5 h-5" />
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-bold text-stone-500 uppercase mb-1">{activePortfolio.risk}</div>
-                                                    <div className="text-sm font-medium leading-relaxed text-stone-800">
-                                                        {activePortfolio.description}
+                                        {activePortfolio && (
+                                            <motion.div
+                                                key={selectedInstitution.id + selectedType}
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -20 }}
+                                                transition={{ duration: 0.2 }}
+                                            >
+                                                {/* Description */}
+                                                <div className={cn(
+                                                    "flex items-start gap-3 mb-6 p-4 rounded-xl border",
+                                                    "bg-stone-50 border-stone-100"
+                                                )}>
+                                                    <div className={cn("p-2 rounded-full shrink-0 bg-white shadow-sm", selectedInstitution.themeColor)}>
+                                                        <ActiveIcon className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs font-bold text-stone-500 uppercase mb-1">
+                                                            {activePortfolio.risk} • {activePortfolio.name}
+                                                        </div>
+                                                        <div className="text-sm font-medium leading-relaxed text-stone-800">
+                                                            {activePortfolio.description}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Holdings List */}
-                                            <table className="w-full text-sm text-left">
-                                                <thead className="text-xs text-stone-400 uppercase sticky top-0 bg-white">
-                                                    <tr>
-                                                        <th className="pb-2 font-medium pl-2">Asset</th>
-                                                        <th className="pb-2 font-medium text-right pr-2">Weight</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-stone-100">
-                                                    {activePortfolio.holdings.map((h) => (
-                                                        <tr key={h.ticker} className="group/row hover:bg-stone-50 transition-colors">
-                                                            <td className="py-3 pl-2">
-                                                                <div className="font-bold text-stone-900">{h.ticker}</div>
-                                                                <div className="text-xs text-stone-500 truncate max-w-[200px]">{h.name}</div>
-                                                            </td>
-                                                            <td className="py-3 text-right font-mono text-stone-600 font-medium pr-2">
-                                                                {h.weight}%
-                                                            </td>
+                                                {/* Holdings List */}
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="text-xs text-stone-400 uppercase sticky top-0 bg-white">
+                                                        <tr>
+                                                            <th className="pb-2 font-medium pl-2">Asset</th>
+                                                            <th className="pb-2 font-medium text-right pr-2">Weight</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </motion.div>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-stone-100">
+                                                        {activePortfolio.holdings.map((h) => (
+                                                            <tr key={h.ticker} className="group/row hover:bg-stone-50 transition-colors">
+                                                                <td className="py-3 pl-2">
+                                                                    <div className="font-bold text-stone-900">{h.ticker}</div>
+                                                                    <div className="text-xs text-stone-500 truncate max-w-[200px]">{h.name}</div>
+                                                                </td>
+                                                                <td className="py-3 text-right font-mono text-stone-600 font-medium pr-2">
+                                                                    {h.weight}%
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </motion.div>
+                                        )}
                                     </AnimatePresence>
                                 </div>
 
                                 {/* Footer Action */}
-                                <div className="p-6 border-t border-stone-100 bg-white">
+                                <div className="p-6 border-t border-stone-100 bg-white z-10">
                                     <button
                                         onClick={handleAdd}
                                         disabled={isLoading || added}
-                                        className={`w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
+                                        className={cn(
+                                            "w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
                                             added
-                                                ? 'bg-emerald-500 text-white'
-                                                : 'bg-stone-900 text-white hover:bg-stone-800 active:scale-95'
-                                        }`}
+                                                ? "bg-emerald-500 text-white"
+                                                : "bg-stone-900 text-white hover:bg-stone-800 active:scale-95"
+                                        )}
                                         aria-label="Copy This Portfolio"
                                     >
                                         {added ? (
@@ -259,13 +264,16 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                     </button>
                                 </div>
 
-                                {/* Decorative Gold Accent */}
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/10 rounded-bl-[100px] pointer-events-none" />
+                                {/* Decorative Accent */}
+                                <div className={cn(
+                                    "absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] pointer-events-none bg-gradient-to-bl opacity-50",
+                                    selectedInstitution.themeGradient
+                                )} />
                             </div>
                         </motion.div>
                     </>
                 )}
             </AnimatePresence>
-        </>
+        </div>
     );
 }
