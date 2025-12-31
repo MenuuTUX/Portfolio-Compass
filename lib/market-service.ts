@@ -99,8 +99,11 @@ async function retryWithBackoff<T>(
       return await fn();
     } catch (error: any) {
       attempt++;
-      // Check for 429 specifically or generic network errors
-      const isRateLimit = error.message?.includes('429') || error.status === 429 || error.message?.includes('Too Many Requests');
+      // Check for 429 specifically or generic network errors, and also "Failed to get crumb" which is a YF specific 429-like error
+      const isRateLimit = error.message?.includes('429') ||
+                          error.status === 429 ||
+                          error.message?.includes('Too Many Requests') ||
+                          error.message?.includes('Failed to get crumb');
 
       if (attempt >= retries) {
         if (fallbackValue !== undefined) {
@@ -110,9 +113,14 @@ async function retryWithBackoff<T>(
         throw error;
       }
 
-      const delay = baseDelay * Math.pow(2, attempt - 1) + (Math.random() * 500); // Exponential backoff + jitter
+      // If it's a crumb error, we might need a slightly longer backoff or it just might be flaky
+      // We'll treat it as a rate limit to be safe.
+      let delay = baseDelay * Math.pow(2, attempt - 1) + (Math.random() * 500); // Exponential backoff + jitter
+
       if (isRateLimit) {
-         console.warn(`Rate limit hit (429). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${retries})`);
+         // Aggressive backoff for rate limits
+         delay = delay * 2;
+         console.warn(`Rate limit or Crumb error hit (${error.message}). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${retries})`);
       }
 
       await sleep(delay);
