@@ -10,6 +10,8 @@ import ETFDetailsDrawer from './ETFDetailsDrawer';
 import TrendingSection from './TrendingSection';
 import FearGreedGauge from './FearGreedGauge';
 import ImportPortfolioButton from './ImportPortfolioButton';
+import InstitutionalPortfolios from './InstitutionalPortfolios';
+import { useBatchAddPortfolio } from '@/hooks/useBatchAddPortfolio';
 
 interface TrendingTabProps {
     onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -25,6 +27,8 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     const [mag7Items, setMag7Items] = useState<ETF[]>([]);
     const [justBuyItems, setJustBuyItems] = useState<ETF[]>([]);
     const [naturalResourcesItems, setNaturalResourcesItems] = useState<ETF[]>([]);
+
+    const { mutate: batchAdd, isPending: isBatchAdding } = useBatchAddPortfolio();
 
     // Separate loading states
     const [loadingStocks, setLoadingStocks] = useState(true);
@@ -135,13 +139,20 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     return (
         <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
 
-            <div className="mb-8 flex items-start justify-between relative">
-                <div className="flex-1">
+            {/* Top Section: Fear/Greed + Institutional Portfolios */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12 relative">
+                {/* Fear & Greed Gauge */}
+                <div className="w-full">
                     <FearGreedGauge />
                 </div>
 
-                {/* Upload Button aligned top-right as per mockup */}
-                <div className="absolute top-4 right-4 z-10">
+                {/* Institutional Portfolios */}
+                <div className="w-full">
+                    <InstitutionalPortfolios onBatchAdd={batchAdd} isLoading={isBatchAdding} />
+                </div>
+
+                {/* Upload Button aligned top-right (absolute) */}
+                <div className="absolute top-4 right-4 z-10 lg:right-0 lg:-top-16">
                     {onImportPortfolio && (
                         <ImportPortfolioButton onImport={onImportPortfolio} />
                     )}
