@@ -77,8 +77,8 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                         >
                             {/* App Icon Shape */}
                             <div className={cn(
-                                "w-full h-full rounded-2xl bg-white shadow-lg overflow-hidden relative flex items-center justify-center border border-white/10 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-emerald-500/10",
-                                isImageFailed ? "bg-stone-800" : "bg-white"
+                                "w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center border border-white/10 transition-all duration-300 group-hover:border-white/20",
+                                "bg-white/5 backdrop-blur-sm"
                             )}>
                                 <div className="relative w-3/4 h-3/4 flex items-center justify-center">
                                     {isImageFailed ? (
@@ -90,7 +90,7 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                             src={inst.logo}
                                             alt={inst.name}
                                             fill
-                                            className="object-contain object-center p-1"
+                                            className="object-contain object-center p-2"
                                             sizes="100px"
                                             onError={() => handleImageError(inst.id)}
                                         />
@@ -98,7 +98,7 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                 </div>
 
                                 {/* Hover Overlay */}
-                                <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none`} />
+                                <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-40 transition-opacity duration-300 pointer-events-none mix-blend-overlay`} />
                             </div>
 
                             {/* Label */}
