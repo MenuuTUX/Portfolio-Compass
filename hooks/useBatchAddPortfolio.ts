@@ -10,11 +10,20 @@ export interface BatchAddItem {
   shares?: number;
 }
 
+interface BatchAddPayload {
+    items: BatchAddItem[];
+    replace?: boolean;
+}
+
 export const useBatchAddPortfolio = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (items: BatchAddItem[]) => {
+    mutationFn: async (payload: BatchAddPayload | BatchAddItem[]) => {
+      // Normalization to handle both signatures if necessary, but we are enforcing payload object for advanced features
+      const items = Array.isArray(payload) ? payload : payload.items;
+      const replace = Array.isArray(payload) ? false : payload.replace;
+
       if (items.length === 0) return { stocks: [], updatedPortfolio: [] };
 
       const tickers = items.map(i => i.ticker).join(',');
@@ -34,7 +43,8 @@ export const useBatchAddPortfolio = () => {
       }
 
       // 2. Update Local Storage
-      const currentItems = loadPortfolio();
+      // If replace is true, start with empty portfolio, else load current
+      const currentItems = replace ? [] : loadPortfolio();
 
       // Clone current items to avoid mutation
       const updatedPortfolio = currentItems.map(item => ({...item}));
