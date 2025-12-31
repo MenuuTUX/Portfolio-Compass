@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { isMarketOpen } from '@/lib/market-hours';
+import { cn } from '@/lib/utils';
 
 interface FearGreedData {
   score: number;
@@ -9,12 +11,19 @@ interface FearGreedData {
   updatedAt: string;
 }
 
-export default function FearGreedGauge() {
+interface FearGreedGaugeProps {
+  className?: string;
+}
+
+export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   const [data, setData] = useState<FearGreedData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [marketOpen, setMarketOpen] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    setMarketOpen(isMarketOpen());
+
     async function fetchData() {
       try {
         const res = await fetch('/api/market/fear-greed');
@@ -33,7 +42,7 @@ export default function FearGreedGauge() {
 
   if (loading) {
     return (
-      <div className="w-full h-48 bg-white/5 rounded-2xl animate-pulse flex items-center justify-center">
+      <div className={cn("w-full min-h-[300px] bg-white/5 rounded-2xl animate-pulse flex items-center justify-center", className)}>
         <span className="text-white/20">Loading Market Sentiment...</span>
       </div>
     );
@@ -41,7 +50,7 @@ export default function FearGreedGauge() {
 
   if (error || !data) {
     return (
-      <div className="w-full h-48 bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2">
+      <div className={cn("w-full min-h-[300px] bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2", className)}>
         <span className="text-white/40">Sentiment Data Unavailable</span>
         <button
           onClick={() => window.location.reload()}
@@ -110,20 +119,32 @@ export default function FearGreedGauge() {
   };
 
   return (
-    <div className="w-full bg-stone-950 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden group">
+    <div className={cn("w-full bg-stone-950 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group", className)}>
+
+      {/* Background Texture */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+           style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
 
       {/* Bottom Gradient Glow */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-1/2 opacity-20 pointer-events-none transition-colors duration-500"
+        className="absolute bottom-0 left-0 right-0 h-2/3 opacity-20 pointer-events-none transition-colors duration-500"
         style={{ background: `linear-gradient(to top, ${activeColor}, transparent)` }}
       />
 
-      <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center">
+      {/* Market Status Indicator */}
+      <div className="absolute top-6 left-6 flex items-center gap-2 z-20">
+          <div className={cn("w-2 h-2 rounded-full shadow-lg", marketOpen ? "bg-emerald-500 animate-pulse" : "bg-stone-600")} />
+          <span className="text-xs font-medium text-white/40 tracking-wider uppercase">
+              Market {marketOpen ? 'Open' : 'Closed'}
+          </span>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center mt-2">
         <h3 className="text-white/90 font-bold text-lg">Fear & Greed</h3>
       </div>
 
       {/* Gauge Container */}
-      <div className="relative w-64 h-32 z-10 flex justify-center mb-2">
+      <div className="relative w-80 h-40 z-10 flex justify-center mb-6 scale-110 origin-bottom">
         <svg viewBox="0 0 200 110" className="w-full h-full overflow-visible">
             {/* Segments */}
             {colors.map((color, i) => (
@@ -134,7 +155,7 @@ export default function FearGreedGauge() {
                     stroke={color}
                     strokeWidth={strokeWidth}
                     strokeLinecap="round"
-                    className="opacity-90"
+                    className="opacity-90 transition-opacity hover:opacity-100"
                 />
             ))}
 
@@ -143,24 +164,24 @@ export default function FearGreedGauge() {
                 cx={0}
                 cy={0}
                 r="8"
-                fill="none" // Just the outline
+                fill="stone-950"
                 stroke="white"
                 strokeWidth="3"
                 initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
                 animate={{ x: indicatorX, y: indicatorY, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 40, damping: 20, delay: 0.2 }}
-                className="drop-shadow-lg"
+                className="drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
             />
         </svg>
 
         {/* Score & Rating Text */}
-        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-4 pointer-events-none">
-            <div className="text-4xl font-bold font-space text-white tracking-tight leading-none drop-shadow-md">
+        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-2 pointer-events-none">
+            <div className="text-5xl font-bold font-space text-white tracking-tight leading-none drop-shadow-xl">
                 {score}
             </div>
             {/* Rating text follows active color */}
             <div
-                className="text-sm font-medium capitalize mt-1 transition-colors duration-300"
+                className="text-base font-medium capitalize mt-2 transition-colors duration-300"
                 style={{ color: activeColor }}
             >
                 {data.rating}
@@ -168,7 +189,7 @@ export default function FearGreedGauge() {
         </div>
       </div>
 
-       <div className="text-[10px] text-white/20 mt-[-5px] z-10">
+       <div className="text-xs font-mono text-white/30 z-10">
           Updated: {new Date(data.updatedAt).toLocaleDateString()}
        </div>
 

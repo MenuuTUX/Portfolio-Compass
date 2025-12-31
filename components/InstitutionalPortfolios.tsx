@@ -63,25 +63,25 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
             </div>
 
             {/* Gallery Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 h-full">
                 {INSTITUTIONAL_DATA.map((inst) => {
                     const isImageFailed = failedImages.has(inst.id) || !inst.logo;
 
                     return (
                         <motion.div
                             key={inst.id}
-                            whileHover={{ scale: 1.02 }}
+                            whileHover={{ scale: 1.02, borderColor: 'rgba(255,255,255,0.2)' }}
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setSelectedInstitution(inst)}
-                            className="bg-stone-900/50 border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-stone-900/80 transition-colors group relative overflow-hidden flex flex-col items-center justify-center min-h-[120px]"
+                            className="relative bg-stone-900/40 border border-white/5 rounded-lg cursor-pointer hover:bg-stone-900/60 transition-all group overflow-hidden flex items-center justify-center h-20 backdrop-blur-sm"
                         >
                             <div className={cn(
-                                "relative w-full h-10 mb-2 rounded-md p-1 flex items-center justify-center",
-                                isImageFailed ? "bg-transparent" : "bg-white/90"
+                                "relative w-24 h-8 rounded px-2 flex items-center justify-center transition-transform group-hover:scale-110 duration-300",
+                                isImageFailed ? "bg-transparent" : "bg-white/90 shadow-lg"
                             )}>
                                 <div className="relative w-full h-full flex items-center justify-center">
                                     {isImageFailed ? (
-                                        <div className={cn("text-lg font-bold text-center leading-tight", inst.themeColor)}>
+                                        <div className={cn("text-xs font-bold text-center leading-tight", inst.themeColor)}>
                                             {inst.name.replace(' Asset Management', '')}
                                         </div>
                                     ) : (
@@ -96,11 +96,9 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                     )}
                                 </div>
                             </div>
-                            <div className="text-[10px] text-stone-500 font-bold uppercase tracking-wider text-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                View Portfolios
-                            </div>
+
                             {/* Hover Gradient */}
-                            <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`} />
+                            <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none`} />
                         </motion.div>
                     );
                 })}
