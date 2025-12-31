@@ -1,5 +1,5 @@
 import prisma from '@/lib/db'
-import { fetchEtfDetails } from '@/lib/market-service'
+import { fetchEtfDetails, EtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
@@ -17,31 +17,38 @@ export async function syncEtfDetails(
   ticker: string,
   intervals?: ('1h' | '1d' | '1wk' | '1mo')[]
 ): Promise<FullEtf | null> {
+  let details: EtfDetails | null = null; // Correctly typed
+
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
 
     // 0. Check Existing Data to determine fromDate
-    const latestHistory = await prisma.etfHistory.findFirst({
-      where: {
-        etfId: ticker,
-        interval: '1d'
-      },
-      orderBy: {
-        date: 'desc'
-      }
-    });
-
     let fromDate: Date | undefined;
-    if (latestHistory) {
-      fromDate = new Date(latestHistory.date);
-      fromDate.setDate(fromDate.getDate() + 1); // Start from next day
-      console.log(`[EtfSync] Found existing history for ${ticker}, fetching from ${fromDate.toISOString()}`);
-    } else {
-        console.log(`[EtfSync] No existing history for ${ticker}, fetching full history`);
+    try {
+        const latestHistory = await prisma.etfHistory.findFirst({
+        where: {
+            etfId: ticker,
+            interval: '1d'
+        },
+        orderBy: {
+            date: 'desc'
+        }
+        });
+
+        if (latestHistory) {
+            fromDate = new Date(latestHistory.date);
+            fromDate.setDate(fromDate.getDate() + 1); // Start from next day
+            console.log(`[EtfSync] Found existing history for ${ticker}, fetching from ${fromDate.toISOString()}`);
+        } else {
+            console.log(`[EtfSync] No existing history for ${ticker}, fetching full history`);
+        }
+    } catch (dbError) {
+        console.warn(`[EtfSync] Database unreachable for history check, proceeding with full fetch. Error: ${dbError}`);
+        fromDate = undefined;
     }
 
     // 1. Fetch deep details from Yahoo
-    const details = await fetchEtfDetails(ticker, fromDate, intervals);
+    details = await fetchEtfDetails(ticker, fromDate, intervals);
 
     if (!details) {
       console.error(`[EtfSync] No details found for ${ticker}`);
@@ -61,100 +68,117 @@ export async function syncEtfDetails(
     }
 
     // 3. Upsert ETF Record (Lightweight)
-    const etf = await prisma.etf.upsert({
-      where: { ticker: details.ticker },
-      update: {
-        price: details.price, // Decimal
-        daily_change: details.dailyChange, // Decimal
-        yield: details.dividendYield || null, // Decimal | null
-        mer: details.expenseRatio || null, // Decimal | null
-        beta5Y: details.beta5Y || null,
-        peRatio: details.peRatio || null,
-        forwardPe: details.forwardPe || null,
-        fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
-        fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+    let etf;
+    try {
+         etf = await prisma.etf.upsert({
+            where: { ticker: details.ticker },
+            update: {
+                price: details.price, // Decimal
+                daily_change: details.dailyChange, // Decimal
+                yield: details.dividendYield || null, // Decimal | null
+                mer: details.expenseRatio || null, // Decimal | null
+                beta5Y: details.beta5Y || null,
+                peRatio: details.peRatio || null,
+                forwardPe: details.forwardPe || null,
+                fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
+                fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
 
-        // Extended Metrics
-        marketCap: details.marketCap || null,
-        sharesOut: details.sharesOutstanding || null,
-        eps: details.eps || null,
-        revenue: details.revenue || null,
-        netIncome: details.netIncome || null,
-        dividend: details.dividend || null,
-        dividendGrowth5Y: details.dividendGrowth5Y || null,
-        exDividendDate: details.exDividendDate || null,
-        volume: details.volume || null,
-        open: details.open || null,
-        prevClose: details.previousClose || null,
-        earningsDate: details.earningsDate || null,
-        daysRange: details.daysRange || null,
-        fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
+                // Extended Metrics
+                marketCap: details.marketCap || null,
+                sharesOut: details.sharesOutstanding || null,
+                eps: details.eps || null,
+                revenue: details.revenue || null,
+                netIncome: details.netIncome || null,
+                dividend: details.dividend || null,
+                dividendGrowth5Y: details.dividendGrowth5Y || null,
+                exDividendDate: details.exDividendDate || null,
+                volume: details.volume || null,
+                open: details.open || null,
+                prevClose: details.previousClose || null,
+                earningsDate: details.earningsDate || null,
+                daysRange: details.daysRange || null,
+                fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
 
-        // New ETF Metrics
-        inceptionDate: details.inceptionDate || null,
-        payoutFrequency: details.payoutFrequency || null,
-        payoutRatio: details.payoutRatio || null,
-        holdingsCount: details.holdingsCount || null,
+                // New ETF Metrics
+                inceptionDate: details.inceptionDate || null,
+                payoutFrequency: details.payoutFrequency || null,
+                payoutRatio: details.payoutRatio || null,
+                holdingsCount: details.holdingsCount || null,
 
-        name: details.name,
-        currency: 'USD',
-        exchange: 'Unknown',
-        assetType: details.assetType,
-        isDeepAnalysisLoaded: true,
-      },
-      create: {
-        ticker: details.ticker,
-        name: details.name,
-        currency: 'USD',
-        exchange: 'Unknown',
-        price: details.price, // Decimal
-        daily_change: details.dailyChange, // Decimal
-        yield: details.dividendYield || null,
-        mer: details.expenseRatio || null,
-        beta5Y: details.beta5Y || null,
-        peRatio: details.peRatio || null,
-        forwardPe: details.forwardPe || null,
-        fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
-        fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+                // Social
+                redditUrl: details.redditUrl || null,
 
-        // Extended Metrics
-        marketCap: details.marketCap || null,
-        sharesOut: details.sharesOutstanding || null,
-        eps: details.eps || null,
-        revenue: details.revenue || null,
-        netIncome: details.netIncome || null,
-        dividend: details.dividend || null,
-        exDividendDate: details.exDividendDate || null,
-        volume: details.volume || null,
-        open: details.open || null,
-        prevClose: details.previousClose || null,
-        earningsDate: details.earningsDate || null,
-        daysRange: details.daysRange || null,
-        fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
+                name: details.name,
+                currency: 'USD',
+                exchange: 'Unknown',
+                assetType: details.assetType,
+                isDeepAnalysisLoaded: true,
+            },
+            create: {
+                ticker: details.ticker,
+                name: details.name,
+                currency: 'USD',
+                exchange: 'Unknown',
+                price: details.price, // Decimal
+                daily_change: details.dailyChange, // Decimal
+                yield: details.dividendYield || null,
+                mer: details.expenseRatio || null,
+                beta5Y: details.beta5Y || null,
+                peRatio: details.peRatio || null,
+                forwardPe: details.forwardPe || null,
+                fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
+                fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
 
-        // New ETF Metrics
-        inceptionDate: details.inceptionDate || null,
-        payoutFrequency: details.payoutFrequency || null,
-        payoutRatio: details.payoutRatio || null,
-        holdingsCount: details.holdingsCount || null,
+                // Extended Metrics
+                marketCap: details.marketCap || null,
+                sharesOut: details.sharesOutstanding || null,
+                eps: details.eps || null,
+                revenue: details.revenue || null,
+                netIncome: details.netIncome || null,
+                dividend: details.dividend || null,
+                exDividendDate: details.exDividendDate || null,
+                volume: details.volume || null,
+                open: details.open || null,
+                prevClose: details.previousClose || null,
+                earningsDate: details.earningsDate || null,
+                daysRange: details.daysRange || null,
+                fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
 
-        assetType: details.assetType,
-        isDeepAnalysisLoaded: true,
-      }
-    });
+                // New ETF Metrics
+                inceptionDate: details.inceptionDate || null,
+                payoutFrequency: details.payoutFrequency || null,
+                payoutRatio: details.payoutRatio || null,
+                holdingsCount: details.holdingsCount || null,
+
+                // Social
+                redditUrl: details.redditUrl || null,
+
+                assetType: details.assetType,
+                isDeepAnalysisLoaded: true,
+            }
+        });
+    } catch (upsertError: any) {
+        // Fallback Logic if DB is totally dead
+         if (upsertError.toString().includes('DriverAdapterError') || upsertError.toString().includes('Can\'t reach database server')) {
+             console.warn(`[EtfSync] DB Unreachable for upsert. Returning live fallback object for ${ticker}.`);
+             throw upsertError; // Re-throw to be caught by outer catch block which constructs fallback
+         }
+         throw upsertError;
+    }
+
 
     console.log(`[EtfSync] Upserted base record for ${etf.ticker}`);
 
     // 4 & 5. Update Sectors & Allocation (Separate Transaction - Fast)
     await prisma.$transaction(async (tx) => {
         // Sectors
-        if (Object.keys(details.sectors).length > 0) {
+        if (Object.keys(details!.sectors).length > 0) {
             await tx.etfSector.deleteMany({ where: { etfId: etf.ticker } });
             await tx.etfSector.createMany({
-                data: Object.entries(details.sectors).map(([sector, weight]) => ({
+                data: Object.entries(details!.sectors).map(([sector, weight]) => ({
                     etfId: etf.ticker,
                     sector_name: sector,
-                    weight: weight // Decimal
+                    weight: weight // Decimal - properly inferred now
                 }))
             });
         }
@@ -174,8 +198,8 @@ export async function syncEtfDetails(
     if (details.history && details.history.length > 0) {
         await prisma.$transaction(async (tx) => {
             // Identify which intervals we have in the new data
-            const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
-            const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
+            const fetchedIntervals = new Set(details!.history.map((h: any) => h.interval));
+            const dailyHistory = details!.history.filter((h: any) => h.interval === '1d');
 
             // Determine which non-daily intervals were fetched and need replacement
             // We only replace intervals that were actually returned by the fetch
@@ -190,7 +214,7 @@ export async function syncEtfDetails(
                     }
                 });
 
-                const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
+                const otherHistory = details!.history.filter((h: any) => h.interval !== '1d');
 
                 if (otherHistory.length > 0) {
                     await tx.etfHistory.createMany({
@@ -293,7 +317,7 @@ export async function syncEtfDetails(
         await prisma.$transaction(async (tx) => {
             await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
             await tx.holding.createMany({
-                data: details.topHoldings!.map(h => ({
+                data: details!.topHoldings!.map(h => ({
                     etfId: etf.ticker,
                     ticker: h.ticker,
                     name: h.name,
@@ -324,7 +348,98 @@ export async function syncEtfDetails(
     if (!fullEtf) return null;
     return fullEtf as FullEtf;
 
-  } catch (error) {
+  } catch (error: any) {
+    // FALLBACK IF DATABASE IS DEAD
+    if (details && (error.toString().includes('DriverAdapterError') || error.toString().includes('Can\'t reach database server'))) {
+        console.warn(`[EtfSync] DB Dead. Returning in-memory fallback for ${ticker}.`);
+
+        // Construct FullEtf object from 'details'
+        const history = (details.history || []).map((h: any) => ({
+             id: 'temp',
+             etfId: ticker,
+             date: new Date(h.date),
+             close: new Decimal(h.close),
+             interval: h.interval || '1d',
+             volume: null,
+             open: null,
+             high: null,
+             low: null,
+             adjClose: null,
+        }));
+
+        const sectors = Object.entries(details.sectors || {}).map(([sec, w], i) => ({
+            id: `temp-${i}`,
+            etfId: ticker,
+            sector_name: sec,
+            weight: w // FIXED: Removed 'as number' cast, w is Decimal
+        }));
+
+        const holdings = (details.topHoldings || []).map((h: any, i: number) => ({
+            id: `temp-${i}`,
+            etfId: ticker,
+            ticker: h.ticker,
+            name: h.name,
+            sector: h.sector || 'Unknown',
+            weight: new Decimal(h.weight),
+            shares: null
+        }));
+
+        // Fallback allocation
+        let alloc = {
+            id: 'temp', etfId: ticker, stocks_weight: new Decimal(100), bonds_weight: new Decimal(0), cash_weight: new Decimal(0)
+        };
+        if (details.assetType === 'ETF' && (details.name.toLowerCase().includes('bond') || details.description.toLowerCase().includes('bond'))) {
+             alloc = { id: 'temp', etfId: ticker, stocks_weight: new Decimal(0), bonds_weight: new Decimal(100), cash_weight: new Decimal(0) };
+        }
+
+        return {
+            ticker: details.ticker,
+            name: details.name,
+            price: details.price,
+            daily_change: details.dailyChange,
+            currency: 'USD',
+            exchange: 'Unknown',
+            assetType: details.assetType || 'ETF',
+            yield: details.dividendYield || null,
+            mer: details.expenseRatio || null,
+            isDeepAnalysisLoaded: true,
+            updatedAt: new Date(),
+            description: details.description || null,
+
+            beta5Y: details.beta5Y || null,
+            peRatio: details.peRatio || null,
+            forwardPe: details.forwardPe || null,
+            fiftyTwoWeekHigh: details.fiftyTwoWeekHigh || null,
+            fiftyTwoWeekLow: details.fiftyTwoWeekLow || null,
+            marketCap: details.marketCap || null,
+            sharesOut: details.sharesOutstanding || null,
+            eps: details.eps || null,
+            revenue: details.revenue || null,
+            netIncome: details.netIncome || null,
+            dividend: details.dividend || null,
+            dividendGrowth5Y: details.dividendGrowth5Y || null,
+            exDividendDate: details.exDividendDate || null,
+            volume: details.volume || null,
+            open: details.open || null,
+            prevClose: details.previousClose || null,
+            earningsDate: details.earningsDate || null,
+            daysRange: details.daysRange || null,
+            fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
+            inceptionDate: details.inceptionDate || null,
+            payoutFrequency: details.payoutFrequency || null,
+            payoutRatio: details.payoutRatio || null,
+            holdingsCount: details.holdingsCount || null,
+            redditUrl: details.redditUrl || null, // Include Reddit Link
+
+            history,
+            sectors,
+            holdings,
+            allocation: alloc,
+            bondMaturity: null,
+            bondDuration: null
+        } as unknown as FullEtf;
+    }
+
     console.error(`[EtfSync] Failed to sync ${ticker}:`, error);
     return null;
   }
