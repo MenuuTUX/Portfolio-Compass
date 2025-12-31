@@ -5,6 +5,7 @@ import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 import { Decimal } from 'decimal.js'
 import pLimit from 'p-limit'
+import { toPrismaDecimalRequired, toPrismaDecimal } from '@/lib/prisma-utils'
 
 export const dynamic = 'force-dynamic';
 
@@ -109,16 +110,16 @@ export async function GET(request: NextRequest) {
                         return await prisma.etf.upsert({
                             where: { ticker: item.ticker },
                             update: {
-                                price: item.price.toString(),
-                                daily_change: item.dailyChangePercent.toString(),
+                                price: toPrismaDecimalRequired(item.price),
+                                daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                                 // Don't update name/assetType to prevent overwrites if user edited them
                             },
                             create: {
                                 ticker: item.ticker,
                                 name: item.name,
                                 // Explicitly convert Decimal to string/number for Prisma compatibility
-                                price: item.price.toString(),
-                                daily_change: item.dailyChangePercent.toString(),
+                                price: toPrismaDecimalRequired(item.price),
+                                daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                                 currency: 'USD',
                                 assetType: item.assetType || "ETF",
                                 isDeepAnalysisLoaded: false,
@@ -178,14 +179,14 @@ export async function GET(request: NextRequest) {
                      return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
                         update: {
-                            price: item.price.toString(),
-                            daily_change: item.dailyChangePercent.toString(),
+                            price: toPrismaDecimalRequired(item.price),
+                            daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                         },
                         create: {
                             ticker: item.ticker,
                             name: item.name,
-                            price: item.price.toString(),
-                            daily_change: item.dailyChangePercent.toString(),
+                            price: toPrismaDecimalRequired(item.price),
+                            daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                             currency: 'USD',
                             assetType: item.assetType || "ETF",
                             isDeepAnalysisLoaded: false,
@@ -382,14 +383,14 @@ export async function GET(request: NextRequest) {
                       return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
                         update: {
-                            price: item.price.toString(),
-                            daily_change: item.dailyChangePercent.toString(),
+                            price: toPrismaDecimalRequired(item.price),
+                            daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                         },
                         create: {
                           ticker: item.ticker,
                           name: item.name,
-                          price: item.price.toString(),
-                          daily_change: item.dailyChangePercent.toString(),
+                          price: toPrismaDecimalRequired(item.price),
+                          daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                           currency: 'USD',
                           assetType: item.assetType || "ETF",
                           isDeepAnalysisLoaded: false,
