@@ -63,25 +63,26 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
             </div>
 
             {/* Gallery Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-4 gap-4 h-full">
                 {INSTITUTIONAL_DATA.map((inst) => {
                     const isImageFailed = failedImages.has(inst.id) || !inst.logo;
 
                     return (
                         <motion.div
                             key={inst.id}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedInstitution(inst)}
-                            className="bg-stone-900/50 border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-stone-900/80 transition-colors group relative overflow-hidden flex flex-col items-center justify-center min-h-[120px]"
+                            className="relative aspect-square cursor-pointer group flex flex-col items-center justify-center gap-2"
                         >
+                            {/* App Icon Shape */}
                             <div className={cn(
-                                "relative w-full h-10 mb-2 rounded-md p-1 flex items-center justify-center",
-                                isImageFailed ? "bg-transparent" : "bg-white/90"
+                                "w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center border border-white/10 transition-all duration-300 group-hover:border-white/20",
+                                "bg-white/5 backdrop-blur-sm"
                             )}>
-                                <div className="relative w-full h-full flex items-center justify-center">
+                                <div className="relative w-3/4 h-3/4 flex items-center justify-center">
                                     {isImageFailed ? (
-                                        <div className={cn("text-lg font-bold text-center leading-tight", inst.themeColor)}>
+                                        <div className={cn("text-[10px] font-bold text-center leading-tight", inst.themeColor)}>
                                             {inst.name.replace(' Asset Management', '')}
                                         </div>
                                     ) : (
@@ -89,18 +90,21 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                             src={inst.logo}
                                             alt={inst.name}
                                             fill
-                                            className="object-contain object-center"
+                                            className="object-contain object-center p-2"
                                             sizes="100px"
                                             onError={() => handleImageError(inst.id)}
                                         />
                                     )}
                                 </div>
+
+                                {/* Hover Overlay */}
+                                <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-40 transition-opacity duration-300 pointer-events-none mix-blend-overlay`} />
                             </div>
-                            <div className="text-[10px] text-stone-500 font-bold uppercase tracking-wider text-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                View Portfolios
-                            </div>
-                            {/* Hover Gradient */}
-                            <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`} />
+
+                            {/* Label */}
+                            <span className="text-[10px] font-medium text-stone-500 group-hover:text-stone-300 transition-colors text-center w-full truncate px-1 opacity-0 group-hover:opacity-100 absolute -bottom-6">
+                                {inst.name.split(' ')[0]}
+                            </span>
                         </motion.div>
                     );
                 })}

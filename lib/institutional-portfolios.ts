@@ -138,7 +138,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     {
         id: 'td',
         name: 'TD Asset Management',
-        logo: '/logos/td-asset-management.png',
+        logo: '/logos/td.svg',
         themeColor: 'text-emerald-600',
         themeGradient: 'from-emerald-600/20 to-transparent',
         description: "TD's One-Click ETF portfolios provide a simple way to access TD's passive investing strategies.",
@@ -184,7 +184,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     {
         id: 'bmo',
         name: 'BMO',
-        logo: '/logos/bmo-asset-management.png',
+        logo: '/logos/bmo.svg',
         themeColor: 'text-blue-600',
         themeGradient: 'from-blue-600/20 to-transparent',
         description: "BMO's ETF portfolios use their popular Z-series ETFs, known for tax efficiency and reliability.",
@@ -329,7 +329,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     {
         id: 'vanguard',
         name: 'Vanguard',
-        logo: '/logos/vanguard.png',
+        logo: '/logos/vanguard.svg',
         themeColor: 'text-red-700',
         themeGradient: 'from-red-600/20 to-transparent',
         description: "The pioneer of low-cost investing. Their Asset Allocation ETFs are the gold standard for passive investing.",
@@ -384,7 +384,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     {
         id: 'blackrock',
         name: 'BlackRock (iShares)',
-        logo: '/logos/ishares.svg', // Using iShares logo as it's the consumer brand
+        logo: '/logos/blackrock.svg', // Using iShares logo as it's the consumer brand
         themeColor: 'text-stone-900',
         themeGradient: 'from-stone-800/20 to-transparent',
         description: "The world's largest asset manager. These 'Core' portfolios use market-cap weighted indexing.",
