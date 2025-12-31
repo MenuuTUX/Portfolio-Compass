@@ -1,6 +1,7 @@
 import prisma from '@/lib/db'
 import { fetchEtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
+import { retryWithBackoff } from '@/lib/retry'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
 import { toPrismaDecimal, toPrismaDecimalRequired } from '@/lib/prisma-utils';
@@ -69,7 +70,12 @@ export async function syncEtfDetails(
     }
 
     // 1. Fetch deep details from Yahoo
-    const details = await fetchEtfDetails(ticker, fromDate, intervals);
+    // Wrapped in retry logic to prevent crashes on transient 429/Crumb errors
+    const details = await retryWithBackoff(() => fetchEtfDetails(ticker, fromDate, intervals), {
+      retries: 3,
+      baseDelay: 5000, // Wait 5s, 10s, 20s...
+      maxDelay: 30000
+    });
 
     if (!details) {
       console.error(`[EtfSync] No details found for ${ticker}`);

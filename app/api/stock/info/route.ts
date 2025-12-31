@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getStockProfile } from '@/lib/scrapers/stock-analysis';
 import { getEtfDescription } from '@/lib/scrapers/etf-dot-com';
 import yahooFinance from 'yahoo-finance2';
+import { retryWithBackoff } from '@/lib/retry';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -48,7 +49,10 @@ export async function GET(request: Request) {
     if (!profile || !profile.description) {
         try {
             // Fetch summaryProfile (stocks) and fundProfile (ETFs)
-            const summary = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price', 'fundProfile'] } as any) as any;
+            const summary = await retryWithBackoff(
+              () => yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price', 'fundProfile'] } as any),
+              { retries: 3, baseDelay: 2000 }
+            ) as any;
 
             const summaryProfile = summary.summaryProfile || {};
             const fundProfile = summary.fundProfile || {};

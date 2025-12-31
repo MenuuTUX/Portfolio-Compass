@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import { Decimal } from './decimal';
 import { getStockProfile } from './scrapers/stock-analysis';
 import pLimit from 'p-limit';
+import { retryWithBackoff } from './retry';
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -83,60 +84,12 @@ function determineAssetType(quoteType: string | undefined): 'STOCK' | 'ETF' {
   return 'STOCK';
 }
 
-async function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function retryWithBackoff<T>(
-  fn: () => Promise<T>,
-  retries = 5,
-  baseDelay = 2000,
-  fallbackValue?: T
-): Promise<T> {
-  let attempt = 0;
-  while (attempt < retries) {
-    try {
-      return await fn();
-    } catch (error: any) {
-      attempt++;
-      // Check for 429 specifically or generic network errors, and also "Failed to get crumb" which is a YF specific 429-like error
-      const isRateLimit = error.message?.includes('429') ||
-                          error.status === 429 ||
-                          error.message?.includes('Too Many Requests') ||
-                          error.message?.includes('Failed to get crumb');
-
-      if (attempt >= retries) {
-        if (fallbackValue !== undefined) {
-             console.warn(`Function failed after ${retries} attempts, returning fallback. Error: ${error.message}`);
-             return fallbackValue;
-        }
-        throw error;
-      }
-
-      // If it's a crumb error, we might need a slightly longer backoff or it just might be flaky
-      // We'll treat it as a rate limit to be safe.
-      let delay = baseDelay * Math.pow(2, attempt - 1) + (Math.random() * 1000); // Exponential backoff + jitter
-
-      if (isRateLimit) {
-         // Aggressive backoff for rate limits
-         delay = Math.min(delay * 2, 15000); // Cap at 15s
-         console.warn(`Rate limit or Crumb error hit (${error.message}). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${retries})`);
-      } else {
-         delay = Math.min(delay, 10000);
-      }
-
-      await sleep(delay);
-    }
-  }
-  throw new Error('Unreachable');
-}
-
 async function fetchWithFallback<T>(
   ticker: string,
   fetchFn: (t: string) => Promise<T>
 ): Promise<{ data: T; resolvedTicker: string }> {
   // Wrap the fetchFn with retry logic
-  const retryingFetch = (t: string) => retryWithBackoff(() => fetchFn(t), 5, 2000);
+  const retryingFetch = (t: string) => retryWithBackoff(() => fetchFn(t), { retries: 4, baseDelay: 2000 });
 
   try {
     const data = await retryingFetch(ticker);
@@ -172,7 +125,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
   try {
     // Attempt to fetch all tickers in one batch from Yahoo
     // Wrapped in retry
-    const results = await retryWithBackoff(() => yf.quote(tickers), 2, 500);
+    const results = await retryWithBackoff(() => yf.quote(tickers), { retries: 2, baseDelay: 500 });
 
     if (Array.isArray(results)) {
         return results.map(mapQuoteToSnapshot);
@@ -191,7 +144,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
     const promises = tickers.map((t) => limit(async () => {
         try {
             // Individual retry is handled by retryWithBackoff here
-            const q = await retryWithBackoff(() => yf.quote(t), 3, 1000);
+            const q = await retryWithBackoff(() => yf.quote(t), { retries: 3, baseDelay: 1000 });
             return await mapQuoteToSnapshot(q);
         } catch (e) {
             console.error(`Failed to fetch individual ticker ${t}:`, e);
@@ -248,7 +201,7 @@ export async function fetchEtfDetails(
         period1,
         period2: now, // Force up to now
         interval,
-      }), 3, 1000, null); // Return null on failure instead of throwing to avoid breaking the whole fetch
+      }), { retries: 3, baseDelay: 1000, fallbackValue: null }); // Return null on failure instead of throwing to avoid breaking the whole fetch
 
       if (res && res.quotes) {
         return res.quotes
