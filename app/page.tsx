@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Navigation from '@/components/Navigation';
 import Hero from '@/components/Hero';
+import PurposeSection from '@/components/PurposeSection';
 import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import TrendingTab from '@/components/TrendingTab';
@@ -86,9 +87,11 @@ export default function Home() {
             key="landing"
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.5 }}
+            className="overflow-y-auto h-screen custom-scrollbar"
           >
             <Hero onStart={handleStart} />
-            <footer className="absolute bottom-0 w-full py-6 text-center text-neutral-600 text-xs">
+            <PurposeSection />
+            <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
               <p>&copy; {new Date().getFullYear()} PortfolioCompass. Institutional Grade Intelligence.</p>
             </footer>
           </motion.div>

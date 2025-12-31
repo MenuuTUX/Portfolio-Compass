@@ -6,6 +6,10 @@ const nextConfig = {
                 protocol: 'https',
                 hostname: 'cdn.jsdelivr.net',
             },
+            {
+                protocol: 'https',
+                hostname: 'images.unsplash.com',
+            },
         ],
     },
     serverExternalPackages: ['yahoo-finance2', 'prisma', '@prisma/client'],
