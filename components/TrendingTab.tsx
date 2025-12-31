@@ -33,8 +33,10 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
 
     const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
 
-    const MAG7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'TSM'];
-    const JUSTBUY_TICKERS = ['XEQT.TO', 'VEQT.TO', 'VGRO.TO', 'XGRO.TO', 'VFV.TO', 'VUN.TO', 'ZEB.TO', 'VDAL.AX'];
+    const batchAddMutation = useBatchAddPortfolio();
+
+    const MAG7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+    const JUSTBUY_TICKERS = ['XEQT.TO', 'VEQT.TO', 'VGRO.TO', 'XGRO.TO', 'VFV.TO', 'VUN.TO', 'ZEB.TO'];
     const NATURAL_RESOURCES_TICKERS = [
         'XLE', 'XOP', 'CVX', 'XOM', 'SHEL', 'COP', // Energy
         'RIO', 'BHP', 'VALE', 'NEM', 'FCX', // Mining

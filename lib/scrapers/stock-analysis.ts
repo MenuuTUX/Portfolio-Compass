@@ -1,8 +1,6 @@
 import * as cheerio from 'cheerio';
 
 export interface StockProfile {
-  price?: number;
-  isEtf?: boolean;
   sector: string;
   industry: string;
   description: string;
@@ -27,8 +25,8 @@ export interface StockProfile {
   volume?: number;
   open?: number;
   previousClose?: number;
-  daysRange?: string;
-  fiftyTwoWeekRange?: string;
+  daysRange?: string; // "0.1733 - 0.4700"
+  fiftyTwoWeekRange?: string; // "0.1153 - 9.8000"
   beta?: number;
   earningsDate?: string;
 
@@ -87,6 +85,9 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
 }
 
 export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
+    // StockAnalysis mostly supports US tickers.
+    // If it's a Canadian ticker (e.g. .TO), it likely won't have holdings data on this site.
+    // We skip explicitly to avoid 404 noise.
     if (ticker.includes('.')) {
         return [];
     }
@@ -100,6 +101,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
     if (!response.ok) {
         if (response.status === 404) {
+            // It's common for some ETFs not to be on StockAnalysis, warn instead of error
             console.warn(`[StockAnalysis] Holdings not found for ${ticker} (404).`);
         } else {
             console.error(`Failed to fetch holdings for ${ticker}: ${response.status}`);
@@ -192,30 +194,39 @@ const fetchWithUserAgent = async (u: string) => fetch(u, {
 
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
   let upperTicker = ticker.toUpperCase();
+  // StockAnalysis.com typically uses US tickers (e.g., ASML instead of ASML.AS)
+  // We try the original ticker first, but if it fails, we might try stripping suffix
+  // However, we must be careful not to map unrelated stocks.
+  // For now, let's try the provided ticker.
+
   let url = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/`;
   let isEtf = false;
 
   let response = await fetchWithUserAgent(url);
 
   if (response.status === 404) {
+    // Try ETF URL
     url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
     response = await fetchWithUserAgent(url);
     if (response.ok) isEtf = true;
   }
 
+  // Fallback: Check for specific international exchanges (TSX, NEO) before generic suffix stripping
   if (response.status === 404 && ticker.includes('.')) {
       const parts = ticker.split('.');
       const baseTicker = parts[0];
       const suffix = parts[1]?.toUpperCase();
 
       if (suffix === 'TO') {
+           // Try TSX
            url = `https://stockanalysis.com/quote/tsx/${baseTicker.toLowerCase()}/`;
            response = await fetchWithUserAgent(url);
            if (response.ok) {
-               isEtf = true;
+               isEtf = true; // TSX pages share structure
                upperTicker = baseTicker.toUpperCase();
            }
       } else if (suffix === 'NE') {
+           // Try NEO
            url = `https://stockanalysis.com/quote/neo/${baseTicker.toLowerCase()}/`;
            response = await fetchWithUserAgent(url);
            if (response.ok) {
@@ -225,9 +236,13 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       }
   }
 
+  // Fallback: If original ticker failed (404), and it has a suffix (e.g., ASML.AS), try stripping it.
+  // This is useful for dual-listed companies where StockAnalysis only tracks the US listing.
+  // We only do this if the base ticker is > 2 chars to avoid ambiguity with small tickers.
   if (response.status === 404 && ticker.includes('.')) {
       const baseTicker = ticker.split('.')[0];
       if (baseTicker.length > 2) {
+          // Try base ticker as stock
           url = `https://stockanalysis.com/stocks/${baseTicker.toLowerCase()}/`;
           response = await fetchWithUserAgent(url);
 
@@ -235,6 +250,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
                upperTicker = baseTicker.toUpperCase();
           } else {
                if (response.status === 404) {
+                   // Try base ticker as ETF
                    url = `https://stockanalysis.com/etf/${baseTicker.toLowerCase()}/`;
                    response = await fetchWithUserAgent(url);
                    if (response.ok) {
@@ -254,27 +270,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   const html = await response.text();
   const $ = cheerio.load(html);
 
-  let price: number | undefined;
-  const candidatePrices: number[] = [];
-  $('div[class*="text-4xl"], div[class*="text-5xl"]').each((_, el) => {
-      const text = $(el).text().trim().replace('$', '').replace(',', '');
-      const num = parseFloat(text);
-      if (!isNaN(num) && num > 0) {
-          candidatePrices.push(num);
-      }
-  });
-
-  if (candidatePrices.length > 0) {
-      price = candidatePrices[0];
-  } else {
-      $('div[class*="sticky"]').find('div').each((_, el) => {
-          const text = $(el).text().trim().replace('$', '').replace(',', '');
-          if (/^\d+\.\d{2}$/.test(text)) {
-              price = parseFloat(text);
-          }
-      });
-  }
-
   let sector = '';
   let industry = '';
 
@@ -283,12 +278,15 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       $('span, div, td, th').each((_, el) => {
         if (val) return;
         const text = $(el).text().trim();
+        // Exact match or starts with label:
         if (labels.includes(text) || labels.some(l => text.startsWith(l + ':'))) {
+            // Check next sibling
             let next = $(el).next();
             if (next.length && next.text().trim()) {
                  val = next.text().trim();
                  return;
             }
+            // Check if colon format
             if (text.includes(':')) {
                  const parts = text.split(':');
                  if (parts.length > 1 && parts[1].trim()) {
@@ -304,6 +302,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   sector = extractLabelValue(['Sector', 'Asset Class']) || '';
   industry = extractLabelValue(['Industry', 'Category']) || '';
 
+  // Fallback scan if still empty
   if (!sector || !industry) {
       $('div, li, tr').each((_, el) => {
         if ($(el).children().length > 5) return;
@@ -326,18 +325,23 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       if (description) return;
       const headerText = $(el).text().trim();
       if (headerText.includes(`About ${upperTicker}`)) {
+
           const findDescriptionInSiblings = (startElem: cheerio.Cheerio<any>) => {
               let next = startElem.next();
               let attempts = 0;
               while (next.length && attempts < 10) {
                    const text = next.text().trim();
+                   // Stop if we hit another header
                    if (next.is('h2') || next.is('h3')) return null;
+
+                   // If text is substantial, it's likely the description
                    if (text.length > 50) {
                        if (next.is('div')) {
                            const p = next.find('p').first();
                            if (p.length && p.text().trim().length > 50) {
                                return p.text().trim();
                            }
+                           // If div has text but no p, use the text
                            return text;
                        }
                        return text;
@@ -347,13 +351,18 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
               }
               return null;
           }
+
+          // Try siblings of the header
           let desc = findDescriptionInSiblings($(el));
+
+          // If not found, check parent's siblings (in case header is wrapped in a flex/grid div)
           if (!desc) {
               const parent = $(el).parent();
               if (parent.length && (parent.is('div') || parent.is('header'))) {
                   desc = findDescriptionInSiblings(parent);
               }
           }
+
           if (desc) description = desc;
       }
   });
@@ -371,9 +380,13 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   }
 
   // --- Financial Metrics Scraping ---
+
   const metrics: Partial<StockProfile> = {};
+
   const extractValue = (label: string): string | undefined => {
     let val: string | undefined;
+
+    // Try finding exact text match in common elements
     $('div, td, th, span').each((_, el) => {
         if (val) return;
         const text = $(el).text().trim();
@@ -385,7 +398,9 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
             }
         }
     });
+
     if (!val) {
+        // Try looking for label inside a cell in a table row, take next cell
         $('tr').each((_, tr) => {
             if (val) return;
             const cells = $(tr).find('td, th');
@@ -398,6 +413,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
             });
         });
     }
+
     if (!val) {
         $('div').each((_, el) => {
             if (val) return;
@@ -526,6 +542,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       if (!isNaN(n)) metrics.holdingsCount = n;
   }
 
+  // Parse ranges into Low/High if available
   if (metrics.fiftyTwoWeekRange && metrics.fiftyTwoWeekRange.includes('-')) {
       const parts = metrics.fiftyTwoWeekRange.split('-').map(s => parseFloat(s.trim().replace(/,/g, '')));
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
@@ -534,13 +551,17 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       }
   }
 
+  // Analyst Data
   let analyst: StockProfile['analyst'] | undefined;
+
   $('h2, h3').each((_, el) => {
       const headerText = $(el).text().trim();
       if (headerText === 'Analyst Summary') {
           let summary = '';
           let next = $(el).next();
-          while (next.length && (next.is('br') || next.text().trim() === '')) next = next.next();
+          while (next.length && (next.is('br') || next.text().trim() === '')) {
+              next = next.next();
+          }
           if (next.is('p')) summary = next.text().trim();
 
           let consensus = '';
@@ -571,22 +592,17 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
           }
 
           if (summary || consensus || targetPrice) {
-            analyst = { summary, consensus, targetPrice, targetUpside };
+            analyst = {
+                summary,
+                consensus,
+                targetPrice,
+                targetUpside
+            };
           }
       }
   });
 
-  if (isEtf) {
-      if (metrics.expenseRatio === undefined && !metrics.inceptionDate) {
-          if (metrics.eps !== undefined) {
-              isEtf = false;
-          }
-      }
-  }
-
   return {
-    price,
-    isEtf,
     sector,
     industry,
     description,
