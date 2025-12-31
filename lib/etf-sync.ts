@@ -126,9 +126,6 @@ export async function syncEtfDetails(
                 payoutRatio: toPrismaDecimal(details.payoutRatio),
                 holdingsCount: details.holdingsCount || null,
 
-                // Social
-                // redditUrl: details.redditUrl || null,
-
                 name: details.name,
                 currency: 'USD',
                 exchange: 'Unknown',
@@ -170,9 +167,6 @@ export async function syncEtfDetails(
                 payoutFrequency: details.payoutFrequency || null,
                 payoutRatio: toPrismaDecimal(details.payoutRatio),
                 holdingsCount: details.holdingsCount || null,
-
-                // Social
-                // redditUrl: details.redditUrl || null,
 
                 assetType: details.assetType,
                 isDeepAnalysisLoaded: true,

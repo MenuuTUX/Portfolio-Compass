@@ -89,8 +89,8 @@ async function sleep(ms: number) {
 
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  retries = 3,
-  baseDelay = 1000,
+  retries = 5,
+  baseDelay = 2000,
   fallbackValue?: T
 ): Promise<T> {
   let attempt = 0;
@@ -99,8 +99,11 @@ async function retryWithBackoff<T>(
       return await fn();
     } catch (error: any) {
       attempt++;
-      // Check for 429 specifically or generic network errors
-      const isRateLimit = error.message?.includes('429') || error.status === 429 || error.message?.includes('Too Many Requests');
+      // Check for 429 specifically or generic network errors, and also "Failed to get crumb" which is a YF specific 429-like error
+      const isRateLimit = error.message?.includes('429') ||
+                          error.status === 429 ||
+                          error.message?.includes('Too Many Requests') ||
+                          error.message?.includes('Failed to get crumb');
 
       if (attempt >= retries) {
         if (fallbackValue !== undefined) {
@@ -110,9 +113,16 @@ async function retryWithBackoff<T>(
         throw error;
       }
 
-      const delay = baseDelay * Math.pow(2, attempt - 1) + (Math.random() * 500); // Exponential backoff + jitter
+      // If it's a crumb error, we might need a slightly longer backoff or it just might be flaky
+      // We'll treat it as a rate limit to be safe.
+      let delay = baseDelay * Math.pow(2, attempt - 1) + (Math.random() * 1000); // Exponential backoff + jitter
+
       if (isRateLimit) {
-         console.warn(`Rate limit hit (429). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${retries})`);
+         // Aggressive backoff for rate limits
+         delay = Math.min(delay * 2, 15000); // Cap at 15s
+         console.warn(`Rate limit or Crumb error hit (${error.message}). Retrying in ${Math.round(delay)}ms... (Attempt ${attempt}/${retries})`);
+      } else {
+         delay = Math.min(delay, 10000);
       }
 
       await sleep(delay);
@@ -126,7 +136,7 @@ async function fetchWithFallback<T>(
   fetchFn: (t: string) => Promise<T>
 ): Promise<{ data: T; resolvedTicker: string }> {
   // Wrap the fetchFn with retry logic
-  const retryingFetch = (t: string) => retryWithBackoff(() => fetchFn(t), 3, 1000);
+  const retryingFetch = (t: string) => retryWithBackoff(() => fetchFn(t), 5, 2000);
 
   try {
     const data = await retryingFetch(ticker);
@@ -173,12 +183,12 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
     console.warn("Bulk fetch failed in fetchMarketSnapshot, attempting individual Yahoo fallbacks:", error);
 
     // Use p-limit for fallback to be nice to scraper
-    // Reduced concurrency from 5 to 2 to minimize 429s
-    const limit = pLimit(2);
+    // Reduced concurrency from 5 to 1 to minimize 429s
+    const limit = pLimit(1);
 
     // If bulk fetch fails, try fetching individually or in smaller batches.
     // We use individual fetches here for maximum resilience.
-    const promises = tickers.map(async (t) => {
+    const promises = tickers.map((t) => limit(async () => {
         try {
             // Individual retry is handled by retryWithBackoff here
             const q = await retryWithBackoff(() => yf.quote(t), 3, 1000);
@@ -187,7 +197,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
             console.error(`Failed to fetch individual ticker ${t}:`, e);
             return null;
         }
-    });
+    }));
 
     const individualResults = await Promise.all(promises);
     const validQuotes = individualResults.filter(q => q !== null);
@@ -280,10 +290,13 @@ export async function fetchEtfDetails(
   }
 
   // Fetch others in parallel but only if 1d succeeded or we are okay with partials
+  // Enforce sequential execution for remaining intervals to avoid rate limits (crumb errors)
+  const historyLimit = pLimit(1);
   const otherPromises = [];
-  if (intervals.includes('1h')) otherPromises.push(fetchHistoryInterval('1h', d7d).then(r => historyResults['1h'] = r));
-  if (intervals.includes('1wk')) otherPromises.push(fetchHistoryInterval('1wk', d5y).then(r => historyResults['1wk'] = r));
-  if (intervals.includes('1mo')) otherPromises.push(fetchHistoryInterval('1mo', dMax).then(r => historyResults['1mo'] = r));
+
+  if (intervals.includes('1h')) otherPromises.push(historyLimit(() => fetchHistoryInterval('1h', d7d).then(r => historyResults['1h'] = r)));
+  if (intervals.includes('1wk')) otherPromises.push(historyLimit(() => fetchHistoryInterval('1wk', d5y).then(r => historyResults['1wk'] = r)));
+  if (intervals.includes('1mo')) otherPromises.push(historyLimit(() => fetchHistoryInterval('1mo', dMax).then(r => historyResults['1mo'] = r)));
 
   await Promise.all(otherPromises);
 
