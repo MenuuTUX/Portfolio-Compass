@@ -188,7 +188,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
 
     // If bulk fetch fails, try fetching individually or in smaller batches.
     // We use individual fetches here for maximum resilience.
-    const promises = tickers.map(async (t) => {
+    const promises = tickers.map((t) => limit(async () => {
         try {
             // Individual retry is handled by retryWithBackoff here
             const q = await retryWithBackoff(() => yf.quote(t), 3, 1000);
@@ -197,7 +197,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
             console.error(`Failed to fetch individual ticker ${t}:`, e);
             return null;
         }
-    });
+    }));
 
     const individualResults = await Promise.all(promises);
     const validQuotes = individualResults.filter(q => q !== null);
@@ -290,10 +290,13 @@ export async function fetchEtfDetails(
   }
 
   // Fetch others in parallel but only if 1d succeeded or we are okay with partials
+  // Enforce sequential execution for remaining intervals to avoid rate limits (crumb errors)
+  const historyLimit = pLimit(1);
   const otherPromises = [];
-  if (intervals.includes('1h')) otherPromises.push(fetchHistoryInterval('1h', d7d).then(r => historyResults['1h'] = r));
-  if (intervals.includes('1wk')) otherPromises.push(fetchHistoryInterval('1wk', d5y).then(r => historyResults['1wk'] = r));
-  if (intervals.includes('1mo')) otherPromises.push(fetchHistoryInterval('1mo', dMax).then(r => historyResults['1mo'] = r));
+
+  if (intervals.includes('1h')) otherPromises.push(historyLimit(() => fetchHistoryInterval('1h', d7d).then(r => historyResults['1h'] = r)));
+  if (intervals.includes('1wk')) otherPromises.push(historyLimit(() => fetchHistoryInterval('1wk', d5y).then(r => historyResults['1wk'] = r)));
+  if (intervals.includes('1mo')) otherPromises.push(historyLimit(() => fetchHistoryInterval('1mo', dMax).then(r => historyResults['1mo'] = r)));
 
   await Promise.all(otherPromises);
 
