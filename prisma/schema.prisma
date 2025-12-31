@@ -49,9 +49,6 @@ model Etf {
   bondMaturity     Decimal?
   bondDuration     Decimal?
 
-  // Social
-  redditUrl      String?
-
   assetType      String          @default("ETF")
   isDeepAnalysisLoaded Boolean   @default(false)
   history        EtfHistory[]
