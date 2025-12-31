@@ -1,5 +1,5 @@
 import prisma from '@/lib/db'
-import { fetchEtfDetails } from '@/lib/market-service'
+import { fetchEtfDetails, EtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
 import { Decimal } from 'decimal.js';
 import { Prisma } from '@prisma/client';
@@ -17,7 +17,7 @@ export async function syncEtfDetails(
   ticker: string,
   intervals?: ('1h' | '1d' | '1wk' | '1mo')[]
 ): Promise<FullEtf | null> {
-  let details: any = null; // Hoist details so it's accessible in catch block
+  let details: EtfDetails | null = null; // Correctly typed
 
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
@@ -172,13 +172,13 @@ export async function syncEtfDetails(
     // 4 & 5. Update Sectors & Allocation (Separate Transaction - Fast)
     await prisma.$transaction(async (tx) => {
         // Sectors
-        if (Object.keys(details.sectors).length > 0) {
+        if (Object.keys(details!.sectors).length > 0) {
             await tx.etfSector.deleteMany({ where: { etfId: etf.ticker } });
             await tx.etfSector.createMany({
-                data: Object.entries(details.sectors).map(([sector, weight]) => ({
+                data: Object.entries(details!.sectors).map(([sector, weight]) => ({
                     etfId: etf.ticker,
                     sector_name: sector,
-                    weight: weight // Decimal
+                    weight: weight // Decimal - properly inferred now
                 }))
             });
         }
@@ -198,8 +198,8 @@ export async function syncEtfDetails(
     if (details.history && details.history.length > 0) {
         await prisma.$transaction(async (tx) => {
             // Identify which intervals we have in the new data
-            const fetchedIntervals = new Set(details.history.map((h: any) => h.interval));
-            const dailyHistory = details.history.filter((h: any) => h.interval === '1d');
+            const fetchedIntervals = new Set(details!.history.map((h: any) => h.interval));
+            const dailyHistory = details!.history.filter((h: any) => h.interval === '1d');
 
             // Determine which non-daily intervals were fetched and need replacement
             // We only replace intervals that were actually returned by the fetch
@@ -214,7 +214,7 @@ export async function syncEtfDetails(
                     }
                 });
 
-                const otherHistory = details.history.filter((h: any) => h.interval !== '1d');
+                const otherHistory = details!.history.filter((h: any) => h.interval !== '1d');
 
                 if (otherHistory.length > 0) {
                     await tx.etfHistory.createMany({
@@ -317,7 +317,7 @@ export async function syncEtfDetails(
         await prisma.$transaction(async (tx) => {
             await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
             await tx.holding.createMany({
-                data: details.topHoldings!.map(h => ({
+                data: details!.topHoldings!.map(h => ({
                     etfId: etf.ticker,
                     ticker: h.ticker,
                     name: h.name,
@@ -371,7 +371,7 @@ export async function syncEtfDetails(
             id: `temp-${i}`,
             etfId: ticker,
             sector_name: sec,
-            weight: new Decimal(w as number)
+            weight: w // FIXED: Removed 'as number' cast, w is Decimal
         }));
 
         const holdings = (details.topHoldings || []).map((h: any, i: number) => ({
