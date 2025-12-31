@@ -5,6 +5,7 @@ import { fetchMarketSnapshot } from '@/lib/market-service'
 import { syncEtfDetails } from '@/lib/etf-sync'
 import { Decimal } from 'decimal.js'
 import pLimit from 'p-limit'
+import { toPrismaDecimalRequired, toPrismaDecimal } from '@/lib/prisma-utils'
 
 export const dynamic = 'force-dynamic';
 
@@ -99,26 +100,24 @@ export async function GET(request: NextRequest) {
                 const liveData = await fetchMarketSnapshot(missingTickers);
 
                 // Use p-limit to restrict concurrent DB writes
-                // Now that DB max pool is 5, we can allow slightly more concurrency (e.g., 2)
-            // Use p-limit to restrict concurrent DB writes
-            // Reduced to 1 to prevent connection pool exhaustion (MaxClientsInSessionMode)
-            const limit = pLimit(1);
+                // Reduced to 1 to prevent connection pool exhaustion (MaxClientsInSessionMode)
+                const limit = pLimit(1);
 
                 const upsertPromises = liveData.map((item) => limit(async () => {
                     try {
                         return await prisma.etf.upsert({
                             where: { ticker: item.ticker },
                             update: {
-                                price: item.price.toString(),
-                                daily_change: item.dailyChangePercent.toString(),
+                                price: toPrismaDecimalRequired(item.price),
+                                daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                                 // Don't update name/assetType to prevent overwrites if user edited them
                             },
                             create: {
                                 ticker: item.ticker,
                                 name: item.name,
                                 // Explicitly convert Decimal to string/number for Prisma compatibility
-                                price: item.price.toString(),
-                                daily_change: item.dailyChangePercent.toString(),
+                                price: toPrismaDecimalRequired(item.price),
+                                daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                                 currency: 'USD',
                                 assetType: item.assetType || "ETF",
                                 isDeepAnalysisLoaded: false,
@@ -176,14 +175,14 @@ export async function GET(request: NextRequest) {
                      return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
                         update: {
-                            price: item.price.toString(),
-                            daily_change: item.dailyChangePercent.toString(),
+                            price: toPrismaDecimalRequired(item.price),
+                            daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                         },
                         create: {
                             ticker: item.ticker,
                             name: item.name,
-                            price: item.price.toString(),
-                            daily_change: item.dailyChangePercent.toString(),
+                            price: toPrismaDecimalRequired(item.price),
+                            daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                             currency: 'USD',
                             assetType: item.assetType || "ETF",
                             isDeepAnalysisLoaded: false,
@@ -244,11 +243,6 @@ export async function GET(request: NextRequest) {
       });
 
       if (staleEtfs.length > 0) {
-        // Only log significantly if it's a small number or a specific query
-        if (staleEtfs.length < 10) {
-             console.log(`[API] Found ${staleEtfs.length} stale ETFs for request. Syncing...`);
-        }
-
         // Reduced concurrency to 1 to prevent DB pool exhaustion during heavy syncs
         const limit = pLimit(1);
 
@@ -257,8 +251,8 @@ export async function GET(request: NextRequest) {
            console.log(`[API] Full details requested for stale/incomplete items. Performing blocking sync...`);
 
            // CRITICAL FIX: Limit the number of items we sync in one request to avoid Vercel timeouts (10s/60s).
-           // If there are 20 items, we only sync the first 3. The rest will remain stale but readable.
-           const maxSyncItems = 3;
+           // If there are 20 items, we only sync the first 1 or 2. The rest will remain stale but readable.
+           const maxSyncItems = 1; // Extremely conservative for full sync
            const itemsToSync = staleEtfs.slice(0, maxSyncItems);
            if (staleEtfs.length > maxSyncItems) {
                console.warn(`[API] Capping sync to ${maxSyncItems} items (out of ${staleEtfs.length}) to prevent timeout.`);
@@ -281,20 +275,25 @@ export async function GET(request: NextRequest) {
            })));
         } else {
             // Fire-and-forget background sync for list views
-            // Limit the background noise too
-            const maxBackgroundSyncs = 5;
+            // Limit the background noise significantly
+            // If many items are stale, we only pick 2 to update in the background.
+            // This prevents "sync storms" where one request triggers 50 background jobs.
+            const maxBackgroundSyncs = 2; // Conservative limit
             const itemsToSync = staleEtfs.slice(0, maxBackgroundSyncs);
 
-            // We don't await this Promise.all, but we still want to limit the concurrency
-            Promise.all(itemsToSync.map((staleEtf: any) => limit(() =>
-                syncEtfDetails(staleEtf.ticker, ['1d']).catch(err => {
-                    if (err.toString().includes('MaxClientsInSessionMode') || err.toString().includes('DriverAdapterError')) {
-                        console.warn(`[API] DB Busy (sync) for ${staleEtf.ticker}, skipping sync.`);
-                    } else {
-                        console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err);
-                    }
-                })
-            )));
+            if (itemsToSync.length > 0) {
+                 console.log(`[API] Triggering background sync for ${itemsToSync.length} items (capped from ${staleEtfs.length}).`);
+                 // We don't await this Promise.all, but we still want to limit the concurrency
+                 Promise.all(itemsToSync.map((staleEtf: any) => limit(() =>
+                    syncEtfDetails(staleEtf.ticker, ['1d']).catch(err => {
+                        if (err.toString().includes('MaxClientsInSessionMode') || err.toString().includes('DriverAdapterError')) {
+                            console.warn(`[API] DB Busy (sync) for ${staleEtf.ticker}, skipping sync.`);
+                        } else {
+                            console.error(`[API] Background sync failed for ${staleEtf.ticker}:`, err);
+                        }
+                    })
+                 )));
+            }
         }
       }
     }
@@ -378,14 +377,14 @@ export async function GET(request: NextRequest) {
                       return await prisma.etf.upsert({
                         where: { ticker: item.ticker },
                         update: {
-                            price: item.price.toString(),
-                            daily_change: item.dailyChangePercent.toString(),
+                            price: toPrismaDecimalRequired(item.price),
+                            daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                         },
                         create: {
                           ticker: item.ticker,
                           name: item.name,
-                          price: item.price.toString(),
-                          daily_change: item.dailyChangePercent.toString(),
+                          price: toPrismaDecimalRequired(item.price),
+                          daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
                           currency: 'USD',
                           assetType: item.assetType || "ETF",
                           isDeepAnalysisLoaded: false,
