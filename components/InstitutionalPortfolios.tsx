@@ -63,25 +63,26 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
             </div>
 
             {/* Gallery Grid */}
-            <div className="grid grid-cols-2 gap-3 h-full">
+            <div className="grid grid-cols-4 gap-4 h-full">
                 {INSTITUTIONAL_DATA.map((inst) => {
                     const isImageFailed = failedImages.has(inst.id) || !inst.logo;
 
                     return (
                         <motion.div
                             key={inst.id}
-                            whileHover={{ scale: 1.02, borderColor: 'rgba(255,255,255,0.2)' }}
-                            whileTap={{ scale: 0.98 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => setSelectedInstitution(inst)}
-                            className="relative bg-stone-900/40 border border-white/5 rounded-lg cursor-pointer hover:bg-stone-900/60 transition-all group overflow-hidden flex items-center justify-center h-20 backdrop-blur-sm"
+                            className="relative aspect-square cursor-pointer group flex flex-col items-center justify-center gap-2"
                         >
+                            {/* App Icon Shape */}
                             <div className={cn(
-                                "relative w-24 h-8 rounded px-2 flex items-center justify-center transition-transform group-hover:scale-110 duration-300",
-                                isImageFailed ? "bg-transparent" : "bg-white/90 shadow-lg"
+                                "w-full h-full rounded-2xl bg-white shadow-lg overflow-hidden relative flex items-center justify-center border border-white/10 transition-all duration-300 group-hover:shadow-xl group-hover:shadow-emerald-500/10",
+                                isImageFailed ? "bg-stone-800" : "bg-white"
                             )}>
-                                <div className="relative w-full h-full flex items-center justify-center">
+                                <div className="relative w-3/4 h-3/4 flex items-center justify-center">
                                     {isImageFailed ? (
-                                        <div className={cn("text-xs font-bold text-center leading-tight", inst.themeColor)}>
+                                        <div className={cn("text-[10px] font-bold text-center leading-tight", inst.themeColor)}>
                                             {inst.name.replace(' Asset Management', '')}
                                         </div>
                                     ) : (
@@ -89,16 +90,21 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                             src={inst.logo}
                                             alt={inst.name}
                                             fill
-                                            className="object-contain object-center"
+                                            className="object-contain object-center p-1"
                                             sizes="100px"
                                             onError={() => handleImageError(inst.id)}
                                         />
                                     )}
                                 </div>
+
+                                {/* Hover Overlay */}
+                                <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300 pointer-events-none`} />
                             </div>
 
-                            {/* Hover Gradient */}
-                            <div className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none`} />
+                            {/* Label */}
+                            <span className="text-[10px] font-medium text-stone-500 group-hover:text-stone-300 transition-colors text-center w-full truncate px-1 opacity-0 group-hover:opacity-100 absolute -bottom-6">
+                                {inst.name.split(' ')[0]}
+                            </span>
                         </motion.div>
                     );
                 })}
