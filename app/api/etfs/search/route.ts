@@ -122,6 +122,7 @@ export async function GET(request: NextRequest) {
                                 currency: 'USD',
                                 assetType: item.assetType || "ETF",
                                 isDeepAnalysisLoaded: false,
+                                redditUrl: item.redditUrl || null
                             },
                             include: includeObj
                         });
@@ -147,7 +148,8 @@ export async function GET(request: NextRequest) {
                              history: [],
                              sectors: [],
                              allocation: null,
-                             updatedAt: new Date()
+                             updatedAt: new Date(),
+                             redditUrl: item.redditUrl || undefined
                          };
                     }
                 }));
@@ -187,6 +189,7 @@ export async function GET(request: NextRequest) {
                             currency: 'USD',
                             assetType: item.assetType || "ETF",
                             isDeepAnalysisLoaded: false,
+                            redditUrl: item.redditUrl || null
                         },
                         include: includeObj
                     });
@@ -205,7 +208,8 @@ export async function GET(request: NextRequest) {
                          history: [],
                          sectors: [],
                          allocation: null,
-                         updatedAt: new Date()
+                         updatedAt: new Date(),
+                         redditUrl: item.redditUrl || undefined
                      };
                 }
             }));
@@ -389,6 +393,7 @@ export async function GET(request: NextRequest) {
                           currency: 'USD',
                           assetType: item.assetType || "ETF",
                           isDeepAnalysisLoaded: false,
+                          redditUrl: item.redditUrl || null
                         },
                         include: includeObj
                       });
@@ -407,7 +412,8 @@ export async function GET(request: NextRequest) {
                          history: [],
                          sectors: [],
                          allocation: null,
-                         updatedAt: new Date()
+                         updatedAt: new Date(),
+                         redditUrl: item.redditUrl || undefined
                      };
                   }
                 }));
@@ -486,6 +492,9 @@ export async function GET(request: NextRequest) {
         holdingsCount: etf.holdingsCount || undefined,
         bondMaturity: etf.bondMaturity ? safeDecimal(etf.bondMaturity) : undefined,
         bondDuration: etf.bondDuration ? safeDecimal(etf.bondDuration) : undefined,
+
+        // Social
+        redditUrl: etf.redditUrl || undefined,
 
         allocation: {
           equities: etf.allocation?.stocks_weight ? safeDecimal(etf.allocation.stocks_weight) : 0,

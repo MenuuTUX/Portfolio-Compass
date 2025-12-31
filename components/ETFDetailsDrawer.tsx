@@ -1,11 +1,10 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity, ChevronLeft, Layers, Landmark, Info } from 'lucide-react';
+import { X, TrendingUp, Activity, ChevronLeft, Layers, PieChart as PieIcon, ExternalLink } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
-import { calculateTTMYield } from '@/lib/finance';
 import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 import AssetProfileCard from './AssetProfileCard';
@@ -364,7 +363,21 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                   </div>
                 )}
                 <div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight">{displayEtf.ticker}</h2>
+                  <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+                    {displayEtf.ticker}
+                    {displayEtf.redditUrl && (
+                        <a
+                            href={displayEtf.redditUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-[#FF4500] hover:bg-[#FF4500]/80 p-1 rounded-full text-white transition-colors"
+                            title="Join Community on Reddit"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                    )}
+                  </h2>
                   <p className="text-neutral-400 text-sm">{displayEtf.name}</p>
                 </div>
                 <div className="h-8 w-[1px] bg-white/10 mx-2" />
