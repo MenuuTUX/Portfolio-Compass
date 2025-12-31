@@ -9,14 +9,10 @@ import pLimit from 'p-limit';
 // -----------------------------------------------------------------------------
 
 // Yahoo Finance requires a User-Agent to avoid 429 Too Many Requests (Rate Limiting)
-// We mimic a standard browser to ensure reliable "crumb" fetching.
+// However, passing fetchOptions to the constructor is not supported in the type definition.
+// We rely on the scraper fallback if Yahoo fails.
 const yf = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
-  fetchOptions: {
-    headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-    }
-  }
 });
 
 // -----------------------------------------------------------------------------
@@ -118,7 +114,7 @@ async function fetchWithFallback<T>(
 export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnapshot[]> {
   if (tickers.length === 0) return [];
 
-  const mapQuoteToSnapshot = async (quote: any) => {
+  const mapQuoteToSnapshot = async (quote: any): Promise<MarketSnapshot> => {
     const name = quote.shortName || quote.longName || quote.symbol;
     const resolvedTicker = quote.symbol;
     const redditUrl = await findRedditCommunity(resolvedTicker, name);
@@ -148,7 +144,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
     // Use p-limit for fallback to be nice to scraper
     const limit = pLimit(5);
 
-    const promises = tickers.map((t) => limit(async () => {
+    const promises = tickers.map((t) => limit(async (): Promise<MarketSnapshot | null> => {
         try {
             const q = await yf.quote(t);
             return await mapQuoteToSnapshot(q);
@@ -368,7 +364,6 @@ export async function fetchEtfDetails(
   }
 
   // --- Merge Financial Metrics (Prioritizing Stock Analysis) ---
-  // ... (rest of the file remains same, I need to ensure I don't truncate it) ...
   const toDecimal = (val: number | undefined) => val !== undefined ? new Decimal(val) : undefined;
 
   let dividendYield: Decimal | undefined;
