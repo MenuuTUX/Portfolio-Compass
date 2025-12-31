@@ -32,6 +32,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
     const [loadingStocks, setLoadingStocks] = useState(true);
 
     const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
+    const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
     const batchAddMutation = useBatchAddPortfolio();
 
@@ -43,6 +44,14 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
         'GLD', 'SLV', 'GDX', 'SIL', // Precious Metals
         'MOO', 'PHO' // Ag/Water
     ];
+
+    const handleInstitutionalAdd = async (items: any[]) => {
+        try {
+            await batchAddMutation.mutateAsync({ items, replace: true });
+        } catch (error) {
+            console.error("Failed to add portfolio", error);
+        }
+    };
 
     useEffect(() => {
         // 1. Fetch Stocks (Specific & General)
@@ -144,7 +153,7 @@ export default function TrendingTab({ onAddToPortfolio, portfolio = [], onRemove
                 {/* Institutional Portfolios Section */}
                 <div className="w-full h-full">
                     <InstitutionalPortfolios
-                        onBatchAdd={batchAddMutation.mutate}
+                        onBatchAdd={handleInstitutionalAdd}
                         isLoading={batchAddMutation.isPending}
                     />
                 </div>
