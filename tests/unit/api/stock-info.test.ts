@@ -28,7 +28,7 @@ class MockYahooFinance {
 }
 
 mock.module('yahoo-finance2', () => ({
-    YahooFinance: MockYahooFinance
+    default: MockYahooFinance
 }));
 
 // Import the module under test dynamically to ensure the mock is applied

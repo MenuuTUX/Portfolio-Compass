@@ -1,4 +1,4 @@
-import { YahooFinance } from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
 import { Decimal } from '@/lib/decimal';
 import { getStockProfile } from './scrapers/stock-analysis';
 import pLimit from 'p-limit';
