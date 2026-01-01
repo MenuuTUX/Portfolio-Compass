@@ -641,7 +641,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
                 className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
                 value={search}
                 onChange={(e) => {
-                  const value = e.target.value.toUpperCase().replace(/[^A-Z.]/g, '');
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9.\s-&]/g, '');
                   setSearch(value);
                 }}
                 onFocus={() => { if (search) setShowSuggestions(true); }}
