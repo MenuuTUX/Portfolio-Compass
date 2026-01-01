@@ -92,7 +92,7 @@ export default function Home() {
             <Hero onStart={handleStart} />
             <PurposeSection />
             <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
-              <p>&copy; {new Date().getFullYear()} PortfolioCompass. Institutional Grade Intelligence.</p>
+              <p>&copy; {new Date().getFullYear()} PortfolioCompass. Advanced Market Intelligence. Disclaimer: This is not financial advice.</p>
             </footer>
           </motion.div>
         ) : (
