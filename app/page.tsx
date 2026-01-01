@@ -44,10 +44,13 @@ export default function Home() {
     setViewMode('APP');
   };
 
-  const handleQuizComplete = (result: QuizResult) => {
-    // In a real app, we might save the result to user profile or use it to seed the portfolio.
-    // For now, we just proceed to the app.
-    console.log("Quiz Result:", result);
+  const handleQuizComplete = async (result: QuizResult) => {
+    if (result.suggestedPortfolio && result.suggestedPortfolio.length > 0) {
+      savePortfolio(result.suggestedPortfolio);
+      // Invalidate to fetch full details (price, name, etc.)
+      await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      setActiveTab('PORTFOLIO');
+    }
     setViewMode('APP');
   };
 
