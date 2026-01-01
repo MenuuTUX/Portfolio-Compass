@@ -48,6 +48,35 @@ export async function syncEtfDetails(
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
 
+    // 0. Smart Interval Selection to Minimize API Requests
+    // Fetch the ETF metadata first to check staleness
+    const etfMetadata = await prisma.etf.findUnique({
+      where: { ticker },
+      select: { updatedAt: true, assetType: true }
+    });
+
+    let targetIntervals = intervals;
+
+    // If intervals are not explicitly specified (default sync), optimize them
+    if (!targetIntervals) {
+      // Default set
+      targetIntervals = ['1h', '1d', '1wk', '1mo'];
+
+      if (etfMetadata && etfMetadata.updatedAt) {
+        const now = new Date();
+        const lastUpdate = new Date(etfMetadata.updatedAt);
+        const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+
+        // If updated recently (e.g., < 24 hours), we assume long-term charts (1wk, 1mo) are fresh enough.
+        // We fetch '1d' (daily) to catch the latest close/price.
+        // We MUST fetch '1h' (hourly) because the "1D" chart relies on it for intraday views.
+        if (hoursSinceUpdate < 24) {
+             console.log(`[EtfSync] Item updated recently (${hoursSinceUpdate.toFixed(1)}h ago). Optimizing to ['1d', '1h'].`);
+             targetIntervals = ['1d', '1h'];
+        }
+      }
+    }
+
     // 0. Check Existing Data to determine fromDate
     const latestHistory = await prisma.etfHistory.findFirst({
       where: {
@@ -69,7 +98,7 @@ export async function syncEtfDetails(
     }
 
     // 1. Fetch deep details from Yahoo
-    const details = await fetchEtfDetails(ticker, fromDate, intervals);
+    const details = await fetchEtfDetails(ticker, fromDate, targetIntervals);
 
     if (!details) {
       console.error(`[EtfSync] No details found for ${ticker}`);
