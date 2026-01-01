@@ -1,5 +1,5 @@
 import prisma from '@/lib/db';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 interface OverlapResult {
   overlapScore: number;

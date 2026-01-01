@@ -1,5 +1,5 @@
 import prisma from '@/lib/db';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 /**
  * Calculates the Exponential Moving Average (EMA) for a given series of numbers.

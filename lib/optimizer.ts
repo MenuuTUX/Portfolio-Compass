@@ -1,5 +1,5 @@
 import { PortfolioItem } from '@/types';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 export interface GreedyOptimizationParams {
   candidates: {

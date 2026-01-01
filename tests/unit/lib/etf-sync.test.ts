@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 // Define mocks
 const mockPrismaUpsert = mock(() => Promise.resolve({}));

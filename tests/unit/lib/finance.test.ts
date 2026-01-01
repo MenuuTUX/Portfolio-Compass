@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { calculateTTMYield, forecastExpectedReturns, type DividendHistoryItem } from '../../../lib/finance';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 describe('calculateTTMYield', () => {
   it('should return 0 if dividend history is empty', () => {
