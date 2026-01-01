@@ -36,11 +36,15 @@ interface Question {
   }[];
 }
 
+// Minimal structure for template items (compatible with LocalPortfolioItem)
+type TemplateItem = Pick<PortfolioItem, 'ticker' | 'weight' | 'shares'>;
+
 export interface QuizResult {
   score: number; // 0-100
   profile: RiskProfile;
   suggestedProviders: string[];
-  suggestedPortfolio: PortfolioItem[];
+  // Use a looser type here to avoid build errors with missing ETF fields
+  suggestedPortfolio: TemplateItem[];
 }
 
 interface IntroQuizProps {
@@ -111,7 +115,8 @@ const QUESTIONS: Question[] = [
   }
 ];
 
-const PORTFOLIO_TEMPLATES: Record<RiskProfile | 'Aggressive', PortfolioItem[]> = {
+// Use the minimal type for templates to satisfy TypeScript
+const PORTFOLIO_TEMPLATES: Record<RiskProfile | 'Aggressive', TemplateItem[]> = {
   Conservative: [
     { ticker: 'BND', weight: 60, shares: 0 },
     { ticker: 'VTI', weight: 40, shares: 0 }

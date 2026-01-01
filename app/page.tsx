@@ -46,7 +46,10 @@ export default function Home() {
 
   const handleQuizComplete = async (result: QuizResult) => {
     if (result.suggestedPortfolio && result.suggestedPortfolio.length > 0) {
+      // Cast the simplified items to a type compatible with savePortfolio
+      // LocalPortfolioItem has { ticker, weight, shares }, which TemplateItem matches
       savePortfolio(result.suggestedPortfolio);
+
       // Invalidate to fetch full details (price, name, etc.)
       await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       setActiveTab('PORTFOLIO');
