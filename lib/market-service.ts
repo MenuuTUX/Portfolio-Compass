@@ -12,6 +12,8 @@ const yf = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
 });
 
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
+
 // -----------------------------------------------------------------------------
 // Type Definitions
 // -----------------------------------------------------------------------------
@@ -153,6 +155,35 @@ async function fetchWithFallback<T>(
   }
 }
 
+async function fetchFinnhubQuote(ticker: string): Promise<MarketSnapshot | null> {
+  if (!FINNHUB_API_KEY) return null;
+  try {
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+       console.error(`Finnhub fetch failed for ${ticker}: ${res.status} ${res.statusText}`);
+       return null;
+    }
+    const data = await res.json();
+    // data: { c: current price, d: change, dp: percent change, h: high, l: low, o: open, pc: prev close }
+    // Finnhub returns 0s if invalid symbol usually, or empty object?
+    if (data && typeof data.c === 'number') {
+       return {
+         ticker: ticker,
+         price: new Decimal(data.c || 0),
+         dailyChange: new Decimal(data.d || 0),
+         dailyChangePercent: new Decimal(data.dp || 0),
+         name: ticker, // Fallback name
+         assetType: 'STOCK'
+       };
+    }
+    return null;
+  } catch (error) {
+    console.error(`Finnhub error for ${ticker}:`, error);
+    return null;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Core Functions
 // -----------------------------------------------------------------------------
@@ -180,29 +211,17 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
         return [mapQuoteToSnapshot(results)];
     }
   } catch (error) {
-    console.warn("Bulk fetch failed in fetchMarketSnapshot, attempting individual Yahoo fallbacks:", error);
+    console.warn("Yahoo bulk fetch failed in fetchMarketSnapshot. Attempting Finnhub fallback...", error);
 
-    // Use p-limit for fallback to be nice to scraper
-    // Reduced concurrency from 5 to 1 to minimize 429s
-    const limit = pLimit(1);
+    // Limit concurrency to 5 to respect Finnhub free tier limits
+    const limit = pLimit(5);
 
-    // If bulk fetch fails, try fetching individually or in smaller batches.
-    // We use individual fetches here for maximum resilience.
     const promises = tickers.map((t) => limit(async () => {
-        try {
-            // Individual retry is handled by retryWithBackoff here
-            const q = await retryWithBackoff(() => yf.quote(t), 3, 1000);
-            return await mapQuoteToSnapshot(q);
-        } catch (e) {
-            console.error(`Failed to fetch individual ticker ${t}:`, e);
-            return null;
-        }
+       return await fetchFinnhubQuote(t);
     }));
 
-    const individualResults = await Promise.all(promises);
-    const validQuotes = individualResults.filter(q => q !== null);
-
-    return validQuotes.map(mapQuoteToSnapshot);
+    const fallbackResults = await Promise.all(promises);
+    return fallbackResults.filter((r): r is MarketSnapshot => r !== null);
   }
 }
 
