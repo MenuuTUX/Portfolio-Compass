@@ -1,7 +1,7 @@
 import prisma from '@/lib/db'
 import { fetchEtfDetails } from '@/lib/market-service'
 import { getEtfHoldings } from '@/lib/scrapers/stock-analysis'
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 import { Prisma } from '@prisma/client';
 import { toPrismaDecimal, toPrismaDecimalRequired } from '@/lib/prisma-utils';
 

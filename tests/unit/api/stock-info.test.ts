@@ -19,12 +19,16 @@ mock.module('@/lib/scrapers/etf-dot-com', () => ({
 }));
 
 // Mock yahoo-finance2
-const mockYahooFinance = {
-    quoteSummary: mock(() => Promise.resolve({}))
-};
+const mockQuoteSummary = mock(() => Promise.resolve({}));
+
+// Create a mock class
+class MockYahooFinance {
+  quoteSummary = mockQuoteSummary;
+  // Add other methods if needed
+}
 
 mock.module('yahoo-finance2', () => ({
-    default: mockYahooFinance
+    YahooFinance: MockYahooFinance
 }));
 
 // Import the module under test dynamically to ensure the mock is applied
@@ -34,7 +38,7 @@ describe('GET /api/stock/info', () => {
   beforeEach(() => {
     mockGetStockProfile.mockClear();
     mockGetEtfDescription.mockClear();
-    mockYahooFinance.quoteSummary.mockClear();
+    mockQuoteSummary.mockClear();
   });
 
   it('returns 400 if ticker is missing', async () => {
@@ -69,7 +73,7 @@ describe('GET /api/stock/info', () => {
     mockGetEtfDescription.mockResolvedValueOnce(null);
 
     // 3. Yahoo returns data
-    mockYahooFinance.quoteSummary.mockResolvedValueOnce({
+    mockQuoteSummary.mockResolvedValueOnce({
         summaryProfile: {
             longBusinessSummary: 'Yahoo description',
             sector: 'Technology',
@@ -83,7 +87,7 @@ describe('GET /api/stock/info', () => {
 
     expect(mockGetStockProfile).toHaveBeenCalledWith('NVDA');
     expect(mockGetEtfDescription).toHaveBeenCalledWith('NVDA');
-    expect(mockYahooFinance.quoteSummary).toHaveBeenCalledWith('NVDA', expect.anything());
+    expect(mockQuoteSummary).toHaveBeenCalledWith('NVDA', expect.anything());
     expect(json.description).toBe('Yahoo description');
     expect(json.sector).toBe('Tech');
   });
@@ -102,7 +106,7 @@ describe('GET /api/stock/info', () => {
 
       expect(mockGetEtfDescription).toHaveBeenCalledWith('SLV');
       expect(json.description).toBe('ETF.com Analysis & Insights');
-      expect(mockYahooFinance.quoteSummary).not.toHaveBeenCalled();
+      expect(mockQuoteSummary).not.toHaveBeenCalled();
   });
 
   it('should use ETF.com description if StockAnalysis sector is Unknown (implying poor data)', async () => {

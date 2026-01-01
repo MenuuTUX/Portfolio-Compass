@@ -6,7 +6,7 @@ import { optimizePortfolioGreedy, GreedyOptimizationResult } from '@/lib/optimiz
 import { Check, ArrowRight, DollarSign, TrendingDown, Layers, Activity, Minus, Plus, ShieldAlert, ShieldCheck, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 import OptimizationDiffChart from './OptimizationDiffChart';
 
 interface OptimizationPanelProps {

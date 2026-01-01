@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'bun:test';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 describe('Sector Reduction Logic', () => {
   const safeDecimal = (val: any) => {

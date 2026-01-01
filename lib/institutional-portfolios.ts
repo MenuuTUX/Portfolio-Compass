@@ -247,11 +247,11 @@ export const INSTITUTIONAL_DATA: Institution[] = [
                 description: 'CIBC Balanced Growth ETF Portfolio. Focus on long-term capital growth.',
                 iconName: 'TrendingUp',
                 holdings: [
-                    { ticker: 'CUEI', name: 'CIBC MSCI USA Equity Index ETF', weight: 40.0 },
-                    { ticker: 'CCEI', name: 'CIBC MSCI Canada Equity Index ETF', weight: 25.0 },
-                    { ticker: 'CIEI', name: 'CIBC MSCI EAFE Equity Index ETF', weight: 15.0 },
-                    { ticker: 'CEMI', name: 'CIBC MSCI Emerging Markets Equity Index ETF', weight: 5.0 },
-                    { ticker: 'CCBI', name: 'CIBC Canadian Bond Index ETF', weight: 15.0 },
+                    { ticker: 'CUEI.TO', name: 'CIBC MSCI USA Equity Index ETF', weight: 40.0 },
+                    { ticker: 'CCEI.TO', name: 'CIBC MSCI Canada Equity Index ETF', weight: 25.0 },
+                    { ticker: 'CIEI.TO', name: 'CIBC MSCI EAFE Equity Index ETF', weight: 15.0 },
+                    { ticker: 'CEMI.TO', name: 'CIBC MSCI Emerging Markets Equity Index ETF', weight: 5.0 },
+                    { ticker: 'CCBI.TO', name: 'CIBC Canadian Bond Index ETF', weight: 15.0 },
                 ]
             },
             Balanced: {
@@ -260,10 +260,10 @@ export const INSTITUTIONAL_DATA: Institution[] = [
                 description: 'CIBC Balanced ETF Portfolio. A moderate mix for balanced growth and income.',
                 iconName: 'Scale',
                 holdings: [
-                    { ticker: 'CUEI', name: 'CIBC MSCI USA Equity Index ETF', weight: 30.0 },
-                    { ticker: 'CCEI', name: 'CIBC MSCI Canada Equity Index ETF', weight: 20.0 },
-                    { ticker: 'CIEI', name: 'CIBC MSCI EAFE Equity Index ETF', weight: 10.0 },
-                    { ticker: 'CCBI', name: 'CIBC Canadian Bond Index ETF', weight: 40.0 },
+                    { ticker: 'CUEI.TO', name: 'CIBC MSCI USA Equity Index ETF', weight: 30.0 },
+                    { ticker: 'CCEI.TO', name: 'CIBC MSCI Canada Equity Index ETF', weight: 20.0 },
+                    { ticker: 'CIEI.TO', name: 'CIBC MSCI EAFE Equity Index ETF', weight: 10.0 },
+                    { ticker: 'CCBI.TO', name: 'CIBC Canadian Bond Index ETF', weight: 40.0 },
                 ]
             },
             Conservative: {
@@ -272,10 +272,10 @@ export const INSTITUTIONAL_DATA: Institution[] = [
                 description: 'CIBC Conservative ETF Portfolio. Prioritizes income and capital preservation.',
                 iconName: 'Shield',
                 holdings: [
-                    { ticker: 'CUEI', name: 'CIBC MSCI USA Equity Index ETF', weight: 15.0 },
-                    { ticker: 'CCEI', name: 'CIBC MSCI Canada Equity Index ETF', weight: 10.0 },
-                    { ticker: 'CIEI', name: 'CIBC MSCI EAFE Equity Index ETF', weight: 5.0 },
-                    { ticker: 'CCBI', name: 'CIBC Canadian Bond Index ETF', weight: 70.0 },
+                    { ticker: 'CUEI.TO', name: 'CIBC MSCI USA Equity Index ETF', weight: 15.0 },
+                    { ticker: 'CCEI.TO', name: 'CIBC MSCI Canada Equity Index ETF', weight: 10.0 },
+                    { ticker: 'CIEI.TO', name: 'CIBC MSCI EAFE Equity Index ETF', weight: 5.0 },
+                    { ticker: 'CCBI.TO', name: 'CIBC Canadian Bond Index ETF', weight: 70.0 },
                 ]
             }
         }
@@ -294,10 +294,10 @@ export const INSTITUTIONAL_DATA: Institution[] = [
                 description: 'Simulated 80/20 portfolio using Scotia Index Tracker ETFs.',
                 iconName: 'TrendingUp',
                 holdings: [
-                    { ticker: 'SITU', name: 'Scotia US Equity Index Tracker ETF', weight: 40.0 },
-                    { ticker: 'SITC', name: 'Scotia Canadian Large Cap Equity Index', weight: 25.0 },
-                    { ticker: 'SITI', name: 'Scotia International Equity Index', weight: 15.0 },
-                    { ticker: 'SITB', name: 'Scotia Canadian Bond Index Tracker', weight: 20.0 },
+                    { ticker: 'SITU.NE', name: 'Scotia US Equity Index Tracker ETF', weight: 40.0 },
+                    { ticker: 'SITC.NE', name: 'Scotia Canadian Large Cap Equity Index', weight: 25.0 },
+                    { ticker: 'SITI.NE', name: 'Scotia International Equity Index', weight: 15.0 },
+                    { ticker: 'SITB.NE', name: 'Scotia Canadian Bond Index Tracker', weight: 20.0 },
                 ]
             },
             Balanced: {
@@ -306,10 +306,10 @@ export const INSTITUTIONAL_DATA: Institution[] = [
                 description: 'Simulated 60/40 portfolio using Scotia Index Tracker ETFs.',
                 iconName: 'Scale',
                 holdings: [
-                    { ticker: 'SITU', name: 'Scotia US Equity Index Tracker ETF', weight: 30.0 },
-                    { ticker: 'SITC', name: 'Scotia Canadian Large Cap Equity Index', weight: 20.0 },
-                    { ticker: 'SITI', name: 'Scotia International Equity Index', weight: 10.0 },
-                    { ticker: 'SITB', name: 'Scotia Canadian Bond Index Tracker', weight: 40.0 },
+                    { ticker: 'SITU.NE', name: 'Scotia US Equity Index Tracker ETF', weight: 30.0 },
+                    { ticker: 'SITC.NE', name: 'Scotia Canadian Large Cap Equity Index', weight: 20.0 },
+                    { ticker: 'SITI.NE', name: 'Scotia International Equity Index', weight: 10.0 },
+                    { ticker: 'SITB.NE', name: 'Scotia Canadian Bond Index Tracker', weight: 40.0 },
                 ]
             },
             Conservative: {
@@ -318,10 +318,10 @@ export const INSTITUTIONAL_DATA: Institution[] = [
                 description: 'Simulated 40/60 portfolio using Scotia Index Tracker ETFs.',
                 iconName: 'Shield',
                 holdings: [
-                    { ticker: 'SITU', name: 'Scotia US Equity Index Tracker ETF', weight: 20.0 },
-                    { ticker: 'SITC', name: 'Scotia Canadian Large Cap Equity Index', weight: 15.0 },
-                    { ticker: 'SITI', name: 'Scotia International Equity Index', weight: 5.0 },
-                    { ticker: 'SITB', name: 'Scotia Canadian Bond Index Tracker', weight: 60.0 },
+                    { ticker: 'SITU.NE', name: 'Scotia US Equity Index Tracker ETF', weight: 20.0 },
+                    { ticker: 'SITC.NE', name: 'Scotia Canadian Large Cap Equity Index', weight: 15.0 },
+                    { ticker: 'SITI.NE', name: 'Scotia International Equity Index', weight: 5.0 },
+                    { ticker: 'SITB.NE', name: 'Scotia Canadian Bond Index Tracker', weight: 60.0 },
                 ]
             }
         }
