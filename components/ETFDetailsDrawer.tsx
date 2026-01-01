@@ -356,12 +356,16 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
             <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 backdrop-blur-md">
               <div className="flex items-center gap-4">
                 {/* Provider Logo */}
-                {getProviderLogo(displayEtf.name) && (
-                  <div className="w-12 h-12 rounded-xl bg-white p-2 flex items-center justify-center shrink-0">
+                {getAssetIconUrl(displayEtf.ticker, displayEtf.name, displayEtf.assetType) && (
+                  <div className="w-12 h-12 flex items-center justify-center shrink-0">
                     <img
-                      src={getProviderLogo(displayEtf.name)!}
-                      alt={`${displayEtf.name} logo`}
+                      src={getAssetIconUrl(displayEtf.ticker, displayEtf.name, displayEtf.assetType)!}
+                      alt={`${displayEtf.ticker} logo`}
                       className="w-full h-full object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.parentElement!.style.display = 'none';
+                      }}
                     />
                   </div>
                 )}
@@ -380,7 +384,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
               <div className="flex items-center gap-4">
                 {riskData && (
-                  <div className={cn("px-4 py-2 rounded-full border backdrop-blur-md flex items-center gap-2",
+                  <div className={cn("hidden md:flex px-4 py-2 rounded-full border backdrop-blur-md items-center gap-2",
                     riskData.bgColor,
                     riskData.borderColor
                   )}>
@@ -390,7 +394,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                 )}
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-full hover:bg-white/10 transition-colors text-neutral-400 hover:text-white"
+                  className="z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/10 shadow-lg"
+                  aria-label="Close details"
                 >
                   <X className="w-6 h-6" />
                 </button>
