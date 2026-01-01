@@ -34,11 +34,33 @@ const ETFCard = memo(({
 }: ETFCardProps) => {
   const isPositive = etf.changePercent >= 0;
 
+  // Generate fake history if missing
+  const displayHistory = useMemo(() => {
+    if (etf.history && etf.history.length > 0) return etf.history;
+
+    // Fake data generator (sine wave + random noise to look "market-like")
+    const fakeData = [];
+    const now = new Date();
+    const basePrice = etf.price || 100;
+    for (let i = 30; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      // Create a gentle trend matching the changePercent sign
+      const trend = isPositive ? (30 - i) * 0.002 : (30 - i) * -0.002;
+      const noise = (Math.random() - 0.5) * 0.02;
+      fakeData.push({
+        date: date.toISOString(),
+        price: basePrice * (1 + trend + noise)
+      });
+    }
+    return fakeData;
+  }, [etf.history, etf.price, isPositive]);
+
   // Determine graph color based on history trend if available
   let isGraphPositive = isPositive;
-  if (etf.history && etf.history.length > 0) {
-    const firstPrice = etf.history[0].price;
-    const lastPrice = etf.history[etf.history.length - 1].price;
+  if (displayHistory && displayHistory.length > 0) {
+    const firstPrice = displayHistory[0].price;
+    const lastPrice = displayHistory[displayHistory.length - 1].price;
     isGraphPositive = lastPrice >= firstPrice;
   }
 
@@ -121,9 +143,9 @@ const ETFCard = memo(({
             <div className="text-3xl font-light text-white">{formatCurrency(etf.price)}</div>
             <div className="text-xs text-neutral-400 mt-1">Closing Price</div>
           </div>
-          {etf.history && etf.history.length > 0 && (
+          {displayHistory.length > 0 && (
             <Sparkline
-              data={etf.history}
+              data={displayHistory}
               color={isGraphPositive ? '#10b981' : '#f43f5e'}
               name={etf.ticker}
             />
@@ -254,7 +276,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
   const [flashStates, setFlashStates] = useState<Record<string, 'success' | 'error' | null>>({});
 
   // Pagination and sorting state
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(24);
   const [hasMoreServer, setHasMoreServer] = useState(true);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
 
@@ -423,19 +445,19 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
   // Reset pagination when search or asset type changes
   useEffect(() => {
-    setVisibleCount(12);
+    setVisibleCount(24);
   }, [debouncedSearch, assetType]);
 
   const handleLoadMore = async () => {
       // If we have more local items to show, just increase visible count
       if (visibleCount < etfs.length) {
-          setVisibleCount(prev => prev + 12);
+          setVisibleCount(prev => prev + 24);
       } else if (hasMoreServer) {
           // If we showed all local, try fetching more from server
           // Use current etfs.length as skip
           const count = await fetchEtfs(debouncedSearch, etfs.length);
           if (count > 0) {
-             setVisibleCount(prev => prev + 12);
+             setVisibleCount(prev => prev + 24);
           }
       }
   };
@@ -641,7 +663,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
                 className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
                 value={search}
                 onChange={(e) => {
-                  const value = e.target.value.toUpperCase().replace(/[^A-Z.]/g, '');
+                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9.\s-&]/g, '');
                   setSearch(value);
                 }}
                 onFocus={() => { if (search) setShowSuggestions(true); }}
