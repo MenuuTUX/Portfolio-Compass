@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 export const dynamic = 'force-dynamic';
 

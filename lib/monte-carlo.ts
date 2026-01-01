@@ -6,10 +6,23 @@
  * Returns[t] = ln(Price[t] / Price[t-1])
  */
 export function calculateLogReturns(prices: number[]): number[] {
-  if (prices.length < 2) return [];
+  // Robust array check
+  if (!prices || !Array.isArray(prices)) {
+      return [];
+  }
+  if (prices.length < 2) {
+      return [];
+  }
   const returns: number[] = [];
   for (let i = 1; i < prices.length; i++) {
-    const r = Math.log(prices[i] / prices[i - 1]);
+    const pPrev = Number(prices[i - 1]);
+    const pCurr = Number(prices[i]);
+
+    if (pPrev <= 0 || pCurr <= 0 || isNaN(pPrev) || isNaN(pCurr)) {
+        continue;
+    }
+
+    const r = Math.log(pCurr / pPrev);
     returns.push(r);
   }
   return returns;

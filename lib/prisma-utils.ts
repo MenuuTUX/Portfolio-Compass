@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 /**
  * Safely converts a value to a string format accepted by Prisma Decimal fields.

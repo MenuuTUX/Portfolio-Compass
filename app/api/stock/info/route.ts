@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getStockProfile } from '@/lib/scrapers/stock-analysis';
 import { getEtfDescription } from '@/lib/scrapers/etf-dot-com';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2';
+
+const yahooFinance = new YahooFinance({
+    suppressNotices: ['yahooSurvey']
+});
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

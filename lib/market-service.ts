@@ -1,5 +1,5 @@
 import YahooFinance from 'yahoo-finance2';
-import { Decimal } from './decimal';
+import { Decimal } from '@/lib/decimal';
 import { getStockProfile } from './scrapers/stock-analysis';
 import pLimit from 'p-limit';
 
@@ -9,7 +9,7 @@ import pLimit from 'p-limit';
 
 // Yahoo Finance requires a User-Agent to avoid 429 Too Many Requests (Rate Limiting)
 const yf = new YahooFinance({
-  suppressNotices: ['yahooSurvey', 'ripHistorical'],
+  suppressNotices: ['yahooSurvey'],
 });
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
