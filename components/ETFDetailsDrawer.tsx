@@ -183,7 +183,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
     const filterAndSort = (history: any[]) => {
       return history
         .filter(h => {
-          if (h.interval !== targetInterval) return false;
+          const itemInterval = h.interval || '1d';
+          if (itemInterval !== targetInterval) return false;
           return new Date(h.date) >= cutoffDate;
         })
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -211,7 +212,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
       const spyHistory = spyData.history
         .filter((h: any) => {
-          if (h.interval !== targetInterval) return false;
+          const itemInterval = h.interval || '1d';
+          if (itemInterval !== targetInterval) return false;
           return new Date(h.date) >= cutoffDate;
         })
         .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
