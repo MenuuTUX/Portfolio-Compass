@@ -8,6 +8,7 @@ import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import TrendingTab from '@/components/TrendingTab';
 import SettingsDrawer from '@/components/SettingsDrawer';
+import IntroQuiz, { QuizResult } from '@/components/IntroQuiz';
 import { ETF, PortfolioItem } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
@@ -18,7 +19,7 @@ import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePortfolio } from '@/lib/storage';
 
-type ViewMode = 'LANDING' | 'APP';
+type ViewMode = 'LANDING' | 'INTRO_QUIZ' | 'APP';
 type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS';
 
 export default function Home() {
@@ -36,6 +37,13 @@ export default function Home() {
   const queryClient = useQueryClient();
 
   const handleStart = () => {
+    setViewMode('INTRO_QUIZ');
+  };
+
+  const handleQuizComplete = (result: QuizResult) => {
+    // In a real app, we might save the result to user profile or use it to seed the portfolio.
+    // For now, we just proceed to the app.
+    console.log("Quiz Result:", result);
     setViewMode('APP');
   };
 
@@ -94,6 +102,17 @@ export default function Home() {
             <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
               <p>&copy; {new Date().getFullYear()} PortfolioCompass. Institutional Grade Intelligence.</p>
             </footer>
+          </motion.div>
+        ) : viewMode === 'INTRO_QUIZ' ? (
+          <motion.div
+            key="intro-quiz"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            className="h-screen flex items-center justify-center overflow-hidden"
+          >
+             <IntroQuiz onComplete={handleQuizComplete} />
           </motion.div>
         ) : (
           <motion.div
