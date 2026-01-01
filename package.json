@@ -43,6 +43,7 @@
     "clsx": "^2.1.1",
     "csv-parse": "^6.1.0",
     "decimal.js": "^10.6.0",
+    "finnhub": "^2.0.12",
     "framer-motion": "^12.23.26",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.555.0",

@@ -2,6 +2,7 @@ import YahooFinance from 'yahoo-finance2';
 import { Decimal } from './decimal';
 import { getStockProfile } from './scrapers/stock-analysis';
 import pLimit from 'p-limit';
+import * as finnhub from 'finnhub';
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -11,6 +12,10 @@ import pLimit from 'p-limit';
 const yf = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
 });
+
+const api_key = finnhub.ApiClient.instance.authentications['api_key'];
+api_key.apiKey = process.env.FINNHUB_API_KEY;
+const finnhubClient = new finnhub.DefaultApi();
 
 // -----------------------------------------------------------------------------
 // Type Definitions
@@ -180,29 +185,34 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
         return [mapQuoteToSnapshot(results)];
     }
   } catch (error) {
-    console.warn("Bulk fetch failed in fetchMarketSnapshot, attempting individual Yahoo fallbacks:", error);
+    console.warn("Yahoo bulk fetch failed in fetchMarketSnapshot. Attempting Finnhub fallback...", error);
 
-    // Use p-limit for fallback to be nice to scraper
-    // Reduced concurrency from 5 to 1 to minimize 429s
-    const limit = pLimit(1);
+    // Limit concurrency to 5 to respect Finnhub free tier limits
+    const limit = pLimit(5);
 
-    // If bulk fetch fails, try fetching individually or in smaller batches.
-    // We use individual fetches here for maximum resilience.
     const promises = tickers.map((t) => limit(async () => {
-        try {
-            // Individual retry is handled by retryWithBackoff here
-            const q = await retryWithBackoff(() => yf.quote(t), 3, 1000);
-            return await mapQuoteToSnapshot(q);
-        } catch (e) {
-            console.error(`Failed to fetch individual ticker ${t}:`, e);
-            return null;
-        }
+      return new Promise<MarketSnapshot | null>((resolve) => {
+        finnhubClient.quote(t, (err: any, data: any, response: any) => {
+          if (err || !data) {
+            console.error(`Finnhub failed for ${t}:`, err);
+            resolve(null);
+          } else {
+            // Finnhub returns 'c' (current), 'd' (change), 'dp' (percent)
+            resolve({
+              ticker: t,
+              price: new Decimal(data.c || 0),
+              dailyChange: new Decimal(data.d || 0),
+              dailyChangePercent: new Decimal(data.dp || 0),
+              name: t, // Finnhub quote doesn't provide name
+              assetType: 'STOCK'
+            });
+          }
+        });
+      });
     }));
 
-    const individualResults = await Promise.all(promises);
-    const validQuotes = individualResults.filter(q => q !== null);
-
-    return validQuotes.map(mapQuoteToSnapshot);
+    const fallbackResults = await Promise.all(promises);
+    return fallbackResults.filter((r): r is MarketSnapshot => r !== null);
   }
 }
 
