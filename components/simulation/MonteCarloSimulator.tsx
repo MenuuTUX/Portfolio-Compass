@@ -16,7 +16,7 @@ import {
   generateMonteCarloPaths,
   calculateCone
 } from '@/lib/monte-carlo';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 import { PortfolioShareButton } from '../PortfolioShareButton';
 import SimulatorExplainer from './SimulatorExplainer';
 

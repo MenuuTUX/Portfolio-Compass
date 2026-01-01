@@ -6,7 +6,7 @@ const mockQuoteSummary = mock(() => Promise.resolve({}));
 // Mock the module BEFORE importing the code under test
 mock.module('yahoo-finance2', () => {
   return {
-    default: class YahooFinance {
+    YahooFinance: class YahooFinance {
       constructor() {
         console.log('Mock YahooFinance constructor called');
       }

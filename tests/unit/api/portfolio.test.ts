@@ -1,7 +1,7 @@
 
 import { describe, it, expect, mock } from 'bun:test';
 import { GET } from '@/app/api/portfolio/route';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 // Mock prisma
 const mockFindMany = mock(() => Promise.resolve([

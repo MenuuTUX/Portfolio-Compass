@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import PortfolioItemRow from './PortfolioItemRow';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 import WealthProjector from './WealthProjector';
 import ContributePopup from './ContributePopup';
 import OptimizationPanel from './OptimizationPanel';

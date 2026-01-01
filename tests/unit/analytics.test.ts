@@ -1,6 +1,6 @@
 import { describe, it, expect, mock, beforeAll } from 'bun:test';
 import { calculateOverlap } from '@/lib/analytics';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 // Mock Prisma
 const mockFindMany = mock();

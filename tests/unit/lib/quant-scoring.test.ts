@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import { calculateCompositeScores } from '../../../lib/quant-scoring';
 import { EtfDetails } from '../../../lib/market-service';
-import { Decimal } from 'decimal.js';
+import { Decimal } from '@/lib/decimal';
 
 describe('calculateCompositeScores', () => {
   it('should calculate scores for a list of assets', () => {
