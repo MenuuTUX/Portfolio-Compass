@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, Variants } from 'framer-motion';
-import { Star, Share2, Github, ExternalLink, Leaf, PawPrint, Cpu } from 'lucide-react';
+import { Share2, Github, ExternalLink, Building2, TrendingUp, LineChart, Target, HeartHandshake } from 'lucide-react';
 import Image from 'next/image';
 
 const cardVariants: Variants = {
@@ -20,25 +20,25 @@ const cardVariants: Variants = {
 const PurposeSection = () => {
   const cards = [
     {
-      title: "The Market Jungle",
-      description: "The financial world is a dense, untamed wilderness. Volatility hides in the shadows, and traps await the unprepared. To survive, you need more than luck—you need a map.",
-      image: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=800&q=80",
-      icon: <Leaf className="w-5 h-5 text-emerald-400" />,
-      tag: "ENVIRONMENT"
+      title: "Institutional Intelligence",
+      description: "Peek into the portfolios of major financial institutions. See what the giants are buying and use their strategies as a benchmark for your own success.",
+      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
+      icon: <Building2 className="w-5 h-5 text-emerald-400" />,
+      tag: "INSIGHTS"
     },
     {
-      title: "Apex Predator",
-      description: "Don't just survive—dominate. Our algorithms sharpen your instincts, turning you into a calculated predator. Hunt for alpha with the precision of a jungle cat.",
-      image: "https://images.unsplash.com/photo-1504204267355-bdda04958d40?auto=format&fit=crop&w=800&q=80",
-      icon: <PawPrint className="w-5 h-5 text-rose-400" />,
-      tag: "STRATEGY"
+      title: "Mathematical Optimization",
+      description: "Stop guessing. Our algorithms analyze volatility, correlation, and returns to mathematically optimize your asset allocation for the highest possible Sharpe ratio.",
+      image: "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
+      icon: <TrendingUp className="w-5 h-5 text-rose-400" />,
+      tag: "ALGORITHM"
     },
     {
-      title: "Biopunk Evolution",
-      description: "Merge biology with technology. We apply evolutionary principles to portfolio construction, ensuring your wealth adapts and thrives in a changing ecosystem.",
-      image: "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=800&q=80",
-      icon: <Cpu className="w-5 h-5 text-cyan-400" />,
-      tag: "TECHNOLOGY"
+      title: "Future Simulation",
+      description: "Test your portfolio against thousands of potential market scenarios with Monte Carlo simulations. Visualize your range of outcomes and plan with confidence.",
+      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+      icon: <LineChart className="w-5 h-5 text-cyan-400" />,
+      tag: "SIMULATION"
     }
   ];
 
@@ -65,7 +65,7 @@ const PurposeSection = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            ECOSYSTEM ANALYSIS
+            ADVANCED ANALYTICS
           </motion.div>
 
           <motion.h2
@@ -75,7 +75,7 @@ const PurposeSection = () => {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-5xl font-display font-bold text-stone-100 mb-6"
           >
-            Welcome to the <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Concrete Jungle</span>
+            Intelligent <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Portfolio Management</span>
           </motion.h2>
 
           <motion.p
@@ -85,7 +85,7 @@ const PurposeSection = () => {
             transition={{ delay: 0.2 }}
             className="text-lg text-stone-400 leading-relaxed"
           >
-            PortfolioCompass isn't just a tool; it's a survival kit. We strip away the noise and visualize the raw DNA of the market, empowering you to build portfolios that are alive, adaptive, and resilient.
+            PortfolioCompass simplifies the complex world of investing. We provide institutional-grade tools to help you build, optimize, and simulate your wealth strategy.
           </motion.p>
         </div>
 
@@ -134,6 +134,30 @@ const PurposeSection = () => {
           ))}
         </div>
 
+        {/* Our Mission Section */}
+        <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-32 relative"
+        >
+             <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-emerald-500/50 to-transparent rounded-full" />
+             <div className="pl-8 md:pl-12">
+                <div className="flex items-center gap-3 mb-6">
+                    <HeartHandshake className="text-emerald-400 w-6 h-6" />
+                    <h3 className="text-2xl font-display font-bold text-stone-100">Our Mission</h3>
+                </div>
+                <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
+                    "Investing shouldn't be a mystery. I started this project because when I began investing, I was overwhelmed by the noise and lack of clear, actionable tools. PortfolioCompass is the tool I wish I had—designed to simplify the complex and make professional-grade analysis accessible to everyone."
+                </p>
+                <div className="flex items-center gap-4">
+                    <div className="h-px flex-1 bg-stone-800" />
+                    <span className="text-stone-500 text-sm font-mono uppercase tracking-widest">The Creator</span>
+                </div>
+             </div>
+        </motion.div>
+
+
         {/* Support Section */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -146,10 +170,10 @@ const PurposeSection = () => {
 
           <div className="relative z-10 max-w-2xl mx-auto space-y-8">
             <h3 className="text-3xl font-display font-bold text-white">
-              Support the <span className="text-emerald-400">Evolution</span>
+              Support the <span className="text-emerald-400">Project</span>
             </h3>
             <p className="text-stone-400">
-              This project is open-source and powered by the community. If you enjoy navigating the financial jungle with us, please consider starring the project on GitHub and sharing it with fellow explorers.
+              This project is open-source and powered by the community. If you enjoy navigating the markets with us, please consider starring the project on GitHub and sharing it with fellow investors.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -169,7 +193,7 @@ const PurposeSection = () => {
                   if (navigator.share) {
                     navigator.share({
                       title: 'PortfolioCompass',
-                      text: 'Navigate the market jungle with PortfolioCompass.',
+                      text: 'Navigate the market with PortfolioCompass.',
                       url: window.location.href,
                     }).catch(console.error);
                   } else {
