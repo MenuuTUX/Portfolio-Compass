@@ -14,9 +14,11 @@ import {
   ShieldCheck,
   Brain,
   Zap,
-  Leaf
+  Leaf,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PortfolioItem } from '@/types';
 
 // --- Types ---
 
@@ -38,6 +40,7 @@ export interface QuizResult {
   score: number; // 0-100
   profile: RiskProfile;
   suggestedProviders: string[];
+  suggestedPortfolio: PortfolioItem[];
 }
 
 interface IntroQuizProps {
@@ -108,13 +111,34 @@ const QUESTIONS: Question[] = [
   }
 ];
 
+const PORTFOLIO_TEMPLATES: Record<RiskProfile | 'Aggressive', PortfolioItem[]> = {
+  Conservative: [
+    { ticker: 'BND', weight: 60, shares: 0 },
+    { ticker: 'VTI', weight: 40, shares: 0 }
+  ],
+  Balanced: [
+    { ticker: 'VTI', weight: 60, shares: 0 },
+    { ticker: 'BND', weight: 40, shares: 0 }
+  ],
+  Growth: [
+    { ticker: 'VTI', weight: 80, shares: 0 },
+    { ticker: 'QQQ', weight: 20, shares: 0 }
+  ],
+  Aggressive: [
+    { ticker: 'QQQ', weight: 50, shares: 0 },
+    { ticker: 'NVDA', weight: 25, shares: 0 },
+    { ticker: 'VGT', weight: 25, shares: 0 }
+  ]
+};
+
 // --- Component ---
 
 export default function IntroQuiz({ onComplete }: IntroQuizProps) {
-  const [step, setStep] = useState<'INTRO' | 'QUIZ' | 'CALCULATING'>('INTRO');
+  const [step, setStep] = useState<'INTRO' | 'QUIZ' | 'CALCULATING' | 'SUCCESS'>('INTRO');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [direction, setDirection] = useState(1); // 1 for next, -1 for back
+  const [finalResult, setFinalResult] = useState<QuizResult | null>(null);
 
   // -- Handlers --
 
@@ -124,7 +148,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
 
   const handleSkip = () => {
     setStep('CALCULATING');
-    // Default to Growth profile for "Diamond Hands"
+    // Default to Aggressive/Growth profile for "Diamond Hands"
     calculateResult({}, true);
   };
 
@@ -145,42 +169,49 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
   const calculateResult = (finalAnswers: Record<string, number>, isSkipped = false) => {
     // Simulate complex calculation
     setTimeout(() => {
+      let profile: RiskProfile = 'Balanced';
+      let score = 50;
+      let suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
+
       if (isSkipped) {
-         onComplete({
-          score: 100,
-          profile: 'Growth',
-          suggestedProviders: ['Wealthsimple', 'Invesco', 'Global X']
-        });
-        return;
+        score = 100;
+        profile = 'Growth';
+        suggestedPortfolio = PORTFOLIO_TEMPLATES['Aggressive'];
+      } else {
+         // 1. Calculate Score (Simple Average)
+        const totalScore = Object.values(finalAnswers).reduce((a, b) => a + b, 0);
+        const averageScore = totalScore / QUESTIONS.length;
+        score = Math.round(averageScore);
+
+        // 2. Determine Profile
+        if (averageScore < 40) {
+            profile = 'Conservative';
+            suggestedPortfolio = PORTFOLIO_TEMPLATES['Conservative'];
+        } else if (averageScore > 75) {
+            profile = 'Growth';
+            suggestedPortfolio = PORTFOLIO_TEMPLATES['Growth'];
+        } else {
+            profile = 'Balanced';
+            suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
+        }
       }
 
-      // 1. Calculate Score (Simple Average)
-      const totalScore = Object.values(finalAnswers).reduce((a, b) => a + b, 0);
-      // Normalize to 0-100
-      const averageScore = totalScore / QUESTIONS.length;
-
-      // 2. Determine Profile
-      let profile: RiskProfile = 'Balanced';
-      if (averageScore < 40) profile = 'Conservative';
-      else if (averageScore > 75) profile = 'Growth';
-
       // 3. Determine Provider Suggestion
-      // Logic: Young/Aggressive (High score + Long Horizon) -> Tech-heavy
-      // Conservative -> Traditional
       const horizonScore = finalAnswers['horizon'] || 0;
       const knowledgeScore = finalAnswers['knowledge'] || 0;
-
-      const isTechHeavy = (averageScore > 60 && horizonScore > 60) || knowledgeScore > 70;
+      const isTechHeavy = (score > 60 && horizonScore > 60) || knowledgeScore > 70 || isSkipped;
 
       const providers = isTechHeavy
         ? ['Wealthsimple', 'Invesco', 'Global X'] // Tech/Modern
         : ['Vanguard', 'BMO', 'iShares']; // Traditional
 
-      onComplete({
-        score: Math.round(averageScore),
+      setFinalResult({
+        score,
         profile,
-        suggestedProviders: providers
+        suggestedProviders: providers,
+        suggestedPortfolio
       });
+      setStep('SUCCESS');
     }, 2000); // 2s delay for "calculating" effect
   };
 
@@ -253,8 +284,19 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="w-full"
+            className="w-full relative"
           >
+             {/* Persistent Skip Button */}
+             <div className="absolute -top-10 right-0">
+                <button
+                    onClick={handleSkip}
+                    className="text-xs text-stone-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                >
+                    <span>Skip (Diamond Hands)</span>
+                    <ArrowRight className="w-3 h-3" />
+                </button>
+            </div>
+
             {/* Progress Bar */}
             <div className="w-full h-1.5 bg-stone-800 rounded-full mb-8 overflow-hidden">
               <motion.div
@@ -322,6 +364,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             key="calculating"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             className="flex flex-col items-center justify-center text-center space-y-8"
           >
             <div className="relative">
@@ -350,6 +393,53 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               </p>
             </div>
           </motion.div>
+        )}
+
+        {/* --- SUCCESS STATE --- */}
+        {step === 'SUCCESS' && finalResult && (
+           <motion.div
+             key="success"
+             initial={{ opacity: 0, scale: 0.95 }}
+             animate={{ opacity: 1, scale: 1 }}
+             className="text-center space-y-8"
+           >
+              <div className="w-24 h-24 mx-auto bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
+                 <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+              </div>
+
+              <div className="space-y-4">
+                 <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
+                    We've Built Your Portfolio
+                 </h2>
+                 <p className="text-lg text-stone-400 max-w-md mx-auto">
+                    Based on your <strong>{finalResult.profile}</strong> profile (Score: {finalResult.score}/100),
+                    we've allocated a starting strategy for you.
+                 </p>
+              </div>
+
+              {/* Mini Portfolio Preview */}
+              <div className="bg-stone-900/50 rounded-xl border border-stone-800 p-4 max-w-sm mx-auto">
+                 <h4 className="text-xs text-stone-500 font-mono uppercase tracking-widest mb-3 text-left pl-2">Allocation</h4>
+                 <div className="space-y-2">
+                    {finalResult.suggestedPortfolio.map((item) => (
+                       <div key={item.ticker} className="flex items-center justify-between p-2 rounded bg-stone-950/50">
+                          <span className="font-bold text-stone-200">{item.ticker}</span>
+                          <span className="text-emerald-400 font-mono">{item.weight}%</span>
+                       </div>
+                    ))}
+                 </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onComplete(finalResult)}
+                className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20"
+              >
+                Go to Dashboard
+                <ArrowRight className="w-5 h-5" />
+              </motion.button>
+           </motion.div>
         )}
 
       </AnimatePresence>
