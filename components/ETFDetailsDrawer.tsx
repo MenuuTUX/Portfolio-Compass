@@ -61,6 +61,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
   const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [showAllHoldings, setShowAllHoldings] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSpyLoading, setIsSpyLoading] = useState(false);
 
   // Use fresh data if available, otherwise fall back to prop
   const displayEtf = freshEtf || etf;
@@ -70,6 +72,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
     setFreshEtf(null);
     setShowLegend(false);
     setShowAllHoldings(false);
+    setIsLoading(true);
   }, [etf]);
 
   // Fetch fresh data for the current ETF to ensure it's up to date
@@ -93,6 +96,8 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         }
       } catch (err) {
         console.error('Failed to fetch fresh ETF data:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -103,11 +108,13 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
   useEffect(() => {
     if (showComparison && !spyData) {
       const fetchSpy = async () => {
+        setIsSpyLoading(true);
         try {
           // 1. Try search first
           const searchRes = await fetch('/api/etfs/search?query=SPY', { cache: 'no-store' });
           const searchData = await searchRes.json();
 
+          let foundSpy = null;
           if (Array.isArray(searchData) && searchData.length > 0) {
             const spy = searchData[0];
             // Check if history exists and is sufficient
@@ -118,27 +125,33 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
               const isStale = (now.getTime() - lastDate.getTime()) > 60 * 60 * 1000; // > 1 hour
 
               if (!isStale) {
-                setSpyData(spy);
-                return;
+                foundSpy = spy;
+              } else {
+                 console.log('SPY data found but stale (>1h). Forcing sync...');
               }
-              console.log('SPY data found but stale (>1h). Forcing sync...');
             }
           }
 
-          // 2. Fallback to sync if search failed or no history
-          console.log('Fetching full SPY data via sync...');
-          const syncRes = await fetch('/api/etfs/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ticker: 'SPY' })
-          });
+          if (foundSpy) {
+             setSpyData(foundSpy);
+          } else {
+             // 2. Fallback to sync if search failed or no history
+             console.log('Fetching full SPY data via sync...');
+             const syncRes = await fetch('/api/etfs/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticker: 'SPY' })
+             });
 
-          if (syncRes.ok) {
-            const syncData = await syncRes.json();
-            setSpyData(syncData);
+             if (syncRes.ok) {
+                const syncData = await syncRes.json();
+                setSpyData(syncData);
+             }
           }
         } catch (err) {
           console.error('Failed to fetch SPY data:', err);
+        } finally {
+          setIsSpyLoading(false);
         }
       };
 
@@ -443,7 +456,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                       </div>
                     </div>
                   </div>
-                  <div className="flex-1 w-full h-full min-h-0">
+                  <div className={cn("flex-1 w-full h-full min-h-0 transition-all duration-500", (isLoading || isSpyLoading) ? "blur-sm opacity-50" : "blur-0 opacity-100")}>
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={historyData}>
                         <defs>
