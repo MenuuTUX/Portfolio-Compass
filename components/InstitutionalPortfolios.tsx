@@ -130,10 +130,10 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
                         >
-                            <div className="bg-white text-stone-900 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto">
+                            <div className="bg-[#0a0a0a] border border-white/10 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto glass-panel">
 
                                 {/* Modal Header */}
-                                <div className="p-6 pb-2 flex items-start justify-between bg-white z-10">
+                                <div className="p-6 pb-2 flex items-start justify-between bg-white/5 border-b border-white/5 z-10 backdrop-blur-md">
                                     <div className="flex-1 pr-4">
                                         <div className="h-8 w-32 relative mb-2 flex items-center">
                                             {(failedImages.has(selectedInstitution.id) || !selectedInstitution.logo) ? (
@@ -141,30 +141,32 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                                     {selectedInstitution.name}
                                                  </h2>
                                             ) : (
-                                                <Image
-                                                    src={selectedInstitution.logo}
-                                                    alt={selectedInstitution.name}
-                                                    fill
-                                                    className="object-contain object-left"
-                                                    onError={() => handleImageError(selectedInstitution.id)}
-                                                />
+                                                <div className="relative w-full h-full bg-white rounded-lg p-1">
+                                                    <Image
+                                                        src={selectedInstitution.logo}
+                                                        alt={selectedInstitution.name}
+                                                        fill
+                                                        className="object-contain object-left p-1"
+                                                        onError={() => handleImageError(selectedInstitution.id)}
+                                                    />
+                                                </div>
                                             )}
                                         </div>
-                                        <p className="text-sm text-stone-500 leading-snug">
+                                        <p className="text-sm text-neutral-400 leading-snug">
                                             {selectedInstitution.description}
                                         </p>
                                     </div>
                                     <button
                                         onClick={() => setSelectedInstitution(null)}
-                                        className="p-2 hover:bg-stone-100 rounded-full transition-colors shrink-0"
+                                        className="p-2 hover:bg-white/10 text-neutral-400 hover:text-white rounded-full transition-colors shrink-0"
                                     >
-                                        <X className="w-5 h-5 text-stone-500" />
+                                        <X className="w-5 h-5" />
                                     </button>
                                 </div>
 
                                 {/* Tabs */}
-                                <div className="px-6 py-2 bg-white z-10">
-                                    <div className="flex p-1 bg-stone-100 rounded-lg">
+                                <div className="px-6 py-2 bg-black/20 z-10 border-b border-white/5">
+                                    <div className="flex p-1 bg-white/5 rounded-lg border border-white/5">
                                         {(['Growth', 'Balanced', 'Conservative'] as const).map((type) => (
                                             <button
                                                 key={type}
@@ -172,8 +174,8 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                                 className={cn(
                                                     "flex-1 py-2 text-sm font-medium rounded-md transition-all",
                                                     selectedType === type
-                                                        ? "bg-white text-stone-900 shadow-sm"
-                                                        : "text-stone-500 hover:text-stone-700"
+                                                        ? "bg-white/10 text-white shadow-sm border border-white/10"
+                                                        : "text-neutral-400 hover:text-neutral-200"
                                                 )}
                                             >
                                                 {type}
@@ -183,7 +185,7 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                 </div>
 
                                 {/* Content Area */}
-                                <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar bg-white">
+                                <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar bg-transparent">
                                     <AnimatePresence mode="wait">
                                         {activePortfolio && (
                                             <motion.div
@@ -196,16 +198,16 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                                 {/* Description */}
                                                 <div className={cn(
                                                     "flex items-start gap-3 mb-6 p-4 rounded-xl border",
-                                                    "bg-stone-50 border-stone-100"
+                                                    "bg-white/5 border-white/10"
                                                 )}>
-                                                    <div className={cn("p-2 rounded-full shrink-0 bg-white shadow-sm", selectedInstitution.themeColor)}>
+                                                    <div className={cn("p-2 rounded-full shrink-0 bg-black/40 shadow-sm border border-white/10", selectedInstitution.themeColor)}>
                                                         <ActiveIcon className="w-5 h-5" />
                                                     </div>
                                                     <div>
-                                                        <div className="text-xs font-bold text-stone-500 uppercase mb-1">
+                                                        <div className="text-xs font-bold text-neutral-400 uppercase mb-1">
                                                             {activePortfolio.risk} • {activePortfolio.name}
                                                         </div>
-                                                        <div className="text-sm font-medium leading-relaxed text-stone-800">
+                                                        <div className="text-sm font-medium leading-relaxed text-neutral-300">
                                                             {activePortfolio.description}
                                                         </div>
                                                     </div>
@@ -213,20 +215,20 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
 
                                                 {/* Holdings List */}
                                                 <table className="w-full text-sm text-left">
-                                                    <thead className="text-xs text-stone-400 uppercase sticky top-0 bg-white">
+                                                    <thead className="text-xs text-neutral-500 uppercase sticky top-0 bg-[#0a0a0a] backdrop-blur-md">
                                                         <tr>
                                                             <th className="pb-2 font-medium pl-2">Asset</th>
                                                             <th className="pb-2 font-medium text-right pr-2">Weight</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-stone-100">
+                                                    <tbody className="divide-y divide-white/5">
                                                         {activePortfolio.holdings.map((h) => (
-                                                            <tr key={h.ticker} className="group/row hover:bg-stone-50 transition-colors">
+                                                            <tr key={h.ticker} className="group/row hover:bg-white/5 transition-colors">
                                                                 <td className="py-3 pl-2">
-                                                                    <div className="font-bold text-stone-900">{h.ticker}</div>
-                                                                    <div className="text-xs text-stone-500 truncate max-w-[200px]">{h.name}</div>
+                                                                    <div className="font-bold text-white">{h.ticker}</div>
+                                                                    <div className="text-xs text-neutral-500 truncate max-w-[200px] group-hover/row:text-neutral-400 transition-colors">{h.name}</div>
                                                                 </td>
-                                                                <td className="py-3 text-right font-mono text-stone-600 font-medium pr-2">
+                                                                <td className="py-3 text-right font-mono text-emerald-400 font-medium pr-2">
                                                                     {h.weight}%
                                                                 </td>
                                                             </tr>
@@ -239,7 +241,7 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                 </div>
 
                                 {/* Footer Action */}
-                                <div className="p-6 border-t border-stone-100 bg-white z-10">
+                                <div className="p-6 border-t border-white/10 bg-white/5 z-10 backdrop-blur-md">
                                     <button
                                         onClick={handleAdd}
                                         disabled={isLoading || added}
@@ -247,7 +249,7 @@ export default function InstitutionalPortfolios({ onBatchAdd, isLoading = false 
                                             "w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
                                             added
                                                 ? "bg-emerald-500 text-white"
-                                                : "bg-stone-900 text-white hover:bg-stone-800 active:scale-95"
+                                                : "bg-white text-black hover:bg-neutral-200 active:scale-95"
                                         )}
                                         aria-label="Copy This Portfolio"
                                     >

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     };
     if (includeHistory) {
       includeObj.history = {
-          where: { interval: '1d' },
+          where: isFullHistoryRequested ? undefined : { interval: '1d' },
           orderBy: { date: 'asc' }
       };
     }
