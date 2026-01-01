@@ -20,7 +20,7 @@ const cardVariants: Variants = {
 const PurposeSection = () => {
   const cards = [
     {
-      title: "Institutional Intelligence",
+      title: "Smart Money Portfolios",
       description: "Peek into the portfolios of major financial institutions. See what the giants are buying and use their strategies as a benchmark for your own success.",
       image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
       icon: <Building2 className="w-5 h-5 text-emerald-400" />,
@@ -85,7 +85,7 @@ const PurposeSection = () => {
             transition={{ delay: 0.2 }}
             className="text-lg text-stone-400 leading-relaxed"
           >
-            PortfolioCompass simplifies the complex world of investing. We provide institutional-grade tools to help you build, optimize, and simulate your wealth strategy.
+            PortfolioCompass simplifies the complex world of investing. We provide professional-grade tools to help you build, optimize, and simulate your wealth strategy.
           </motion.p>
         </div>
 
@@ -148,7 +148,7 @@ const PurposeSection = () => {
                     <h3 className="text-2xl font-display font-bold text-stone-100">Our Mission</h3>
                 </div>
                 <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-                    "Investing shouldn't be a mystery. I started this project because when I began investing, I was overwhelmed by the noise and lack of clear, actionable tools. PortfolioCompass is the tool I wish I had—designed to simplify the complex and make professional-grade analysis accessible to everyone."
+                    "Investing shouldn't be a mystery. I started this project because when I began investing, I was overwhelmed by the noise and lack of clear, actionable tools. PortfolioCompass is the tool I wish I had - designed to simplify the complex and make advanced analysis accessible to everyone."
                 </p>
                 <div className="flex items-center gap-4">
                     <div className="h-px flex-1 bg-stone-800" />
