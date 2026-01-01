@@ -122,6 +122,12 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
     setStep('QUIZ');
   };
 
+  const handleSkip = () => {
+    setStep('CALCULATING');
+    // Default to Growth profile for "Diamond Hands"
+    calculateResult({}, true);
+  };
+
   const handleAnswer = (value: number) => {
     const currentQ = QUESTIONS[currentQuestionIndex];
     const newAnswers = { ...answers, [currentQ.id]: value };
@@ -136,15 +142,21 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
     }
   };
 
-  const calculateResult = (finalAnswers: Record<string, number>) => {
+  const calculateResult = (finalAnswers: Record<string, number>, isSkipped = false) => {
     // Simulate complex calculation
     setTimeout(() => {
+      if (isSkipped) {
+         onComplete({
+          score: 100,
+          profile: 'Growth',
+          suggestedProviders: ['Wealthsimple', 'Invesco', 'Global X']
+        });
+        return;
+      }
+
       // 1. Calculate Score (Simple Average)
       const totalScore = Object.values(finalAnswers).reduce((a, b) => a + b, 0);
-      const maxPossible = QUESTIONS.reduce((acc, q) => acc + Math.max(...q.options.map(o => o.value)), 0);
       // Normalize to 0-100
-      // Note: Our options are already somewhat normalized, but let's do a strict average or sum/max.
-      // Let's use average of values which are 0-100.
       const averageScore = totalScore / QUESTIONS.length;
 
       // 2. Determine Profile
@@ -210,15 +222,27 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               </p>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleStart}
-              className="group relative inline-flex items-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.7)]"
-            >
-              <span>Start Analysis</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </motion.button>
+            <div className="flex flex-col gap-4 items-center">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleStart}
+                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.7)]"
+              >
+                <span>Start Analysis</span>
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </motion.button>
+
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1 }}
+                onClick={handleSkip}
+                className="text-stone-500 text-sm hover:text-emerald-400 transition-colors flex items-center gap-2"
+              >
+                Skip for now (I got diamond hands 💎)
+              </motion.button>
+            </div>
           </motion.div>
         )}
 
@@ -272,7 +296,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                       whileHover={{ scale: 1.02, backgroundColor: "rgba(16, 185, 129, 0.05)", borderColor: "rgba(16, 185, 129, 0.4)" }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleAnswer(option.value)}
-                      className="flex flex-col items-center justify-center p-6 rounded-2xl border border-stone-800 bg-stone-900/40 text-center transition-colors group"
+                      className="flex flex-col items-center justify-center p-6 rounded-2xl border border-stone-800 bg-stone-900/40 text-center transition-colors group h-full w-full"
                     >
                       <span className="text-4xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
                         {option.emoji}
