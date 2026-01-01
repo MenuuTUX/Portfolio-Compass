@@ -110,7 +110,8 @@ export async function GET(request: NextRequest) {
                             update: {
                                 price: toPrismaDecimalRequired(item.price),
                                 daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
-                                // Don't update name/assetType to prevent overwrites if user edited them
+                            // Update name if it's currently the ticker (bad data fix) or just update it to ensure freshness
+                            name: item.name,
                             },
                             create: {
                                 ticker: item.ticker,
@@ -177,6 +178,7 @@ export async function GET(request: NextRequest) {
                         update: {
                             price: toPrismaDecimalRequired(item.price),
                             daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
+                            name: item.name,
                         },
                         create: {
                             ticker: item.ticker,
