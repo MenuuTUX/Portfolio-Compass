@@ -2,7 +2,6 @@ import YahooFinance from 'yahoo-finance2';
 import { Decimal } from './decimal';
 import { getStockProfile } from './scrapers/stock-analysis';
 import pLimit from 'p-limit';
-import * as finnhub from 'finnhub';
 
 // -----------------------------------------------------------------------------
 // Configuration
@@ -13,9 +12,7 @@ const yf = new YahooFinance({
   suppressNotices: ['yahooSurvey', 'ripHistorical'],
 });
 
-const api_key = finnhub.ApiClient.instance.authentications['api_key'];
-api_key.apiKey = process.env.FINNHUB_API_KEY;
-const finnhubClient = new finnhub.DefaultApi();
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || '';
 
 // -----------------------------------------------------------------------------
 // Type Definitions
@@ -158,6 +155,35 @@ async function fetchWithFallback<T>(
   }
 }
 
+async function fetchFinnhubQuote(ticker: string): Promise<MarketSnapshot | null> {
+  if (!FINNHUB_API_KEY) return null;
+  try {
+    const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+       console.error(`Finnhub fetch failed for ${ticker}: ${res.status} ${res.statusText}`);
+       return null;
+    }
+    const data = await res.json();
+    // data: { c: current price, d: change, dp: percent change, h: high, l: low, o: open, pc: prev close }
+    // Finnhub returns 0s if invalid symbol usually, or empty object?
+    if (data && typeof data.c === 'number') {
+       return {
+         ticker: ticker,
+         price: new Decimal(data.c || 0),
+         dailyChange: new Decimal(data.d || 0),
+         dailyChangePercent: new Decimal(data.dp || 0),
+         name: ticker, // Fallback name
+         assetType: 'STOCK'
+       };
+    }
+    return null;
+  } catch (error) {
+    console.error(`Finnhub error for ${ticker}:`, error);
+    return null;
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Core Functions
 // -----------------------------------------------------------------------------
@@ -191,24 +217,7 @@ export async function fetchMarketSnapshot(tickers: string[]): Promise<MarketSnap
     const limit = pLimit(5);
 
     const promises = tickers.map((t) => limit(async () => {
-      return new Promise<MarketSnapshot | null>((resolve) => {
-        finnhubClient.quote(t, (err: any, data: any, response: any) => {
-          if (err || !data) {
-            console.error(`Finnhub failed for ${t}:`, err);
-            resolve(null);
-          } else {
-            // Finnhub returns 'c' (current), 'd' (change), 'dp' (percent)
-            resolve({
-              ticker: t,
-              price: new Decimal(data.c || 0),
-              dailyChange: new Decimal(data.d || 0),
-              dailyChangePercent: new Decimal(data.dp || 0),
-              name: t, // Finnhub quote doesn't provide name
-              assetType: 'STOCK'
-            });
-          }
-        });
-      });
+       return await fetchFinnhubQuote(t);
     }));
 
     const fallbackResults = await Promise.all(promises);
