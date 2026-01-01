@@ -150,9 +150,13 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
               variants={textVariants}
               className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
             >
-              Experience institutional-grade portfolio management.
+              Experience professional portfolio management tools.
               PortfolioCompass merges algorithmic precision with sustainable growth strategies.
               Watch your wealth evolve with data-driven clarity.
+              <br />
+              <span className="text-xs text-stone-500 mt-2 block italic">
+                Disclaimer: This is not financial advice.
+              </span>
             </motion.p>
 
             <motion.div
@@ -189,9 +193,9 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
               className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50 mt-12"
             >
               {[
-                { label: 'Live Data', val: '24ms', icon: Zap },
+                { label: 'Data Updates', val: 'Daily', icon: Zap },
                 { label: 'Asset Types', val: 'Hybrid', icon: Sprout },
-                { label: 'Security', val: 'Bank-Grade', icon: Activity },
+                { label: 'Privacy', val: 'Local-First', icon: Activity },
               ].map((item, i) => (
                 <div key={i} className="space-y-1">
                   <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
@@ -302,7 +306,7 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
               </div>
 
               <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap" style={{ transform: "translateZ(10px)" }}>
-                <span>• Institutional</span>
+                <span>• Professional</span>
                 <span>• Algorithmic</span>
                 <span>• Sustainable</span>
               </div>
