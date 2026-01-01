@@ -53,8 +53,18 @@ export async function GET(request: NextRequest) {
       allocation: true,
     };
     if (includeHistory) {
+      // Optimization: For list views (not full details), limit history fetch to last 6 months
+      // This drastically reduces payload size and DB read time for large result sets
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
       includeObj.history = {
-          where: isFullHistoryRequested ? undefined : { interval: '1d' },
+          where: isFullHistoryRequested
+            ? undefined // Fetch all history for detailed view
+            : {
+                interval: '1d',
+                date: { gte: sixMonthsAgo }
+              },
           orderBy: { date: 'asc' }
       };
     }
@@ -62,7 +72,7 @@ export async function GET(request: NextRequest) {
       includeObj.holdings = { orderBy: { weight: 'desc' } };
     }
 
-    let takeLimit = isFullHistoryRequested ? 1 : (query ? 10 : 50);
+    let takeLimit = isFullHistoryRequested ? 1 : (query ? 50 : 50);
     if (limitParam) {
         takeLimit = parseInt(limitParam, 10);
     } else if (tickersParam) {

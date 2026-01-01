@@ -276,7 +276,7 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
   const [flashStates, setFlashStates] = useState<Record<string, 'success' | 'error' | null>>({});
 
   // Pagination and sorting state
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(24);
   const [hasMoreServer, setHasMoreServer] = useState(true);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
 
@@ -445,19 +445,19 @@ export default function ComparisonEngine({ onAddToPortfolio, onRemoveFromPortfol
 
   // Reset pagination when search or asset type changes
   useEffect(() => {
-    setVisibleCount(12);
+    setVisibleCount(24);
   }, [debouncedSearch, assetType]);
 
   const handleLoadMore = async () => {
       // If we have more local items to show, just increase visible count
       if (visibleCount < etfs.length) {
-          setVisibleCount(prev => prev + 12);
+          setVisibleCount(prev => prev + 24);
       } else if (hasMoreServer) {
           // If we showed all local, try fetching more from server
           // Use current etfs.length as skip
           const count = await fetchEtfs(debouncedSearch, etfs.length);
           if (count > 0) {
-             setVisibleCount(prev => prev + 12);
+             setVisibleCount(prev => prev + 24);
           }
       }
   };
