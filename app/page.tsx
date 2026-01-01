@@ -40,6 +40,10 @@ export default function Home() {
     setViewMode('INTRO_QUIZ');
   };
 
+  const handleViewMarket = () => {
+    setViewMode('APP');
+  };
+
   const handleQuizComplete = (result: QuizResult) => {
     // In a real app, we might save the result to user profile or use it to seed the portfolio.
     // For now, we just proceed to the app.
@@ -97,7 +101,7 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="overflow-y-auto h-screen custom-scrollbar"
           >
-            <Hero onStart={handleStart} />
+            <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
             <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
               <p>&copy; {new Date().getFullYear()} PortfolioCompass. Institutional Grade Intelligence.</p>
