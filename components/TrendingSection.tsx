@@ -9,6 +9,7 @@ import { getAssetIconUrl } from '@/lib/etf-providers';
 import { ETFSchema } from '@/schemas/assetSchema';
 import { z } from 'zod';
 import Sparkline from './Sparkline';
+import { useLivePrices } from '@/lib/client-market-service';
 
 interface TrendingSectionProps {
     title: string;
@@ -74,18 +75,9 @@ export default function TrendingSection({
             });
 
             if (!res.ok) {
-                // If sync fails, we still try to show what we have, or show error
-                // For now, let's just proceed with what we have if sync fails,
-                // or just log it. The Drawer might fetch its own fresh data too.
                  console.error("Sync failed:", res.statusText);
             } else {
                  const rawUpdatedEtf = await res.json();
-                 // We don't update the list here because it's managed by parent/React Query
-                 // But we pass the potentially updated data to onSelectItem if we could merge it.
-                 // However, onSelectItem expects an ETF object.
-                 // If we want to show fresh data, we should ideally update the state in TrendingTab.
-                 // But simply opening the drawer triggers fetching fresh data inside the drawer too.
-                 // So the sync here ensures the backend is up to date.
             }
         } catch (e) {
             console.error("Sync error", e);
@@ -137,6 +129,21 @@ export default function TrendingSection({
     const visibleItems = items.slice(0, visibleCount);
     const hasMore = visibleCount < items.length;
 
+    // --- Client-Side Live Price Integration ---
+    const tickersToTrack = visibleItems.map(i => i.ticker);
+    const { data: livePrices } = useLivePrices(tickersToTrack, {
+        enabled: true,
+        refetchInterval: 30000, // Update every 30s
+        autoSync: true // Auto-save to DB
+    });
+
+    // Create a map for easy lookup
+    const livePriceMap = (livePrices || []).reduce((acc, curr) => {
+        acc[curr.ticker] = curr;
+        return acc;
+    }, {} as Record<string, { price: number; changePercent: number }>);
+    // ------------------------------------------
+
     const handleLoadMore = () => {
         setVisibleCount(prev => prev + 8);
     };
@@ -149,7 +156,7 @@ export default function TrendingSection({
                 </div>
                 <h2 className="text-3xl font-bold text-white tracking-tight">{title}</h2>
                 <span className="text-neutral-400 text-sm font-medium ml-2">
-                    ({visibleItems.length} of {items.length})
+                    ({visibleItems.length} of {items.length > 0 ? items.length : visibleItems.length})
                 </span>
             </div>
 
@@ -160,8 +167,12 @@ export default function TrendingSection({
                     const inPortfolio = isItemInPortfolio(etf.ticker);
                     const flashState = flashStates[etf.ticker];
 
+                    // Use Live Price if available, otherwise fallback to prop data
+                    const currentPrice = livePriceMap[etf.ticker]?.price ?? etf.price;
+                    const currentChange = livePriceMap[etf.ticker]?.changePercent ?? etf.changePercent;
+
                     // Determine graph color based on history trend if available
-                    let isGraphPositive = etf.changePercent >= 0;
+                    let isGraphPositive = currentChange >= 0;
                     if (etf.history && etf.history.length > 0) {
                         const firstPrice = etf.history[0].price;
                         const lastPrice = etf.history[etf.history.length - 1].price;
@@ -237,13 +248,13 @@ export default function TrendingSection({
 
                                 <div className="flex justify-between items-end mb-4">
                                     <div>
-                                        <span className="block text-2xl font-bold text-white mb-1">{formatCurrency(etf.price)}</span>
+                                        <span className="block text-2xl font-bold text-white mb-1">{formatCurrency(currentPrice)}</span>
                                         <span className={cn(
                                             "flex items-center text-sm font-medium",
-                                            etf.changePercent >= 0 ? "text-emerald-400" : "text-rose-400"
+                                            currentChange >= 0 ? "text-emerald-400" : "text-rose-400"
                                         )}>
-                                            {etf.changePercent >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                                            {Math.abs(etf.changePercent).toFixed(2)}%
+                                            {currentChange >= 0 ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                                            {Math.abs(currentChange).toFixed(2)}%
                                         </span>
                                     </div>
                                     {etf.history && etf.history.length > 0 && (
