@@ -6,10 +6,11 @@ export interface LivePrice {
   price: number;
   changePercent: number;
   currency: string;
+  history?: { date: string; price: number }[];
 }
 
 // Client-side service to fetch from Edge Proxy
-export async function fetchLivePrices(tickers: string[]): Promise<LivePrice[]> {
+export async function fetchLivePrices(tickers: string[], includeHistory = false): Promise<LivePrice[]> {
   if (!tickers.length) return [];
 
   // Chunk tickers if too many (Edge limit is strict on URL length, though safe for ~50 tickers)
@@ -23,7 +24,8 @@ export async function fetchLivePrices(tickers: string[]): Promise<LivePrice[]> {
 
   for (const batch of batches) {
     try {
-      const res = await fetch(`/api/edge/quotes?tickers=${batch.join(',')}`);
+      const url = `/api/edge/quotes?tickers=${batch.join(',')}${includeHistory ? '&history=true' : ''}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
       const json = await res.json();
       if (json.data && Array.isArray(json.data)) {
@@ -57,13 +59,14 @@ export function useLivePrices(tickers: string[], options?: {
   enabled?: boolean;
   refetchInterval?: number;
   autoSync?: boolean;
+  includeHistory?: boolean;
 }) {
-  const { enabled = true, refetchInterval = 60000, autoSync = true } = options || {};
+  const { enabled = true, refetchInterval = 60000, autoSync = true, includeHistory = false } = options || {};
 
   const query = useQuery({
-    queryKey: ['livePrices', tickers.sort().join(',')],
+    queryKey: ['livePrices', tickers.sort().join(','), includeHistory],
     queryFn: async () => {
-      const data = await fetchLivePrices(tickers);
+      const data = await fetchLivePrices(tickers, includeHistory);
 
       if (autoSync && data.length > 0) {
         // Fire and forget sync

@@ -84,16 +84,45 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         // This call will trigger the backend auto-sync if data is stale (>24h)
         // Request full history for the detailed chart
         const res = await fetch(`/api/etfs/search?query=${etf.ticker}&full=true`);
+
+        let match: ETF | null = null;
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             // Find the exact match
-            const match = data.find(item => item.ticker === etf.ticker);
-            if (match) {
-              setFreshEtf(match);
-            }
+            match = data.find((item: any) => item.ticker === etf.ticker) || null;
           }
         }
+
+        // Fallback: If DB sync failed to get history (common for new/unusual stocks),
+        // try client-side edge fetch for history specifically.
+        if (match && (!match.history || match.history.length === 0)) {
+            console.log(`[DetailsDrawer] Missing history for ${etf.ticker}, attempting edge fetch...`);
+            try {
+                const edgeRes = await fetch(`/api/edge/quotes?ticker=${etf.ticker}&history=true`);
+                if (edgeRes.ok) {
+                    const edgeData = await edgeRes.json();
+                    if (edgeData.data && edgeData.data.length > 0) {
+                        const quote = edgeData.data[0];
+                        if (quote.history && quote.history.length > 0) {
+                            match = {
+                                ...match,
+                                history: quote.history,
+                                price: quote.price || match.price,
+                                changePercent: quote.changePercent || match.changePercent
+                            };
+                        }
+                    }
+                }
+            } catch (edgeErr) {
+                console.warn('[DetailsDrawer] Edge history fallback failed:', edgeErr);
+            }
+        }
+
+        if (match) {
+            setFreshEtf(match);
+        }
+
       } catch (err) {
         console.error('Failed to fetch fresh ETF data:', err);
       } finally {

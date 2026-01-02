@@ -26,10 +26,8 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
         const res = await fetchWithUserAgent(url);
         // ETF.com often returns 403 to bots
         if (!res.ok) {
-            if (res.status === 403) {
-                 // Suppress 403 warning to avoid log spam, as this is an optional enhancement
-                 console.log(`ETF.com access denied (403) for ${ticker} - skipping description enhancement.`);
-            } else {
+            // Silently swallow 403s as they are expected for some assets/bots
+            if (res.status !== 403) {
                  console.warn(`ETF.com fetch failed for ${ticker}: ${res.status}`);
             }
             return null;

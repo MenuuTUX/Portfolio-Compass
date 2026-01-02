@@ -10,11 +10,13 @@ interface QuoteData {
   price: number;
   changePercent: number;
   currency: string;
+  history?: { date: string; price: number; interval?: string }[];
 }
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const tickerParam = searchParams.get('tickers') || searchParams.get('ticker');
+  const includeHistory = searchParams.get('history') === 'true';
 
   if (!tickerParam) {
     return NextResponse.json({ error: 'Missing tickers parameter' }, { status: 400 });
@@ -37,7 +39,19 @@ export async function GET(request: NextRequest) {
   const promises = tickers.map(async (ticker) => {
     try {
       // Use v8 chart endpoint which is often more lenient than v7 quote
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+      // If history is requested, fetch a longer range (e.g., 5y to cover all chart views)
+      // Otherwise default to 1d range for current quote
+      const range = includeHistory ? '5y' : '1d';
+      const interval = includeHistory ? '1wk' : '1d'; // Weekly for long history to save bandwidth, or logic for multiple calls?
+      // Actually, DetailsDrawer expects daily data for at least recent history.
+      // But fetching 5 years of daily data is heavy.
+      // Let's stick to '1d' interval with '1y' range for now as a "Lite History" fallback.
+      // Or '1d' interval and '5y' range if we want full coverage.
+      // Yahoo chart endpoint returns granular data well.
+      // Let's use 1 month of Daily data to avoid timeouts. 5Y is too heavy for Edge.
+      const fetchRange = includeHistory ? '1mo' : '1d';
+
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=${fetchRange}`;
 
       const response = await fetch(url, {
         headers: {
@@ -51,7 +65,7 @@ export async function GET(request: NextRequest) {
 
       if (!response.ok) {
         // Try query2 as fallback
-         const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`;
+         const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=${fetchRange}`;
          const response2 = await fetch(url2, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -63,11 +77,11 @@ export async function GET(request: NextRequest) {
             console.warn(`[Edge Proxy] Failed to fetch ${ticker}: ${response.status} / ${response2.status}`);
             return null;
          }
-         return processResponse(ticker, await response2.json());
+         return processResponse(ticker, await response2.json(), includeHistory);
       }
 
       const data = await response.json();
-      return processResponse(ticker, data);
+      return processResponse(ticker, data, includeHistory);
 
     } catch (error) {
       console.error(`[Edge Proxy] Error fetching ${ticker}:`, error);
@@ -92,7 +106,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-function processResponse(ticker: string, data: any): QuoteData | null {
+function processResponse(ticker: string, data: any, includeHistory: boolean): QuoteData | null {
   try {
     const result = data.chart?.result?.[0];
     if (!result || !result.meta || !result.indicators?.quote?.[0]) return null;
@@ -112,12 +126,30 @@ function processResponse(ticker: string, data: any): QuoteData | null {
         changePercent = ((price - prevClose) / prevClose) * 100;
     }
 
-    return {
+    const output: QuoteData = {
       ticker: ticker,
       price: price,
       changePercent: changePercent,
       currency: meta.currency
     };
+
+    if (includeHistory) {
+      const timestamps = result.timestamp;
+      const closes = quote.close;
+
+      if (Array.isArray(timestamps) && Array.isArray(closes)) {
+        output.history = timestamps.map((ts: number, i: number) => {
+          if (closes[i] === null || closes[i] === undefined) return null;
+          return {
+            date: new Date(ts * 1000).toISOString(),
+            price: closes[i],
+            interval: '1d'
+          };
+        }).filter((x: any) => x !== null);
+      }
+    }
+
+    return output;
   } catch (e) {
     return null;
   }
