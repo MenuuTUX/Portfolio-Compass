@@ -161,7 +161,7 @@ export default function ComparisonModal({ baseAsset, isOpen, onClose }: Comparis
     if (!compareAsset) return [];
 
     const isStock = baseAsset.assetType === 'STOCK';
-    const list = [];
+    const list: any[] = [];
 
     // Helper to determine winner
     // rule: 'high' (higher wins), 'low' (lower wins), 'none' (just display)
@@ -426,8 +426,8 @@ export default function ComparisonModal({ baseAsset, isOpen, onClose }: Comparis
                                     />
                                     <Tooltip
                                         contentStyle={{ backgroundColor: '#171717', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                                        formatter={(val: number, name: string) => [
-                                            `${val.toFixed(2)}%`,
+                                        formatter={(val: any, name: any) => [
+                                            `${Number(val).toFixed(2)}%`,
                                             name === 'valueA' ? baseAsset.ticker : compareAsset.ticker
                                         ]}
                                         labelFormatter={(l) => new Date(l).toLocaleDateString()}
