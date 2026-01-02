@@ -45,6 +45,13 @@ export default function Home() {
   };
 
   const handleQuizComplete = async (result: QuizResult) => {
+    // If skipped or no portfolio suggested, do NOT build a portfolio
+    if (result.isSkipped || !result.suggestedPortfolio || result.suggestedPortfolio.length === 0) {
+      setViewMode('APP');
+      return;
+    }
+
+    // Otherwise, populate the portfolio
     if (result.suggestedPortfolio && result.suggestedPortfolio.length > 0) {
       // Cast the simplified items to a type compatible with savePortfolio
       // LocalPortfolioItem has { ticker, weight, shares }, which TemplateItem matches
