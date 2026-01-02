@@ -24,7 +24,12 @@ const titleWords = [
   { text: "aggressive", font: "font-serif", color: "text-red-400" }
 ];
 
-export default function Hero({ onStart }: { onStart?: () => void }) {
+interface HeroProps {
+  onStart?: () => void;
+  onViewMarket?: () => void;
+}
+
+export default function Hero({ onStart, onViewMarket }: HeroProps) {
   const [mounted, setMounted] = useState(false);
   const [marketStatus, setMarketStatus] = useState('OPEN');
   const [titleIndex, setTitleIndex] = useState(0);
@@ -176,13 +181,13 @@ export default function Hero({ onStart }: { onStart?: () => void }) {
               </motion.button>
 
               <motion.button
-                onClick={onStart}
+                onClick={onViewMarket}
                 whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.2)' }}
                 whileTap={{ scale: 0.95 }}
                 className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
               >
-                <Cpu className="w-4 h-4" />
-                View Documentation
+                <Activity className="w-4 h-4" />
+                View the Market
               </motion.button>
             </motion.div>
 
