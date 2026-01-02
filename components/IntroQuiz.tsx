@@ -45,6 +45,7 @@ export interface QuizResult {
   suggestedProviders: string[];
   // Use a looser type here to avoid build errors with missing ETF fields
   suggestedPortfolio: TemplateItem[];
+  isSkipped?: boolean; // New flag to indicate skip
 }
 
 interface IntroQuizProps {
@@ -152,9 +153,15 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
   };
 
   const handleSkip = () => {
-    setStep('CALCULATING');
-    // Default to Aggressive/Growth profile for "Diamond Hands"
-    calculateResult({}, true);
+    // If skipped, we do NOT show success/calculating, we just exit immediately
+    // with an empty portfolio result, allowing page.tsx to switch views.
+    onComplete({
+        score: 0,
+        profile: 'Balanced', // Default fallback
+        suggestedProviders: [],
+        suggestedPortfolio: [],
+        isSkipped: true
+    });
   };
 
   const handleAnswer = (value: number) => {
@@ -171,40 +178,34 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
     }
   };
 
-  const calculateResult = (finalAnswers: Record<string, number>, isSkipped = false) => {
+  const calculateResult = (finalAnswers: Record<string, number>) => {
     // Simulate complex calculation
     setTimeout(() => {
       let profile: RiskProfile = 'Balanced';
       let score = 50;
       let suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
 
-      if (isSkipped) {
-        score = 100;
-        profile = 'Growth';
-        suggestedPortfolio = PORTFOLIO_TEMPLATES['Aggressive'];
-      } else {
-         // 1. Calculate Score (Simple Average)
-        const totalScore = Object.values(finalAnswers).reduce((a, b) => a + b, 0);
-        const averageScore = totalScore / QUESTIONS.length;
-        score = Math.round(averageScore);
+      // 1. Calculate Score (Simple Average)
+      const totalScore = Object.values(finalAnswers).reduce((a, b) => a + b, 0);
+      const averageScore = totalScore / QUESTIONS.length;
+      score = Math.round(averageScore);
 
-        // 2. Determine Profile
-        if (averageScore < 40) {
-            profile = 'Conservative';
-            suggestedPortfolio = PORTFOLIO_TEMPLATES['Conservative'];
-        } else if (averageScore > 75) {
-            profile = 'Growth';
-            suggestedPortfolio = PORTFOLIO_TEMPLATES['Growth'];
-        } else {
-            profile = 'Balanced';
-            suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
-        }
+      // 2. Determine Profile
+      if (averageScore < 40) {
+        profile = 'Conservative';
+        suggestedPortfolio = PORTFOLIO_TEMPLATES['Conservative'];
+      } else if (averageScore > 75) {
+        profile = 'Growth';
+        suggestedPortfolio = PORTFOLIO_TEMPLATES['Growth'];
+      } else {
+        profile = 'Balanced';
+        suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
       }
 
       // 3. Determine Provider Suggestion
       const horizonScore = finalAnswers['horizon'] || 0;
       const knowledgeScore = finalAnswers['knowledge'] || 0;
-      const isTechHeavy = (score > 60 && horizonScore > 60) || knowledgeScore > 70 || isSkipped;
+      const isTechHeavy = (score > 60 && horizonScore > 60) || knowledgeScore > 70;
 
       const providers = isTechHeavy
         ? ['Wealthsimple', 'Invesco', 'Global X'] // Tech/Modern
@@ -214,7 +215,8 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
         score,
         profile,
         suggestedProviders: providers,
-        suggestedPortfolio
+        suggestedPortfolio,
+        isSkipped: false
       });
       setStep('SUCCESS');
     }, 2000); // 2s delay for "calculating" effect
