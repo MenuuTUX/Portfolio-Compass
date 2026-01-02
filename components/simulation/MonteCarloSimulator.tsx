@@ -119,10 +119,21 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
     const activePortfolio = fetchedPortfolio;
 
     // Now proceed with `activePortfolio`
-    const validItems = activePortfolio.filter(item => item.history && item.history.length > 30);
-    if (validItems.length < activePortfolio.length) {
-      setError("Some assets are missing historical data.");
-      return;
+    // Filter invalid items but allow proceeding if we have enough valid ones
+    const invalidItems = activePortfolio.filter(item => !item.history || item.history.length < 30);
+    const validItems = activePortfolio.filter(item => item.history && item.history.length >= 30);
+
+    // If we have invalid items, we'll show a warning but try to proceed if we have at least one valid item
+    if (invalidItems.length > 0) {
+      const names = invalidItems.map(i => i.ticker).join(', ');
+      if (validItems.length === 0) {
+          setError(`Insufficient historical data for all assets: ${names}. (Minimum 30 days required)`);
+          return;
+      }
+      // Non-blocking warning (Note: simple setError might be overridden if we clear it, so we might need a separate warning state or just set it and continue)
+      // For now, we set it, and since we don't return, it acts as a warning if the UI displays it.
+      // Ideally, we'd have a separate `warning` state, but `error` is rendered prominently.
+      setError(`Warning: Excluding ${names} due to insufficient history (< 30 days).`);
     }
 
     // Align Dates
@@ -135,9 +146,19 @@ export default function MonteCarloSimulator({ portfolio, onBack }: MonteCarloSim
         alignedPrices.push(filtered.map(h => h.price));
     });
 
+    if (alignedPrices.length === 0) {
+         setError("No valid price history found.");
+         return;
+    }
+
     const minLen = Math.min(...alignedPrices.map(arr => arr.length));
     if (minLen < 30) {
-        setError("Not enough overlapping history (need > 30 days).");
+        // Find limiting asset (latest start date)
+        const limitingItem = validItems.reduce((a, b) =>
+            new Date(a.history[0].date) > new Date(b.history[0].date) ? a : b
+        );
+        const startDate = new Date(limitingItem.history[0].date).toLocaleDateString();
+        setError(`Portfolio overlap is too short (${minLen} days). Limited by ${limitingItem.ticker} (Starts ${startDate}).`);
         return;
     }
     const finalPrices = alignedPrices.map(arr => arr.slice(arr.length - minLen));
