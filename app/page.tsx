@@ -8,6 +8,7 @@ import ComparisonEngine from '@/components/ComparisonEngine';
 import PortfolioBuilder from '@/components/PortfolioBuilder';
 import TrendingTab from '@/components/TrendingTab';
 import SettingsDrawer from '@/components/SettingsDrawer';
+import IntroQuiz, { QuizResult } from '@/components/IntroQuiz';
 import { ETF, PortfolioItem } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';
@@ -18,7 +19,7 @@ import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePortfolio } from '@/lib/storage';
 
-type ViewMode = 'LANDING' | 'APP';
+type ViewMode = 'LANDING' | 'INTRO_QUIZ' | 'APP';
 type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS';
 
 export default function Home() {
@@ -36,6 +37,30 @@ export default function Home() {
   const queryClient = useQueryClient();
 
   const handleStart = () => {
+    setViewMode('INTRO_QUIZ');
+  };
+
+  const handleViewMarket = () => {
+    setViewMode('APP');
+  };
+
+  const handleQuizComplete = async (result: QuizResult) => {
+    // If skipped or no portfolio suggested, do NOT build a portfolio
+    if (result.isSkipped || !result.suggestedPortfolio || result.suggestedPortfolio.length === 0) {
+      setViewMode('APP');
+      return;
+    }
+
+    // Otherwise, populate the portfolio
+    if (result.suggestedPortfolio && result.suggestedPortfolio.length > 0) {
+      // Cast the simplified items to a type compatible with savePortfolio
+      // LocalPortfolioItem has { ticker, weight, shares }, which TemplateItem matches
+      savePortfolio(result.suggestedPortfolio);
+
+      // Invalidate to fetch full details (price, name, etc.)
+      await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      setActiveTab('PORTFOLIO');
+    }
     setViewMode('APP');
   };
 
@@ -89,11 +114,22 @@ export default function Home() {
             transition={{ duration: 0.5 }}
             className="overflow-y-auto h-screen custom-scrollbar"
           >
-            <Hero onStart={handleStart} />
+            <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
             <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
               <p>&copy; {new Date().getFullYear()} PortfolioCompass. Advanced Market Intelligence. Disclaimer: This is not financial advice.</p>
             </footer>
+          </motion.div>
+        ) : viewMode === 'INTRO_QUIZ' ? (
+          <motion.div
+            key="intro-quiz"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.5 }}
+            className="h-screen flex items-center justify-center overflow-hidden"
+          >
+             <IntroQuiz onComplete={handleQuizComplete} />
           </motion.div>
         ) : (
           <motion.div
