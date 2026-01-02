@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity, ChevronLeft, Layers, Landmark, Info } from 'lucide-react';
+import { X, TrendingUp, AlertTriangle, PieChart as PieIcon, Activity, ChevronLeft, Layers, Landmark, Info, Scale } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ETF } from '@/types';
 import { cn, formatCurrency, calculateRiskMetric } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { getProviderLogo, getAssetIconUrl } from '@/lib/etf-providers';
 import SectorPieChart, { COLORS } from './SectorPieChart';
 import AssetProfileCard from './AssetProfileCard';
 import EtfVerdictCard from './EtfVerdictCard';
+import ComparisonModal from './ComparisonModal';
 import { useMemo, useState, useEffect } from 'react';
 
 interface ETFDetailsDrawerProps {
@@ -57,6 +58,7 @@ function MetricCard({ label, value, subValue, highlight }: { label: string; valu
 export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDetailsDrawerProps) {
   const [timeRange, setTimeRange] = useState('1M');
   const [showComparison, setShowComparison] = useState(false);
+  const [showFullComparison, setShowFullComparison] = useState(false);
   const [spyData, setSpyData] = useState<ETF | null>(null);
   const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
   const [showLegend, setShowLegend] = useState(false);
@@ -427,6 +429,15 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
                     </div>
 
                     <div className="flex items-center gap-4">
+                      {/* Full Comparison Button */}
+                      <button
+                        onClick={() => setShowFullComparison(true)}
+                        className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors text-xs font-bold border border-emerald-500/20"
+                      >
+                        <Scale className="w-3.5 h-3.5" />
+                        Compare
+                      </button>
+
                       {/* Comparison Toggle */}
                       <div className="flex items-center gap-2 bg-black/20 rounded-lg p-1 px-2">
                         <span className={cn("text-xs font-medium transition-colors", showComparison ? "text-white" : "text-neutral-400")}>vs SPY</span>
@@ -847,6 +858,12 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
               </div>
             </div>
           </motion.div>
+
+          <ComparisonModal
+            baseAsset={displayEtf}
+            isOpen={showFullComparison}
+            onClose={() => setShowFullComparison(false)}
+          />
         </>
       )}
     </AnimatePresence>
