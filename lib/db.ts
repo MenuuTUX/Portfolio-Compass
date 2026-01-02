@@ -22,9 +22,9 @@ const prismaClientSingleton = () => {
     const pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.DATABASE_URL.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-        max: 2, // Reduced from 5 to 2 to prevent connection pool exhaustion in serverless
-        idleTimeoutMillis: 5000, // Reduced from 30s to 5s to release connections faster
-        connectionTimeoutMillis: 5000, // Reduced wait time
+        max: 3, // Increased from 2 to 3 to allow slightly more concurrency
+        idleTimeoutMillis: 15000, // Increased from 5s to 15s to reduce connection churn
+        connectionTimeoutMillis: 10000, // Increased from 5s to 10s to reduce timeout errors
     });
 
     const adapter = new PrismaPg(pool);

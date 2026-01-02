@@ -29,7 +29,10 @@ async function runTransactionWithRetry<T>(
             // Retry on specific transaction errors
             if (error.code === 'P2028' || // Transaction API error
                 error.message.includes('Unable to start a transaction') ||
-                error.message.includes('Transaction already closed')) {
+                error.message.includes('Transaction already closed') ||
+                error.message.includes('timeout exceeded') ||
+                error.message.includes('Connection terminated')
+            ) {
                 console.warn(`[EtfSync] Transaction failed (attempt ${i + 1}/${retries}), retrying...`);
                 await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Linear backoff
                 continue;
