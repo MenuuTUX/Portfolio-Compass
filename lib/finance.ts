@@ -75,3 +75,58 @@ export function calculateTTMYield(dividendHistory: DividendHistoryItem[], curren
 
   return annualPayout.dividedBy(price).times(100); // Return as percentage
 }
+
+export interface PricePoint {
+  date: string;
+  price: number;
+}
+
+/**
+ * Aligns price history for multiple assets to a common date range, filling gaps.
+ * Uses forward-fill for missing data.
+ *
+ * @param assetHistories - A map where keys are tickers and values are arrays of PricePoints.
+ * @returns A map of aligned price histories (same length, same dates).
+ */
+export function alignPriceHistory(
+  assetHistories: Record<string, PricePoint[]>
+): Record<string, number[]> {
+  // 1. Collect all unique dates
+  const allDates = new Set<string>();
+  Object.values(assetHistories).forEach(history => {
+    history.forEach(p => allDates.add(p.date.split('T')[0])); // Normalize to YYYY-MM-DD
+  });
+
+  // 2. Sort dates
+  const sortedDates = Array.from(allDates).sort();
+
+  if (sortedDates.length === 0) return {};
+
+  const aligned: Record<string, number[]> = {};
+
+  // 3. Rebuild history for each asset
+  Object.keys(assetHistories).forEach(ticker => {
+    const originalHistory = assetHistories[ticker];
+    // Create a lookup map for speed
+    const dateToPrice = new Map<string, number>();
+    originalHistory.forEach(p => dateToPrice.set(p.date.split('T')[0], p.price));
+
+    const newSeries: number[] = [];
+    let lastPrice = 0;
+
+    // Better strategy: Find first valid price
+    const firstValid = originalHistory.find(p => p.price > 0);
+    if (firstValid) lastPrice = firstValid.price;
+
+    sortedDates.forEach(date => {
+      if (dateToPrice.has(date)) {
+        lastPrice = dateToPrice.get(date)!;
+      }
+      newSeries.push(lastPrice);
+    });
+
+    aligned[ticker] = newSeries;
+  });
+
+  return aligned;
+}

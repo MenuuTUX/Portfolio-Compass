@@ -326,7 +326,23 @@ export async function fetchEtfDetails(
     const nowForCheck = new Date();
     const nowIso = nowForCheck.toISOString();
 
-    if (historyResults['1d'].length > 0) {
+    // If history is empty (e.g. fetch failed or new listing), start it with current price
+    if (historyResults['1d'].length === 0) {
+        historyResults['1d'].push({
+            date: nowIso,
+            close: cpDecimal,
+            interval: '1d'
+        });
+        // Add a "fake" previous point (same price) if only 1 point to ensure charts render a line
+        // Use yesterday's date
+        const yesterday = new Date(nowForCheck);
+        yesterday.setDate(yesterday.getDate() - 1);
+        historyResults['1d'].unshift({
+            date: yesterday.toISOString(),
+            close: cpDecimal,
+            interval: '1d'
+        });
+    } else {
        const lastDate = new Date(historyResults['1d'][historyResults['1d'].length - 1].date);
        const isSameDay = lastDate.getDate() === nowForCheck.getDate() &&
                          lastDate.getMonth() === nowForCheck.getMonth() &&
