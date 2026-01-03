@@ -30,6 +30,22 @@ export async function GET(request: NextRequest) {
         // Parse comma-separated tickers and filter out empty strings
         requestedTickers = tickersParam.split(',').map(t => t.trim().toUpperCase()).filter(t => t.length > 0);
 
+        // SECURITY: Limit the number of tickers to prevent DoS (e.g. 50 max)
+        if (requestedTickers.length > 50) {
+            requestedTickers = requestedTickers.slice(0, 50);
+            console.warn(`[API] Capped requested tickers to 50 items. Original count: ${tickersParam.split(',').length}`);
+        }
+
+        // SECURITY: Validate ticker format (alphanumeric, max length 12)
+        // This prevents garbage input or overly long strings from reaching the DB/API
+        requestedTickers = requestedTickers.filter(t => {
+            const isValid = /^[A-Z0-9.-]{1,12}$/.test(t);
+            if (!isValid) {
+                console.warn(`[API] Filtered out invalid ticker format: ${t}`);
+            }
+            return isValid;
+        });
+
         if (requestedTickers.length > 0) {
             // Use 'in' operator to match any of the requested tickers
             whereClause.ticker = { in: requestedTickers, mode: 'insensitive' as const };
