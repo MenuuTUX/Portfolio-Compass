@@ -11,7 +11,7 @@ import SectorPieChart, { COLORS } from './SectorPieChart';
 import AssetProfileCard from './AssetProfileCard';
 import EtfVerdictCard from './EtfVerdictCard';
 import ComparisonModal from './ComparisonModal';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 
 interface ETFDetailsDrawerProps {
   etf: ETF | null;
@@ -65,6 +65,7 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
   const [showAllHoldings, setShowAllHoldings] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpyLoading, setIsSpyLoading] = useState(false);
+  const lastFetchTime = useRef<number>(0);
 
   // Use fresh data if available, otherwise fall back to prop
   const displayEtf = freshEtf || etf;
@@ -108,58 +109,94 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
 
   // Fetch SPY data when toggle is enabled
   useEffect(() => {
-    if (showComparison && !spyData) {
-      const fetchSpy = async () => {
-        setIsSpyLoading(true);
-        try {
-          // 1. Try search first
-          const searchRes = await fetch('/api/etfs/search?query=SPY', { cache: 'no-store' });
-          const searchData = await searchRes.json();
+    if (!showComparison || !displayEtf) return;
 
-          let foundSpy = null;
-          if (Array.isArray(searchData) && searchData.length > 0) {
-            const spy = searchData[0];
-            // Check if history exists and is sufficient
-            if (spy.history && spy.history.length > 0) {
-              // Check freshness (client-side double check)
-              const lastDate = new Date(spy.history[spy.history.length - 1].date);
-              const now = new Date();
-              const isStale = (now.getTime() - lastDate.getTime()) > 60 * 60 * 1000; // > 1 hour
+    const checkAndFetchSpy = async () => {
+      // Prevent rapid re-fetching
+      const nowTime = Date.now();
+      if (nowTime - lastFetchTime.current < 60000 && spyData) {
+          return;
+      }
 
-              if (!isStale) {
-                foundSpy = spy;
-              } else {
-                 console.log('SPY data found but stale (>1h). Forcing sync...');
+      // Check if we already have valid data
+      if (spyData && spyData.history && spyData.history.length > 0) {
+          const lastSpyDate = new Date(spyData.history[spyData.history.length - 1].date);
+          const now = new Date();
+          const isStale = (now.getTime() - lastSpyDate.getTime()) > 60 * 60 * 1000; // > 1 hour
+
+          // Also check if SPY is behind the current ETF
+          let isBehind = false;
+          if (displayEtf.history && displayEtf.history.length > 0) {
+              const lastEtfDate = new Date(displayEtf.history[displayEtf.history.length - 1].date);
+              // If ETF is more than 30 mins ahead of SPY
+              if (lastEtfDate.getTime() - lastSpyDate.getTime() > 30 * 60 * 1000) {
+                  isBehind = true;
               }
+          }
+
+          if (!isStale && !isBehind) {
+              return; // Data is good
+          }
+          console.log(`SPY data stale (${isStale}) or behind (${isBehind}). Forcing sync...`);
+      }
+
+      setIsSpyLoading(true);
+      lastFetchTime.current = Date.now();
+
+      try {
+        // 1. Try search first if we don't have data
+        let foundSpy = null;
+        if (!spyData) {
+            const searchRes = await fetch('/api/etfs/search?query=SPY', { cache: 'no-store' });
+            const searchData = await searchRes.json();
+
+            if (Array.isArray(searchData) && searchData.length > 0) {
+                const spy = searchData[0];
+                if (spy.history && spy.history.length > 0) {
+                    const lastDate = new Date(spy.history[spy.history.length - 1].date);
+                    const now = new Date();
+                    const isStale = (now.getTime() - lastDate.getTime()) > 60 * 60 * 1000;
+
+                    let isBehind = false;
+                    if (displayEtf.history && displayEtf.history.length > 0) {
+                        const lastEtfDate = new Date(displayEtf.history[displayEtf.history.length - 1].date);
+                        if (lastEtfDate.getTime() - lastDate.getTime() > 30 * 60 * 1000) {
+                            isBehind = true;
+                        }
+                    }
+
+                    if (!isStale && !isBehind) {
+                        foundSpy = spy;
+                    }
+                }
             }
-          }
-
-          if (foundSpy) {
-             setSpyData(foundSpy);
-          } else {
-             // 2. Fallback to sync if search failed or no history
-             console.log('Fetching full SPY data via sync...');
-             const syncRes = await fetch('/api/etfs/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ticker: 'SPY' })
-             });
-
-             if (syncRes.ok) {
-                const syncData = await syncRes.json();
-                setSpyData(syncData);
-             }
-          }
-        } catch (err) {
-          console.error('Failed to fetch SPY data:', err);
-        } finally {
-          setIsSpyLoading(false);
         }
-      };
 
-      fetchSpy();
-    }
-  }, [showComparison, spyData]);
+        if (foundSpy) {
+           setSpyData(foundSpy);
+        } else {
+           // 2. Fallback to sync
+           console.log('Fetching full SPY data via sync...');
+           const syncRes = await fetch('/api/etfs/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ticker: 'SPY' })
+           });
+
+           if (syncRes.ok) {
+              const syncData = await syncRes.json();
+              setSpyData(syncData);
+           }
+        }
+      } catch (err) {
+        console.error('Failed to fetch SPY data:', err);
+      } finally {
+        setIsSpyLoading(false);
+      }
+    };
+
+    checkAndFetchSpy();
+  }, [showComparison, spyData, displayEtf]);
 
   const filteredEtfHistory = useMemo(() => {
     if (!displayEtf || !displayEtf.history) return [];
@@ -265,8 +302,18 @@ export default function ETFDetailsDrawer({ etf, onClose, onTickerSelect }: ETFDe
         const spyStartPrice = getSpyPriceAt(new Date(filteredEtfHistory[0].date));
         const spyStart = spyStartPrice || (spyHistory.length > 0 ? spyHistory[0].price : 1);
 
+        let lastValidSpyPrice = spyStart;
+
         return filteredEtfHistory.map(h => {
-          const rawSpyPrice = getSpyPriceAt(new Date(h.date));
+          let rawSpyPrice = getSpyPriceAt(new Date(h.date));
+
+          // Forward fill logic: if missing data (e.g. at the end), use last known price
+          if (rawSpyPrice !== null) {
+              lastValidSpyPrice = rawSpyPrice;
+          } else if (lastValidSpyPrice !== null) {
+              rawSpyPrice = lastValidSpyPrice;
+          }
+
           const spyPct = rawSpyPrice ? ((rawSpyPrice - spyStart) / spyStart) * 100 : null;
           const etfPct = ((h.price - etfStart) / etfStart) * 100;
 
