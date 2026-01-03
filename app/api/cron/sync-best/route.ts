@@ -11,11 +11,25 @@ const DEFAULT_TICKERS = ['SPY', 'QQQ', 'IWM', 'AAPL', 'MSFT', 'NVDA', 'GOOGL', '
 
 export async function GET(req: NextRequest) {
   try {
-    // Check for authorization via CRON_SECRET if provided in environment
-    // Vercel Cron sends this header automatically if configured.
+    // SECURITY: Authorization check
+    // Vercel Cron sends the `Authorization` header automatically if `CRON_SECRET` is configured.
+    const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get('authorization');
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // 1. Fail securely if the secret is not configured in the environment at all.
+    // This prevents the endpoint from "failing open" (becoming public) if the env var is missing.
+    if (!cronSecret) {
+        // In development, we might allow bypass for testing convenience, but warn loudly.
+        if (process.env.NODE_ENV === 'development') {
+            console.warn('[Cron] WARNING: CRON_SECRET is not set. Allowing access for local development.');
+        } else {
+            console.error('[Cron] CRITICAL: CRON_SECRET is not set in production. Access denied.');
+            return NextResponse.json({ error: 'Server Configuration Error: Missing CRON_SECRET' }, { status: 500 });
+        }
+    }
+    // 2. If configured, strictly enforce the Bearer token match.
+    else if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check if market is open
