@@ -261,6 +261,19 @@ export async function GET(request: NextRequest) {
              if (e.history && e.history.length > 0) {
                 const lastHistoryDate = e.history[e.history.length - 1].date;
                 if (new Date(lastHistoryDate) < twoDaysAgo) return true;
+
+                // Check for missing intervals if full history is requested
+                // This fixes issues where partial syncs (1d only) prevent loading of long-term charts (1M, 1Y, 5Y)
+                if (isFullHistoryRequested) {
+                    const hasWeekly = e.history.some((h: any) => h.interval === '1wk');
+                    const hasMonthly = e.history.some((h: any) => h.interval === '1mo');
+                    // We check for 1wk OR 1mo missing.
+                    // Note: Very new assets might genuinely not have monthly data, but syncEtfDetails handles that safely.
+                    if (!hasWeekly || !hasMonthly) {
+                         // console.log(`[API] ${e.ticker} is stale due to missing intervals (1wk/1mo).`);
+                         return true;
+                    }
+                }
              } else {
                  // No history implies stale if it's supposed to have it
                  return true;
@@ -288,8 +301,8 @@ export async function GET(request: NextRequest) {
 
            await Promise.all(itemsToSync.map((staleEtf: any) => limit(async () => {
              try {
-                // Perform full sync (no interval restrictions)
-                const synced = await syncEtfDetails(staleEtf.ticker);
+                // Perform full sync (explicitly request all intervals to override optimization)
+                const synced = await syncEtfDetails(staleEtf.ticker, ['1h', '1d', '1wk', '1mo']);
                 if (synced) {
                     // Replace the stale item in the local list with the fresh one
                     const index = etfs.findIndex(e => e.ticker === staleEtf.ticker);
