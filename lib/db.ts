@@ -19,12 +19,14 @@ const prismaClientSingleton = () => {
     // Optimization for Serverless (Vercel/Neon):
     // Reduce max connections to avoid "MaxClientsInSessionMode" or "too many clients" errors.
     // Serverless functions spin up many instances; if each takes 5 connections, we hit limits fast.
+    // SECURITY: In production, ensure DATABASE_URL points to the Transaction Pooler (Supabase port 6543)
+    // to manage thousands of short-lived connections effectively.
     const pool = new pg.Pool({
         connectionString: process.env.DATABASE_URL,
         ssl: process.env.DATABASE_URL.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
-        max: 3, // Increased from 2 to 3 to allow slightly more concurrency
-        idleTimeoutMillis: 15000, // Increased from 5s to 15s to reduce connection churn
-        connectionTimeoutMillis: 10000, // Increased from 5s to 10s to reduce timeout errors
+        max: 3, // Keep low (1-3) for serverless environments
+        idleTimeoutMillis: 15000,
+        connectionTimeoutMillis: 10000,
     });
 
     const adapter = new PrismaPg(pool);

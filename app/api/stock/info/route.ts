@@ -1,105 +1,76 @@
 import { NextResponse } from 'next/server';
-import { getStockProfile } from '@/lib/scrapers/stock-analysis';
-import { getEtfDescription } from '@/lib/scrapers/etf-dot-com';
-import YahooFinance from 'yahoo-finance2';
+import { getStockProfile, getEtfDescription } from '@/lib/scrapers/stock-analysis';
+import yahooFinance from 'yahoo-finance2';
+import { EtfDetails } from '@/lib/market-service';
+import prisma from '@/lib/db';
+import { Etf, Prisma } from '@prisma/client';
 
-const yahooFinance = new YahooFinance({
-    suppressNotices: ['yahooSurvey']
-});
+// Simple in-memory cache to prevent DoS
+const profileCache = new Map<string, { data: any, timestamp: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const ticker = searchParams.get('ticker');
+    const { searchParams } = new URL(request.url);
+    const ticker = searchParams.get('ticker');
+    const type = searchParams.get('type') || 'STOCK';
 
-  if (!ticker) {
-    return NextResponse.json(
-      { error: 'Ticker is required' },
-      { status: 400 }
-    );
-  }
-
-  try {
-    // 1. Fetch main profile from StockAnalysis (robust source for metrics/sector)
-    let profile: any = await getStockProfile(ticker);
-
-    // 2. Try to get specialized ETF description from ETF.com (User requested source)
-    // We do this if profile is missing, or even if present to see if we can get "Analysis & Insights"
-    // However, to save time, we might only do it if we suspect it's an ETF or if description is missing.
-    // Given the user request "scrap this website... for the description", we prioritize it.
-    if (!profile?.description || profile.sector === 'Unknown') {
-        const etfDesc = await getEtfDescription(ticker);
-        if (etfDesc) {
-             if (!profile) profile = { sector: 'Unknown', industry: 'Unknown' };
-             profile.description = etfDesc;
-        }
-    } else {
-        // If we have a profile, we can still try to upgrade the description if it's an ETF
-        // But doing 2 scrapes per request is slow.
-        // Let's assume if StockAnalysis gave us a description, it's "good enough" unless the user
-        // explicitly wants ETF.com.
-        // But the user complained about "lazy/clunky" which was Yahoo.
-        // StockAnalysis description is actually quite good.
-        // But let's try ETF.com as an override if we can confirm it's an ETF?
-        // Simpler: Just try ETF.com if StockAnalysis failed to give a description.
-        // Wait, I want to use ETF.com as the *preferred* source for description per user request.
-        const etfDesc = await getEtfDescription(ticker);
-        if (etfDesc) {
-            profile.description = etfDesc;
-        }
+    if (!ticker) {
+        return NextResponse.json({ error: 'Ticker required' }, { status: 400 });
     }
 
-    // 3. Fallback to Yahoo Finance if still missing description or basic info
-    if (!profile || !profile.description) {
-        try {
-            // Fetch summaryProfile (stocks) and fundProfile (ETFs)
-            const summary = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'price', 'fundProfile'] } as any) as any;
+    // Check Cache
+    const cached = profileCache.get(ticker);
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        return NextResponse.json(cached.data);
+    }
 
-            const summaryProfile = summary.summaryProfile || {};
-            const fundProfile = summary.fundProfile || {};
+    try {
+        let profile = await getStockProfile(ticker);
 
-            const description = summaryProfile.longBusinessSummary || null;
+        // Fallback for description if missing or generic
+        if (!profile.description || profile.description.length < 50) {
+             try {
+                // Try ETF.com for ETFs
+                if (type === 'ETF') {
+                    const etfDesc = await getEtfDescription(ticker);
+                    if (etfDesc) {
+                         profile.description = etfDesc;
+                    }
+                }
 
-            // Determine sector/industry/family
-            const sector = profile?.sector || summaryProfile.sector || fundProfile.categoryName || 'Unknown';
-            const industry = profile?.industry || summaryProfile.industry || fundProfile.family || 'Unknown';
+                // Final fallback to Yahoo
+                 if (!profile.description || profile.description.length < 50) {
+                     const yf = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'assetProfile'] });
+                     const yDesc = yf.summaryProfile?.longBusinessSummary || yf.assetProfile?.longBusinessSummary;
+                     if (yDesc) profile.description = yDesc;
+                 }
 
-            if (profile) {
-                profile = {
-                    ...profile,
-                    description: profile.description || description,
-                    sector,
-                    industry
-                };
-            } else {
-                profile = {
-                    sector,
-                    industry,
-                    description,
-                    analyst: undefined
-                };
+            } catch (err) {
+                console.warn(`[API] Description fallback failed for ${ticker}:`, err);
             }
-        } catch (yfError) {
-            console.warn(`Yahoo Finance fallback failed for ${ticker}:`, yfError);
         }
-    }
 
-    // Even if profile is empty/partial, return it so the UI can render what it has (e.g. just Sector/Industry)
-    // instead of a 404 which causes a red error box.
-    if (!profile) {
-        // Return a minimal valid object
+        // If still completely failed, return partial
+        if (!profile || Object.keys(profile).length === 0) {
+             // Do not cache failures aggressively, or cache them for shorter time?
+             // For now, return soft fail but don't cache empty results to allow retries
+             return NextResponse.json({
+                description: 'Profile unavailable',
+                sector: 'Unknown',
+                industry: 'Unknown'
+            });
+        }
+
+        // Store in Cache
+        profileCache.set(ticker, { data: profile, timestamp: Date.now() });
+
+        return NextResponse.json(profile);
+    } catch (error) {
+        console.error(`[API] Error fetching info for ${ticker}:`, error);
         return NextResponse.json({
+            description: 'Profile unavailable',
             sector: 'Unknown',
-            industry: 'Unknown',
-            description: null
-        });
+            industry: 'Unknown'
+        }); // Soft fail
     }
-
-    return NextResponse.json(profile);
-  } catch (error) {
-    console.error('Error fetching stock profile:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
 }

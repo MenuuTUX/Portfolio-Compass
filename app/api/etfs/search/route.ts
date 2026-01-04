@@ -88,9 +88,10 @@ export async function GET(request: NextRequest) {
       includeObj.holdings = { orderBy: { weight: 'desc' } };
     }
 
+    const MAX_LIMIT = 50;
     let takeLimit = isFullHistoryRequested ? 1 : (query ? 50 : 50);
     if (limitParam) {
-        takeLimit = parseInt(limitParam, 10);
+        takeLimit = Math.min(parseInt(limitParam, 10), MAX_LIMIT);
     } else if (tickersParam) {
         // If specific tickers are requested, allow fetching all of them plus some buffer
         // (Though technically we only need exactly requestedTickers.length)

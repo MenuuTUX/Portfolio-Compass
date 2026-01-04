@@ -11,9 +11,22 @@ const safeDecimal = (val: any) => {
     return 0;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        // Mock Auth Check: In production, replace with real auth (e.g., NextAuth session)
+        const userId = request.headers.get('x-user-id');
+
+        if (!userId) {
+            // For now, if no header is present, we can return 401 Unauthorized
+            // Or use a dummy ID for dev testing if instructed.
+            // The instruction says "mock the auth check... or assume a userId header for now"
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const portfolioItems = await prisma.portfolioItem.findMany({
+            where: {
+                userId: userId
+            },
             include: {
                 etf: {
                     include: {

@@ -46,7 +46,12 @@ mock.module('next/server', () => ({
 
 describe('Portfolio API', () => {
     it('returns formatted portfolio items with optimized sector reduction', async () => {
-        const response = await GET();
+        // Mock request with user ID
+        const req = new Request('http://localhost/api/portfolio', {
+            headers: { 'x-user-id': 'user123' }
+        });
+
+        const response = await GET(req);
         const data = response.body;
 
         expect(data).toHaveLength(1);
@@ -58,5 +63,13 @@ describe('Portfolio API', () => {
             'Financials': 0.15
         });
         expect(item.allocation.equities).toBe(0.99);
+    });
+
+    it('returns 401 Unauthorized when x-user-id header is missing', async () => {
+        const req = new Request('http://localhost/api/portfolio');
+        const response = await GET(req);
+
+        expect(response.status).toBe(401);
+        expect(response.body).toEqual({ error: 'Unauthorized' });
     });
 });

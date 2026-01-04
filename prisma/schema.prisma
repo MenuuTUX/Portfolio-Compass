@@ -55,7 +55,7 @@ model Etf {
   sectors        EtfSector[]
   holdings       Holding[]
   allocation     EtfAllocation?
-  portfolioItem  PortfolioItem?
+  portfolioItems PortfolioItem[]
 
   updatedAt      DateTime        @updatedAt
 }
@@ -101,12 +101,24 @@ model EtfAllocation {
   etf          Etf    @relation(fields: [etfId], references: [ticker])
 }
 
+model User {
+  id        String          @id @default(cuid())
+  email     String          @unique
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  portfolio PortfolioItem[]
+}
+
 model PortfolioItem {
-  id        Int    @id @default(autoincrement())
-  etfId     String @unique
+  id        Int     @id @default(autoincrement())
+  userId    String
+  etfId     String
   weight    Decimal
-  shares    Decimal  @default(0)
-  etf       Etf    @relation(fields: [etfId], references: [ticker])
+  shares    Decimal @default(0)
+  etf       Etf     @relation(fields: [etfId], references: [ticker])
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([userId, etfId])
 }
 
 model MarketSentiment {
