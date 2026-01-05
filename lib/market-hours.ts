@@ -1,27 +1,27 @@
 const MARKET_HOLIDAYS = new Set([
   // 2025
-  '2025-01-01', // New Year's Day
-  '2025-01-20', // MLK Jr. Day
-  '2025-02-17', // Presidents' Day
-  '2025-04-18', // Good Friday
-  '2025-05-26', // Memorial Day
-  '2025-06-19', // Juneteenth
-  '2025-07-04', // Independence Day
-  '2025-09-01', // Labor Day
-  '2025-11-27', // Thanksgiving Day
-  '2025-12-25', // Christmas Day
+  "2025-01-01", // New Year's Day
+  "2025-01-20", // MLK Jr. Day
+  "2025-02-17", // Presidents' Day
+  "2025-04-18", // Good Friday
+  "2025-05-26", // Memorial Day
+  "2025-06-19", // Juneteenth
+  "2025-07-04", // Independence Day
+  "2025-09-01", // Labor Day
+  "2025-11-27", // Thanksgiving Day
+  "2025-12-25", // Christmas Day
 
   // 2026
-  '2026-01-01', // New Year's Day
-  '2026-01-19', // MLK Jr. Day
-  '2026-02-16', // Presidents' Day
-  '2026-04-03', // Good Friday
-  '2026-05-25', // Memorial Day
-  '2026-06-19', // Juneteenth
-  '2026-07-03', // Independence Day (Observed)
-  '2026-09-07', // Labor Day
-  '2026-11-26', // Thanksgiving Day
-  '2026-12-25', // Christmas Day
+  "2026-01-01", // New Year's Day
+  "2026-01-19", // MLK Jr. Day
+  "2026-02-16", // Presidents' Day
+  "2026-04-03", // Good Friday
+  "2026-05-25", // Memorial Day
+  "2026-06-19", // Juneteenth
+  "2026-07-03", // Independence Day (Observed)
+  "2026-09-07", // Labor Day
+  "2026-11-26", // Thanksgiving Day
+  "2026-12-25", // Christmas Day
 ]);
 
 /**
@@ -32,15 +32,15 @@ const MARKET_HOLIDAYS = new Set([
  */
 export function isMarketOpen(date: Date = new Date()): boolean {
   // Convert to New York time parts
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
-    weekday: 'long'
+    weekday: "long",
   });
 
   const parts = formatter.formatToParts(date);
@@ -57,7 +57,7 @@ export function isMarketOpen(date: Date = new Date()): boolean {
   const weekday = partMap.weekday;
 
   // 1. Check Weekend
-  if (weekday === 'Saturday' || weekday === 'Sunday') {
+  if (weekday === "Saturday" || weekday === "Sunday") {
     return false;
   }
 

@@ -1,4 +1,4 @@
-import { Decimal } from './decimal';
+import { Decimal } from "./decimal";
 
 export interface DividendHistoryItem {
   date: string;
@@ -24,11 +24,11 @@ export interface AssetWithCompositeScore {
 export function forecastExpectedReturn(
   zScore: number,
   benchmarkVol: number = 0.15,
-  riskFreeRate: number = 0.04 // 4% Risk Free Rate
+  riskFreeRate: number = 0.04, // 4% Risk Free Rate
 ): number {
   // Formula: mu = R_free + (zScore * sigma_benchmark)
   // This ensures a stock with Z=1.0 gets the same expected return as the benchmark.
-  return riskFreeRate + (zScore * benchmarkVol);
+  return riskFreeRate + zScore * benchmarkVol;
 }
 
 /**
@@ -43,35 +43,45 @@ export function forecastExpectedReturn(
 export function forecastExpectedReturns<T extends AssetWithCompositeScore>(
   assets: T[],
   benchmarkVol: number,
-  riskFreeRate: number = 0.04
+  riskFreeRate: number = 0.04,
 ): number[] {
-  return assets.map(asset => {
-    return forecastExpectedReturn(asset.scores.composite, benchmarkVol, riskFreeRate);
+  return assets.map((asset) => {
+    return forecastExpectedReturn(
+      asset.scores.composite,
+      benchmarkVol,
+      riskFreeRate,
+    );
   });
 }
 
-export function calculateTTMYield(dividendHistory: DividendHistoryItem[], currentPrice: number | Decimal): Decimal {
+export function calculateTTMYield(
+  dividendHistory: DividendHistoryItem[],
+  currentPrice: number | Decimal,
+): Decimal {
   if (!dividendHistory || dividendHistory.length === 0) {
     return new Decimal(0);
   }
 
   const price = new Decimal(currentPrice);
   if (price.isZero()) {
-      return new Decimal(0);
+    return new Decimal(0);
   }
 
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const now = new Date();
-  const ttmDividends = dividendHistory.filter(item => {
+  const ttmDividends = dividendHistory.filter((item) => {
     // Prefer exDate if available, otherwise use date
     const dateStr = item.exDate || item.date;
     const date = new Date(dateStr);
     return date >= oneYearAgo && date <= now;
   });
 
-  const annualPayout = ttmDividends.reduce((sum, item) => sum.plus(new Decimal(item.amount)), new Decimal(0));
+  const annualPayout = ttmDividends.reduce(
+    (sum, item) => sum.plus(new Decimal(item.amount)),
+    new Decimal(0),
+  );
 
   return annualPayout.dividedBy(price).times(100); // Return as percentage
 }

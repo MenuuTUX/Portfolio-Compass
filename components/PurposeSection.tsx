@@ -1,8 +1,17 @@
-'use client';
+"use client";
 
-import { motion, Variants } from 'framer-motion';
-import { Share2, Github, ExternalLink, Building2, TrendingUp, LineChart, Target, HeartHandshake } from 'lucide-react';
-import Image from 'next/image';
+import { motion, Variants } from "framer-motion";
+import {
+  Share2,
+  Github,
+  ExternalLink,
+  Building2,
+  TrendingUp,
+  LineChart,
+  Target,
+  HeartHandshake,
+} from "lucide-react";
+import Image from "next/image";
 
 const cardVariants: Variants = {
   hidden: { opacity: 0, y: 50 },
@@ -21,25 +30,31 @@ const PurposeSection = () => {
   const cards = [
     {
       title: "Smart Money Portfolios",
-      description: "Peek into the portfolios of major financial institutions. See what the giants are buying and use their strategies as a benchmark for your own success.",
-      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
+      description:
+        "Peek into the portfolios of major financial institutions. See what the giants are buying and use their strategies as a benchmark for your own success.",
+      image:
+        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
       icon: <Building2 className="w-5 h-5 text-emerald-400" />,
-      tag: "INSIGHTS"
+      tag: "INSIGHTS",
     },
     {
       title: "Mathematical Optimization",
-      description: "Stop guessing. Our algorithms analyze volatility, correlation, and returns to mathematically optimize your asset allocation for the highest possible Sharpe ratio.",
-      image: "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
+      description:
+        "Stop guessing. Our algorithms analyze volatility, correlation, and returns to mathematically optimize your asset allocation for the highest possible Sharpe ratio.",
+      image:
+        "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
       icon: <TrendingUp className="w-5 h-5 text-rose-400" />,
-      tag: "ALGORITHM"
+      tag: "ALGORITHM",
     },
     {
       title: "Future Simulation",
-      description: "Test your portfolio against thousands of potential market scenarios with Monte Carlo simulations. Visualize your range of outcomes and plan with confidence.",
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+      description:
+        "Test your portfolio against thousands of potential market scenarios with Monte Carlo simulations. Visualize your range of outcomes and plan with confidence.",
+      image:
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
       icon: <LineChart className="w-5 h-5 text-cyan-400" />,
-      tag: "SIMULATION"
-    }
+      tag: "SIMULATION",
+    },
   ];
 
   return (
@@ -52,7 +67,6 @@ const PurposeSection = () => {
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
-
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-20">
           <motion.div
@@ -75,7 +89,10 @@ const PurposeSection = () => {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-5xl font-display font-bold text-stone-100 mb-6"
           >
-            Intelligent <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Portfolio Management</span>
+            Intelligent{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+              Portfolio Management
+            </span>
           </motion.h2>
 
           <motion.p
@@ -85,7 +102,9 @@ const PurposeSection = () => {
             transition={{ delay: 0.2 }}
             className="text-lg text-stone-400 leading-relaxed"
           >
-            PortfolioCompass simplifies the complex world of investing. We provide professional-grade tools to help you build, optimize, and simulate your wealth strategy.
+            PortfolioCompass simplifies the complex world of investing. We
+            provide professional-grade tools to help you build, optimize, and
+            simulate your wealth strategy.
           </motion.p>
         </div>
 
@@ -136,27 +155,34 @@ const PurposeSection = () => {
 
         {/* Our Mission Section */}
         <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mb-32 relative"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mb-32 relative"
         >
-             <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-emerald-500/50 to-transparent rounded-full" />
-             <div className="pl-8 md:pl-12">
-                <div className="flex items-center gap-3 mb-6">
-                    <HeartHandshake className="text-emerald-400 w-6 h-6" />
-                    <h3 className="text-2xl font-display font-bold text-stone-100">Our Mission</h3>
-                </div>
-                <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-                    "Investing shouldn't be a mystery. I started this project because when I began investing, I was overwhelmed by the noise and lack of clear, actionable tools. PortfolioCompass is the tool I wish I had - designed to simplify the complex and make advanced analysis accessible to everyone."
-                </p>
-                <div className="flex items-center gap-4">
-                    <div className="h-px flex-1 bg-stone-800" />
-                    <span className="text-stone-500 text-sm font-mono uppercase tracking-widest">The Creator</span>
-                </div>
-             </div>
+          <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-emerald-500/50 to-transparent rounded-full" />
+          <div className="pl-8 md:pl-12">
+            <div className="flex items-center gap-3 mb-6">
+              <HeartHandshake className="text-emerald-400 w-6 h-6" />
+              <h3 className="text-2xl font-display font-bold text-stone-100">
+                Our Mission
+              </h3>
+            </div>
+            <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
+              "Investing shouldn't be a mystery. I started this project because
+              when I began investing, I was overwhelmed by the noise and lack of
+              clear, actionable tools. PortfolioCompass is the tool I wish I had
+              - designed to simplify the complex and make advanced analysis
+              accessible to everyone."
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="h-px flex-1 bg-stone-800" />
+              <span className="text-stone-500 text-sm font-mono uppercase tracking-widest">
+                The Creator
+              </span>
+            </div>
+          </div>
         </motion.div>
-
 
         {/* Support Section */}
         <motion.div
@@ -173,7 +199,9 @@ const PurposeSection = () => {
               Support the <span className="text-emerald-400">Project</span>
             </h3>
             <p className="text-stone-400">
-              This project is open-source and powered by the community. If you enjoy navigating the markets with us, please consider starring the project on GitHub and sharing it with fellow investors.
+              This project is open-source and powered by the community. If you
+              enjoy navigating the markets with us, please consider starring the
+              project on GitHub and sharing it with fellow investors.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -191,14 +219,16 @@ const PurposeSection = () => {
               <button
                 onClick={() => {
                   if (navigator.share) {
-                    navigator.share({
-                      title: 'PortfolioCompass',
-                      text: 'Navigate the market with PortfolioCompass.',
-                      url: window.location.href,
-                    }).catch(console.error);
+                    navigator
+                      .share({
+                        title: "PortfolioCompass",
+                        text: "Navigate the market with PortfolioCompass.",
+                        url: window.location.href,
+                      })
+                      .catch(console.error);
                   } else {
                     navigator.clipboard.writeText(window.location.href);
-                    alert('Link copied to clipboard!');
+                    alert("Link copied to clipboard!");
                   }
                 }}
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-800 text-white font-medium border border-stone-700 hover:border-emerald-500/50 hover:bg-stone-800/80 flex items-center justify-center gap-2 transition-all"
@@ -209,7 +239,6 @@ const PurposeSection = () => {
             </div>
           </div>
         </motion.div>
-
       </div>
     </section>
   );

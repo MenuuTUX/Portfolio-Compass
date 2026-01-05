@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Portfolio, ETF } from '@/types';
-import { loadPortfolio, savePortfolio } from '@/lib/storage';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Portfolio, ETF } from "@/types";
+import { loadPortfolio, savePortfolio } from "@/lib/storage";
 
 interface AddStockParams {
   ticker: string;
@@ -16,13 +16,15 @@ export const useAddStock = () => {
   return useMutation({
     mutationFn: async ({ ticker }: AddStockParams) => {
       // 1. Fetch rich data first to ensure ticker is valid and get details
-      const response = await fetch(`/api/etfs/search?query=${ticker}&includeHistory=true`);
+      const response = await fetch(
+        `/api/etfs/search?query=${ticker}&includeHistory=true`,
+      );
       if (!response.ok) {
-        throw new Error('Failed to fetch stock details');
+        throw new Error("Failed to fetch stock details");
       }
       const results: ETF[] = await response.json();
       const stock = results.find(
-        (r) => r.ticker.toUpperCase() === ticker.toUpperCase()
+        (r) => r.ticker.toUpperCase() === ticker.toUpperCase(),
       );
 
       if (!stock) {
@@ -33,7 +35,11 @@ export const useAddStock = () => {
       const currentItems = loadPortfolio();
 
       // Prevent duplicates
-      if (currentItems.some(item => item.ticker.toUpperCase() === ticker.toUpperCase())) {
+      if (
+        currentItems.some(
+          (item) => item.ticker.toUpperCase() === ticker.toUpperCase(),
+        )
+      ) {
         return; // Or throw error "Already in portfolio"
       }
 
@@ -52,11 +58,16 @@ export const useAddStock = () => {
       if (!newStock) return;
 
       // 3. Optimistic Update (or rather, immediate update after successful fetch)
-      queryClient.setQueryData<Portfolio>(['portfolio'], (oldPortfolio) => {
+      queryClient.setQueryData<Portfolio>(["portfolio"], (oldPortfolio) => {
         if (!oldPortfolio) return [];
 
         // Check if already exists in query cache (should match storage check)
-        if (oldPortfolio.some(item => item.ticker.toUpperCase() === newStock.ticker.toUpperCase())) {
+        if (
+          oldPortfolio.some(
+            (item) =>
+              item.ticker.toUpperCase() === newStock.ticker.toUpperCase(),
+          )
+        ) {
           return oldPortfolio;
         }
 
@@ -70,7 +81,7 @@ export const useAddStock = () => {
       });
 
       // Optional: Invalidate to ensure consistency, though we just updated cache
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 };

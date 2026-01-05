@@ -1,9 +1,15 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout } from 'lucide-react';
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from "framer-motion";
-import BiopunkSlider from './BiopunkSlider';
+import { useState, useEffect } from "react";
+import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout } from "lucide-react";
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  AnimatePresence,
+} from "framer-motion";
+import BiopunkSlider from "./BiopunkSlider";
 
 const textVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -13,15 +19,15 @@ const textVariants = {
     transition: {
       delay: i * 0.1,
       duration: 0.5,
-      ease: "easeOut" as const
-    }
-  })
+      ease: "easeOut" as const,
+    },
+  }),
 };
 
 const titleWords = [
   { text: "fun", font: "font-cursive", color: "text-emerald-400" },
   { text: "stable", font: "font-sans", color: "text-blue-400" },
-  { text: "aggressive", font: "font-serif", color: "text-red-400" }
+  { text: "aggressive", font: "font-serif", color: "text-red-400" },
 ];
 
 interface HeroProps {
@@ -31,7 +37,7 @@ interface HeroProps {
 
 export default function Hero({ onStart, onViewMarket }: HeroProps) {
   const [mounted, setMounted] = useState(false);
-  const [marketStatus, setMarketStatus] = useState('OPEN');
+  const [marketStatus, setMarketStatus] = useState("OPEN");
   const [titleIndex, setTitleIndex] = useState(0);
   const [riskValue, setRiskValue] = useState(65);
   const [yearsValue, setYearsValue] = useState(10);
@@ -71,43 +77,42 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-stone-950 text-stone-100 font-sans selection:bg-emerald-500/30"
       onMouseMove={handleMouseMove}
     >
-
       {/* 1. Organic Background Layer - "The Overgrowth" */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-stone-950 to-stone-950" />
         <div className="absolute inset-0 bg-grid-pattern opacity-20 mask-image-gradient" />
 
         {/* Floating Spores/Particles */}
-        {mounted && [...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute bg-emerald-500/10 rounded-full blur-sm"
-            initial={{
-              x: Math.random() * window.innerWidth,
-              y: Math.random() * window.innerHeight,
-              scale: Math.random() * 0.5 + 0.2,
-            }}
-            animate={{
-              y: [null, Math.random() * -50],
-              x: [null, Math.random() * 50 - 25],
-              opacity: [0.2, 0.5, 0.2],
-            }}
-            transition={{
-              duration: Math.random() * 10 + 10,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            style={{
-              width: Math.random() * 20 + 5,
-              height: Math.random() * 20 + 5,
-            }}
-          />
-        ))}
+        {mounted &&
+          [...Array(15)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute bg-emerald-500/10 rounded-full blur-sm"
+              initial={{
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                scale: Math.random() * 0.5 + 0.2,
+              }}
+              animate={{
+                y: [null, Math.random() * -50],
+                x: [null, Math.random() * 50 - 25],
+                opacity: [0.2, 0.5, 0.2],
+              }}
+              transition={{
+                duration: Math.random() * 10 + 10,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              style={{
+                width: Math.random() * 20 + 5,
+                height: Math.random() * 20 + 5,
+              }}
+            />
+          ))}
       </div>
 
       {/* 2. Main Content Wrapper */}
       <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 lg:gap-12 items-center pt-24 pb-12 lg:pt-20 lg:pb-0">
-
         {/* Left Column: Text & CTA */}
         <div className="text-left space-y-6 lg:space-y-8 pointer-events-none">
           <div className="pointer-events-auto">
@@ -116,14 +121,19 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               animate="visible"
               custom={0}
               variants={textVariants}
-              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${marketStatus === 'OPEN'
-                ? 'bg-emerald-900/20 border-emerald-500/20 text-emerald-400'
-                : 'bg-red-900/20 border-red-500/20 text-red-400'
-                }`}
+              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${
+                marketStatus === "OPEN"
+                  ? "bg-emerald-900/20 border-emerald-500/20 text-emerald-400"
+                  : "bg-red-900/20 border-red-500/20 text-red-400"
+              }`}
             >
               <span className="relative flex h-2 w-2">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === 'OPEN' ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === 'OPEN' ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                <span
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === "OPEN" ? "bg-emerald-400" : "bg-red-400"}`}
+                ></span>
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === "OPEN" ? "bg-emerald-500" : "bg-red-500"}`}
+                ></span>
               </span>
               MARKET: {marketStatus}
             </motion.div>
@@ -156,8 +166,9 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
             >
               Experience professional portfolio management tools.
-              PortfolioCompass merges algorithmic precision with sustainable growth strategies.
-              Watch your wealth evolve with data-driven clarity.
+              PortfolioCompass merges algorithmic precision with sustainable
+              growth strategies. Watch your wealth evolve with data-driven
+              clarity.
               <br />
               <span className="text-xs text-stone-500 mt-2 block italic">
                 Disclaimer: This is not financial advice.
@@ -171,7 +182,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <motion.button
                 onClick={onStart}
-                whileHover={{ scale: 1.05, backgroundColor: '#059669' }} // emerald-600
+                whileHover={{ scale: 1.05, backgroundColor: "#059669" }} // emerald-600
                 whileTap={{ scale: 0.95 }}
                 className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
               >
@@ -182,7 +193,10 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
 
               <motion.button
                 onClick={onViewMarket}
-                whileHover={{ scale: 1.05, borderColor: 'rgba(255,255,255,0.2)' }}
+                whileHover={{
+                  scale: 1.05,
+                  borderColor: "rgba(255,255,255,0.2)",
+                }}
                 whileTap={{ scale: 0.95 }}
                 className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
               >
@@ -198,14 +212,18 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50 mt-12"
             >
               {[
-                { label: 'Data Updates', val: 'Daily', icon: Zap },
-                { label: 'Asset Types', val: 'Hybrid', icon: Sprout },
-                { label: 'Privacy', val: 'Local-First', icon: Activity },
+                { label: "Data Updates", val: "Daily", icon: Zap },
+                { label: "Asset Types", val: "Hybrid", icon: Sprout },
+                { label: "Privacy", val: "Local-First", icon: Activity },
               ].map((item, i) => (
                 <div key={i} className="space-y-1">
                   <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
-                  <div className="text-xl sm:text-2xl font-display font-bold text-white">{item.val}</div>
-                  <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">{item.label}</div>
+                  <div className="text-xl sm:text-2xl font-display font-bold text-white">
+                    {item.val}
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">
+                    {item.label}
+                  </div>
                 </div>
               ))}
             </motion.div>
@@ -214,7 +232,6 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
 
         {/* Right Column: Interactive Visuals */}
         <div className="relative h-[400px] lg:h-[600px] flex items-center justify-center perspective-[1000px] w-full pointer-events-none">
-
           {/* Background Glow */}
           <motion.div
             style={{ y: y2 }}
@@ -227,18 +244,21 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               y: y1,
               rotateX,
               rotateY,
-              transformStyle: "preserve-3d"
+              transformStyle: "preserve-3d",
             }}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
             className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto pointer-events-auto"
           >
-
-
-            <div className="space-y-6 relative z-10" style={{ transform: "translateZ(30px)" }}>
+            <div
+              className="space-y-6 relative z-10"
+              style={{ transform: "translateZ(30px)" }}
+            >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">Growth Simulation</h3>
+                <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">
+                  Growth Simulation
+                </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
 
@@ -271,26 +291,45 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                     const maxLogScale = 2.5;
 
                     const barHeight = 10 + (logGrowth / maxLogScale) * 90;
-                    const finalHeight = Math.min(100, barHeight + Math.random() * 2); // Add subtle jitter
+                    const finalHeight = Math.min(
+                      100,
+                      barHeight + Math.random() * 2,
+                    ); // Add subtle jitter
 
                     return (
                       <motion.div
                         key={i}
                         className="w-full bg-emerald-500/80 rounded-t-sm"
                         animate={{ height: `${finalHeight}%` }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                        style={{ opacity: 0.3 + (i / 12) }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 20,
+                        }}
+                        style={{ opacity: 0.3 + i / 12 }}
                       />
                     );
                   })}
                 </div>
                 {/* Overlay Text */}
                 <div className="absolute top-2 left-4 text-xs text-stone-500 font-mono">
-                  PROJECTION: +{((Math.pow(1 + (0.02 + (riskValue / 100) * 0.13), yearsValue) - 1) * 100).toFixed(0)}%
+                  PROJECTION: +
+                  {(
+                    (Math.pow(
+                      1 + (0.02 + (riskValue / 100) * 0.13),
+                      yearsValue,
+                    ) -
+                      1) *
+                    100
+                  ).toFixed(0)}
+                  %
                 </div>
               </div>
 
-              <div className="space-y-4" style={{ transform: "translateZ(40px)" }}>
+              <div
+                className="space-y-4"
+                style={{ transform: "translateZ(40px)" }}
+              >
                 <BiopunkSlider
                   label="Time Horizon"
                   min={1}
@@ -310,7 +349,10 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 />
               </div>
 
-              <div className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap" style={{ transform: "translateZ(10px)" }}>
+              <div
+                className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap"
+                style={{ transform: "translateZ(10px)" }}
+              >
                 <span>• Professional</span>
                 <span>• Algorithmic</span>
                 <span>• Sustainable</span>
@@ -318,10 +360,12 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             </div>
 
             {/* Glass Shine Effect */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" style={{ transform: "translateZ(50px)" }} />
+            <div
+              className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none"
+              style={{ transform: "translateZ(50px)" }}
+            />
           </motion.div>
         </div>
-
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo, useState } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SectorPieChartProps {
   sectors?: { [key: string]: number };
@@ -13,22 +13,23 @@ interface SectorPieChartProps {
 
 // Extended color palette to cover all 11 GICS sectors + others
 export const COLORS = [
-  '#10b981', // Emerald
-  '#3b82f6', // Blue
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-  '#8b5cf6', // Violet
-  '#ec4899', // Pink
-  '#6366f1', // Indigo
-  '#06b6d4', // Cyan
-  '#84cc16', // Lime
-  '#d946ef', // Fuchsia
-  '#f97316', // Orange
-  '#14b8a6', // Teal
+  "#10b981", // Emerald
+  "#3b82f6", // Blue
+  "#f59e0b", // Amber
+  "#ef4444", // Red
+  "#8b5cf6", // Violet
+  "#ec4899", // Pink
+  "#6366f1", // Indigo
+  "#06b6d4", // Cyan
+  "#84cc16", // Lime
+  "#d946ef", // Fuchsia
+  "#f97316", // Orange
+  "#14b8a6", // Teal
 ];
 
 const renderActiveShape = (props: any) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } =
+    props;
 
   return (
     <g>
@@ -56,28 +57,35 @@ const renderActiveShape = (props: any) => {
   );
 };
 
-export default function SectorPieChart({ sectors, data, isLoading = false, onSectorClick }: SectorPieChartProps) {
+export default function SectorPieChart({
+  sectors,
+  data,
+  isLoading = false,
+  onSectorClick,
+}: SectorPieChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
 
   const processedData = useMemo(() => {
     // If direct data is provided, use it (assumed to be already sorted/formatted)
     if (data && data.length > 0) {
-        return data;
+      return data;
     }
 
     if (!sectors) return [];
 
-    const rawData = Object.entries(sectors).map(([name, value]) => ({
-      name,
-      value
-    })).sort((a, b) => b.value - a.value);
+    const rawData = Object.entries(sectors)
+      .map(([name, value]) => ({
+        name,
+        value,
+      }))
+      .sort((a, b) => b.value - a.value);
 
     // Group small sectors logic
     const threshold = 2.0; // 2%
     const mainSectors = [];
     let otherValue = 0;
 
-    rawData.forEach(item => {
+    rawData.forEach((item) => {
       if (item.value >= threshold) {
         mainSectors.push(item);
       } else {
@@ -86,7 +94,7 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
     });
 
     if (otherValue > 0) {
-      mainSectors.push({ name: 'Other', value: otherValue });
+      mainSectors.push({ name: "Other", value: otherValue });
     }
 
     return mainSectors;
@@ -105,13 +113,14 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
 
   if (processedData.length === 0) {
     return (
-        <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+      <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
         No sector data available
       </div>
     );
   }
 
-  const activeItem = activeIndex !== undefined ? processedData[activeIndex] : null;
+  const activeItem =
+    activeIndex !== undefined ? processedData[activeIndex] : null;
 
   return (
     <motion.div
@@ -131,7 +140,7 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
             paddingAngle={4}
             dataKey="value"
             cornerRadius={6}
-            {...{ activeIndex } as any} // Cast to any to bypass missing type definition in Recharts v3
+            {...({ activeIndex } as any)} // Cast to any to bypass missing type definition in Recharts v3
             activeShape={renderActiveShape}
             onMouseEnter={(_, index) => setActiveIndex(index)}
             onMouseLeave={() => setActiveIndex(undefined)}
@@ -143,7 +152,9 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
               <Cell
                 key={`cell-${index}`}
                 fill={COLORS[index % COLORS.length]}
-                fillOpacity={activeIndex === undefined || activeIndex === index ? 1 : 0.3}
+                fillOpacity={
+                  activeIndex === undefined || activeIndex === index ? 1 : 0.3
+                }
                 className="transition-all duration-300"
               />
             ))}
@@ -162,7 +173,10 @@ export default function SectorPieChart({ sectors, data, isLoading = false, onSec
               exit={{ opacity: 0, scale: 0.8 }}
               className="text-center flex flex-col items-center max-w-[120px]"
             >
-              <span className="text-xs text-neutral-400 font-medium truncate w-full px-2" title={activeItem.name}>
+              <span
+                className="text-xs text-neutral-400 font-medium truncate w-full px-2"
+                title={activeItem.name}
+              >
                 {activeItem.name}
               </span>
               <span className="text-xl font-bold text-white tracking-tight">

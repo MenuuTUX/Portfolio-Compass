@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { syncEtfDetails } from '@/lib/etf-sync';
-import { EtfHistory } from '@prisma/client';
-import { Decimal } from 'decimal.js';
-
+import { NextRequest, NextResponse } from "next/server";
+import { syncEtfDetails } from "@/lib/etf-sync";
+import { EtfHistory } from "@prisma/client";
+import { Decimal } from "decimal.js";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,13 +9,19 @@ export async function POST(req: NextRequest) {
     const { ticker } = body;
 
     if (!ticker) {
-      return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Ticker is required" },
+        { status: 400 },
+      );
     }
 
     const fullEtf = await syncEtfDetails(ticker);
 
     if (!fullEtf) {
-      return NextResponse.json({ error: 'Failed to sync ETF' }, { status: 404 });
+      return NextResponse.json(
+        { error: "Failed to sync ETF" },
+        { status: 404 },
+      );
     }
 
     // Map to frontend ETF interface
@@ -30,33 +35,48 @@ export async function POST(req: NextRequest) {
       history: fullEtf.history.map((h: EtfHistory) => ({
         date: h.date.toISOString(),
         price: Number(h.close),
-        interval: (h.interval === 'daily' || !h.interval) ? undefined : h.interval
+        interval:
+          h.interval === "daily" || !h.interval ? undefined : h.interval,
       })),
       metrics: {
         yield: fullEtf.yield ? Number(fullEtf.yield) : 0,
-        mer: fullEtf.mer ? Number(fullEtf.mer) : 0
+        mer: fullEtf.mer ? Number(fullEtf.mer) : 0,
       },
       dividend: fullEtf.dividend ? Number(fullEtf.dividend) : undefined,
       dividendYield: fullEtf.yield ? Number(fullEtf.yield) : undefined,
       allocation: {
-        equities: fullEtf.allocation?.stocks_weight ? Number(fullEtf.allocation.stocks_weight) : 0,
-        bonds: fullEtf.allocation?.bonds_weight ? Number(fullEtf.allocation.bonds_weight) : 0,
-        cash: fullEtf.allocation?.cash_weight ? Number(fullEtf.allocation.cash_weight) : 0,
+        equities: fullEtf.allocation?.stocks_weight
+          ? Number(fullEtf.allocation.stocks_weight)
+          : 0,
+        bonds: fullEtf.allocation?.bonds_weight
+          ? Number(fullEtf.allocation.bonds_weight)
+          : 0,
+        cash: fullEtf.allocation?.cash_weight
+          ? Number(fullEtf.allocation.cash_weight)
+          : 0,
       },
-      sectors: fullEtf.sectors.reduce((acc: { [key: string]: number }, sector) => {
-        acc[sector.sector_name] = Number(sector.weight)
-        return acc
-      }, {} as { [key: string]: number }),
+      sectors: fullEtf.sectors.reduce(
+        (acc: { [key: string]: number }, sector) => {
+          acc[sector.sector_name] = Number(sector.weight);
+          return acc;
+        },
+        {} as { [key: string]: number },
+      ),
       assetType: fullEtf.assetType,
     };
 
     return NextResponse.json(formattedEtf);
-
   } catch (error: any) {
-    console.error('Error syncing ETF:', error);
-    if (error.message === 'Ticker not found') {
-      return NextResponse.json({ error: 'Ticker not found', deleted: true }, { status: 404 });
+    console.error("Error syncing ETF:", error);
+    if (error.message === "Ticker not found") {
+      return NextResponse.json(
+        { error: "Ticker not found", deleted: true },
+        { status: 404 },
+      );
     }
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

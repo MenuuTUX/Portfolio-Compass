@@ -8,10 +8,10 @@
 export function calculateLogReturns(prices: number[]): number[] {
   // Robust array check
   if (!prices || !Array.isArray(prices)) {
-      return [];
+    return [];
   }
   if (prices.length < 2) {
-      return [];
+    return [];
   }
   const returns: number[] = [];
   for (let i = 1; i < prices.length; i++) {
@@ -19,7 +19,7 @@ export function calculateLogReturns(prices: number[]): number[] {
     const pCurr = Number(prices[i]);
 
     if (pPrev <= 0 || pCurr <= 0 || isNaN(pPrev) || isNaN(pCurr)) {
-        continue;
+      continue;
     }
 
     const r = Math.log(pCurr / pPrev);
@@ -56,7 +56,8 @@ export function calculateCovarianceMatrix(allReturns: number[][]): number[][] {
   const cov = Array.from({ length: numAssets }, () => Array(numAssets).fill(0));
 
   for (let i = 0; i < numAssets; i++) {
-    for (let j = i; j < numAssets; j++) { // Symmetric, so calc upper triangle
+    for (let j = i; j < numAssets; j++) {
+      // Symmetric, so calc upper triangle
       let sum = 0;
       for (let k = 0; k < numSamples; k++) {
         sum += (allReturns[i][k] - means[i]) * (allReturns[j][k] - means[j]);
@@ -89,7 +90,7 @@ export function getCholeskyDecomposition(matrix: number[][]): number[][] {
         // Diagonal elements
         const val = matrix[i][i] - sum;
         if (val <= 0) {
-           throw new Error(`Matrix is not positive definite at index ${i}`);
+          throw new Error(`Matrix is not positive definite at index ${i}`);
         }
         L[i][j] = Math.sqrt(val);
       } else {
@@ -130,7 +131,7 @@ export function generateMonteCarloPaths(
   choleskyMatrix: number[][],
   numSimulations: number,
   numDays: number,
-  initialPortfolioValue: number
+  initialPortfolioValue: number,
 ): number[][] {
   const numAssets = currentPrices.length;
   const paths: number[][] = [];
@@ -145,7 +146,9 @@ export function generateMonteCarloPaths(
     // "Buy and Hold" strategy: Shares are fixed at t=0.
 
     // Initial Shares
-    const shares = weights.map((w, i) => (initialPortfolioValue * w) / currentPrices[i]);
+    const shares = weights.map(
+      (w, i) => (initialPortfolioValue * w) / currentPrices[i],
+    );
 
     // Current Sim Asset Prices
     const simAssetPrices = [...currentPrices];
@@ -177,7 +180,8 @@ export function generateMonteCarloPaths(
  * Standard Normal variate using Box-Muller transform.
  */
 function boxMullerTransform(): number {
-  let u = 0, v = 0;
+  let u = 0,
+    v = 0;
   while (u === 0) u = Math.random();
   while (v === 0) v = Math.random();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
@@ -199,7 +203,7 @@ export function calculateCone(paths: number[][]): {
 
   for (let day = 0; day < numDays; day++) {
     // Collect values for this day across all sims
-    const values = paths.map(p => p[day]);
+    const values = paths.map((p) => p[day]);
     // Sort
     values.sort((a, b) => a - b);
 
@@ -213,6 +217,6 @@ export function calculateCone(paths: number[][]): {
     median: medianPath,
     p05: p05Path,
     p95: p95Path,
-    dates: Array.from({ length: numDays }, (_, i) => i)
+    dates: Array.from({ length: numDays }, (_, i) => i),
   };
 }

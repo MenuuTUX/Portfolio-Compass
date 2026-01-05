@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Local Storage Management for Portfolio
@@ -15,10 +15,10 @@ export type LocalPortfolioItem = z.infer<typeof LocalPortfolioItemSchema>;
 
 export const LocalPortfolioSchema = z.array(LocalPortfolioItemSchema);
 
-const STORAGE_KEY = 'portfolio_compass_v1';
+const STORAGE_KEY = "portfolio_compass_v1";
 
 export function savePortfolio(items: LocalPortfolioItem[]) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
 
   // Validate schema - will throw ZodError if invalid
   const validItems = LocalPortfolioSchema.parse(items);
@@ -28,7 +28,7 @@ export function savePortfolio(items: LocalPortfolioItem[]) {
 }
 
 export function loadPortfolio(): LocalPortfolioItem[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
@@ -39,11 +39,11 @@ export function loadPortfolio(): LocalPortfolioItem[] {
     if (result.success) {
       return result.data;
     } else {
-      console.warn('Local portfolio data corrupted, resetting:', result.error);
+      console.warn("Local portfolio data corrupted, resetting:", result.error);
       return [];
     }
   } catch (error) {
-    console.error('Failed to load portfolio from local storage:', error);
+    console.error("Failed to load portfolio from local storage:", error);
     return [];
   }
 }

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 import {
   BarChart,
   Bar,
@@ -10,15 +10,18 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   Cell,
-} from 'recharts';
-import { PortfolioItem } from '@/types';
+} from "recharts";
+import { PortfolioItem } from "@/types";
 
 interface OptimizationDiffChartProps {
   current: PortfolioItem[];
   proposed: PortfolioItem[];
 }
 
-export default function OptimizationDiffChart({ current, proposed }: OptimizationDiffChartProps) {
+export default function OptimizationDiffChart({
+  current,
+  proposed,
+}: OptimizationDiffChartProps) {
   // Logic: Calculate delta shares for each ticker
   const data = React.useMemo(() => {
     const changes: { ticker: string; delta: number }[] = [];
@@ -49,7 +52,9 @@ export default function OptimizationDiffChart({ current, proposed }: Optimizatio
 
   return (
     <div className="w-full h-[250px] glass-panel p-4 rounded-xl flex flex-col mb-4">
-      <h3 className="text-xs font-medium text-neutral-400 mb-2 uppercase tracking-wider">Proposed Changes (Shares)</h3>
+      <h3 className="text-xs font-medium text-neutral-400 mb-2 uppercase tracking-wider">
+        Proposed Changes (Shares)
+      </h3>
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
@@ -61,13 +66,13 @@ export default function OptimizationDiffChart({ current, proposed }: Optimizatio
             <YAxis
               type="category"
               dataKey="ticker"
-              tick={{ fill: '#a3a3a3', fontSize: 11 }}
+              tick={{ fill: "#a3a3a3", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               width={40}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+              cursor={{ fill: "rgba(255,255,255,0.05)" }}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
@@ -75,8 +80,11 @@ export default function OptimizationDiffChart({ current, proposed }: Optimizatio
                   return (
                     <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs">
                       <span className="font-bold text-white">{d.ticker}: </span>
-                      <span className={isBuy ? 'text-emerald-400' : 'text-rose-400'}>
-                        {isBuy ? '+' : ''}{d.delta.toFixed(2)} shares
+                      <span
+                        className={isBuy ? "text-emerald-400" : "text-rose-400"}
+                      >
+                        {isBuy ? "+" : ""}
+                        {d.delta.toFixed(2)} shares
                       </span>
                     </div>
                   );
@@ -87,7 +95,10 @@ export default function OptimizationDiffChart({ current, proposed }: Optimizatio
             <ReferenceLine x={0} stroke="#525252" />
             <Bar dataKey="delta" radius={[2, 2, 2, 2]}>
               {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.delta > 0 ? '#10b981' : '#f43f5e'} />
+                <Cell
+                  key={`cell-${index}`}
+                  fill={entry.delta > 0 ? "#10b981" : "#f43f5e"}
+                />
               ))}
             </Bar>
           </BarChart>

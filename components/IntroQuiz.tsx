@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   TrendingUp,
@@ -15,14 +15,14 @@ import {
   Brain,
   Zap,
   Leaf,
-  CheckCircle2
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { PortfolioItem } from '@/types';
+  CheckCircle2,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { PortfolioItem } from "@/types";
 
 // --- Types ---
 
-export type RiskProfile = 'Conservative' | 'Balanced' | 'Growth';
+export type RiskProfile = "Conservative" | "Balanced" | "Growth";
 
 interface Question {
   id: string;
@@ -37,7 +37,7 @@ interface Question {
 }
 
 // Minimal structure for template items (compatible with LocalPortfolioItem)
-type TemplateItem = Pick<PortfolioItem, 'ticker' | 'weight' | 'shares'>;
+type TemplateItem = Pick<PortfolioItem, "ticker" | "weight" | "shares">;
 
 export interface QuizResult {
   score: number; // 0-100
@@ -56,7 +56,7 @@ interface IntroQuizProps {
 
 const QUESTIONS: Question[] = [
   {
-    id: 'horizon',
+    id: "horizon",
     title: "The Horizon",
     description: "When will you need to cash out this investment?",
     icon: Target,
@@ -65,22 +65,23 @@ const QUESTIONS: Question[] = [
       { label: "2 - 5 years", value: 40, emoji: "📅" },
       { label: "5 - 10 years", value: 70, emoji: "🗓️" },
       { label: "10+ years", value: 100, emoji: "🚀" },
-    ]
+    ],
   },
   {
-    id: 'ouch_test',
+    id: "ouch_test",
     title: "The 'Ouch' Test",
-    description: "If you invested $10,000 and the market crashed, what would you do if it dropped to $7,000?",
+    description:
+      "If you invested $10,000 and the market crashed, what would you do if it dropped to $7,000?",
     icon: ShieldAlert,
     options: [
       { label: "Sell everything immediately", value: 0, emoji: "😱" },
       { label: "Sell some to cut losses", value: 30, emoji: "😰" },
       { label: "Hold and do nothing", value: 60, emoji: "😐" },
       { label: "Buy more at the discount", value: 100, emoji: "🤑" },
-    ]
+    ],
   },
   {
-    id: 'knowledge',
+    id: "knowledge",
     title: "The Knowledge Check",
     description: "How would you describe your investing experience?",
     icon: GraduationCap,
@@ -89,10 +90,10 @@ const QUESTIONS: Question[] = [
       { label: "I know the basics", value: 40, emoji: "📚" },
       { label: "I understand markets well", value: 70, emoji: "🧠" },
       { label: "I'm an expert / Pro", value: 100, emoji: "🦁" },
-    ]
+    ],
   },
   {
-    id: 'liquidity',
+    id: "liquidity",
     title: "The Cash Need",
     description: "Do you have an emergency fund separate from this investment?",
     icon: Wallet,
@@ -101,10 +102,10 @@ const QUESTIONS: Question[] = [
       { label: "A little, but might need this", value: 40, emoji: "🤏" },
       { label: "Yes, 3-6 months expenses", value: 80, emoji: "✅" },
       { label: "Yes, I'm fully covered", value: 100, emoji: "🏰" },
-    ]
+    ],
   },
   {
-    id: 'goal',
+    id: "goal",
     title: "The Goal",
     description: "What matters more to you right now?",
     icon: TrendingUp,
@@ -112,35 +113,38 @@ const QUESTIONS: Question[] = [
       { label: "Protecting my money (Safety)", value: 0, emoji: "🛡️" },
       { label: "A mix of safety and growth", value: 50, emoji: "⚖️" },
       { label: "Maximizing profit (Growth)", value: 100, emoji: "📈" },
-    ]
-  }
+    ],
+  },
 ];
 
 // Use the minimal type for templates to satisfy TypeScript
-const PORTFOLIO_TEMPLATES: Record<RiskProfile | 'Aggressive', TemplateItem[]> = {
-  Conservative: [
-    { ticker: 'BND', weight: 60, shares: 0 },
-    { ticker: 'VTI', weight: 40, shares: 0 }
-  ],
-  Balanced: [
-    { ticker: 'VTI', weight: 60, shares: 0 },
-    { ticker: 'BND', weight: 40, shares: 0 }
-  ],
-  Growth: [
-    { ticker: 'VTI', weight: 80, shares: 0 },
-    { ticker: 'QQQ', weight: 20, shares: 0 }
-  ],
-  Aggressive: [
-    { ticker: 'QQQ', weight: 50, shares: 0 },
-    { ticker: 'NVDA', weight: 25, shares: 0 },
-    { ticker: 'VGT', weight: 25, shares: 0 }
-  ]
-};
+const PORTFOLIO_TEMPLATES: Record<RiskProfile | "Aggressive", TemplateItem[]> =
+  {
+    Conservative: [
+      { ticker: "BND", weight: 60, shares: 0 },
+      { ticker: "VTI", weight: 40, shares: 0 },
+    ],
+    Balanced: [
+      { ticker: "VTI", weight: 60, shares: 0 },
+      { ticker: "BND", weight: 40, shares: 0 },
+    ],
+    Growth: [
+      { ticker: "VTI", weight: 80, shares: 0 },
+      { ticker: "QQQ", weight: 20, shares: 0 },
+    ],
+    Aggressive: [
+      { ticker: "QQQ", weight: 50, shares: 0 },
+      { ticker: "NVDA", weight: 25, shares: 0 },
+      { ticker: "VGT", weight: 25, shares: 0 },
+    ],
+  };
 
 // --- Component ---
 
 export default function IntroQuiz({ onComplete }: IntroQuizProps) {
-  const [step, setStep] = useState<'INTRO' | 'QUIZ' | 'CALCULATING' | 'SUCCESS'>('INTRO');
+  const [step, setStep] = useState<
+    "INTRO" | "QUIZ" | "CALCULATING" | "SUCCESS"
+  >("INTRO");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [direction, setDirection] = useState(1); // 1 for next, -1 for back
@@ -149,18 +153,18 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
   // -- Handlers --
 
   const handleStart = () => {
-    setStep('QUIZ');
+    setStep("QUIZ");
   };
 
   const handleSkip = () => {
     // If skipped, we do NOT show success/calculating, we just exit immediately
     // with an empty portfolio result, allowing page.tsx to switch views.
     onComplete({
-        score: 0,
-        profile: 'Balanced', // Default fallback
-        suggestedProviders: [],
-        suggestedPortfolio: [],
-        isSkipped: true
+      score: 0,
+      profile: "Balanced", // Default fallback
+      suggestedProviders: [],
+      suggestedPortfolio: [],
+      isSkipped: true,
     });
   };
 
@@ -171,9 +175,9 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
 
     if (currentQuestionIndex < QUESTIONS.length - 1) {
       setDirection(1);
-      setTimeout(() => setCurrentQuestionIndex(prev => prev + 1), 250); // Slight delay for visual feedback
+      setTimeout(() => setCurrentQuestionIndex((prev) => prev + 1), 250); // Slight delay for visual feedback
     } else {
-      setStep('CALCULATING');
+      setStep("CALCULATING");
       calculateResult(newAnswers);
     }
   };
@@ -181,9 +185,9 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
   const calculateResult = (finalAnswers: Record<string, number>) => {
     // Simulate complex calculation
     setTimeout(() => {
-      let profile: RiskProfile = 'Balanced';
+      let profile: RiskProfile = "Balanced";
       let score = 50;
-      let suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
+      let suggestedPortfolio = PORTFOLIO_TEMPLATES["Balanced"];
 
       // 1. Calculate Score (Simple Average)
       const totalScore = Object.values(finalAnswers).reduce((a, b) => a + b, 0);
@@ -192,48 +196,47 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
 
       // 2. Determine Profile
       if (averageScore < 40) {
-        profile = 'Conservative';
-        suggestedPortfolio = PORTFOLIO_TEMPLATES['Conservative'];
+        profile = "Conservative";
+        suggestedPortfolio = PORTFOLIO_TEMPLATES["Conservative"];
       } else if (averageScore > 75) {
-        profile = 'Growth';
-        suggestedPortfolio = PORTFOLIO_TEMPLATES['Growth'];
+        profile = "Growth";
+        suggestedPortfolio = PORTFOLIO_TEMPLATES["Growth"];
       } else {
-        profile = 'Balanced';
-        suggestedPortfolio = PORTFOLIO_TEMPLATES['Balanced'];
+        profile = "Balanced";
+        suggestedPortfolio = PORTFOLIO_TEMPLATES["Balanced"];
       }
 
       // 3. Determine Provider Suggestion
-      const horizonScore = finalAnswers['horizon'] || 0;
-      const knowledgeScore = finalAnswers['knowledge'] || 0;
-      const isTechHeavy = (score > 60 && horizonScore > 60) || knowledgeScore > 70;
+      const horizonScore = finalAnswers["horizon"] || 0;
+      const knowledgeScore = finalAnswers["knowledge"] || 0;
+      const isTechHeavy =
+        (score > 60 && horizonScore > 60) || knowledgeScore > 70;
 
       const providers = isTechHeavy
-        ? ['Wealthsimple', 'Invesco', 'Global X'] // Tech/Modern
-        : ['Vanguard', 'BMO', 'iShares']; // Traditional
+        ? ["Wealthsimple", "Invesco", "Global X"] // Tech/Modern
+        : ["Vanguard", "BMO", "iShares"]; // Traditional
 
       setFinalResult({
         score,
         profile,
         suggestedProviders: providers,
         suggestedPortfolio,
-        isSkipped: false
+        isSkipped: false,
       });
-      setStep('SUCCESS');
+      setStep("SUCCESS");
     }, 2000); // 2s delay for "calculating" effect
   };
 
   // -- Render Helpers --
 
   const currentQ = QUESTIONS[currentQuestionIndex];
-  const progress = ((currentQuestionIndex) / QUESTIONS.length) * 100;
+  const progress = (currentQuestionIndex / QUESTIONS.length) * 100;
 
   return (
     <div className="w-full max-w-2xl mx-auto min-h-[500px] flex flex-col justify-center relative p-6">
-
       <AnimatePresence mode="wait">
-
         {/* --- INTRO SCREEN --- */}
-        {step === 'INTRO' && (
+        {step === "INTRO" && (
           <motion.div
             key="intro"
             initial={{ opacity: 0, y: 20 }}
@@ -255,8 +258,9 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                 Let's Find Your North Star
               </h2>
               <p className="text-lg text-stone-400 max-w-md mx-auto leading-relaxed">
-                Before we build your portfolio, we need to understand your journey.
-                Answer 5 quick questions to unlock your personalized strategy.
+                Before we build your portfolio, we need to understand your
+                journey. Answer 5 quick questions to unlock your personalized
+                strategy.
               </p>
             </div>
 
@@ -285,7 +289,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
         )}
 
         {/* --- QUIZ SCREEN --- */}
-        {step === 'QUIZ' && (
+        {step === "QUIZ" && (
           <motion.div
             key="quiz"
             initial={{ opacity: 0 }}
@@ -293,15 +297,15 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             exit={{ opacity: 0 }}
             className="w-full relative"
           >
-             {/* Persistent Skip Button */}
-             <div className="absolute -top-10 right-0">
-                <button
-                    onClick={handleSkip}
-                    className="text-xs text-stone-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
-                >
-                    <span>Skip (Diamond Hands)</span>
-                    <ArrowRight className="w-3 h-3" />
-                </button>
+            {/* Persistent Skip Button */}
+            <div className="absolute -top-10 right-0">
+              <button
+                onClick={handleSkip}
+                className="text-xs text-stone-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+              >
+                <span>Skip (Diamond Hands)</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
             </div>
 
             {/* Progress Bar */}
@@ -342,7 +346,11 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                   {currentQ.options.map((option, idx) => (
                     <motion.button
                       key={idx}
-                      whileHover={{ scale: 1.02, backgroundColor: "rgba(16, 185, 129, 0.05)", borderColor: "rgba(16, 185, 129, 0.4)" }}
+                      whileHover={{
+                        scale: 1.02,
+                        backgroundColor: "rgba(16, 185, 129, 0.05)",
+                        borderColor: "rgba(16, 185, 129, 0.4)",
+                      }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleAnswer(option.value)}
                       className="flex flex-col items-center justify-center p-6 rounded-2xl border border-stone-800 bg-stone-900/40 text-center transition-colors group h-full w-full"
@@ -366,7 +374,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
         )}
 
         {/* --- CALCULATING STATE --- */}
-        {step === 'CALCULATING' && (
+        {step === "CALCULATING" && (
           <motion.div
             key="calculating"
             initial={{ opacity: 0 }}
@@ -403,52 +411,61 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
         )}
 
         {/* --- SUCCESS STATE --- */}
-        {step === 'SUCCESS' && finalResult && (
-           <motion.div
-             key="success"
-             initial={{ opacity: 0, scale: 0.95 }}
-             animate={{ opacity: 1, scale: 1 }}
-             className="text-center space-y-8"
-           >
-              <div className="w-24 h-24 mx-auto bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
-                 <CheckCircle2 className="w-10 h-10 text-emerald-400" />
-              </div>
+        {step === "SUCCESS" && finalResult && (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center space-y-8"
+          >
+            <div className="w-24 h-24 mx-auto bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
+              <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+            </div>
 
-              <div className="space-y-4">
-                 <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
-                    We've Built Your Portfolio
-                 </h2>
-                 <p className="text-lg text-stone-400 max-w-md mx-auto">
-                    Based on your <strong>{finalResult.profile}</strong> profile (Score: {finalResult.score}/100),
-                    we've allocated a starting strategy for you.
-                 </p>
-              </div>
+            <div className="space-y-4">
+              <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
+                We've Built Your Portfolio
+              </h2>
+              <p className="text-lg text-stone-400 max-w-md mx-auto">
+                Based on your <strong>{finalResult.profile}</strong> profile
+                (Score: {finalResult.score}/100), we've allocated a starting
+                strategy for you.
+              </p>
+            </div>
 
-              {/* Mini Portfolio Preview */}
-              <div className="bg-stone-900/50 rounded-xl border border-stone-800 p-4 max-w-sm mx-auto">
-                 <h4 className="text-xs text-stone-500 font-mono uppercase tracking-widest mb-3 text-left pl-2">Allocation</h4>
-                 <div className="space-y-2">
-                    {finalResult.suggestedPortfolio.map((item) => (
-                       <div key={item.ticker} className="flex items-center justify-between p-2 rounded bg-stone-950/50">
-                          <span className="font-bold text-stone-200">{item.ticker}</span>
-                          <span className="text-emerald-400 font-mono">{item.weight}%</span>
-                       </div>
-                    ))}
-                 </div>
+            {/* Mini Portfolio Preview */}
+            <div className="bg-stone-900/50 rounded-xl border border-stone-800 p-4 max-w-sm mx-auto">
+              <h4 className="text-xs text-stone-500 font-mono uppercase tracking-widest mb-3 text-left pl-2">
+                Allocation
+              </h4>
+              <div className="space-y-2">
+                {finalResult.suggestedPortfolio.map((item) => (
+                  <div
+                    key={item.ticker}
+                    className="flex items-center justify-between p-2 rounded bg-stone-950/50"
+                  >
+                    <span className="font-bold text-stone-200">
+                      {item.ticker}
+                    </span>
+                    <span className="text-emerald-400 font-mono">
+                      {item.weight}%
+                    </span>
+                  </div>
+                ))}
               </div>
+            </div>
 
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onComplete(finalResult)}
-                className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20"
-              >
-                Go to Dashboard
-                <ArrowRight className="w-5 h-5" />
-              </motion.button>
-           </motion.div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onComplete(finalResult)}
+              className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20"
+            >
+              Go to Dashboard
+              <ArrowRight className="w-5 h-5" />
+            </motion.button>
+          </motion.div>
         )}
-
       </AnimatePresence>
     </div>
   );

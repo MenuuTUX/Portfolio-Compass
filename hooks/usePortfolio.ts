@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
-import { Portfolio, ETF } from '@/types';
-import { loadPortfolio } from '@/lib/storage';
+import { useQuery } from "@tanstack/react-query";
+import { Portfolio, ETF } from "@/types";
+import { loadPortfolio } from "@/lib/storage";
 
 /**
  * Hook to fetch the user's portfolio.
@@ -8,7 +8,7 @@ import { loadPortfolio } from '@/lib/storage';
  */
 export const usePortfolio = () => {
   return useQuery<Portfolio>({
-    queryKey: ['portfolio'],
+    queryKey: ["portfolio"],
     queryFn: async () => {
       const localItems = loadPortfolio();
 
@@ -19,12 +19,14 @@ export const usePortfolio = () => {
       // Fetch details for all tickers in a single batch request to prevent connection exhaustion
       // We request includeHoldings=true to support the Optimizer
       try {
-        const tickers = localItems.map(item => item.ticker).join(',');
-        const response = await fetch(`/api/etfs/search?tickers=${tickers}&includeHistory=true&includeHoldings=true`);
+        const tickers = localItems.map((item) => item.ticker).join(",");
+        const response = await fetch(
+          `/api/etfs/search?tickers=${tickers}&includeHistory=true&includeHoldings=true`,
+        );
 
         if (!response.ok) {
-           console.error('Failed to fetch portfolio data batch');
-           return [];
+          console.error("Failed to fetch portfolio data batch");
+          return [];
         }
 
         const etfs: ETF[] = await response.json();
@@ -34,13 +36,15 @@ export const usePortfolio = () => {
 
         localItems.forEach((localItem) => {
           // Find exact match (case-insensitive)
-          const etf = etfs.find(e => e.ticker.toUpperCase() === localItem.ticker.toUpperCase());
+          const etf = etfs.find(
+            (e) => e.ticker.toUpperCase() === localItem.ticker.toUpperCase(),
+          );
           if (etf) {
-             portfolio.push({
-               ...etf,
-               weight: localItem.weight,
-               shares: localItem.shares,
-             });
+            portfolio.push({
+              ...etf,
+              weight: localItem.weight,
+              shares: localItem.shares,
+            });
           }
         });
 

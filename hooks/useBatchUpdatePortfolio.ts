@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Portfolio } from '@/types';
-import { loadPortfolio, savePortfolio } from '@/lib/storage';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Portfolio } from "@/types";
+import { loadPortfolio, savePortfolio } from "@/lib/storage";
 
 export interface BatchUpdateItem {
   ticker: string;
@@ -16,7 +16,9 @@ export const useBatchUpdatePortfolio = () => {
       // 1. Update Local Storage
       const currentItems = loadPortfolio();
       const newItems = currentItems.map((item) => {
-        const update = updates.find(u => u.ticker.toUpperCase() === item.ticker.toUpperCase());
+        const update = updates.find(
+          (u) => u.ticker.toUpperCase() === item.ticker.toUpperCase(),
+        );
         if (update) {
           return {
             ...item,
@@ -31,16 +33,20 @@ export const useBatchUpdatePortfolio = () => {
     },
     onMutate: async (updates) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['portfolio'] });
+      await queryClient.cancelQueries({ queryKey: ["portfolio"] });
 
       // Snapshot the previous value
-      const previousPortfolio = queryClient.getQueryData<Portfolio>(['portfolio']);
+      const previousPortfolio = queryClient.getQueryData<Portfolio>([
+        "portfolio",
+      ]);
 
       // Optimistically update
-      queryClient.setQueryData<Portfolio>(['portfolio'], (old) => {
+      queryClient.setQueryData<Portfolio>(["portfolio"], (old) => {
         if (!old) return [];
         return old.map((item) => {
-          const update = updates.find(u => u.ticker.toUpperCase() === item.ticker.toUpperCase());
+          const update = updates.find(
+            (u) => u.ticker.toUpperCase() === item.ticker.toUpperCase(),
+          );
           if (update) {
             return {
               ...item,
@@ -56,11 +62,11 @@ export const useBatchUpdatePortfolio = () => {
     },
     onError: (err, variables, context) => {
       if (context?.previousPortfolio) {
-        queryClient.setQueryData(['portfolio'], context.previousPortfolio);
+        queryClient.setQueryData(["portfolio"], context.previousPortfolio);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 };

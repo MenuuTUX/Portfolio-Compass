@@ -1,5 +1,5 @@
-import prisma from '@/lib/db';
-import { Decimal } from '@/lib/decimal';
+import prisma from "@/lib/db";
+import { Decimal } from "@/lib/decimal";
 
 /**
  * Calculates the Exponential Moving Average (EMA) for a given series of numbers.
@@ -40,14 +40,14 @@ export function calculateEMA(data: number[], window: number): number[] {
   for (let i = 1; i < data.length; i++) {
     const currentVal = data[i];
     const prevEma = emaValues[i - 1];
-    const newEma = (currentVal * alpha) + (prevEma * (1 - alpha));
+    const newEma = currentVal * alpha + prevEma * (1 - alpha);
     emaValues.push(newEma);
   }
 
   return emaValues;
 }
 
-export type RiskRegime = 'RISK_ON' | 'NEUTRAL' | 'RISK_OFF';
+export type RiskRegime = "RISK_ON" | "NEUTRAL" | "RISK_OFF";
 
 export interface MarketRiskState {
   sentimentEma: number;
@@ -63,7 +63,7 @@ export async function seedSentimentData() {
   const count = await prisma.marketSentiment.count();
   if (count > 0) return;
 
-  console.log('Seeding dummy MarketSentiment data...');
+  console.log("Seeding dummy MarketSentiment data...");
   const today = new Date();
   const data = [];
 
@@ -90,13 +90,22 @@ export async function seedSentimentData() {
     data.push({
       date: d,
       score,
-      rating: score < 25 ? 'Extreme Fear' : score < 45 ? 'Fear' : score < 55 ? 'Neutral' : score < 75 ? 'Greed' : 'Extreme Greed'
+      rating:
+        score < 25
+          ? "Extreme Fear"
+          : score < 45
+            ? "Fear"
+            : score < 55
+              ? "Neutral"
+              : score < 75
+                ? "Greed"
+                : "Extreme Greed",
     });
   }
 
   for (const item of data) {
     await prisma.marketSentiment.create({
-      data: item
+      data: item,
     });
   }
 }
@@ -114,12 +123,12 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
   let history = await prisma.marketSentiment.findMany({
     where: {
       date: {
-        gte: cutoffDate
-      }
+        gte: cutoffDate,
+      },
     },
     orderBy: {
-      date: 'asc'
-    }
+      date: "asc",
+    },
   });
 
   // If empty, seed and retry (for dev environment)
@@ -128,12 +137,12 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
     history = await prisma.marketSentiment.findMany({
       where: {
         date: {
-          gte: cutoffDate
-        }
+          gte: cutoffDate,
+        },
       },
       orderBy: {
-        date: 'asc'
-      }
+        date: "asc",
+      },
     });
   }
 
@@ -141,13 +150,13 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
     // Fallback if still empty
     return {
       sentimentEma: 50,
-      riskRegime: 'NEUTRAL',
+      riskRegime: "NEUTRAL",
       lambda: 1.0,
-      latestScore: 50
+      latestScore: 50,
     };
   }
 
-  const scores = history.map(h => h.score);
+  const scores = history.map((h) => h.score);
   const emaValues = calculateEMA(scores, 10);
 
   const currentEma = emaValues[emaValues.length - 1];
@@ -161,19 +170,22 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
   // Else -> NEUTRAL
 
   // Need at least 3 days of data for strict hysteresis
-  let regime: RiskRegime = 'NEUTRAL';
+  let regime: RiskRegime = "NEUTRAL";
 
   // Helper to check condition over last N days
-  const checkCondition = (predicate: (val: number) => boolean, days: number = 3) => {
+  const checkCondition = (
+    predicate: (val: number) => boolean,
+    days: number = 3,
+  ) => {
     if (emaValues.length < days) return false;
     const slice = emaValues.slice(-days);
     return slice.every(predicate);
   };
 
-  if (checkCondition(val => val > 75, 3)) {
-    regime = 'RISK_ON';
-  } else if (checkCondition(val => val < 25, 3)) {
-    regime = 'RISK_OFF';
+  if (checkCondition((val) => val > 75, 3)) {
+    regime = "RISK_ON";
+  } else if (checkCondition((val) => val < 25, 3)) {
+    regime = "RISK_OFF";
   } else {
     // Default or Hold previous?
     // The requirement says: "A regime change ... should only be confirmed if ... stays there for 3 consecutive days."
@@ -181,7 +193,7 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
     // Without persistent state of "previous regime", we infer it from current data window.
     // If it's NOT > 75 for 3 days AND NOT < 25 for 3 days, we are in NEUTRAL or Transition.
     // For simplicity, we map directly.
-    regime = 'NEUTRAL';
+    regime = "NEUTRAL";
   }
 
   // 3. Map to Lambda
@@ -200,7 +212,7 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
   // "Low Sentiment (Fear < 25) -> High Lambda"
   // Let's stick to the linear formula based on EMA.
 
-  let lambda = 2.0 - (currentEma * 0.015);
+  let lambda = 2.0 - currentEma * 0.015;
   // Clamp just in case
   lambda = Math.max(0.5, Math.min(2.0, lambda));
 
@@ -208,6 +220,6 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
     sentimentEma: Number(currentEma.toFixed(2)),
     riskRegime: regime,
     lambda: Number(lambda.toFixed(2)),
-    latestScore
+    latestScore,
   };
 }
