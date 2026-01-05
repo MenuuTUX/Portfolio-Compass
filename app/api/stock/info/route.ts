@@ -47,7 +47,8 @@ export async function GET(request: Request) {
 
                 // Final fallback to Yahoo
                  if (!profile?.description || profile.description.length < 50) {
-                     const yf = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'assetProfile'] });
+                     // Cast to any to avoid TS error: Property 'summaryProfile' does not exist on type 'never'
+                     const yf = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'assetProfile'] }) as any;
                      const yDesc = yf.summaryProfile?.longBusinessSummary || yf.assetProfile?.longBusinessSummary;
                      if (yDesc) {
                         if (!profile) {
