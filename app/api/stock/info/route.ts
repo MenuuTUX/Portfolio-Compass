@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getStockProfile, getEtfDescription } from '@/lib/scrapers/stock-analysis';
+import { getStockProfile } from '@/lib/scrapers/stock-analysis';
+import { getEtfDescription } from '@/lib/scrapers/etf-dot-com';
 import yahooFinance from 'yahoo-finance2';
-import { EtfDetails } from '@/lib/market-service';
-import prisma from '@/lib/db';
-import { Etf, Prisma } from '@prisma/client';
 
 // Simple in-memory cache to prevent DoS
 const profileCache = new Map<string, { data: any, timestamp: number }>();
@@ -28,21 +26,40 @@ export async function GET(request: Request) {
         let profile = await getStockProfile(ticker);
 
         // Fallback for description if missing or generic
-        if (!profile.description || profile.description.length < 50) {
+        if (!profile?.description || profile.description.length < 50) {
              try {
                 // Try ETF.com for ETFs
                 if (type === 'ETF') {
                     const etfDesc = await getEtfDescription(ticker);
                     if (etfDesc) {
-                         profile.description = etfDesc;
+                         if (!profile) {
+                            // If profile was null, initialize a partial one
+                            profile = {
+                                description: etfDesc,
+                                sector: 'Unknown',
+                                industry: 'Unknown'
+                            } as any;
+                         } else {
+                            profile.description = etfDesc;
+                         }
                     }
                 }
 
                 // Final fallback to Yahoo
-                 if (!profile.description || profile.description.length < 50) {
+                 if (!profile?.description || profile.description.length < 50) {
                      const yf = await yahooFinance.quoteSummary(ticker, { modules: ['summaryProfile', 'assetProfile'] });
                      const yDesc = yf.summaryProfile?.longBusinessSummary || yf.assetProfile?.longBusinessSummary;
-                     if (yDesc) profile.description = yDesc;
+                     if (yDesc) {
+                        if (!profile) {
+                            profile = {
+                                description: yDesc,
+                                sector: 'Unknown',
+                                industry: 'Unknown'
+                            } as any;
+                        } else {
+                            profile.description = yDesc;
+                        }
+                     }
                  }
 
             } catch (err) {
