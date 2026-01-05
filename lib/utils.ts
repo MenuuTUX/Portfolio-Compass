@@ -1,26 +1,33 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-import { Decimal } from "./decimal"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { Decimal } from "./decimal";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
+export const safeDecimal = (val: any) => {
+  if (Decimal.isDecimal(val)) return val.toNumber();
+  if (typeof val === "string") return parseFloat(val);
+  if (typeof val === "number") return val;
+  return 0;
+};
+
 export function formatCurrency(value: number | Decimal) {
-  const val = typeof value === 'number' ? value : value.toNumber();
-  return new Intl.NumberFormat('en-CA', {
-    style: 'currency',
-    currency: 'CAD',
-  }).format(val)
+  const val = typeof value === "number" ? value : value.toNumber();
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency: "CAD",
+  }).format(val);
 }
 
 export function formatPercentage(value: number | Decimal) {
-  const val = typeof value === 'number' ? value : value.toNumber();
-  return new Intl.NumberFormat('en-CA', {
-    style: 'percent',
+  const val = typeof value === "number" ? value : value.toNumber();
+  return new Intl.NumberFormat("en-CA", {
+    style: "percent",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(val / 100)
+  }).format(val / 100);
 }
 
 export interface RiskMetric {
@@ -31,14 +38,16 @@ export interface RiskMetric {
   borderColor: string;
 }
 
-export function calculateRiskMetric(history: { date: string; price: number | Decimal }[]): RiskMetric {
+export function calculateRiskMetric(
+  history: { date: string; price: number | Decimal }[],
+): RiskMetric {
   if (!history || history.length < 2) {
     return {
       stdDev: 0,
       label: "Unknown",
       color: "text-neutral-400",
       bgColor: "bg-neutral-500/10",
-      borderColor: "border-neutral-500/20"
+      borderColor: "border-neutral-500/20",
     };
   }
 
@@ -59,7 +68,7 @@ export function calculateRiskMetric(history: { date: string; price: number | Dec
       label: "Unknown",
       color: "text-neutral-400",
       bgColor: "bg-neutral-500/10",
-      borderColor: "border-neutral-500/20"
+      borderColor: "border-neutral-500/20",
     };
   }
 
