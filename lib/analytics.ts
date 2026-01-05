@@ -1,5 +1,5 @@
-import prisma from '@/lib/db';
-import { Decimal } from '@/lib/decimal';
+import prisma from "@/lib/db";
+import { Decimal } from "@/lib/decimal";
 
 interface OverlapResult {
   overlapScore: number;
@@ -13,30 +13,33 @@ interface CommonHolding {
   weightInB: number;
 }
 
-export async function calculateOverlap(etfA: string, etfB: string): Promise<OverlapResult> {
+export async function calculateOverlap(
+  etfA: string,
+  etfB: string,
+): Promise<OverlapResult> {
   const [holdingsA, holdingsB] = await Promise.all([
     prisma.holding.findMany({
       where: { etfId: etfA },
-      select: { ticker: true, name: true, weight: true }
+      select: { ticker: true, name: true, weight: true },
     }),
     prisma.holding.findMany({
       where: { etfId: etfB },
-      select: { ticker: true, name: true, weight: true }
-    })
+      select: { ticker: true, name: true, weight: true },
+    }),
   ]);
 
   const mapA = new Map<string, { name: string; weight: number }>();
-  holdingsA.forEach(h => {
+  holdingsA.forEach((h) => {
     mapA.set(h.ticker, {
       name: h.name,
-      weight: h.weight.toNumber()
+      weight: h.weight.toNumber(),
     });
   });
 
   const commonHoldings: CommonHolding[] = [];
   let overlapScore = 0;
 
-  holdingsB.forEach(hB => {
+  holdingsB.forEach((hB) => {
     const dataA = mapA.get(hB.ticker);
     if (dataA) {
       const weightB = hB.weight.toNumber();
@@ -49,17 +52,20 @@ export async function calculateOverlap(etfA: string, etfB: string): Promise<Over
         ticker: hB.ticker,
         name: hB.name, // Using name from B, usually same as A
         weightInA: weightA,
-        weightInB: weightB
+        weightInB: weightB,
       });
     }
   });
 
   // Sort by the minimum overlap weight (intersection), as this represents the actual shared
   // exposure contributing to the overlap score. This highlights the holdings that matter most for overlap.
-  commonHoldings.sort((a, b) => Math.min(b.weightInA, b.weightInB) - Math.min(a.weightInA, a.weightInB));
+  commonHoldings.sort(
+    (a, b) =>
+      Math.min(b.weightInA, b.weightInB) - Math.min(a.weightInA, a.weightInB),
+  );
 
   return {
     overlapScore,
-    commonHoldings
+    commonHoldings,
   };
 }

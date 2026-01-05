@@ -1,5 +1,5 @@
-import { Decimal } from '@/lib/decimal';
-import { EtfDetails } from './market-service';
+import { Decimal } from "@/lib/decimal";
+import { EtfDetails } from "./market-service";
 
 /**
  * Calculates a composite score for an asset based on Valuation, Quality, and Low Volatility factors.
@@ -116,12 +116,13 @@ export interface ScoredAsset {
  * @returns Array of objects with ticker and composite score.
  */
 export function calculateCompositeScores(assets: EtfDetails[]): ScoredAsset[] {
-  const rawData = assets.map(asset => {
-    const getNum = (val: Decimal | number | undefined) => (val instanceof Decimal ? val.toNumber() : val) || 0;
+  const rawData = assets.map((asset) => {
+    const getNum = (val: Decimal | number | undefined) =>
+      (val instanceof Decimal ? val.toNumber() : val) || 0;
 
     // Valuation: 1 / PE
     const pe = getNum(asset.peRatio);
-    const valRaw = (pe > 0) ? (1 / pe) : 0; // Penalty for neg/missing PE
+    const valRaw = pe > 0 ? 1 / pe : 0; // Penalty for neg/missing PE
 
     // Quality: Yield + Growth
     const yieldVal = getNum(asset.dividendYield);
@@ -134,12 +135,12 @@ export function calculateCompositeScores(assets: EtfDetails[]): ScoredAsset[] {
     // Standard beta is 1. High risk > 1.
     // If missing, we assume it's risky? Or average? Let's assume 1.0 if missing?
     // Previous logic used 0.5 (Beta=2).
-    const safeBeta = (beta && beta > 0) ? beta : 2.0;
+    const safeBeta = beta && beta > 0 ? beta : 2.0;
     const lowVolRaw = 1 / safeBeta;
 
     return {
       ticker: asset.ticker,
-      raw: { val: valRaw, qual: qualRaw, vol: lowVolRaw }
+      raw: { val: valRaw, qual: qualRaw, vol: lowVolRaw },
     };
   });
 
@@ -147,16 +148,17 @@ export function calculateCompositeScores(assets: EtfDetails[]): ScoredAsset[] {
   const calculateStats = (values: number[]) => {
     if (values.length === 0) return { mean: 0, std: 1 };
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
+    const variance =
+      values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
     const std = Math.sqrt(variance) || 1; // Avoid div by zero
     return { mean, std };
   };
 
-  const valStats = calculateStats(rawData.map(d => d.raw.val));
-  const qualStats = calculateStats(rawData.map(d => d.raw.qual));
-  const volStats = calculateStats(rawData.map(d => d.raw.vol));
+  const valStats = calculateStats(rawData.map((d) => d.raw.val));
+  const qualStats = calculateStats(rawData.map((d) => d.raw.qual));
+  const volStats = calculateStats(rawData.map((d) => d.raw.vol));
 
-  return rawData.map(item => {
+  return rawData.map((item) => {
     const zVal = (item.raw.val - valStats.mean) / valStats.std;
     const zQual = (item.raw.qual - qualStats.mean) / qualStats.std;
     const zVol = (item.raw.vol - volStats.mean) / volStats.std;
@@ -169,8 +171,8 @@ export function calculateCompositeScores(assets: EtfDetails[]): ScoredAsset[] {
         valuation: zVal,
         quality: zQual,
         lowVol: zVol,
-        composite
-      }
+        composite,
+      },
     };
   });
 }

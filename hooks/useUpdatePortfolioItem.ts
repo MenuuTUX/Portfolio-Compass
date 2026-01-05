@@ -1,6 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Portfolio } from '@/types';
-import { loadPortfolio, savePortfolio } from '@/lib/storage';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Portfolio } from "@/types";
+import { loadPortfolio, savePortfolio } from "@/lib/storage";
 
 interface UpdateParams {
   ticker: string;
@@ -31,13 +31,15 @@ export const useUpdatePortfolioItem = () => {
     },
     onMutate: async ({ ticker, weight, shares }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['portfolio'] });
+      await queryClient.cancelQueries({ queryKey: ["portfolio"] });
 
       // Snapshot the previous value
-      const previousPortfolio = queryClient.getQueryData<Portfolio>(['portfolio']);
+      const previousPortfolio = queryClient.getQueryData<Portfolio>([
+        "portfolio",
+      ]);
 
       // Optimistically update
-      queryClient.setQueryData<Portfolio>(['portfolio'], (old) => {
+      queryClient.setQueryData<Portfolio>(["portfolio"], (old) => {
         if (!old) return [];
         return old.map((item) => {
           if (item.ticker.toUpperCase() === ticker.toUpperCase()) {
@@ -55,11 +57,11 @@ export const useUpdatePortfolioItem = () => {
     },
     onError: (err, variables, context) => {
       if (context?.previousPortfolio) {
-        queryClient.setQueryData(['portfolio'], context.previousPortfolio);
+        queryClient.setQueryData(["portfolio"], context.previousPortfolio);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['portfolio'] });
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
     },
   });
 };

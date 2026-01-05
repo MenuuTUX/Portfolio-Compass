@@ -1,27 +1,39 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line } from 'recharts';
-import { cn, formatCurrency } from '@/lib/utils';
-import { Portfolio } from '@/types';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
-import MonteCarloSimulator from './simulation/MonteCarloSimulator';
-import SimulatorExplainer from './simulation/SimulatorExplainer';
-import { calculatePortfolioHistoricalStats } from '@/lib/math/portfolio-stats';
-import { PortfolioShareButton } from './PortfolioShareButton';
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Line,
+} from "recharts";
+import { cn, formatCurrency } from "@/lib/utils";
+import { Portfolio } from "@/types";
+import { motion } from "framer-motion";
+import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
+import MonteCarloSimulator from "./simulation/MonteCarloSimulator";
+import SimulatorExplainer from "./simulation/SimulatorExplainer";
+import { calculatePortfolioHistoricalStats } from "@/lib/math/portfolio-stats";
+import { PortfolioShareButton } from "./PortfolioShareButton";
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
   onBack?: () => void;
 }
 
-export default function WealthProjector({ portfolio, onBack }: WealthProjectorProps) {
-  const [mode, setMode] = useState<'SIMPLE' | 'MONTE_CARLO'>('SIMPLE');
+export default function WealthProjector({
+  portfolio,
+  onBack,
+}: WealthProjectorProps) {
+  const [mode, setMode] = useState<"SIMPLE" | "MONTE_CARLO">("SIMPLE");
 
   // Calculate current portfolio value
   const currentPortfolioValue = portfolio.reduce((sum, item) => {
-    return sum + (item.price * (item.shares || 0));
+    return sum + item.price * (item.shares || 0);
   }, 0);
 
   // Simple Projection Logic
@@ -42,19 +54,24 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   }, [currentPortfolioValue, initialInvestment]);
 
   useEffect(() => {
-      // Try to get historical stats if available
-      // Check if we have history
-      const hasHistory = portfolio.some(p => p.history && p.history.length > 30);
-      if (hasHistory) {
-          try {
-              const stats = calculatePortfolioHistoricalStats(portfolio);
-              if (stats.annualizedReturn !== 0) {
-                  setHistoricalReturn(stats.annualizedReturn);
-              }
-          } catch (e) {
-              console.warn("Failed to calc historical stats for simple projection", e);
-          }
+    // Try to get historical stats if available
+    // Check if we have history
+    const hasHistory = portfolio.some(
+      (p) => p.history && p.history.length > 30,
+    );
+    if (hasHistory) {
+      try {
+        const stats = calculatePortfolioHistoricalStats(portfolio);
+        if (stats.annualizedReturn !== 0) {
+          setHistoricalReturn(stats.annualizedReturn);
+        }
+      } catch (e) {
+        console.warn(
+          "Failed to calc historical stats for simple projection",
+          e,
+        );
       }
+    }
   }, [portfolio]);
 
   // Calculate Weighted Average Return & Yield
@@ -66,19 +83,20 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
     if (totalWeight > 0) {
       // Calculate Yield specifically
       weightedYield = portfolio.reduce((acc, item) => {
-         // item.metrics.yield is typically a percentage (e.g. 1.5 for 1.5%)
-         // Check if yield exists, default to 0
-         const yieldVal = item.metrics?.yield || 0;
-         return acc + ((yieldVal / 100) * (item.weight / totalWeight));
+        // item.metrics.yield is typically a percentage (e.g. 1.5 for 1.5%)
+        // Check if yield exists, default to 0
+        const yieldVal = item.metrics?.yield || 0;
+        return acc + (yieldVal / 100) * (item.weight / totalWeight);
       }, 0);
 
       // If no historical return, calculate heuristic total return
       if (historicalReturn === null) {
         weightedReturn = portfolio.reduce((acc, item) => {
           let growthRate = 0.06;
-          if (item.ticker.includes('ZAG')) growthRate = 0.01;
-          const estimatedTotalReturn = ((item.metrics?.yield || 0) / 100) + growthRate;
-          return acc + (estimatedTotalReturn * (item.weight / totalWeight));
+          if (item.ticker.includes("ZAG")) growthRate = 0.01;
+          const estimatedTotalReturn =
+            (item.metrics?.yield || 0) / 100 + growthRate;
+          return acc + estimatedTotalReturn * (item.weight / totalWeight);
         }, 0);
       }
     }
@@ -94,7 +112,7 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   const monthlyYieldRate = weightedYield / 12;
 
   // SPY Assumptions: 10% Annual Return
-  const spyAnnualReturn = 0.10;
+  const spyAnnualReturn = 0.1;
   const spyMonthlyRate = spyAnnualReturn / 12;
 
   for (let i = 0; i <= years * 12; i++) {
@@ -102,15 +120,15 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
       data.push({
         year: `Y${i / 12}`,
         balance: Math.round(balance),
-        invested: initialInvestment + (monthlyContribution * i),
+        invested: initialInvestment + monthlyContribution * i,
         dividends: Math.round(accumulatedDividends),
         // For chart data in share card
         value: Math.round(balance),
-        dividendValue: Math.round(accumulatedDividends)
+        dividendValue: Math.round(accumulatedDividends),
       });
 
       spyData.push({
-          value: Math.round(spyBalance)
+        value: Math.round(spyBalance),
       });
     }
 
@@ -126,29 +144,39 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
   }
 
   const projectionData = data;
-  const finalAmount = projectionData.length > 0 ? projectionData[projectionData.length - 1].balance : 0;
-  const totalInvested = projectionData.length > 0 ? projectionData[projectionData.length - 1].invested : 0;
-  const totalDividends = projectionData.length > 0 ? projectionData[projectionData.length - 1].dividends : 0;
+  const finalAmount =
+    projectionData.length > 0
+      ? projectionData[projectionData.length - 1].balance
+      : 0;
+  const totalInvested =
+    projectionData.length > 0
+      ? projectionData[projectionData.length - 1].invested
+      : 0;
+  const totalDividends =
+    projectionData.length > 0
+      ? projectionData[projectionData.length - 1].dividends
+      : 0;
 
   // Percentage Growth Calculation
-  const percentageGrowth = initialInvestment > 0
-    ? ((finalAmount - initialInvestment) / initialInvestment) * 100
-    : 0;
+  const percentageGrowth =
+    initialInvestment > 0
+      ? ((finalAmount - initialInvestment) / initialInvestment) * 100
+      : 0;
 
-  if (mode === 'MONTE_CARLO') {
-      return (
-          <section className="py-12 px-4 max-w-7xl mx-auto h-full overflow-y-auto">
-             <div className="flex justify-end mb-4">
-                  <button
-                    onClick={() => setMode('SIMPLE')}
-                    className="text-sm text-neutral-400 hover:text-white underline"
-                  >
-                      Switch to Simple Projection
-                  </button>
-             </div>
-             <MonteCarloSimulator portfolio={portfolio} onBack={onBack} />
-          </section>
-      );
+  if (mode === "MONTE_CARLO") {
+    return (
+      <section className="py-12 px-4 max-w-7xl mx-auto h-full overflow-y-auto">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => setMode("SIMPLE")}
+            className="text-sm text-neutral-400 hover:text-white underline"
+          >
+            Switch to Simple Projection
+          </button>
+        </div>
+        <MonteCarloSimulator portfolio={portfolio} onBack={onBack} />
+      </section>
+    );
   }
 
   return (
@@ -171,39 +199,43 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
               </button>
             )}
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Wealth Projector</h2>
-              <p className="text-neutral-400">Project your future wealth based on portfolio assumptions.</p>
+              <h2 className="text-3xl font-bold text-white mb-2">
+                Wealth Projector
+              </h2>
+              <p className="text-neutral-400">
+                Project your future wealth based on portfolio assumptions.
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <PortfolioShareButton
-                portfolio={portfolio}
-                metrics={{
-                    totalValue: currentPortfolioValue,
-                    annualReturn: weightedReturn,
-                    yield: weightedYield,
-                    projectedValue: finalAmount,
-                    totalInvested: totalInvested,
-                    dividends: totalDividends,
-                    years: years,
-                    scenario: "Simple Projection",
-                    growthType: 'Simple',
-                    percentageGrowth: percentageGrowth
-                }}
-                chartData={projectionData.map(d => ({
-                    value: d.balance,
-                    dividendValue: d.dividends
-                }))}
-                spyData={spyData}
+              portfolio={portfolio}
+              metrics={{
+                totalValue: currentPortfolioValue,
+                annualReturn: weightedReturn,
+                yield: weightedYield,
+                projectedValue: finalAmount,
+                totalInvested: totalInvested,
+                dividends: totalDividends,
+                years: years,
+                scenario: "Simple Projection",
+                growthType: "Simple",
+                percentageGrowth: percentageGrowth,
+              }}
+              chartData={projectionData.map((d) => ({
+                value: d.balance,
+                dividendValue: d.dividends,
+              }))}
+              spyData={spyData}
             />
 
             <button
-               onClick={() => setMode('MONTE_CARLO')}
-               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
+              onClick={() => setMode("MONTE_CARLO")}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
             >
-               <Sparkles className="w-4 h-4" />
-               Try Monte Carlo
+              <Sparkles className="w-4 h-4" />
+              Try Monte Carlo
             </button>
           </div>
         </div>
@@ -213,20 +245,30 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
           <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-white/5 border border-white/5">
             <div>
               <div className="flex items-center justify-between mb-2">
-                 <label htmlFor="initial-investment" className="text-sm text-neutral-400 block">Starting Balance</label>
-                 {currentPortfolioValue > 0 && initialInvestment !== currentPortfolioValue && (
-                     <button
-                        onClick={() => setInitialInvestment(currentPortfolioValue)}
-                        className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-                        title="Reset to current portfolio value"
-                     >
-                        <RefreshCw className="w-3 h-3" />
-                        Sync
-                     </button>
-                 )}
+                <label
+                  htmlFor="initial-investment"
+                  className="text-sm text-neutral-400 block"
+                >
+                  Starting Balance
+                </label>
+                {currentPortfolioValue > 0 &&
+                  initialInvestment !== currentPortfolioValue && (
+                    <button
+                      onClick={() =>
+                        setInitialInvestment(currentPortfolioValue)
+                      }
+                      className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                      title="Reset to current portfolio value"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Sync
+                    </button>
+                  )}
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-neutral-400">$</span>
+                <span className="absolute left-3 top-2.5 text-neutral-400">
+                  $
+                </span>
                 <input
                   id="initial-investment"
                   type="number"
@@ -238,21 +280,35 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             </div>
 
             <div>
-              <label htmlFor="monthly-contribution" className="text-sm text-neutral-400 block mb-2">Monthly Contribution</label>
+              <label
+                htmlFor="monthly-contribution"
+                className="text-sm text-neutral-400 block mb-2"
+              >
+                Monthly Contribution
+              </label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-neutral-400">$</span>
+                <span className="absolute left-3 top-2.5 text-neutral-400">
+                  $
+                </span>
                 <input
                   id="monthly-contribution"
                   type="number"
                   value={monthlyContribution}
-                  onChange={(e) => setMonthlyContribution(Number(e.target.value))}
+                  onChange={(e) =>
+                    setMonthlyContribution(Number(e.target.value))
+                  }
                   className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="time-horizon" className="text-sm text-neutral-400 block mb-2">Time Horizon (Years): {years}</label>
+              <label
+                htmlFor="time-horizon"
+                className="text-sm text-neutral-400 block mb-2"
+              >
+                Time Horizon (Years): {years}
+              </label>
               <input
                 id="time-horizon"
                 type="range"
@@ -266,12 +322,20 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
 
             <div className="pt-6 border-t border-white/10 space-y-4">
               <div>
-                <div className="text-sm text-neutral-400 mb-1">Projected Annual Return</div>
-                <div className="text-2xl font-bold text-emerald-400">{(weightedReturn * 100).toFixed(2)}%</div>
+                <div className="text-sm text-neutral-400 mb-1">
+                  Projected Annual Return
+                </div>
+                <div className="text-2xl font-bold text-emerald-400">
+                  {(weightedReturn * 100).toFixed(2)}%
+                </div>
               </div>
               <div>
-                <div className="text-sm text-neutral-400 mb-1">Avg. Dividend Yield</div>
-                <div className="text-xl font-bold text-blue-400">{(weightedYield * 100).toFixed(2)}%</div>
+                <div className="text-sm text-neutral-400 mb-1">
+                  Avg. Dividend Yield
+                </div>
+                <div className="text-xl font-bold text-blue-400">
+                  {(weightedYield * 100).toFixed(2)}%
+                </div>
               </div>
             </div>
           </div>
@@ -281,15 +345,23 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div>
                 <div className="text-sm text-neutral-400">Projected Wealth</div>
-                <div className="text-3xl font-bold text-white">{formatCurrency(finalAmount)}</div>
+                <div className="text-3xl font-bold text-white">
+                  {formatCurrency(finalAmount)}
+                </div>
               </div>
               <div>
-                 <div className="text-sm text-neutral-400">Est. Dividends Gained</div>
-                 <div className="text-3xl font-bold text-blue-400">{formatCurrency(totalDividends)}</div>
+                <div className="text-sm text-neutral-400">
+                  Est. Dividends Gained
+                </div>
+                <div className="text-3xl font-bold text-blue-400">
+                  {formatCurrency(totalDividends)}
+                </div>
               </div>
               <div className="text-left sm:text-right">
                 <div className="text-sm text-neutral-400">Total Invested</div>
-                <div className="text-xl font-medium text-neutral-300">{formatCurrency(totalInvested)}</div>
+                <div className="text-xl font-medium text-neutral-300">
+                  {formatCurrency(totalInvested)}
+                </div>
               </div>
             </div>
 
@@ -297,22 +369,42 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={projectionData}>
                   <defs>
-                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <linearGradient
+                      id="colorBalance"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                  <XAxis dataKey="year" stroke="#666" tick={{fill: '#666'}} axisLine={false} tickLine={false} />
-                  <YAxis
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#333"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="year"
                     stroke="#666"
-                    tick={{fill: '#666'}}
+                    tick={{ fill: "#666" }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={(value) => `$${value/1000}k`}
+                  />
+                  <YAxis
+                    stroke="#666"
+                    tick={{ fill: "#666" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => `$${value / 1000}k`}
                   />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#000', borderColor: '#333', color: '#fff' }}
+                    contentStyle={{
+                      backgroundColor: "#000",
+                      borderColor: "#333",
+                      color: "#fff",
+                    }}
                     formatter={(value: any) => formatCurrency(Number(value))}
                   />
                   <Area
@@ -368,9 +460,8 @@ export default function WealthProjector({ portfolio, onBack }: WealthProjectorPr
 
         {/* Explainer Section */}
         <div className="mb-12">
-           <SimulatorExplainer mode="SIMPLE" />
+          <SimulatorExplainer mode="SIMPLE" />
         </div>
-
       </motion.div>
     </section>
   );
