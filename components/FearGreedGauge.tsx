@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { isMarketOpen } from '@/lib/market-hours';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { isMarketOpen } from "@/lib/market-hours";
+import { cn } from "@/lib/utils";
 
 interface FearGreedData {
   score: number;
@@ -26,8 +26,8 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
 
     async function fetchData() {
       try {
-        const res = await fetch('/api/market/fear-greed');
-        if (!res.ok) throw new Error('Failed to fetch');
+        const res = await fetch("/api/market/fear-greed");
+        if (!res.ok) throw new Error("Failed to fetch");
         const json = await res.json();
         setData(json);
       } catch (err) {
@@ -42,7 +42,12 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
 
   if (loading) {
     return (
-      <div className={cn("w-full min-h-[300px] bg-white/5 rounded-2xl animate-pulse flex items-center justify-center", className)}>
+      <div
+        className={cn(
+          "w-full min-h-[300px] bg-white/5 rounded-2xl animate-pulse flex items-center justify-center",
+          className,
+        )}
+      >
         <span className="text-white/20">Loading Market Sentiment...</span>
       </div>
     );
@@ -50,7 +55,12 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
 
   if (error || !data) {
     return (
-      <div className={cn("w-full min-h-[300px] bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2", className)}>
+      <div
+        className={cn(
+          "w-full min-h-[300px] bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2",
+          className,
+        )}
+      >
         <span className="text-white/40">Sentiment Data Unavailable</span>
         <button
           onClick={() => window.location.reload()}
@@ -89,11 +99,11 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   const segmentSpan = (totalSpan - (segmentCount - 1) * gap) / segmentCount;
 
   const colors = [
-    '#f43f5e', // Red (Extreme Fear)
-    '#f97316', // Orange (Fear)
-    '#eab308', // Yellow (Neutral)
-    '#84cc16', // Lime (Greed)
-    '#10b981', // Green (Extreme Greed)
+    "#f43f5e", // Red (Extreme Fear)
+    "#f97316", // Orange (Fear)
+    "#eab308", // Yellow (Neutral)
+    "#84cc16", // Lime (Greed)
+    "#10b981", // Green (Extreme Greed)
   ];
 
   // Determine active color for text and gradient based on score
@@ -119,24 +129,41 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   };
 
   return (
-    <div className={cn("w-full bg-stone-950 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group", className)}>
-
+    <div
+      className={cn(
+        "w-full bg-stone-950 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group",
+        className,
+      )}
+    >
       {/* Background Texture */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-           style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+          backgroundSize: "32px 32px",
+        }}
+      />
 
       {/* Bottom Gradient Glow */}
       <div
         className="absolute bottom-0 left-0 right-0 h-2/3 opacity-20 pointer-events-none transition-colors duration-500"
-        style={{ background: `linear-gradient(to top, ${activeColor}, transparent)` }}
+        style={{
+          background: `linear-gradient(to top, ${activeColor}, transparent)`,
+        }}
       />
 
       {/* Market Status Indicator */}
       <div className="absolute top-6 left-6 flex items-center gap-2 z-20">
-          <div className={cn("w-2 h-2 rounded-full shadow-lg", marketOpen ? "bg-emerald-500 animate-pulse" : "bg-stone-600")} />
-          <span className="text-xs font-medium text-white/40 tracking-wider uppercase">
-              Market {marketOpen ? 'Open' : 'Closed'}
-          </span>
+        <div
+          className={cn(
+            "w-2 h-2 rounded-full shadow-lg",
+            marketOpen ? "bg-emerald-500 animate-pulse" : "bg-stone-600",
+          )}
+        />
+        <span className="text-xs font-medium text-white/40 tracking-wider uppercase">
+          Market {marketOpen ? "Open" : "Closed"}
+        </span>
       </div>
 
       <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center mt-2">
@@ -146,53 +173,57 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
       {/* Gauge Container */}
       <div className="relative w-80 h-40 z-10 flex justify-center mb-6 scale-110 origin-bottom">
         <svg viewBox="0 0 200 110" className="w-full h-full overflow-visible">
-            {/* Segments */}
-            {colors.map((color, i) => (
-                <path
-                    key={i}
-                    d={createSegmentPath(i)}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                    className="opacity-90 transition-opacity hover:opacity-100"
-                />
-            ))}
-
-            {/* Indicator Circle (Outline) */}
-            <motion.circle
-                cx={0}
-                cy={0}
-                r="8"
-                fill="stone-950"
-                stroke="white"
-                strokeWidth="3"
-                initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
-                animate={{ x: indicatorX, y: indicatorY, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 40, damping: 20, delay: 0.2 }}
-                className="drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+          {/* Segments */}
+          {colors.map((color, i) => (
+            <path
+              key={i}
+              d={createSegmentPath(i)}
+              fill="none"
+              stroke={color}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              className="opacity-90 transition-opacity hover:opacity-100"
             />
+          ))}
+
+          {/* Indicator Circle (Outline) */}
+          <motion.circle
+            cx={0}
+            cy={0}
+            r="8"
+            fill="stone-950"
+            stroke="white"
+            strokeWidth="3"
+            initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
+            animate={{ x: indicatorX, y: indicatorY, opacity: 1 }}
+            transition={{
+              type: "spring",
+              stiffness: 40,
+              damping: 20,
+              delay: 0.2,
+            }}
+            className="drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+          />
         </svg>
 
         {/* Score & Rating Text */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-2 pointer-events-none">
-            <div className="text-5xl font-bold font-space text-white tracking-tight leading-none drop-shadow-xl">
-                {score}
-            </div>
-            {/* Rating text follows active color */}
-            <div
-                className="text-base font-medium capitalize mt-2 transition-colors duration-300"
-                style={{ color: activeColor }}
-            >
-                {data.rating}
-            </div>
+          <div className="text-5xl font-bold font-space text-white tracking-tight leading-none drop-shadow-xl">
+            {score}
+          </div>
+          {/* Rating text follows active color */}
+          <div
+            className="text-base font-medium capitalize mt-2 transition-colors duration-300"
+            style={{ color: activeColor }}
+          >
+            {data.rating}
+          </div>
         </div>
       </div>
 
-       <div className="text-xs font-mono text-white/30 z-10">
-          Updated: {new Date(data.updatedAt).toLocaleDateString()}
-       </div>
-
+      <div className="text-xs font-mono text-white/30 z-10">
+        Updated: {new Date(data.updatedAt).toLocaleDateString()}
+      </div>
     </div>
   );
 }

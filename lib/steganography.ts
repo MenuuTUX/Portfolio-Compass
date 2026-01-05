@@ -1,4 +1,3 @@
-
 // Basic Least Significant Bit (LSB) Steganography with Redundancy
 // This allows embedding hidden data into an image that is invisible to the naked eye.
 // Note: This survives PNG screenshots (lossless) and cropping (due to redundancy).
@@ -12,9 +11,9 @@ const HEADER_LENGTH = MAGIC_HEADER.length; // 8 bytes
  */
 export async function encodePortfolioData(
   canvas: HTMLCanvasElement,
-  data: any
+  data: any,
 ): Promise<string> {
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) throw new Error("Could not get canvas context");
 
   const width = canvas.width;
@@ -33,7 +32,9 @@ export async function encodePortfolioData(
   new DataView(lengthBuffer).setUint32(0, dataBytes.length, false); // Big endian
   const lengthBytes = new Uint8Array(lengthBuffer);
 
-  const payload = new Uint8Array(magicBytes.length + lengthBytes.length + dataBytes.length);
+  const payload = new Uint8Array(
+    magicBytes.length + lengthBytes.length + dataBytes.length,
+  );
   payload.set(magicBytes, 0);
   payload.set(lengthBytes, magicBytes.length);
   payload.set(dataBytes, magicBytes.length + lengthBytes.length);
@@ -62,7 +63,7 @@ export async function encodePortfolioData(
 
     // Modify Blue channel LSB
     // clear LSB then set it
-    pixels[i + 2] = (pixels[i + 2] & 0xFE) | bit;
+    pixels[i + 2] = (pixels[i + 2] & 0xfe) | bit;
 
     bitIndex++;
   }
@@ -70,7 +71,7 @@ export async function encodePortfolioData(
   // Write back to canvas
   ctx.putImageData(imageData, 0, 0);
 
-  return canvas.toDataURL('image/png');
+  return canvas.toDataURL("image/png");
 }
 
 /**
@@ -84,10 +85,10 @@ export async function decodePortfolioData(file: File): Promise<any> {
 
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) {
         reject(new Error("Canvas context failed"));
         return;
@@ -139,24 +140,33 @@ export async function decodePortfolioData(file: File): Promise<any> {
       }
 
       if (foundIndex === -1) {
-        reject(new Error("No hidden portfolio data found. Make sure the image is a PNG and hasn't been compressed by social media."));
+        reject(
+          new Error(
+            "No hidden portfolio data found. Make sure the image is a PNG and hasn't been compressed by social media.",
+          ),
+        );
         return;
       }
 
       // Read Length
       const lengthOffset = foundIndex + magicBytes.length;
       if (lengthOffset + 4 > bytes.length) {
-         reject(new Error("Data corrupted (header found but length missing)"));
-         return;
+        reject(new Error("Data corrupted (header found but length missing)"));
+        return;
       }
 
-      const lengthView = new DataView(bytes.buffer, bytes.byteOffset + lengthOffset, 4);
+      const lengthView = new DataView(
+        bytes.buffer,
+        bytes.byteOffset + lengthOffset,
+        4,
+      );
       const dataLength = lengthView.getUint32(0, false);
 
       // Validate Length
-      if (dataLength > 1000000 || dataLength <= 0) { // Max 1MB
-         reject(new Error("Invalid data length detected"));
-         return;
+      if (dataLength > 1000000 || dataLength <= 0) {
+        // Max 1MB
+        reject(new Error("Invalid data length detected"));
+        return;
       }
 
       const dataOffset = lengthOffset + 4;

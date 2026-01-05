@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useId, memo } from 'react';
-import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
-import { formatCurrency } from '@/lib/utils';
+import { useId, memo } from "react";
+import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
+import { formatCurrency } from "@/lib/utils";
 
 interface SparklineProps {
   data: { date: string; price: number }[];
@@ -26,7 +26,7 @@ const Sparkline = memo(({ data, color, name }: SparklineProps) => {
               <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <YAxis domain={['dataMin', 'dataMax']} hide />
+          <YAxis domain={["dataMin", "dataMax"]} hide />
           <Area
             type="monotone"
             dataKey="price"
@@ -38,7 +38,7 @@ const Sparkline = memo(({ data, color, name }: SparklineProps) => {
         </AreaChart>
       </ResponsiveContainer>
       <table className="sr-only">
-        <caption>Price History Sparkline{name ? ` for ${name}` : ''}</caption>
+        <caption>Price History Sparkline{name ? ` for ${name}` : ""}</caption>
         <thead>
           <tr>
             <th scope="col">Date</th>
@@ -58,6 +58,6 @@ const Sparkline = memo(({ data, color, name }: SparklineProps) => {
   );
 });
 
-Sparkline.displayName = 'Sparkline';
+Sparkline.displayName = "Sparkline";
 
 export default Sparkline;
