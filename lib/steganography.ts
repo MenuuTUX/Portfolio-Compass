@@ -1,15 +1,14 @@
-// Basic Least Significant Bit (LSB) Steganography with Redundancy
-// This allows embedding hidden data into an image that is invisible to the naked eye.
-// Note: This survives PNG screenshots (lossless) and cropping (due to redundancy).
-// It does NOT survive JPEG compression or resizing (lossy).
+// Basic Least Significant Bit (LSB) Steganography
+// This allows embedding hidden data into an image.
+// Note: This survives PNG screenshots (lossless) and cropping.
+// It does NOT survive JPEG compression or resizing.
 
 const MAGIC_HEADER = "PC_DATA:";
-const HEADER_LENGTH = MAGIC_HEADER.length; // 8 bytes
 
 /**
- * Encodes data into the image using LSB steganography with redundancy.
+ * Encodes data into the image using LSB steganography.
  */
-export async function encodePortfolioData(
+export async function embedDataInImage(
   canvas: HTMLCanvasElement,
   data: any,
 ): Promise<string> {
@@ -39,17 +38,11 @@ export async function encodePortfolioData(
   payload.set(lengthBytes, magicBytes.length);
   payload.set(dataBytes, magicBytes.length + lengthBytes.length);
 
-  // Encoding Strategy:
-  // Use the Blue channel (index 2) LSB for minimal visual impact.
-  // We can also use R and G for density, but let's stick to B for invisibility.
-  // Capacity: (width * height) bits.
-  // Redundancy: Repeat the payload as many times as it fits.
-
   const payloadBits = payload.length * 8;
   const totalCapacityBits = width * height; // 1 bit per pixel (Blue channel)
 
   if (payloadBits > totalCapacityBits) {
-    console.warn("Payload too large for image, truncating redundancy.");
+    console.warn("Payload too large for image, truncating.");
   }
 
   let bitIndex = 0;
@@ -76,9 +69,9 @@ export async function encodePortfolioData(
 
 /**
  * Decodes data from the image using LSB steganography.
- * Scans for the magic header to recover data even if cropped (as long as one full copy exists).
+ * Scans for the magic header to recover data.
  */
-export async function decodePortfolioData(file: File): Promise<any> {
+export async function extractDataFromImage(file: File): Promise<any> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -96,11 +89,6 @@ export async function decodePortfolioData(file: File): Promise<any> {
       ctx.drawImage(img, 0, 0);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const pixels = imageData.data;
-
-      // Scanning Strategy:
-      // We look for the MAGIC_HEADER sequence of bits.
-      // Since we repeat the payload, we might find it anywhere.
-      // But we always write sequentially.
 
       const bits: number[] = [];
       // Read all LSBs from Blue channel
@@ -124,7 +112,7 @@ export async function decodePortfolioData(file: File): Promise<any> {
 
       let foundIndex = -1;
 
-      // Naive search for the magic sequence
+      // Search for the magic sequence
       for (let i = 0; i < bytes.length - magicBytes.length; i++) {
         let match = true;
         for (let j = 0; j < magicBytes.length; j++) {
@@ -142,7 +130,7 @@ export async function decodePortfolioData(file: File): Promise<any> {
       if (foundIndex === -1) {
         reject(
           new Error(
-            "No hidden portfolio data found. Make sure the image is a PNG and hasn't been compressed by social media.",
+            "No hidden portfolio data found. Make sure the image is a PNG and hasn't been compressed.",
           ),
         );
         return;

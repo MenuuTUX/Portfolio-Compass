@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue, useTransform } from "framer-motion";
 
-interface BiopunkSliderProps {
+interface InteractiveSliderProps {
   label: string;
   min?: number;
   max?: number;
@@ -13,7 +13,7 @@ interface BiopunkSliderProps {
   unit?: string;
 }
 
-export default function BiopunkSlider({
+export default function InteractiveSlider({
   label,
   min = 0,
   max = 100,
@@ -21,7 +21,7 @@ export default function BiopunkSlider({
   onChange,
   className = "",
   unit = "%",
-}: BiopunkSliderProps) {
+}: InteractiveSliderProps) {
   const [value, setValue] = useState(defaultValue);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -95,7 +95,7 @@ export default function BiopunkSlider({
         className="relative h-12 flex items-center w-full"
         ref={constraintsRef}
       >
-        {/* Track Background - Organic Vine Look */}
+        {/* Track Background */}
         <div className="absolute top-1/2 left-0 w-full h-1 bg-stone-800/50 rounded-full overflow-hidden -translate-y-1/2 backdrop-blur-sm border border-stone-700/30">
           <motion.div
             className="h-full bg-emerald-900/40"
@@ -111,7 +111,7 @@ export default function BiopunkSlider({
           />
         </div>
 
-        {/* Thumb - "Seed" */}
+        {/* Thumb */}
         <motion.div
           drag="x"
           dragConstraints={{ left: 0, right: trackWidth }}

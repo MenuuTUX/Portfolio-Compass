@@ -8,7 +8,7 @@ import {
   CheckCircle,
   Smartphone,
 } from "lucide-react";
-import { decodePortfolioData } from "@/lib/steganography";
+import { extractDataFromImage } from "@/lib/steganography";
 import { motion, AnimatePresence } from "framer-motion";
 import { PortfolioItem } from "@/types";
 import { cn } from "@/lib/utils";
@@ -36,7 +36,7 @@ export default function ImportPortfolioCard({
     setErrorMessage("");
 
     try {
-      const data = await decodePortfolioData(file);
+      const data = await extractDataFromImage(file);
 
       if (
         data &&
@@ -122,7 +122,7 @@ export default function ImportPortfolioCard({
                 Import Portfolio
               </h3>
               <p className="text-xs text-stone-500 leading-relaxed max-w-[200px] mx-auto">
-                Upload a Portfolio Compass DNA card to instantly clone it.
+                Upload a Portfolio Compass image to instantly import it.
               </p>
             </div>
           </>

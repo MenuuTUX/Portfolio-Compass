@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from 'bun:test';
-import { encodePortfolioData, decodePortfolioData } from '@/lib/steganography';
+import { embedDataInImage, extractDataFromImage } from '@/lib/steganography';
 
 describe('Steganography Lib', () => {
     // Mock Canvas and Context since bun:test runs in a non-browser environment by default
@@ -9,8 +9,8 @@ describe('Steganography Lib', () => {
     // Since we can't easily install 'canvas' package, we'll mock the logic or trust the implementation if DOM is present.
 
     it('should be defined', () => {
-        expect(encodePortfolioData).toBeDefined();
-        expect(decodePortfolioData).toBeDefined();
+        expect(embedDataInImage).toBeDefined();
+        expect(extractDataFromImage).toBeDefined();
     });
 
     // Note: Full integration test requires a real Canvas implementation which might be tricky in this environment.
