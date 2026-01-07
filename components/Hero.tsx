@@ -9,7 +9,7 @@ import {
   useTransform,
   AnimatePresence,
 } from "framer-motion";
-import BiopunkSlider from "./BiopunkSlider";
+import InteractiveSlider from "./InteractiveSlider";
 
 const textVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -330,7 +330,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 className="space-y-4"
                 style={{ transform: "translateZ(40px)" }}
               >
-                <BiopunkSlider
+                <InteractiveSlider
                   label="Time Horizon"
                   min={1}
                   max={50}
@@ -339,7 +339,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                   onChange={(v) => setYearsValue(v)}
                 />
 
-                <BiopunkSlider
+                <InteractiveSlider
                   label="Risk Tolerance ( volatility )"
                   min={1}
                   max={100}

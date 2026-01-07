@@ -26,16 +26,6 @@ export interface GreedyOptimizationResult {
  * Implements a Greedy Marginal Utility optimization algorithm for discrete portfolio construction.
  * Objective: Maximize U(w) = mu_port - lambda * sigma^2_port
  * Constraint: Discrete shares.
- *
- * Algorithm Steps:
- * 1. Iterative Marginal Utility:
- *    - While budget > 0:
- *      - Identify affordable assets.
- *      - Look-Ahead: Simulate buying $100 block (or remaining budget) of each candidate.
- *      - Calculate the Utility increase (Delta U) for each candidate.
- *      - Select the asset with the highest Delta U.
- *      - Buy whole shares.
- *      - Subtract cost from budget.
  */
 export function optimizePortfolioGreedy(
   params: GreedyOptimizationParams,

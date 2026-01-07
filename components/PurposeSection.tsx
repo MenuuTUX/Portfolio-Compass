@@ -8,7 +8,6 @@ import {
   Building2,
   TrendingUp,
   LineChart,
-  Target,
   HeartHandshake,
 } from "lucide-react";
 import Image from "next/image";
@@ -29,9 +28,9 @@ const cardVariants: Variants = {
 const PurposeSection = () => {
   const cards = [
     {
-      title: "Smart Money Portfolios",
+      title: "Institutional Portfolios",
       description:
-        "Peek into the portfolios of major financial institutions. See what the giants are buying and use their strategies as a benchmark for your own success.",
+        "Analyze the portfolios of major financial institutions. Benchmark your strategy against established market leaders.",
       image:
         "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
       icon: <Building2 className="w-5 h-5 text-emerald-400" />,
@@ -40,7 +39,7 @@ const PurposeSection = () => {
     {
       title: "Mathematical Optimization",
       description:
-        "Stop guessing. Our algorithms analyze volatility, correlation, and returns to mathematically optimize your asset allocation for the highest possible Sharpe ratio.",
+        "Our algorithms analyze volatility, correlation, and returns to optimize your asset allocation for the highest possible Sharpe ratio.",
       image:
         "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
       icon: <TrendingUp className="w-5 h-5 text-rose-400" />,
@@ -49,7 +48,7 @@ const PurposeSection = () => {
     {
       title: "Future Simulation",
       description:
-        "Test your portfolio against thousands of potential market scenarios with Monte Carlo simulations. Visualize your range of outcomes and plan with confidence.",
+        "Test your portfolio against thousands of potential market scenarios with Monte Carlo simulations to understand your range of outcomes.",
       image:
         "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
       icon: <LineChart className="w-5 h-5 text-cyan-400" />,
@@ -59,13 +58,6 @@ const PurposeSection = () => {
 
   return (
     <section className="relative py-24 bg-stone-950 overflow-hidden">
-      {/* Organic Background Elements */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/10 via-stone-950 to-stone-950" />
-        <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-500/5 rounded-full blur-[100px]" />
-      </div>
-
       <div className="container mx-auto px-4 relative z-10">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-20">
@@ -169,16 +161,12 @@ const PurposeSection = () => {
               </h3>
             </div>
             <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-              "Investing shouldn't be a mystery. I started this project because
-              when I began investing, I was overwhelmed by the noise and lack of
-              clear, actionable tools. PortfolioCompass is the tool I wish I had
-              - designed to simplify the complex and make advanced analysis
-              accessible to everyone."
+              "We built PortfolioCompass to bridge the gap between institutional tools and retail investors. Our goal is to provide a clear, data-driven platform that empowers you to make informed investment decisions without the noise."
             </p>
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-stone-800" />
               <span className="text-stone-500 text-sm font-mono uppercase tracking-widest">
-                The Creator
+                The Team
               </span>
             </div>
           </div>
@@ -199,9 +187,7 @@ const PurposeSection = () => {
               Support the <span className="text-emerald-400">Project</span>
             </h3>
             <p className="text-stone-400">
-              This project is open-source and powered by the community. If you
-              enjoy navigating the markets with us, please consider starring the
-              project on GitHub and sharing it with fellow investors.
+              This project is open-source. If you find these tools useful, please consider starring the project on GitHub.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
