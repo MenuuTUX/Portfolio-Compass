@@ -104,8 +104,14 @@ export async function GET(request: Request) {
     return NextResponse.json(profile);
   } catch (error) {
     console.error("Error fetching stock profile:", error);
+
+    const errorMessage =
+      process.env.NODE_ENV === "development"
+        ? (error as Error).message
+        : "Internal Server Error";
+
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: errorMessage },
       { status: 500 },
     );
   }

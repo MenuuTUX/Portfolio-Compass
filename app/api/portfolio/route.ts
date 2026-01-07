@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { safeDecimal } from "@/lib/utils";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user || !session.user.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const portfolioItems = await prisma.portfolioItem.findMany({
+      where: {
+        userId: session.user.id,
+      },
       include: {
         etf: {
           include: {
@@ -68,8 +79,14 @@ export async function GET() {
     return NextResponse.json(formatted);
   } catch (error) {
     console.error("[API] Portfolio fetch error:", error);
+
+    const errorMessage =
+      process.env.NODE_ENV === "development"
+        ? (error as Error).message
+        : "Internal Server Error";
+
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: errorMessage },
       { status: 500 },
     );
   }

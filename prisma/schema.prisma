@@ -103,10 +103,24 @@ model EtfAllocation {
 
 model PortfolioItem {
   id        Int    @id @default(autoincrement())
-  etfId     String @unique
+  userId    String
+  etfId     String
   weight    Decimal
   shares    Decimal  @default(0)
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   etf       Etf    @relation(fields: [etfId], references: [ticker])
+
+  @@unique([userId, etfId])
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String?         @unique
+  name           String?
+  image          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  portfolioItems PortfolioItem[]
 }
 
 model MarketSentiment {

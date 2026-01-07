@@ -1,4 +1,8 @@
 import * as cheerio from 'cheerio';
+import { z } from 'zod';
+
+// Strict validation for ticker symbol
+const tickerSchema = z.string().min(1).max(6).regex(/^[a-zA-Z0-9]+$/);
 
 export interface StockProfile {
   sector: string;
@@ -53,6 +57,7 @@ export interface ScrapedHolding {
 export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<string[]> {
     const url = `https://stockanalysis.com/markets/${type}/`;
     const response = await fetch(url, {
+        redirect: 'error',
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
@@ -85,6 +90,13 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
 }
 
 export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
+    // Strict validation
+    const validation = tickerSchema.safeParse(ticker);
+    if (!validation.success) {
+        console.error(`Invalid ticker format: ${ticker}`);
+        return [];
+    }
+
     // StockAnalysis mostly supports US tickers.
     // If it's a Canadian ticker (e.g. .TO), it likely won't have holdings data on this site.
     // We skip explicitly to avoid 404 noise.
@@ -94,6 +106,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
     const url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/holdings/`;
     const response = await fetch(url, {
+        redirect: 'error',
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
@@ -187,18 +200,21 @@ function parseMarketNumber(val: string): number | undefined {
 }
 
 const fetchWithUserAgent = async (u: string) => fetch(u, {
+  redirect: 'error',
   headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
   }
 });
 
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
-  let upperTicker = ticker.toUpperCase();
-  // StockAnalysis.com typically uses US tickers (e.g., ASML instead of ASML.AS)
-  // We try the original ticker first, but if it fails, we might try stripping suffix
-  // However, we must be careful not to map unrelated stocks.
-  // For now, let's try the provided ticker.
+  // Strict validation
+  const validation = tickerSchema.safeParse(ticker);
+  if (!validation.success) {
+      console.error(`Invalid ticker format: ${ticker}`);
+      return null;
+  }
 
+  let upperTicker = ticker.toUpperCase();
   let url = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/`;
   let isEtf = false;
 
@@ -211,56 +227,7 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
     if (response.ok) isEtf = true;
   }
 
-  // Fallback: Check for specific international exchanges (TSX, NEO) before generic suffix stripping
-  if (response.status === 404 && ticker.includes('.')) {
-      const parts = ticker.split('.');
-      const baseTicker = parts[0];
-      const suffix = parts[1]?.toUpperCase();
-
-      if (suffix === 'TO') {
-           // Try TSX
-           url = `https://stockanalysis.com/quote/tsx/${baseTicker.toLowerCase()}/`;
-           response = await fetchWithUserAgent(url);
-           if (response.ok) {
-               isEtf = true; // TSX pages share structure
-               upperTicker = baseTicker.toUpperCase();
-           }
-      } else if (suffix === 'NE') {
-           // Try NEO
-           url = `https://stockanalysis.com/quote/neo/${baseTicker.toLowerCase()}/`;
-           response = await fetchWithUserAgent(url);
-           if (response.ok) {
-               isEtf = true;
-               upperTicker = baseTicker.toUpperCase();
-           }
-      }
-  }
-
-  // Fallback: If original ticker failed (404), and it has a suffix (e.g., ASML.AS), try stripping it.
-  // This is useful for dual-listed companies where StockAnalysis only tracks the US listing.
-  // We only do this if the base ticker is > 2 chars to avoid ambiguity with small tickers.
-  if (response.status === 404 && ticker.includes('.')) {
-      const baseTicker = ticker.split('.')[0];
-      if (baseTicker.length > 2) {
-          // Try base ticker as stock
-          url = `https://stockanalysis.com/stocks/${baseTicker.toLowerCase()}/`;
-          response = await fetchWithUserAgent(url);
-
-          if (response.ok) {
-               upperTicker = baseTicker.toUpperCase();
-          } else {
-               if (response.status === 404) {
-                   // Try base ticker as ETF
-                   url = `https://stockanalysis.com/etf/${baseTicker.toLowerCase()}/`;
-                   response = await fetchWithUserAgent(url);
-                   if (response.ok) {
-                       isEtf = true;
-                       upperTicker = baseTicker.toUpperCase();
-                   }
-               }
-          }
-      }
-  }
+  // REMOVED: Fallback recursive logic for suffixes (.TO, .NE) to prevent DoS/SSRF amplification
 
   if (!response.ok) {
     console.error(`Failed to fetch profile for ${ticker}: ${response.status}`);
