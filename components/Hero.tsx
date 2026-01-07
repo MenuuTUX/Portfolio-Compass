@@ -330,7 +330,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 className="space-y-4"
                 style={{ transform: "translateZ(40px)" }}
               >
-                <BiopunkSlider
+                <InteractiveSlider
                   label="Time Horizon"
                   min={1}
                   max={50}
