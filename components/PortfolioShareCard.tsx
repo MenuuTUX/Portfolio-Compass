@@ -207,10 +207,10 @@ export const PortfolioShareCard = React.forwardRef<
               </h1>
               <div className="flex items-center gap-3">
                 <span className="px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                  Institutional Grade
+                  Professional Analysis
                 </span>
                 <span className="text-neutral-500 text-xs font-medium uppercase tracking-wide">
-                  Analysis Report
+                  Portfolio Report
                 </span>
               </div>
             </div>

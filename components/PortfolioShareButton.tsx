@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { PortfolioShareCard, ShareCardProps } from "./PortfolioShareCard";
-import { encodePortfolioData } from "@/lib/steganography";
+import { embedDataInImage } from "@/lib/steganography";
 
 interface PortfolioShareButtonProps {
   portfolio: ShareCardProps["portfolio"];
@@ -72,10 +72,10 @@ export function PortfolioShareButton({
           };
 
           try {
-            const finalDataUrl = await encodePortfolioData(canvas, payload);
+            const finalDataUrl = await embedDataInImage(canvas, payload);
             resolve(finalDataUrl);
           } catch (e) {
-            console.error("Steganography encoding failed", e);
+            console.error("Data embedding failed", e);
             // Fallback to base image if encoding fails
             resolve(baseDataUrl);
           }
@@ -188,8 +188,7 @@ export function PortfolioShareButton({
                   </div>
                 </div>
                 <div className="absolute bottom-6 left-0 w-full text-center text-xs text-neutral-600 font-mono pointer-events-none uppercase tracking-wider z-20">
-                  Dimensions: 1080 x 1350px (Social Portrait) • Biopunk Encoding
-                  Active
+                  Dimensions: 1080 x 1350px (Social Portrait) • Data Embedded
                 </div>
               </div>
 
@@ -205,8 +204,7 @@ export function PortfolioShareButton({
                     </h3>
                   </div>
                   <p className="text-neutral-400 text-sm leading-relaxed">
-                    Customize the header details for your institutional-grade
-                    portfolio report. Hidden biometric data will be embedded.
+                    Customize the header details for your portfolio report. Portfolio data will be securely embedded in the image.
                   </p>
                 </div>
 
