@@ -7,13 +7,11 @@ import { formatCurrency } from "@/lib/utils";
 interface SparklineProps {
   data: { date: string; price: number }[];
   color: string;
-  name?: string; // Optional name to identifying what the sparkline is for (a11y)
+  name?: string;
 }
 
-// Sparkline component - Memoized to prevent re-renders on parent updates
 const Sparkline = memo(({ data, color, name }: SparklineProps) => {
   const uniqueId = useId();
-  // Using a unique ID ensures gradient definitions don't collide between multiple charts
   const gradientId = `gradient-${uniqueId}`;
 
   return (

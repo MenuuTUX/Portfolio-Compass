@@ -31,8 +31,8 @@ export interface ShareCardProps {
   chartData: {
     value: number;
     dividendValue?: number;
-    min?: number; // For Monte Carlo Worst Case
-    max?: number; // For Monte Carlo Best Case
+    min?: number;
+    max?: number;
   }[];
   spyData?: {
     value: number;
@@ -47,12 +47,10 @@ export const PortfolioShareCard = React.forwardRef<
     { userName, portfolioName, portfolio, metrics, chartData, spyData },
     ref,
   ) => {
-    // 1. Calculate Top Holdings
     const topHoldings = [...portfolio]
       .sort((a, b) => b.weight - a.weight)
-      .slice(0, 6); // Top 6 for clean grid
+      .slice(0, 6);
 
-    // 2. Calculate Portfolio Stats (Weighted)
     const totalWeight =
       portfolio.reduce((sum, item) => sum + item.weight, 0) || 1;
 
@@ -64,7 +62,6 @@ export const PortfolioShareCard = React.forwardRef<
       return acc + (item.beta || 1.0) * (item.weight / totalWeight);
     }, 0);
 
-    // 3. Asset Allocation
     const assetAllocation = portfolio.reduce(
       (acc, item) => {
         const w = item.weight / totalWeight;
@@ -72,7 +69,6 @@ export const PortfolioShareCard = React.forwardRef<
         let b = item.allocation?.bonds || 0;
         let c = item.allocation?.cash || 0;
 
-        // Normalize if > 1 (e.g. 80 instead of 0.8)
         if (e > 1 || b > 1 || c > 1) {
           e /= 100;
           b /= 100;
@@ -87,7 +83,6 @@ export const PortfolioShareCard = React.forwardRef<
       { equities: 0, bonds: 0, cash: 0 },
     );
 
-    // 4. Sector Exposure (Top 3)
     const sectors = portfolio.reduce(
       (acc, item) => {
         const w = item.weight / totalWeight;
@@ -96,14 +91,11 @@ export const PortfolioShareCard = React.forwardRef<
 
         if (sectorEntries.length > 0) {
           sectorEntries.forEach(([rawName, rawWeight]) => {
-            // Format name: replace underscores with spaces and Title Case
             const sName = rawName
               .replace(/_/g, " ")
               .replace(/\b\w/g, (c) => c.toUpperCase());
 
-            const sWeight = Number(rawWeight) || 0; // Assuming already 0-1 or 0-100?
-            // Usually item.sectors weights sum to 1. But let's check.
-            // If s.weight is > 1, assume 0-100.
+            const sWeight = Number(rawWeight) || 0;
             const normalizedSWeight = sWeight > 1 ? sWeight / 100 : sWeight;
             acc[sName] = (acc[sName] || 0) + normalizedSWeight * w;
           });
@@ -120,7 +112,6 @@ export const PortfolioShareCard = React.forwardRef<
       .slice(0, 3)
       .map(([name, weight]) => ({ name, weight }));
 
-    // Chart Logic
     const fullWidth = 1000;
     const fullHeight = 280;
     const margin = { top: 30, right: 30, bottom: 40, left: 80 };
@@ -134,17 +125,15 @@ export const PortfolioShareCard = React.forwardRef<
       (d) => d.min !== undefined && d.max !== undefined,
     );
 
-    // Calculate global max including SPY
     const portfolioMax = hasRange
       ? Math.max(...chartData.map((d) => d.max || d.value))
       : Math.max(...values);
     const spyMax = spyValues.length > 0 ? Math.max(...spyValues) : 0;
 
-    const minVal = 0; // Always start at 0 for wealth charts usually, or min investment
+    const minVal = 0;
     const maxVal = Math.max(portfolioMax, spyMax) || 100;
     const range = maxVal - minVal || 1;
 
-    // Helper for scaling X and Y
     const getX = (i: number, len: number) => (i / (len - 1)) * width;
     const getY = (val: number) => height - ((val - minVal) / range) * height;
 
@@ -154,14 +143,12 @@ export const PortfolioShareCard = React.forwardRef<
     let spyPathD = "";
 
     if (values.length > 1) {
-      // Main Trend (Portfolio)
       const points = values.map(
         (val, i) => `${getX(i, values.length)},${getY(val)}`,
       );
       pathD = `M ${points[0]} L ${points.join(" L ")}`;
       areaD = `${pathD} L ${width},${height} L 0,${height} Z`;
 
-      // Range (Cone) for Monte Carlo
       if (hasRange) {
         const upperPoints = chartData.map(
           (d, i) => `${getX(i, chartData.length)},${getY(d.max || d.value)}`,
@@ -176,7 +163,6 @@ export const PortfolioShareCard = React.forwardRef<
           `L ${lowerPoints.reverse().join(" L ")} Z`;
       }
 
-      // SPY Trend
       if (spyValues.length > 1) {
         const spyPoints = spyValues.map(
           (val, i) => `${getX(i, spyValues.length)},${getY(val)}`,
@@ -185,14 +171,12 @@ export const PortfolioShareCard = React.forwardRef<
       }
     }
 
-    // Axes Logic
     const yTicks = 5;
     const yTickValues = Array.from(
       { length: yTicks + 1 },
       (_, i) => minVal + range * (i / yTicks),
     );
 
-    // Format Y Tick (e.g. $100k, $1M)
     const formatYTick = (val: number) => {
       if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
       if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
@@ -205,12 +189,10 @@ export const PortfolioShareCard = React.forwardRef<
         className="w-[1080px] h-[1350px] bg-[#0a0a0a] text-white p-12 flex flex-col relative overflow-hidden font-sans"
         style={{ fontFamily: "var(--font-inter), sans-serif" }}
       >
-        {/* Background Effects */}
         <div className="absolute top-[-20%] right-[-10%] w-[1000px] h-[1000px] bg-emerald-900/10 blur-[180px] rounded-full pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[1000px] h-[1000px] bg-indigo-900/10 blur-[180px] rounded-full pointer-events-none" />
         <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.03] pointer-events-none" />
 
-        {/* HEADER */}
         <div className="flex justify-between items-start mb-12 relative z-10 border-b border-white/10 pb-8 shrink-0">
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-2xl shadow-emerald-900/40 ring-1 ring-white/10">
@@ -253,9 +235,7 @@ export const PortfolioShareCard = React.forwardRef<
           </div>
         </div>
 
-        {/* KEY METRICS GRID (4 Columns) */}
         <div className="grid grid-cols-4 gap-6 mb-8 relative z-10">
-          {/* Projected Value */}
           <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
             <div className="absolute top-4 right-4 text-emerald-500/20 group-hover:text-emerald-500/40 transition-colors">
               <TrendingUp className="w-6 h-6" />
@@ -272,7 +252,6 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          {/* Total Return */}
           <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
             <div className="absolute top-4 right-4 text-emerald-500/20">
               <Activity className="w-6 h-6" />
@@ -288,7 +267,6 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          {/* Accumulated Yield */}
           <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
             <div className="absolute top-4 right-4 text-emerald-500/20">
               <DollarSign className="w-6 h-6" />
@@ -304,7 +282,6 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          {/* CAGR */}
           <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
             <div className="absolute top-4 right-4 text-emerald-500/20">
               <PieChart className="w-6 h-6" />
@@ -321,9 +298,7 @@ export const PortfolioShareCard = React.forwardRef<
           </div>
         </div>
 
-        {/* MIDDLE SECTION: Allocation, Risk, Sectors */}
         <div className="grid grid-cols-12 gap-6 mb-8 relative z-10">
-          {/* Asset Allocation (Col 4) */}
           <div className="col-span-5 bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-4">
               <Layers className="w-4 h-4 text-emerald-500" />
@@ -357,7 +332,6 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          {/* Risk Profile (Col 3) */}
           <div className="col-span-3 bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-4 h-4 text-rose-500" />
@@ -385,7 +359,6 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          {/* Sector Exposure (Col 5) */}
           <div className="col-span-4 bg-[#111] border border-white/10 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <PieChart className="w-4 h-4 text-indigo-500" />
@@ -411,7 +384,6 @@ export const PortfolioShareCard = React.forwardRef<
           </div>
         </div>
 
-        {/* WEALTH CHART */}
         <div className="mb-8 bg-[#111] border border-white/10 rounded-2xl p-8 relative overflow-hidden flex-1 min-h-[300px]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -458,14 +430,11 @@ export const PortfolioShareCard = React.forwardRef<
                 </linearGradient>
               </defs>
 
-              {/* CHART GROUP - TRANSFORMED BY MARGIN */}
               <g transform={`translate(${margin.left}, ${margin.top})`}>
-                {/* Y-AXIS Grid & Labels */}
                 {yTickValues.map((val, i) => {
                   const yPos = getY(val);
                   return (
                     <g key={`y-${i}`}>
-                      {/* Grid Line */}
                       <line
                         x1={0}
                         y1={yPos}
@@ -474,7 +443,6 @@ export const PortfolioShareCard = React.forwardRef<
                         stroke="#333"
                         strokeDasharray="3 3"
                       />
-                      {/* Label */}
                       <text
                         x={-10}
                         y={yPos}
@@ -490,7 +458,6 @@ export const PortfolioShareCard = React.forwardRef<
                   );
                 })}
 
-                {/* Y-Axis Heading */}
                 <text
                   x={-40}
                   y={height / 2}
@@ -504,7 +471,6 @@ export const PortfolioShareCard = React.forwardRef<
                   PORTFOLIO VALUE (USD)
                 </text>
 
-                {/* X-AXIS Labels */}
                 <g transform={`translate(0, ${height + 15})`}>
                   <text
                     x={0}
@@ -540,7 +506,6 @@ export const PortfolioShareCard = React.forwardRef<
                     Year {metrics.years}
                   </text>
 
-                  {/* X-Axis Heading */}
                   <text
                     x={width / 2}
                     y={20}
@@ -555,7 +520,6 @@ export const PortfolioShareCard = React.forwardRef<
                   </text>
                 </g>
 
-                {/* Monte Carlo Range (Subtle) */}
                 {hasRange && rangeAreaD && (
                   <path
                     d={rangeAreaD}
@@ -566,7 +530,6 @@ export const PortfolioShareCard = React.forwardRef<
                   />
                 )}
 
-                {/* SPY Line (Benchmark) */}
                 {spyPathD && (
                   <path
                     d={spyPathD}
@@ -580,7 +543,6 @@ export const PortfolioShareCard = React.forwardRef<
                   />
                 )}
 
-                {/* Main Portfolio Line */}
                 {pathD && !hasRange && (
                   <path
                     d={areaD}
@@ -603,7 +565,6 @@ export const PortfolioShareCard = React.forwardRef<
           </div>
         </div>
 
-        {/* HOLDINGS GRID */}
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-5 border-b border-white/10 pb-2">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -663,7 +624,6 @@ export const PortfolioShareCard = React.forwardRef<
           </div>
         </div>
 
-        {/* FOOTER */}
         <div className="mt-auto pt-8 flex justify-between items-center relative z-10 border-t border-white/10 shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.6)]" />

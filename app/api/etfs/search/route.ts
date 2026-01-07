@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ETF } from "@/types";
 import prisma from "@/lib/db";
 import { fetchMarketSnapshot } from "@/lib/market-service";
 import { syncEtfDetails } from "@/lib/etf-sync";
@@ -33,7 +32,7 @@ export async function GET(request: NextRequest) {
         .map((t) => t.trim().toUpperCase())
         .filter((t) => t.length > 0);
 
-      // Cap limit to prevent abuse
+      // Limit max tickers per request
       if (requestedTickers.length > 50) {
         requestedTickers = requestedTickers.slice(0, 50);
       }
@@ -117,7 +116,6 @@ export async function GET(request: NextRequest) {
       if (missingTickers.length > 0) {
         try {
           const liveData = await fetchMarketSnapshot(missingTickers);
-
           const limit = pLimit(1);
 
           const upsertPromises = liveData.map((item) =>
@@ -163,8 +161,8 @@ export async function GET(request: NextRequest) {
                 return {
                   ticker: item.ticker,
                   name: item.name,
-                  price: item.price, // Decimal
-                  daily_change: item.dailyChangePercent, // Decimal
+                  price: item.price,
+                  daily_change: item.dailyChangePercent,
                   assetType: item.assetType || "ETF",
                   isDeepAnalysisLoaded: false,
                   yield: new Decimal(0),
@@ -189,8 +187,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Default ticker seed fallback logic
     if (etfs.length === 0 && !query && !tickersParam && skip === 0) {
-      let defaultTickers = [
+      const defaultTickers = [
         "SPY",
         "QQQ",
         "IWM",
@@ -312,7 +311,6 @@ export async function GET(request: NextRequest) {
                     "1mo",
                   ]);
                   if (synced) {
-                    // Replace the stale item in the local list with the fresh one
                     const index = etfs.findIndex(
                       (e) => e.ticker === staleEtf.ticker,
                     );
@@ -493,7 +491,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Format & Return Local Data with Number conversion
     const formattedEtfs = etfs.map((etf: any) => {
       let history = etf.history
         ? etf.history.map((h: any) => ({
@@ -551,7 +548,6 @@ export async function GET(request: NextRequest) {
           ? safeDecimal(etf.fiftyTwoWeekLow)
           : undefined,
 
-        // New ETF Metrics
         inceptionDate: etf.inceptionDate || undefined,
         payoutFrequency: etf.payoutFrequency || undefined,
         payoutRatio: etf.payoutRatio ? safeDecimal(etf.payoutRatio) : undefined,
