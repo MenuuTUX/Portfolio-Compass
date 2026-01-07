@@ -1,15 +1,15 @@
 # Portfolio Compass 🧭
 
-**Institutional Grade Intelligence for Retail Investors.**
+**Professional Portfolio Intelligence for Retail Investors.**
 
-Portfolio Compass is an interactive, high-performance web application designed to help retail investors analyze, compare, and build diversified portfolios with the precision of institutional tools. Merging algorithmic insights with a "biopunk" aesthetic, it offers a unique and engaging way to visualize wealth generation.
+Portfolio Compass is an interactive, high-performance web application designed to help retail investors analyze, compare, and build diversified portfolios with precision. Merging algorithmic insights with a modern aesthetic, it offers a unique and engaging way to visualize wealth generation.
 
 ![Landing Page](public/screenshots/landing_page.png)
 
 ## ✨ Features
 
 ### 🚀 Interactive Landing Experience
-- **Biopunk Aesthetics**: A visually stunning interface featuring organic animations, glassmorphism, and dynamic lighting.
+- **Modern Interface**: A visually clean interface featuring smooth animations and dynamic lighting.
 - **Growth Simulation**: Real-time wealth projection slider that visualizes the impact of risk and time horizon on your potential returns.
 - **Live Market Status**: Real-time indicator of market status (Open/Closed).
 

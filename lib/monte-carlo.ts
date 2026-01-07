@@ -1,12 +1,8 @@
-// Remove mathjs dependency
-// import { create, all } from 'mathjs';
-
 /**
  * Calculates Log Returns from a sequence of prices.
  * Returns[t] = ln(Price[t] / Price[t-1])
  */
 export function calculateLogReturns(prices: number[]): number[] {
-  // Robust array check
   if (!prices || !Array.isArray(prices)) {
     return [];
   }
@@ -136,13 +132,8 @@ export function generateMonteCarloPaths(
   const numAssets = currentPrices.length;
   const paths: number[][] = [];
 
-  // Pre-calculate drift (assuming meanReturns are daily log returns)
-  // Standard drift in GBM is (mu - 0.5*sigma^2), but if we estimated 'mu' from historical log returns directly,
-  // that 'mu' IS the estimator for E[log return]. So we just use it.
-
   for (let sim = 0; sim < numSimulations; sim++) {
     const path: number[] = [initialPortfolioValue];
-    // We track total value, but to do so accurately with rebalancing/drift, we track shares or asset values.
     // "Buy and Hold" strategy: Shares are fixed at t=0.
 
     // Initial Shares

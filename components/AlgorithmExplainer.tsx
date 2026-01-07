@@ -18,14 +18,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Biopunk aesthetic constants
-const GLOW_EMERALD = "drop-shadow-[0_0_10px_rgba(16,185,129,0.5)]";
-
 const steps = [
   {
     id: "objective",
-    title: "The Objective Function",
-    subtitle: "Mathematically maximizing utility",
+    title: "Objective Function",
+    subtitle: "Maximizing utility",
     icon: Target,
     color: "emerald",
     description:
@@ -50,16 +47,16 @@ const steps = [
   },
   {
     id: "process",
-    title: "Greedy Look-Ahead",
-    subtitle: "Iterative marginal decision making",
+    title: "Iterative Selection",
+    subtitle: "Greedy marginal decision making",
     icon: BrainCircuit,
     color: "blue",
     description:
-      "Finding the theoretical maximum for integer-constrained portfolios is computationally expensive (NP-Hard). We use a greedy heuristic that simulates buying small batches of shares and picks the one that improves the score the most.",
+      "Finding the theoretical maximum for integer-constrained portfolios is computationally expensive. We use a greedy heuristic that simulates buying small batches of shares and picks the one that improves the score the most.",
     details: [
       {
         label: "Simulation",
-        text: "Test adding $100 of each asset",
+        text: "Test adding capital to each asset",
         icon: Zap,
       },
       {
@@ -76,8 +73,8 @@ const steps = [
   },
   {
     id: "constraint",
-    title: "Real-World Constraints",
-    subtitle: "Practical limitation adherence",
+    title: "Constraints",
+    subtitle: "Practical limitations",
     icon: Lock,
     color: "rose",
     description:
@@ -138,8 +135,7 @@ export default function AlgorithmExplainer() {
                 <BrainCircuit className="w-6 h-6 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-white tracking-tight">
-                Optimization Algorithm{" "}
-                <span className="text-emerald-400">Exposed</span>
+                Optimization Algorithm
               </h2>
             </div>
             <p className="text-neutral-400 max-w-2xl text-sm">
@@ -150,7 +146,7 @@ export default function AlgorithmExplainer() {
           </div>
           <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
             <Calculator className="w-3 h-3" />
-            <span>v2.1.0-beta</span>
+            <span>v2.1.0</span>
           </div>
         </div>
 
@@ -315,7 +311,7 @@ export default function AlgorithmExplainer() {
                             base: 20,
                             risk: -4,
                             color: "bg-emerald-500",
-                          }, // Negative risk factor here implies safety benefit relative to lambda
+                          },
                         ].map((asset, i) => (
                           <div
                             key={i}
@@ -328,7 +324,7 @@ export default function AlgorithmExplainer() {
                               )}
                               animate={{
                                 height: `${Math.max(5, asset.base - lambda * (asset.risk + 5))}%`,
-                              }} // Simplified math for demo
+                              }}
                               transition={{ type: "spring", stiffness: 100 }}
                             >
                               <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10 z-10">
@@ -348,8 +344,7 @@ export default function AlgorithmExplainer() {
                         ))}
                       </div>
                       <div className="text-xs text-neutral-500 text-center italic">
-                        As λ increases, risky assets (blue) lose utility score
-                        faster than safe assets (green).
+                        As λ increases, risky assets lose utility score faster.
                       </div>
                     </div>
                   </motion.div>
@@ -487,7 +482,7 @@ export default function AlgorithmExplainer() {
                               className="text-sm text-blue-400 font-mono flex items-center gap-2"
                             >
                               <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                              Simulating +$100 buys...
+                              Simulating buy orders...
                             </motion.div>
                           )}
 

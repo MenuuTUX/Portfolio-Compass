@@ -3,7 +3,6 @@ import * as cheerio from 'cheerio';
 const fetchWithUserAgent = async (url: string) => {
   return fetch(url, {
     headers: {
-       // Mimic a very standard, popular browser (Chrome on Windows)
        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
        'Accept-Language': 'en-US,en;q=0.9',
@@ -27,8 +26,7 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
         // ETF.com often returns 403 to bots
         if (!res.ok) {
             if (res.status === 403) {
-                 // Suppress 403 warning to avoid log spam, as this is an optional enhancement
-                 console.log(`ETF.com access denied (403) for ${ticker} - skipping description enhancement.`);
+                 // Suppress 403 warning to avoid log spam
             } else {
                  console.warn(`ETF.com fetch failed for ${ticker}: ${res.status}`);
             }
@@ -40,8 +38,7 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
 
         let description = '';
 
-        // Strategy: Look for "Analysis & Insights" header
-        // Based on the user provided screenshot: "SLV Analysis & Insights"
+        // Look for "Analysis & Insights" header
         $('h2, h3, h4, h5').each((_, el) => {
             if (description) return;
             const text = $(el).text().trim();
@@ -53,7 +50,7 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
                 let next = $(el).next();
                 let foundContent = false;
 
-                // If immediate next is empty text node or whatever, skip
+                // Skip empty elements
                 while (next.length && (next.is('br') || next.text().trim() === '')) {
                      next = next.next();
                 }
@@ -77,7 +74,7 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
                 }
 
                 if (!foundContent) {
-                    // Maybe just p tags following the header
+                    // Check p tags following the header
                     next = $(el).next();
                     while (next.length && !next.is('h2') && !next.is('h3') && !next.is('div[class*="module"]')) {
                         if (next.is('p')) {
@@ -91,8 +88,6 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
 
         return description.trim() || null;
     } catch (e) {
-        // Suppress generic network errors for scraping to reduce noise
-        // console.error('Error scraping etf.com:', e);
         return null;
     }
 }
