@@ -1,7 +1,17 @@
 
 import { describe, it, expect, mock } from 'bun:test';
-import { GET } from '@/app/api/portfolio/route';
 import { Decimal } from '@/lib/decimal';
+
+// Define mocks before importing the module under test
+
+// Mock next-auth
+const mockGetServerSession = mock(() => Promise.resolve({
+    user: { id: 'test-user-id', name: 'Test User' }
+}));
+
+mock.module('next-auth', () => ({
+    getServerSession: mockGetServerSession
+}));
 
 // Mock prisma
 const mockFindMany = mock(() => Promise.resolve([
@@ -44,9 +54,23 @@ mock.module('next/server', () => ({
     }
 }));
 
+// Mock lib/auth
+mock.module('@/lib/auth', () => ({
+    authOptions: {}
+}));
+
+// Import after mocks
+const { GET } = await import('@/app/api/portfolio/route');
+
 describe('Portfolio API', () => {
-    it('returns formatted portfolio items with optimized sector reduction', async () => {
+    it('returns formatted portfolio items with optimized sector reduction for authenticated user', async () => {
         const response = await GET();
+
+        // If unauthorized, it returns { error: 'Unauthorized' }
+        if (response.status === 401) {
+            console.error('Test returned 401 Unauthorized. Mock session might not be working.');
+        }
+
         const data = response.body;
 
         expect(data).toHaveLength(1);
@@ -58,5 +82,12 @@ describe('Portfolio API', () => {
             'Financials': 0.15
         });
         expect(item.allocation.equities).toBe(0.99);
+
+        // Verify that findMany was called with the user ID
+        expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({
+            where: {
+                userId: 'test-user-id'
+            }
+        }));
     });
 });
