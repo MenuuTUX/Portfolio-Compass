@@ -9,13 +9,12 @@ const prismaClientSingleton = () => {
     return client.$extends(withAccelerate()) as unknown as PrismaClient;
   }
 
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL is not defined in environment variables");
-  }
+  // Fallback for build time / when ENV is missing
+  const url = process.env.DATABASE_URL || "postgresql://postgres:password@localhost:5432/portfolio_compass";
 
   const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL.includes("sslmode=require")
+    connectionString: url,
+    ssl: url.includes("sslmode=require")
       ? { rejectUnauthorized: false }
       : undefined,
     max: 3,
@@ -31,7 +30,7 @@ declare global {
   var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
 }
 
-const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
+export const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
 
 export default prisma;
 

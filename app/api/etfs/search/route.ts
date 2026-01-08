@@ -1,591 +1,299 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/db";
-import { fetchMarketSnapshot } from "@/lib/market-service";
+import { prisma } from "@/lib/db";
 import { syncEtfDetails } from "@/lib/etf-sync";
-import { Decimal } from "decimal.js";
+import { fetchMarketSnapshot } from "@/lib/market-service";
 import pLimit from "p-limit";
-import { toPrismaDecimalRequired } from "@/lib/prisma-utils";
-import { safeDecimal } from "@/lib/utils";
+import { Prisma } from "@prisma/client";
+import { isValidTicker } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
+// Limit concurrent DB writes to avoid connection pool exhaustion
+const limit = pLimit(1);
+
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const query = searchParams.get("query");
-  const assetType = searchParams.get("type");
-  const tickersParam = searchParams.get("tickers");
-  const limitParam = searchParams.get("limit");
-  const skipParam = searchParams.get("skip");
-  const isFullHistoryRequested = searchParams.get("full") === "true";
-  const includeHistory =
-    searchParams.get("includeHistory") === "true" || isFullHistoryRequested;
-  const includeHoldings =
-    searchParams.get("includeHoldings") === "true" || isFullHistoryRequested;
-
   try {
-    const whereClause: any = {};
+    const { searchParams } = new URL(request.url);
+    const query = searchParams.get("q")?.toUpperCase().trim() || "";
+    const tickersParam = searchParams.get("tickers");
+    const fullDetails = searchParams.get("full") === "true";
+    const includeHoldings = searchParams.get("includeHoldings") === "true";
+    const includeHistory = searchParams.get("includeHistory") === "true";
+    const type = searchParams.get("type"); // 'ETF' | 'STOCK' | undefined
 
-    let requestedTickers: string[] = [];
+    // 1. Handle Bulk Fetch (via 'tickers' param)
     if (tickersParam) {
-      requestedTickers = tickersParam
+      const tickers = tickersParam
         .split(",")
         .map((t) => t.trim().toUpperCase())
-        .filter((t) => t.length > 0);
+        .filter((t) => isValidTicker(t))
+        .slice(0, 50); // Hard limit to prevent DoS
 
-      // Limit max tickers per request
-      if (requestedTickers.length > 50) {
-        requestedTickers = requestedTickers.slice(0, 50);
+      if (tickers.length === 0) {
+        return NextResponse.json([]);
       }
 
-      requestedTickers = requestedTickers.filter((t) => {
-        return /^[A-Z0-9.-]{1,12}$/.test(t);
+      // Fetch existing from DB
+      const existingEtfs = await prisma.etf.findMany({
+        where: { ticker: { in: tickers } },
+        include: {
+          sectors: true, // Always include basic sector data if available
+          // Conditionally include other relations based on request
+          holdings: fullDetails || includeHoldings,
+          history: fullDetails || includeHistory
+            ? {
+                orderBy: { date: "asc" },
+                // If fullDetails is false but history requested (e.g. sparklines),
+                // we could limit history, but for now we fetch all and slice in frontend or here.
+                // Optimizing: If we only need sparkline, we might want fewer points,
+                // but the 'interval' logic is handled in sync.
+              }
+            : false,
+        },
       });
 
-      if (requestedTickers.length > 0) {
-        whereClause.ticker = {
-          in: requestedTickers,
-          mode: "insensitive" as const,
-        };
-      }
-    }
+      // Identify missing
+      const existingTickers = new Set(existingEtfs.map((e) => e.ticker));
+      const missingTickers = tickers.filter((t) => !existingTickers.has(t));
 
-    if (query) {
-      whereClause.OR = [
-        { ticker: { contains: query, mode: "insensitive" as const } },
-        { name: { contains: query, mode: "insensitive" as const } },
-      ];
-    }
-
-    if (assetType) {
-      whereClause.assetType = assetType;
-    }
-
-    const includeObj: any = {
-      sectors: true,
-      allocation: true,
-    };
-    if (includeHistory) {
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-      includeObj.history = {
-        where: isFullHistoryRequested
-          ? undefined
-          : {
-              interval: "1d",
-              date: { gte: sixMonthsAgo },
-            },
-        orderBy: { date: "asc" },
-      };
-    }
-    if (includeHoldings) {
-      includeObj.holdings = { orderBy: { weight: "desc" } };
-    }
-
-    let takeLimit = isFullHistoryRequested ? 1 : query ? 50 : 50;
-    if (limitParam) {
-      takeLimit = parseInt(limitParam, 10);
-    } else if (tickersParam) {
-      takeLimit = requestedTickers.length;
-    }
-
-    const skip = skipParam ? parseInt(skipParam, 10) : 0;
-
-    let etfs: any[] = [];
-    try {
-      etfs = await prisma.etf.findMany({
-        where: whereClause,
-        include: includeObj,
-        take: takeLimit,
-        skip: skip,
-        orderBy: { ticker: "asc" },
-      });
-    } catch (dbError) {
-      console.error("[API] DB Read Failed:", dbError);
-      etfs = [];
-    }
-
-    if (requestedTickers.length > 0) {
-      const foundTickers = new Set(
-        etfs.map((e: any) => e.ticker.toUpperCase()),
-      );
-      const missingTickers = requestedTickers.filter(
-        (t) => !foundTickers.has(t),
-      );
-
+      // Fetch missing from Market Service
       if (missingTickers.length > 0) {
-        try {
-          const liveData = await fetchMarketSnapshot(missingTickers);
-          const limit = pLimit(1);
+        // We use fetchMarketSnapshot for efficient bulk quote retrieval
+        const snapshots = await fetchMarketSnapshot(missingTickers);
 
-          const upsertPromises = liveData.map((item) =>
+        // Seed missing into DB in background (fire and forget or await if critical?)
+        // For search response speed, we might return the snapshot data formatted as ETF
+        // and trigger a background sync.
+        // However, to ensure they exist for subsequent calls, we'll do a quick upsert here.
+
+        const newEtfs = await Promise.all(
+          snapshots.map((snap) =>
             limit(async () => {
+              // Basic seed
               try {
+                // Upsert to handle race conditions
                 return await prisma.etf.upsert({
-                  where: { ticker: item.ticker },
-                  update: {
-                    price: toPrismaDecimalRequired(item.price),
-                    daily_change: toPrismaDecimalRequired(
-                      item.dailyChangePercent,
-                    ),
-                    name: item.name,
-                  },
+                  where: { ticker: snap.symbol },
                   create: {
-                    ticker: item.ticker,
-                    name: item.name,
-                    price: toPrismaDecimalRequired(item.price),
-                    daily_change: toPrismaDecimalRequired(
-                      item.dailyChangePercent,
-                    ),
-                    currency: "USD",
-                    assetType: item.assetType || "ETF",
-                    isDeepAnalysisLoaded: false,
+                    ticker: snap.symbol,
+                    name: snap.shortName || snap.symbol,
+                    price: snap.regularMarketPrice,
+                    currency: snap.currency || "CAD",
+                    daily_change: snap.regularMarketChangePercent,
+                    updatedAt: new Date(),
+                    assetType: snap.quoteType === "ETF" ? "ETF" : "STOCK", // Simple inference
                   },
-                  include: includeObj,
+                  update: {
+                    // Update price if it exists
+                    price: snap.regularMarketPrice,
+                    daily_change: snap.regularMarketChangePercent,
+                    updatedAt: new Date(),
+                  },
+                  include: {
+                    sectors: true,
+                    holdings: fullDetails || includeHoldings,
+                    history: fullDetails || includeHistory
+                      ? { orderBy: { date: "asc" } }
+                      : false,
+                  },
                 });
-              } catch (createError: any) {
-                if (
-                  createError.toString().includes("MaxClientsInSessionMode") ||
-                  createError.toString().includes("DriverAdapterError")
-                ) {
-                  console.warn(
-                    `[API] DB Busy (upsert) for ${item.ticker}, using live data fallback.`,
-                  );
-                } else {
-                  console.error(
-                    `[API] Failed to upsert ETF ${item.ticker}:`,
-                    createError,
-                  );
-                }
-
-                return {
-                  ticker: item.ticker,
-                  name: item.name,
-                  price: item.price,
-                  daily_change: item.dailyChangePercent,
-                  assetType: item.assetType || "ETF",
-                  isDeepAnalysisLoaded: false,
-                  yield: new Decimal(0),
-                  mer: new Decimal(0),
-                  history: [],
-                  sectors: [],
-                  allocation: null,
-                  updatedAt: new Date(),
-                };
+              } catch (e) {
+                console.error(`Failed to seed ${snap.symbol}`, e);
+                return null;
               }
             }),
-          );
-
-          const results = await Promise.all(upsertPromises);
-          etfs.push(...(results as any[]));
-        } catch (liveFetchError) {
-          console.error(
-            "[API] Failed to fetch missing tickers live:",
-            liveFetchError,
-          );
-        }
-      }
-    }
-
-    // Default ticker seed fallback logic
-    if (etfs.length === 0 && !query && !tickersParam && skip === 0) {
-      const defaultTickers = [
-        "SPY",
-        "QQQ",
-        "IWM",
-        "AAPL",
-        "MSFT",
-        "NVDA",
-        "GOOGL",
-        "AMZN",
-        "META",
-        "TSLA",
-      ];
-
-      try {
-        const liveData = await fetchMarketSnapshot(defaultTickers);
-        const limit = pLimit(1);
-
-        const seedPromises = liveData.map((item) =>
-          limit(async () => {
-            try {
-              return await prisma.etf.upsert({
-                where: { ticker: item.ticker },
-                update: {
-                  price: toPrismaDecimalRequired(item.price),
-                  daily_change: toPrismaDecimalRequired(
-                    item.dailyChangePercent,
-                  ),
-                  name: item.name,
-                },
-                create: {
-                  ticker: item.ticker,
-                  name: item.name,
-                  price: toPrismaDecimalRequired(item.price),
-                  daily_change: toPrismaDecimalRequired(
-                    item.dailyChangePercent,
-                  ),
-                  currency: "USD",
-                  assetType: item.assetType || "ETF",
-                  isDeepAnalysisLoaded: false,
-                },
-                include: includeObj,
-              });
-            } catch (e) {
-              console.error(`[API] Failed to auto-seed ${item.ticker}:`, e);
-              return {
-                ticker: item.ticker,
-                name: item.name,
-                price: item.price,
-                daily_change: item.dailyChangePercent,
-                assetType: item.assetType || "ETF",
-                isDeepAnalysisLoaded: false,
-                yield: new Decimal(0),
-                mer: new Decimal(0),
-                history: [],
-                sectors: [],
-                allocation: null,
-                updatedAt: new Date(),
-              };
-            }
-          }),
+          ),
         );
 
-        const seededEtfs = await Promise.all(seedPromises);
-        etfs.push(...(seededEtfs as any[]));
-      } catch (e) {
-        console.error("[API] Failed to fetch default tickers:", e);
+        // Combine
+        const validNewEtfs = newEtfs.filter(
+          (e) => e !== null,
+        ) as typeof existingEtfs;
+        const allEtfs = [...existingEtfs, ...validNewEtfs];
+
+        // Trigger background full sync for these new items if they are skeletons
+        // (Not blocking the response)
+        // Note: In serverless, background tasks after response are tricky.
+        // We rely on the client or Cron to fill in deep details later.
+        // OR if 'full' is requested, we might forcedly sync one.
+
+        return NextResponse.json(
+          allEtfs.map((e) => ({
+            ...e,
+            price: e.price.toNumber(),
+            dailyChange: e.daily_change.toNumber(),
+            yield: e.yield ? e.yield.toNumber() : undefined,
+            mer: e.mer ? e.mer.toNumber() : undefined,
+            sectors: e.sectors?.map((s) => ({
+              name: s.sector,
+              value: s.weight.toNumber(),
+            })),
+            holdings: e.holdings?.map((h) => ({
+              ticker: h.ticker,
+              name: h.name,
+              weight: h.weight.toNumber(),
+            })),
+            history: e.history?.map((h) => ({
+              date: h.date.toISOString().split("T")[0],
+              price: h.price.toNumber(),
+            })),
+          })),
+        );
       }
-    }
 
-    if ((query || tickersParam) && etfs.length > 0) {
-      const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-
-      const staleEtfs = etfs.filter((e: any) => {
-        if (e.isDeepAnalysisLoaded === false) return true;
-
-        if (!e.updatedAt) return true;
-        if (e.updatedAt < oneHourAgo) return true;
-
-        if (includeHistory) {
-          if (e.history && e.history.length > 0) {
-            const lastHistoryDate = e.history[e.history.length - 1].date;
-            if (new Date(lastHistoryDate) < twoDaysAgo) return true;
-
-            if (isFullHistoryRequested) {
-              const hasWeekly = e.history.some(
-                (h: any) => h.interval === "1wk",
-              );
-              const hasMonthly = e.history.some(
-                (h: any) => h.interval === "1mo",
-              );
-              if (!hasWeekly || !hasMonthly) {
-                return true;
-              }
-            }
-          } else {
-            return true;
-          }
-        }
-
-        return false;
-      });
-
-      if (staleEtfs.length > 0) {
-        const limit = pLimit(1);
-
-        if (isFullHistoryRequested) {
-          const maxSyncItems = 1;
-          const itemsToSync = staleEtfs.slice(0, maxSyncItems);
-
-          await Promise.all(
-            itemsToSync.map((staleEtf: any) =>
-              limit(async () => {
-                try {
-                  const synced = await syncEtfDetails(staleEtf.ticker, [
-                    "1h",
-                    "1d",
-                    "1wk",
-                    "1mo",
-                  ]);
-                  if (synced) {
-                    const index = etfs.findIndex(
-                      (e) => e.ticker === staleEtf.ticker,
-                    );
-                    if (index !== -1) {
-                      etfs[index] = synced;
-                    }
-                  }
-                } catch (err) {
-                  console.error(
-                    `[API] Blocking sync failed for ${staleEtf.ticker}:`,
-                    err,
-                  );
-                }
-              }),
-            ),
-          );
-        } else {
-          const maxBackgroundSyncs = 2;
-          const itemsToSync = staleEtfs.slice(0, maxBackgroundSyncs);
-
-          if (itemsToSync.length > 0) {
-            Promise.all(
-              itemsToSync.map((staleEtf: any) =>
-                limit(() =>
-                  syncEtfDetails(staleEtf.ticker, ["1d"]).catch((err) => {
-                    if (
-                      err.toString().includes("MaxClientsInSessionMode") ||
-                      err.toString().includes("DriverAdapterError")
-                    ) {
-                      console.warn(
-                        `[API] DB Busy (sync) for ${staleEtf.ticker}, skipping sync.`,
-                      );
-                    } else {
-                      console.error(
-                        `[API] Background sync failed for ${staleEtf.ticker}:`,
-                        err,
-                      );
-                    }
-                  }),
-                ),
-              ),
-            );
-          }
-        }
-      }
-    }
-
-    const rawTargets = query
-      ? query
-          .split(",")
-          .map((t) => t.trim().toUpperCase())
-          .filter((t) => t.length > 0)
-      : [];
-    if (tickersParam) {
-      requestedTickers.forEach((t) => rawTargets.push(t));
-    }
-
-    const uniqueTargets = Array.from(new Set(rawTargets));
-    const loadedTickers = new Set(etfs.map((e: any) => e.ticker));
-    let targetsToFetch = uniqueTargets.filter((t) => !loadedTickers.has(t));
-
-    if (etfs.length > 0) {
-      targetsToFetch = targetsToFetch.filter(
-        (t) => !t.includes(" ") && t.length <= 12,
+      return NextResponse.json(
+        existingEtfs.map((e) => ({
+          ...e,
+          price: e.price.toNumber(),
+          dailyChange: e.daily_change.toNumber(),
+          yield: e.yield ? e.yield.toNumber() : undefined,
+          mer: e.mer ? e.mer.toNumber() : undefined,
+          sectors: e.sectors?.map((s) => ({
+            name: s.sector,
+            value: s.weight.toNumber(),
+          })),
+          holdings: e.holdings?.map((h) => ({
+            ticker: h.ticker,
+            name: h.name,
+            weight: h.weight.toNumber(),
+          })),
+          history: e.history?.map((h) => ({
+            date: h.date.toISOString().split("T")[0],
+            price: h.price.toNumber(),
+          })),
+        })),
       );
     }
 
-    const limitedTargets = targetsToFetch.slice(0, 5);
+    // 2. Handle Single Item Full Detail Request
+    if (fullDetails && query && isValidTicker(query)) {
+      let etf = await prisma.etf.findUnique({
+        where: { ticker: query },
+        include: {
+          sectors: true,
+          holdings: {
+            orderBy: { weight: "desc" },
+            take: 100, // Reasonable limit
+          },
+          history: {
+            orderBy: { date: "asc" },
+            where: {
+               // If requesting full history, we might want to filter interval
+               // Usually '1d' is standard.
+               interval: '1d' // Ensure we get daily candles
+            }
+          },
+        },
+      });
 
-    if (limitedTargets.length > 0 && !tickersParam) {
-      const limit = pLimit(1);
+      const isStale =
+        !etf ||
+        Date.now() - etf.updatedAt.getTime() > 1000 * 60 * 60 * 24; // 24 hours
+      // Also check if we have deep data (like holdings/sectors) which might be missing on initial seed
+      const isMissingDeepData =
+        etf &&
+        (etf.assetType === "ETF" &&
+          (etf.sectors.length === 0 || etf.holdings.length === 0));
 
-      {
+      if (!etf || isStale || isMissingDeepData) {
+        // Perform blocking sync for detail view to ensure user gets data
         try {
-          let existingInDb: any[] = [];
-          try {
-            existingInDb = await prisma.etf.findMany({
-              where: { ticker: { in: limitedTargets } },
-              include: includeObj,
-            });
-          } catch (e) {
-            console.error("[API] Fallback DB read failed", e);
-          }
-
-          existingInDb.forEach((e: any) => {
-            if (!etfs.find((existing: any) => existing.ticker === e.ticker)) {
-              etfs.push(e);
-            }
+           // If it's a new ticker, this might take a few seconds
+           await syncEtfDetails(query, true, true);
+           // Re-fetch
+           etf = await prisma.etf.findUnique({
+            where: { ticker: query },
+            include: {
+              sectors: true,
+              holdings: {
+                orderBy: { weight: "desc" },
+                take: 100,
+              },
+              history: {
+                orderBy: { date: "asc" },
+                where: { interval: '1d' }
+              },
+            },
           });
-
-          const foundTickerSet = new Set(etfs.map((e: any) => e.ticker));
-          const missingTargets = limitedTargets.filter(
-            (t) => !foundTickerSet.has(t),
-          );
-
-          if (missingTargets.length > 0) {
-            await Promise.all(
-              missingTargets.map((ticker) =>
-                limit(async () => {
-                  try {
-                    const synced = await syncEtfDetails(ticker);
-                    if (synced) {
-                      etfs.push(synced as any);
-                    }
-                  } catch (err) {
-                    console.error(`[API] Sync failed for ${ticker}`, err);
-                  }
-                }),
-              ),
-            );
-
-            const foundAfterSync = new Set(etfs.map((e: any) => e.ticker));
-            const stillMissing = limitedTargets.filter(
-              (t) => !foundAfterSync.has(t),
-            );
-
-            if (stillMissing.length > 0) {
-              try {
-                const liveData = await fetchMarketSnapshot(stillMissing);
-
-                const snapshotPromises = liveData.map((item) =>
-                  limit(async () => {
-                    try {
-                      return await prisma.etf.upsert({
-                        where: { ticker: item.ticker },
-                        update: {
-                          price: toPrismaDecimalRequired(item.price),
-                          daily_change: toPrismaDecimalRequired(
-                            item.dailyChangePercent,
-                          ),
-                        },
-                        create: {
-                          ticker: item.ticker,
-                          name: item.name,
-                          price: toPrismaDecimalRequired(item.price),
-                          daily_change: toPrismaDecimalRequired(
-                            item.dailyChangePercent,
-                          ),
-                          currency: "USD",
-                          assetType: item.assetType || "ETF",
-                          isDeepAnalysisLoaded: false,
-                        },
-                        include: includeObj,
-                      });
-                    } catch (createErr) {
-                      console.error(
-                        `[API] Failed to create snapshot ETF ${item.ticker}`,
-                        createErr,
-                      );
-                      return {
-                        ticker: item.ticker,
-                        name: item.name,
-                        price: item.price,
-                        daily_change: item.dailyChangePercent,
-                        assetType: item.assetType || "ETF",
-                        isDeepAnalysisLoaded: false,
-                        yield: new Decimal(0),
-                        mer: new Decimal(0),
-                        history: [],
-                        sectors: [],
-                        allocation: null,
-                        updatedAt: new Date(),
-                      };
-                    }
-                  }),
-                );
-
-                const snapshotEtfs = await Promise.all(snapshotPromises);
-                etfs.push(...(snapshotEtfs as any[]));
-              } catch (snapshotErr) {
-                console.error("[API] Snapshot fallback failed", snapshotErr);
-              }
-            }
-          }
-        } catch (fallbackError) {
-          console.error("[API] Fallback strategy failed:", fallbackError);
+        } catch(e) {
+           console.error(`Failed to sync details for ${query}`, e);
+           // If sync fails but we have stale data, return it?
+           if (!etf) {
+             return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+           }
         }
       }
-    }
 
-    const formattedEtfs = etfs.map((etf: any) => {
-      let history = etf.history
-        ? etf.history.map((h: any) => ({
-            date: h.date instanceof Date ? h.date.toISOString() : h.date,
-            price: Number(h.close),
-            interval:
-              h.interval === "daily" || !h.interval ? undefined : h.interval,
-          }))
-        : [];
+      if (!etf) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-      if (!isFullHistoryRequested && history.length > 50) {
-        const step = Math.ceil(history.length / 30);
-        history = history.filter(
-          (_: any, index: number) =>
-            index % step === 0 || index === history.length - 1,
-        );
-      }
-
-      return {
-        ticker: etf.ticker,
-        name: etf.name,
-        price: safeDecimal(etf.price),
-        changePercent: safeDecimal(etf.daily_change),
-        assetType: etf.assetType,
-        isDeepAnalysisLoaded: etf.isDeepAnalysisLoaded,
-        history: history,
-        metrics: {
-          yield: etf.yield ? safeDecimal(etf.yield) : 0,
-          mer: etf.mer ? safeDecimal(etf.mer) : 0,
-        },
-        // Extended Metrics
-        marketCap: etf.marketCap ? safeDecimal(etf.marketCap) : undefined,
-        sharesOutstanding: etf.sharesOut
-          ? safeDecimal(etf.sharesOut)
-          : undefined,
-        eps: etf.eps ? safeDecimal(etf.eps) : undefined,
-        revenue: etf.revenue ? safeDecimal(etf.revenue) : undefined,
-        netIncome: etf.netIncome ? safeDecimal(etf.netIncome) : undefined,
-        dividend: etf.dividend ? safeDecimal(etf.dividend) : undefined,
-        dividendYield: etf.yield ? safeDecimal(etf.yield) : undefined,
-        exDividendDate: etf.exDividendDate || undefined,
-        volume: etf.volume ? safeDecimal(etf.volume) : undefined,
-        open: etf.open ? safeDecimal(etf.open) : undefined,
-        previousClose: etf.prevClose ? safeDecimal(etf.prevClose) : undefined,
-        earningsDate: etf.earningsDate || undefined,
-        daysRange: etf.daysRange || undefined,
-        fiftyTwoWeekRange: etf.fiftyTwoWeekRange || undefined,
-        beta: etf.beta5Y ? safeDecimal(etf.beta5Y) : undefined,
-        peRatio: etf.peRatio ? safeDecimal(etf.peRatio) : undefined,
-        forwardPe: etf.forwardPe ? safeDecimal(etf.forwardPe) : undefined,
-        fiftyTwoWeekHigh: etf.fiftyTwoWeekHigh
-          ? safeDecimal(etf.fiftyTwoWeekHigh)
-          : undefined,
-        fiftyTwoWeekLow: etf.fiftyTwoWeekLow
-          ? safeDecimal(etf.fiftyTwoWeekLow)
-          : undefined,
-
-        inceptionDate: etf.inceptionDate || undefined,
-        payoutFrequency: etf.payoutFrequency || undefined,
-        payoutRatio: etf.payoutRatio ? safeDecimal(etf.payoutRatio) : undefined,
-        holdingsCount: etf.holdingsCount || undefined,
-        bondMaturity: etf.bondMaturity
-          ? safeDecimal(etf.bondMaturity)
-          : undefined,
-        bondDuration: etf.bondDuration
-          ? safeDecimal(etf.bondDuration)
-          : undefined,
-
-        allocation: {
-          equities: etf.allocation?.stocks_weight
-            ? safeDecimal(etf.allocation.stocks_weight)
-            : 0,
-          bonds: etf.allocation?.bonds_weight
-            ? safeDecimal(etf.allocation.bonds_weight)
-            : 0,
-          cash: etf.allocation?.cash_weight
-            ? safeDecimal(etf.allocation.cash_weight)
-            : 0,
-        },
-        sectors: (etf.sectors || []).reduce(
-          (acc: { [key: string]: number }, sector: any) => {
-            acc[sector.sector_name] = safeDecimal(sector.weight);
-            return acc;
-          },
-          {} as { [key: string]: number },
-        ),
-        holdings: (etf.holdings || []).map((h: any) => ({
+      // Transform for frontend
+      return NextResponse.json({
+        ...etf,
+        price: etf.price.toNumber(),
+        dailyChange: etf.daily_change.toNumber(),
+        yield: etf.yield?.toNumber(),
+        mer: etf.mer?.toNumber(),
+        marketCap: etf.marketCap?.toNumber(),
+        beta: etf.beta5Y?.toNumber(),
+        pe: etf.peRatio?.toNumber(),
+        eps: etf.eps?.toNumber(),
+        dividend: etf.dividend?.toNumber(),
+        sharesOutstanding: etf.sharesOut?.toNumber(),
+        revenue: etf.revenue?.toNumber(),
+        sectors: etf.sectors.map((s) => ({
+          name: s.sector,
+          value: s.weight.toNumber(),
+        })),
+        holdings: etf.holdings.map((h) => ({
           ticker: h.ticker,
           name: h.name,
-          weight: safeDecimal(h.weight),
-          sector: h.sector,
-          shares: h.shares ? safeDecimal(h.shares) : undefined,
+          weight: h.weight.toNumber(),
+          shares: h.shares ? h.shares.toNumber() : undefined,
+          sector: h.sector
         })),
-      };
+        history: etf.history.map((h) => ({
+          date: h.date.toISOString().split("T")[0],
+          price: h.price.toNumber(),
+        })),
+      });
+    }
+
+    // 3. Handle General Text Search
+    const where: Prisma.EtfWhereInput = {
+      OR: [
+        { ticker: { contains: query, mode: "insensitive" } },
+        { name: { contains: query, mode: "insensitive" } },
+      ],
+    };
+
+    if (type) {
+        where.assetType = type;
+    }
+
+    const results = await prisma.etf.findMany({
+      where,
+      take: 10,
+      orderBy: {
+        marketCap: 'desc', // Prioritize larger assets
+      },
+      include: {
+        sectors: true,
+      }
     });
+
+    const formattedEtfs = results.map((etf) => ({
+      ticker: etf.ticker,
+      name: etf.name,
+      price: etf.price.toNumber(),
+      currency: etf.currency,
+      dailyChange: etf.daily_change.toNumber(),
+      yield: etf.yield?.toNumber(),
+      assetType: etf.assetType,
+      sectors: etf.sectors.map((s) => ({
+        name: s.sector,
+        value: s.weight.toNumber(),
+      })),
+    }));
 
     return NextResponse.json(formattedEtfs);
   } catch (error) {

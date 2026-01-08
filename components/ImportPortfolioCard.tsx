@@ -5,10 +5,8 @@ import {
   Upload,
   Loader2,
   AlertCircle,
-  CheckCircle,
   Smartphone,
 } from "lucide-react";
-import { extractDataFromImage } from "@/lib/steganography";
 import { motion, AnimatePresence } from "framer-motion";
 import { PortfolioItem } from "@/types";
 import { cn } from "@/lib/utils";
@@ -22,42 +20,18 @@ export default function ImportPortfolioCard({
   onImport,
   className,
 }: ImportPortfolioCardProps) {
-  const [isProcessing, setIsProcessing] = useState(false);
+  // Steganography removed. This component is now a placeholder or needs new logic.
+  // For now, we will disable the functionality but keep the UI structure to avoid breaking layout.
+
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessing(true);
-    setStatus("idle");
-    setErrorMessage("");
-
-    try {
-      const data = await extractDataFromImage(file);
-
-      if (
-        data &&
-        data.type === "PORTFOLIO_COMPASS_V1" &&
-        Array.isArray(data.portfolio)
-      ) {
-        onImport(data.portfolio);
-        setStatus("success");
-        setTimeout(() => setStatus("idle"), 3000);
-      } else {
-        throw new Error("Invalid portfolio data structure found.");
-      }
-    } catch (error: any) {
-      console.error("Import failed:", error);
+      // Feature disabled
       setStatus("error");
-      setErrorMessage(error.message || "Failed to decode portfolio data.");
+      setErrorMessage("Import from image is currently disabled.");
       setTimeout(() => setStatus("idle"), 5000);
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
   };
 
   return (
@@ -72,7 +46,6 @@ export default function ImportPortfolioCard({
 
       <motion.button
         onClick={() => fileInputRef.current?.click()}
-        disabled={isProcessing}
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
@@ -93,25 +66,6 @@ export default function ImportPortfolioCard({
         {/* Glow Effect */}
         <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-        {isProcessing ? (
-          <div className="relative z-10 flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-            <span className="text-sm text-stone-400">Processing...</span>
-          </div>
-        ) : status === "success" ? (
-          <div className="relative z-10 flex flex-col items-center gap-3">
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center"
-            >
-              <CheckCircle className="w-6 h-6 text-emerald-500" />
-            </motion.div>
-            <span className="text-lg font-bold text-emerald-400">
-              Imported!
-            </span>
-          </div>
-        ) : (
           <>
             <div className="relative z-10 w-16 h-16 rounded-2xl bg-stone-900 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-xl group-hover:shadow-emerald-500/20">
               <Upload className="w-8 h-8 text-stone-400 group-hover:text-emerald-400 transition-colors" />
@@ -126,7 +80,6 @@ export default function ImportPortfolioCard({
               </p>
             </div>
           </>
-        )}
       </motion.button>
 
       {/* Error Message */}

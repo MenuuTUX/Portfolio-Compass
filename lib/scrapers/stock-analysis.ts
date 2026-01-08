@@ -1,10 +1,7 @@
 import * as cheerio from 'cheerio';
-import { z } from 'zod';
+import { isValidTicker } from "@/lib/validators";
 
-// Strict validation for ticker symbol
-const tickerSchema = z.string().min(1).max(6).regex(/^[a-zA-Z0-9]+$/);
-
-export interface StockProfile {
+interface StockProfile {
   sector: string;
   industry: string;
   description: string;
@@ -12,379 +9,171 @@ export interface StockProfile {
     summary: string;
     consensus: string;
     targetPrice: number | null;
-    targetUpside: number | null; // as percentage
+    targetUpside: number | null;
   };
-  marketCap?: number;
-  revenue?: number;
-  netIncome?: number;
-  sharesOutstanding?: number;
-  eps?: number;
-  peRatio?: number;
-  forwardPe?: number;
-  dividend?: number;
-  dividendYield?: number;
-  dividendGrowth5Y?: number;
-  exDividendDate?: string;
-
-  volume?: number;
-  open?: number;
-  previousClose?: number;
-  daysRange?: string; // "0.1733 - 0.4700"
-  fiftyTwoWeekRange?: string; // "0.1153 - 9.8000"
-  beta?: number;
-  earningsDate?: string;
-
-  fiftyTwoWeekLow?: number;
-  fiftyTwoWeekHigh?: number;
-  expenseRatio?: number;
-
-  // New ETF Metrics
-  inceptionDate?: string;
-  payoutFrequency?: string;
-  payoutRatio?: number;
-  holdingsCount?: number;
-  bondMaturity?: number;
-  bondDuration?: number;
+  [key: string]: any;
 }
 
-export interface ScrapedHolding {
-    symbol: string;
-    name: string;
-    weight: number;
-    shares: number | null;
+const STOCK_ANALYSIS_HEADERS = {
+   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+   'Accept-Language': 'en-US,en;q=0.9',
+   'Accept-Encoding': 'gzip, deflate, br, zstd',
+   'Referer': 'https://www.google.com/',
+   'Upgrade-Insecure-Requests': '1',
+   'Sec-Fetch-Dest': 'document',
+   'Sec-Fetch-Mode': 'navigate',
+   'Sec-Fetch-Site': 'none',
+   'Sec-Fetch-User': '?1',
+   'Cache-Control': 'max-age=0',
+   'Priority': 'u=0, i'
+};
+
+const fetchWithUserAgent = async (url: string) => {
+  return fetch(url, {
+    headers: STOCK_ANALYSIS_HEADERS
+  });
 }
 
 export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<string[]> {
-    const url = `https://stockanalysis.com/markets/${type}/`;
-    const response = await fetch(url, {
-        redirect: 'error',
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
-    });
-    if (!response.ok) {
-        console.error(`Failed to fetch ${type}: ${response.status}`);
-        return [];
-    }
-    const html = await response.text();
-    const $ = cheerio.load(html);
+  const url = `https://stockanalysis.com/markets/${type}/`;
+  const res = await fetchWithUserAgent(url);
 
-    const tickers: string[] = [];
-
-    // Find the main table
-    $('table').each((_, table) => {
-        const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
-        if (headers.includes('Symbol') && headers.includes('% Change')) {
-            const symbolIndex = headers.indexOf('Symbol');
-            if (symbolIndex > -1) {
-                 $(table).find('tbody tr').each((_, tr) => {
-                    const symbolCell = $(tr).find('td').eq(symbolIndex);
-                    const ticker = symbolCell.text().trim();
-                    if (ticker) tickers.push(ticker);
-                 });
-            }
-        }
-    });
-
-    return tickers;
-}
-
-export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
-    // Strict validation
-    const validation = tickerSchema.safeParse(ticker);
-    if (!validation.success) {
-        console.error(`Invalid ticker format: ${ticker}`);
-        return [];
-    }
-
-    // StockAnalysis mostly supports US tickers.
-    // If it's a Canadian ticker (e.g. .TO), it likely won't have holdings data on this site.
-    // We skip explicitly to avoid 404 noise.
-    if (ticker.includes('.')) {
-        return [];
-    }
-
-    const url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/holdings/`;
-    const response = await fetch(url, {
-        redirect: 'error',
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
-    });
-
-    if (!response.ok) {
-        if (response.status === 404) {
-            // It's common for some ETFs not to be on StockAnalysis, warn instead of error
-            console.warn(`[StockAnalysis] Holdings not found for ${ticker} (404).`);
-        } else {
-            console.error(`Failed to fetch holdings for ${ticker}: ${response.status}`);
-        }
-        return [];
-    }
-
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    const holdings: ScrapedHolding[] = [];
-
-    $('table').each((_, table) => {
-        const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
-
-        const symbolIndex = headers.indexOf('Symbol');
-        const nameIndex = headers.indexOf('Name');
-        const weightIndex = headers.indexOf('% Weight');
-        const sharesIndex = headers.indexOf('Shares');
-
-        if (symbolIndex > -1 && weightIndex > -1) {
-             $(table).find('tbody tr').each((_, tr) => {
-                const tds = $(tr).find('td');
-                const symbol = tds.eq(symbolIndex).text().trim();
-                const name = nameIndex > -1 ? tds.eq(nameIndex).text().trim() : '';
-                const weightText = tds.eq(weightIndex).text().trim();
-                const sharesText = sharesIndex > -1 ? tds.eq(sharesIndex).text().trim() : '';
-
-                let weight = 0;
-                if (weightText.endsWith('%')) {
-                    weight = parseFloat(weightText.replace('%', '')) / 100;
-                }
-
-                let shares: number | null = null;
-                if (sharesText) {
-                    const cleanShares = sharesText.replace(/,/g, '');
-                    if (!isNaN(parseFloat(cleanShares))) {
-                        shares = parseFloat(cleanShares);
-                    }
-                }
-
-                if (symbol && symbol.toLowerCase() !== 'n/a') {
-                    holdings.push({
-                        symbol,
-                        name,
-                        weight,
-                        shares
-                    });
-                } else if (name && weight > 0) {
-                     holdings.push({
-                         symbol: name,
-                         name: name,
-                         weight,
-                         shares
-                     });
-                }
-             });
-        }
-    });
-
-    return holdings;
-}
-
-function parseMarketNumber(val: string): number | undefined {
-    if (!val) return undefined;
-    val = val.toUpperCase().replace('$', '').replace(/,/g, '');
-    let multiplier = 1;
-    if (val.endsWith('T')) {
-        multiplier = 1e12;
-        val = val.slice(0, -1);
-    } else if (val.endsWith('B')) {
-        multiplier = 1e9;
-        val = val.slice(0, -1);
-    } else if (val.endsWith('M')) {
-        multiplier = 1e6;
-        val = val.slice(0, -1);
-    } else if (val.endsWith('K')) {
-        multiplier = 1e3;
-        val = val.slice(0, -1);
-    }
-    const num = parseFloat(val);
-    if (isNaN(num)) return undefined;
-    return num * multiplier;
-}
-
-const fetchWithUserAgent = async (u: string) => fetch(u, {
-  redirect: 'error',
-  headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-  }
-});
-
-export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
-  // Strict validation
-  const validation = tickerSchema.safeParse(ticker);
-  if (!validation.success) {
-      console.error(`Invalid ticker format: ${ticker}`);
-      return null;
+  if (!res.ok) {
+    throw new Error(`Failed to fetch market movers: ${res.status}`);
   }
 
-  let upperTicker = ticker.toUpperCase();
-  let url = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/`;
-  let isEtf = false;
-
-  let response = await fetchWithUserAgent(url);
-
-  if (response.status === 404) {
-    // Try ETF URL
-    url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
-    response = await fetchWithUserAgent(url);
-    if (response.ok) isEtf = true;
-  }
-
-  // REMOVED: Fallback recursive logic for suffixes (.TO, .NE) to prevent DoS/SSRF amplification
-
-  if (!response.ok) {
-    console.error(`Failed to fetch profile for ${ticker}: ${response.status}`);
-    return null;
-  }
-
-  const html = await response.text();
+  const html = await res.text();
   const $ = cheerio.load(html);
+  const tickers: string[] = [];
 
-  let sector = '';
-  let industry = '';
+  // StockAnalysis movers table usually has tickers in the second column (td.sym or similar)
+  // We'll look for standard table rows
+  $('table tr').each((i, el) => {
+    if (i === 0) return; // Skip header
 
-  const extractLabelValue = (labels: string[]): string | undefined => {
-      let val: string | undefined;
-      $('span, div, td, th').each((_, el) => {
-        if (val) return;
-        const text = $(el).text().trim();
-        // Exact match or starts with label:
-        if (labels.includes(text) || labels.some(l => text.startsWith(l + ':'))) {
-            // Check next sibling
-            let next = $(el).next();
-            if (next.length && next.text().trim()) {
-                 val = next.text().trim();
-                 return;
-            }
-            // Check if colon format
-            if (text.includes(':')) {
-                 const parts = text.split(':');
-                 if (parts.length > 1 && parts[1].trim()) {
-                     val = parts[1].trim();
-                     return;
-                 }
-            }
-        }
-      });
-      return val;
-  };
+    // Attempt to find the ticker cell
+    const symbolCell = $(el).find('td').filter((_, td) => {
+      const text = $(td).text().trim();
+      // Tickers are usually short, uppercase, no spaces (maybe dots)
+      return /^[A-Z.-]+$/.test(text) && text.length < 10;
+    }).first();
 
-  sector = extractLabelValue(['Sector', 'Asset Class']) || '';
-  industry = extractLabelValue(['Industry', 'Category']) || '';
-
-  // Fallback scan if still empty
-  if (!sector || !industry) {
-      $('div, li, tr').each((_, el) => {
-        if ($(el).children().length > 5) return;
-        const text = $(el).text().trim();
-
-        if (!sector && (text === 'Sector' || text.startsWith('Sector:'))) {
-            const next = $(el).next();
-            if (next.length) sector = next.text().trim();
-        }
-        if (!industry && (text === 'Industry' || text.startsWith('Industry:'))) {
-             const next = $(el).next();
-            if (next.length) industry = next.text().trim();
-        }
-      });
-  }
-
-  // Description
-  let description = '';
-  $('h2, h3').each((_, el) => {
-      if (description) return;
-      const headerText = $(el).text().trim();
-      if (headerText.includes(`About ${upperTicker}`)) {
-
-          const findDescriptionInSiblings = (startElem: cheerio.Cheerio<any>) => {
-              let next = startElem.next();
-              let attempts = 0;
-              while (next.length && attempts < 10) {
-                   const text = next.text().trim();
-                   // Stop if we hit another header
-                   if (next.is('h2') || next.is('h3')) return null;
-
-                   // If text is substantial, it's likely the description
-                   if (text.length > 50) {
-                       if (next.is('div')) {
-                           const p = next.find('p').first();
-                           if (p.length && p.text().trim().length > 50) {
-                               return p.text().trim();
-                           }
-                           // If div has text but no p, use the text
-                           return text;
-                       }
-                       return text;
-                   }
-                   next = next.next();
-                   attempts++;
-              }
-              return null;
-          }
-
-          // Try siblings of the header
-          let desc = findDescriptionInSiblings($(el));
-
-          // If not found, check parent's siblings (in case header is wrapped in a flex/grid div)
-          if (!desc) {
-              const parent = $(el).parent();
-              if (parent.length && (parent.is('div') || parent.is('header'))) {
-                  desc = findDescriptionInSiblings(parent);
-              }
-          }
-
-          if (desc) description = desc;
-      }
+    if (symbolCell.length) {
+      tickers.push(symbolCell.text().trim());
+    }
   });
 
-  if (description) {
-      description = description.replace(/\[Read more\]/g, '').trim();
-      if (description.endsWith('...')) description = description.slice(0, -3).trim();
+  // Limit to top 20
+  return tickers.slice(0, 20);
+}
+
+export async function getStockProfile(ticker: string): Promise<StockProfile> {
+  if (!isValidTicker(ticker)) {
+    throw new Error("Invalid ticker format");
   }
 
+  // Handle TSX/NEO suffixes for StockAnalysis URLs
+  // They use /quote/tsx/ticker or /quote/neo/ticker structure
+  let urlTicker = ticker.toLowerCase();
+  let exchangePrefix = '';
+
+  if (urlTicker.endsWith('.to')) {
+      urlTicker = urlTicker.replace('.to', '');
+      exchangePrefix = 'tsx/';
+  } else if (urlTicker.endsWith('.ne')) {
+      urlTicker = urlTicker.replace('.ne', '');
+      exchangePrefix = 'neo/';
+  }
+
+  const url = `https://stockanalysis.com/stocks/${exchangePrefix}${urlTicker}/profile/`;
+
+  const res = await fetchWithUserAgent(url);
+  if (!res.ok) {
+     // If stock fail, try generic ETF url structure
+     // StockAnalysis uses /etf/ticker for ETFs
+     const etfUrl = `https://stockanalysis.com/etf/${exchangePrefix}${urlTicker}/`;
+     const etfRes = await fetchWithUserAgent(etfUrl);
+     if (!etfRes.ok) {
+         throw new Error(`Failed to fetch profile for ${ticker}`);
+     }
+     return parseProfile(await etfRes.text(), true);
+  }
+
+  return parseProfile(await res.text(), false);
+}
+
+function parseProfile(html: string, isEtf: boolean): StockProfile {
+  const $ = cheerio.load(html);
+
+  // Basic Info
+  let description = '';
+  // StockAnalysis puts description in a predictable div structure, often after the header
+  const aboutHeader = $('h2').filter((_, el) => $(el).text().includes('About'));
+  if (aboutHeader.length) {
+      description = aboutHeader.next('p').text().trim();
+  }
+
+  // If failed, try generic meta description or first paragraph
   if (!description) {
-      const metaDesc = $('meta[name="description"]').attr('content');
-      if (metaDesc && !metaDesc.startsWith("Get a real-time stock price for the")) {
-          description = metaDesc;
-      }
+      description = $('meta[name="description"]').attr('content') || '';
   }
 
-  // --- Financial Metrics Scraping ---
+  // Info Table (Sector, Industry)
+  let sector = 'Unknown';
+  let industry = 'Unknown';
 
-  const metrics: Partial<StockProfile> = {};
+  // Table rows in the profile section
+  $('table tr').each((_, el) => {
+      const label = $(el).find('td').first().text().trim();
+      const val = $(el).find('td').last().text().trim();
 
-  const extractValue = (label: string): string | undefined => {
-    let val: string | undefined;
+      if (label === 'Sector' || label === 'Asset Class') sector = val;
+      if (label === 'Industry' || label === 'Category') industry = val;
+  });
 
-    // Try finding exact text match in common elements
-    $('div, td, th, span').each((_, el) => {
-        if (val) return;
-        const text = $(el).text().trim();
-        if (text === label) {
-            let next = $(el).next();
-            if (next.length) {
-                val = next.text().trim();
-                return;
-            }
+  // Extract Financial Metrics
+  const metrics: any = {};
+
+  // Helper to parse "1.23B", "45.6M", etc.
+  const parseMarketNumber = (str: string): number | null => {
+      if (!str || str === '-') return null;
+      const clean = str.replace(/[$,]/g, '').trim();
+      const lastChar = clean.slice(-1).toUpperCase();
+      const val = parseFloat(clean.slice(0, -1));
+
+      if (isNaN(val)) {
+          // Try parsing without suffix
+          const raw = parseFloat(clean);
+          return isNaN(raw) ? null : raw;
+      }
+
+      if (lastChar === 'T') return val * 1e12;
+      if (lastChar === 'B') return val * 1e9;
+      if (lastChar === 'M') return val * 1e6;
+      if (lastChar === 'K') return val * 1e3;
+
+      // If it ends in %, it's a percentage (e.g. Yield)
+      if (lastChar === '%') return val;
+
+      return parseFloat(clean);
+  };
+
+  const extractValue = (label: string): string | null => {
+    let val: string | null = null;
+    // Look in all tables
+    $('table tr').each((_, el) => {
+        const rowLabel = $(el).find('td').first().text().trim();
+        if (rowLabel === label) {
+            val = $(el).find('td').last().text().trim();
         }
     });
 
-    if (!val) {
-        // Try looking for label inside a cell in a table row, take next cell
-        $('tr').each((_, tr) => {
-            if (val) return;
-            const cells = $(tr).find('td, th');
-            cells.each((i, cell) => {
-                if ($(cell).text().trim() === label) {
-                    if (i + 1 < cells.length) {
-                        val = $(cells[i+1]).text().trim();
-                    }
-                }
-            });
-        });
-    }
-
+    // Also check overview cards if tables fail
     if (!val) {
         $('div').each((_, el) => {
-            if (val) return;
             const text = $(el).text().trim();
+            // Heuristic: "Market Cap 1.23B"
             if (text.startsWith(label) && text.length < label.length + 20) {
                  const part = text.substring(label.length).trim();
                  if (part && !part.includes('\n')) {
@@ -509,16 +298,14 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       if (!isNaN(n)) metrics.holdingsCount = n;
   }
 
-  // Parse ranges into Low/High if available
   if (metrics.fiftyTwoWeekRange && metrics.fiftyTwoWeekRange.includes('-')) {
-      const parts = metrics.fiftyTwoWeekRange.split('-').map(s => parseFloat(s.trim().replace(/,/g, '')));
+      const parts = metrics.fiftyTwoWeekRange.split('-').map((s: string) => parseFloat(s.trim().replace(/,/g, '')));
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
           metrics.fiftyTwoWeekLow = parts[0];
           metrics.fiftyTwoWeekHigh = parts[1];
       }
   }
 
-  // Analyst Data
   let analyst: StockProfile['analyst'] | undefined;
 
   $('h2, h3').each((_, el) => {

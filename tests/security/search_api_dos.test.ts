@@ -9,13 +9,21 @@ const mockSyncEtfDetails = mock(() => Promise.resolve(null));
 
 mock.module('@/lib/db', () => {
   return {
-    default: {
+    prisma: {
       etf: {
         findMany: mockPrismaFindMany,
         create: mockPrismaCreate,
         upsert: mockPrismaUpsert,
         findUnique: mock(() => Promise.resolve(null))
       }
+    },
+    default: {
+        etf: {
+            findMany: mockPrismaFindMany,
+            create: mockPrismaCreate,
+            upsert: mockPrismaUpsert,
+            findUnique: mock(() => Promise.resolve(null))
+        }
     }
   };
 });
@@ -37,7 +45,9 @@ mock.module('next/server', () => {
   return {
     NextRequest: class {
       nextUrl: URL;
+      url: string;
       constructor(url: string) {
+        this.url = url;
         this.nextUrl = new URL(url);
       }
     },
@@ -68,28 +78,19 @@ describe('SECURITY: /api/etfs/search', () => {
   });
 
   it('should limit the number of tickers in tickers parameter to prevent DoS', async () => {
-    // Generate 1000 tickers: A0, A1, ..., A999
     const hugeTickerList = Array.from({ length: 1000 }, (_, i) => `A${i}`).join(',');
-
-    // We expect fetchMarketSnapshot to NOT be called with 1000 items
-    // Ideally it should be capped (e.g. 50)
 
     const request = new NextRequest(`http://localhost/api/etfs/search?tickers=${hugeTickerList}`);
     await GET(request);
 
-    // Check what fetchMarketSnapshot was called with
-    // If vulnerable, it will be called with 1000 items
-    // If fixed, it should be called with <= 50 items
     const calls = mockFetchMarketSnapshot.mock.calls;
+    // We expect it to be called because we passed valid-looking tickers (A0, A1...)
+    // If it's not called, maybe validation failed? A0 is alphanumeric.
+    expect(calls.length).toBeGreaterThan(0);
+
     if (calls.length > 0) {
         const calledTickers = calls[0][0];
-        console.log(`fetchMarketSnapshot called with ${calledTickers.length} tickers`);
-        // If > 50, it fails our security check
         expect(calledTickers.length).toBeLessThanOrEqual(50);
-    } else {
-        // If not called, that might be okay if we block it entirely,
-        // but typically we'd expect it to process the first N items.
-        // Or if nothing is missing (but here everything is missing as DB is empty mock)
     }
   });
 
@@ -100,10 +101,10 @@ describe('SECURITY: /api/etfs/search', () => {
     await GET(request);
 
     const calls = mockFetchMarketSnapshot.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+
     if (calls.length > 0) {
         const calledTickers = calls[0][0];
-        console.log('Called tickers:', calledTickers);
-
         expect(calledTickers).toContain('VALID');
         expect(calledTickers).toContain('GOOD');
         expect(calledTickers).not.toContain('INVALID!!');

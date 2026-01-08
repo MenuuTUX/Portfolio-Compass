@@ -6,11 +6,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const safeDecimal = (val: any) => {
-  if (Decimal.isDecimal(val)) return val.toNumber();
-  if (typeof val === "string") return parseFloat(val);
+export const safeDecimal = (val: number | string | Decimal | null | undefined): number | Decimal => {
+  if (val === null || val === undefined) return 0; // Or return null if the codebase supports it, but current contract expects 0 fallback for UI safety.
+  if (Decimal.isDecimal(val)) return val;
+  if (typeof val === "string") {
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? 0 : parsed;
+  }
   if (typeof val === "number") return val;
-  return 0;
+  return 0; // Fallback for any other type (unlikely with strict typing)
 };
 
 export function formatCurrency(value: number | Decimal) {
@@ -31,7 +35,7 @@ export function formatPercentage(value: number | Decimal) {
 }
 
 export interface RiskMetric {
-  stdDev: number; // Keep result as number for UI/logic consumption
+  stdDev: number;
   label: string;
   color: string;
   bgColor: string;
@@ -51,13 +55,11 @@ export function calculateRiskMetric(
     };
   }
 
-  // 1. Calculate daily percent changes using Decimal for precision in calc
   const changes: Decimal[] = [];
   for (let i = 1; i < history.length; i++) {
     const prev = new Decimal(history[i - 1].price);
     const curr = new Decimal(history[i].price);
     if (!prev.isZero()) {
-      // (curr - prev) / prev
       changes.push(curr.minus(prev).dividedBy(prev));
     }
   }
@@ -72,7 +74,6 @@ export function calculateRiskMetric(
     };
   }
 
-  // 2. Calculate Standard Deviation
   const count = new Decimal(changes.length);
   const sum = changes.reduce((acc, val) => acc.plus(val), new Decimal(0));
   const mean = sum.dividedBy(count);
@@ -86,11 +87,9 @@ export function calculateRiskMetric(
   const stdDev = variance.sqrt();
   const stdDevPercent = stdDev.times(100);
 
-  // Convert to number for comparison and return
   const stdDevVal = stdDev.toNumber();
   const stdDevPercentVal = stdDevPercent.toNumber();
 
-  // 3. Categorize Risk
   let label = "";
   let color = "";
   let bgColor = "";

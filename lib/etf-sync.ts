@@ -1,466 +1,192 @@
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { fetchEtfDetails } from "@/lib/market-service";
-import { getEtfHoldings } from "@/lib/scrapers/stock-analysis";
 import { Decimal } from "@/lib/decimal";
-import { Prisma } from "@prisma/client";
-import { toPrismaDecimal, toPrismaDecimalRequired } from "@/lib/prisma-utils";
+import { getAssetIconUrl } from "@/lib/etf-providers";
 
-export type FullEtf = Prisma.EtfGetPayload<{
-  include: {
-    history: true;
-    sectors: true;
-    allocation: true;
-    holdings: true;
-  };
-}>;
-
-// Helper to retry transactions
-async function runTransactionWithRetry<T>(
-  fn: (tx: Prisma.TransactionClient) => Promise<T>,
-  options: { timeout?: number; maxWait?: number } = {},
-  retries = 3,
-): Promise<T> {
-  let lastError: any;
-  for (let i = 0; i < retries; i++) {
-    try {
-      return await prisma.$transaction(fn, options);
-    } catch (error: any) {
-      lastError = error;
-      // Retry on specific transaction errors
-      if (
-        error.code === "P2028" || // Transaction API error
-        error.message.includes("Unable to start a transaction") ||
-        error.message.includes("Transaction already closed") ||
-        error.message.includes("timeout exceeded") ||
-        error.message.includes("Connection terminated")
-      ) {
-        console.warn(
-          `[EtfSync] Transaction failed (attempt ${i + 1}/${retries}), retrying...`,
-        );
-        await new Promise((r) => setTimeout(r, 1000 * (i + 1))); // Linear backoff
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw lastError;
-}
-
+/**
+ * Synchronizes a single ETF's details, holdings, sector allocation, and price history
+ * with the database.
+ */
 export async function syncEtfDetails(
   ticker: string,
-  intervals?: ("1h" | "1d" | "1wk" | "1mo")[],
-): Promise<FullEtf | null> {
-  try {
-    console.log(`[EtfSync] Starting sync for ${ticker}...`);
+  includeHistory = false,
+  isDeepSync = false,
+) {
+  const details = await fetchEtfDetails(ticker);
 
-    // 0. Smart Interval Selection to Minimize API Requests
-    // Fetch the ETF metadata first to check staleness
-    const etfMetadata = await prisma.etf.findUnique({
-      where: { ticker },
-      select: { updatedAt: true, assetType: true },
-    });
+  if (!details) {
+    throw new Error(`Could not fetch details for ${ticker}`);
+  }
 
-    let targetIntervals = intervals;
-
-    // If intervals are not explicitly specified (default sync), optimize them
-    if (!targetIntervals) {
-      // Default set
-      targetIntervals = ["1h", "1d", "1wk", "1mo"];
-
-      if (etfMetadata && etfMetadata.updatedAt) {
-        const now = new Date();
-        const lastUpdate = new Date(etfMetadata.updatedAt);
-        const hoursSinceUpdate =
-          (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
-
-        // If updated recently (e.g., < 24 hours), we assume long-term charts (1wk, 1mo) are fresh enough.
-        // We fetch '1d' (daily) to catch the latest close/price.
-        // We MUST fetch '1h' (hourly) because the "1D" chart relies on it for intraday views.
-        if (hoursSinceUpdate < 24) {
-          console.log(
-            `[EtfSync] Item updated recently (${hoursSinceUpdate.toFixed(1)}h ago). Optimizing to ['1d', '1h'].`,
-          );
-          targetIntervals = ["1d", "1h"];
-        }
-      }
-    }
-
-    // 0. Check Existing Data to determine fromDate
-    const latestHistory = await prisma.etfHistory.findFirst({
-      where: {
-        etfId: ticker,
-        interval: "1d",
-      },
-      orderBy: {
-        date: "desc",
-      },
-    });
-
-    let fromDate: Date | undefined;
-    if (latestHistory) {
-      fromDate = new Date(latestHistory.date);
-      fromDate.setDate(fromDate.getDate() + 1); // Start from next day
-      console.log(
-        `[EtfSync] Found existing history for ${ticker}, fetching from ${fromDate.toISOString()}`,
-      );
-    } else {
-      console.log(
-        `[EtfSync] No existing history for ${ticker}, fetching full history`,
-      );
-    }
-
-    // 1. Fetch deep details from Yahoo
-    const details = await fetchEtfDetails(ticker, fromDate, targetIntervals);
-
-    if (!details) {
-      console.error(`[EtfSync] No details found for ${ticker}`);
-      return null;
-    }
-
-    // 2. Normalize Allocation
-    let stocks_weight = new Decimal(100);
-    let bonds_weight = new Decimal(0);
-    let cash_weight = new Decimal(0);
-
-    if (details.assetType === "ETF") {
-      if (
-        details.name.toLowerCase().includes("bond") ||
-        details.description.toLowerCase().includes("bond")
-      ) {
-        stocks_weight = new Decimal(0);
-        bonds_weight = new Decimal(100);
-      }
-    }
-
-    // 3. Upsert ETF Record (Lightweight)
-    let etf;
-    try {
-      etf = await prisma.etf.upsert({
-        where: { ticker: details.ticker },
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.etf.upsert({
+        where: { ticker },
         update: {
-          price: toPrismaDecimalRequired(details.price),
-          daily_change: toPrismaDecimalRequired(details.dailyChange),
-          yield: toPrismaDecimal(details.dividendYield),
-          mer: toPrismaDecimal(details.expenseRatio),
-          beta5Y: toPrismaDecimal(details.beta5Y),
-          peRatio: toPrismaDecimal(details.peRatio),
-          forwardPe: toPrismaDecimal(details.forwardPe),
-          fiftyTwoWeekHigh: toPrismaDecimal(details.fiftyTwoWeekHigh),
-          fiftyTwoWeekLow: toPrismaDecimal(details.fiftyTwoWeekLow),
-
-          // Extended Metrics
-          marketCap: toPrismaDecimal(details.marketCap),
-          sharesOut: toPrismaDecimal(details.sharesOutstanding),
-          eps: toPrismaDecimal(details.eps),
-          revenue: toPrismaDecimal(details.revenue),
-          netIncome: toPrismaDecimal(details.netIncome),
-          dividend: toPrismaDecimal(details.dividend),
-          dividendGrowth5Y: toPrismaDecimal(details.dividendGrowth5Y),
-          exDividendDate: details.exDividendDate || null,
-          volume: toPrismaDecimal(details.volume),
-          open: toPrismaDecimal(details.open),
-          prevClose: toPrismaDecimal(details.previousClose),
-          earningsDate: details.earningsDate || null,
-          daysRange: details.daysRange || null,
-          fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
-
-          // New ETF Metrics
-          inceptionDate: details.inceptionDate || null,
-          payoutFrequency: details.payoutFrequency || null,
-          payoutRatio: toPrismaDecimal(details.payoutRatio),
-          holdingsCount: details.holdingsCount || null,
-
-          name: details.name,
-          currency: "USD",
-          exchange: "Unknown",
-          assetType: details.assetType,
-          isDeepAnalysisLoaded: true,
+          price: new Decimal(details.price || 0),
+          currency: details.currency || "CAD",
+          daily_change: new Decimal(details.dailyChange || 0),
+          updatedAt: new Date(),
+          yield: details.yield ? new Decimal(details.yield) : null,
+          assetType: details.assetType || "ETF",
+          name: details.name || ticker,
+          description: details.description || undefined,
+          logoUrl: details.assetType
+            ? getAssetIconUrl(ticker, details.name || "", details.assetType)
+            : undefined,
+          marketCap: details.marketCap ? new Decimal(details.marketCap) : null,
+          beta5Y: details.beta ? new Decimal(details.beta) : null,
+          peRatio: details.pe ? new Decimal(details.pe) : null,
+          eps: details.eps ? new Decimal(details.eps) : null,
+          revenue: details.revenue ? new Decimal(details.revenue) : null,
+          netIncome: details.netIncome
+            ? new Decimal(details.netIncome)
+            : null,
+          sharesOut: details.sharesOut
+            ? new Decimal(details.sharesOut)
+            : null,
+          dividend: details.dividend
+            ? new Decimal(details.dividend)
+            : null,
+          expenseRatio: details.expenseRatio
+            ? new Decimal(details.expenseRatio)
+            : null,
+          volume: details.volume ? new Decimal(details.volume) : null,
+          openPrice: details.open ? new Decimal(details.open) : null,
+          prevClose: details.prevClose
+            ? new Decimal(details.prevClose)
+            : null,
+          fiftyTwoWeekHigh: details.fiftyTwoWeekHigh
+            ? new Decimal(details.fiftyTwoWeekHigh)
+            : null,
+          fiftyTwoWeekLow: details.fiftyTwoWeekLow
+            ? new Decimal(details.fiftyTwoWeekLow)
+            : null,
+          exDividendDate: details.exDividendDate
+            ? new Date(details.exDividendDate)
+            : null,
+          earningsDate: details.earningsDate
+            ? new Date(details.earningsDate)
+            : null,
         },
         create: {
-          ticker: details.ticker,
-          name: details.name,
-          currency: "USD",
-          exchange: "Unknown",
-          price: toPrismaDecimalRequired(details.price),
-          daily_change: toPrismaDecimalRequired(details.dailyChange),
-          yield: toPrismaDecimal(details.dividendYield),
-          mer: toPrismaDecimal(details.expenseRatio),
-          beta5Y: toPrismaDecimal(details.beta5Y),
-          peRatio: toPrismaDecimal(details.peRatio),
-          forwardPe: toPrismaDecimal(details.forwardPe),
-          fiftyTwoWeekHigh: toPrismaDecimal(details.fiftyTwoWeekHigh),
-          fiftyTwoWeekLow: toPrismaDecimal(details.fiftyTwoWeekLow),
-
-          // Extended Metrics
-          marketCap: toPrismaDecimal(details.marketCap),
-          sharesOut: toPrismaDecimal(details.sharesOutstanding),
-          eps: toPrismaDecimal(details.eps),
-          revenue: toPrismaDecimal(details.revenue),
-          netIncome: toPrismaDecimal(details.netIncome),
-          dividend: toPrismaDecimal(details.dividend),
-          exDividendDate: details.exDividendDate || null,
-          volume: toPrismaDecimal(details.volume),
-          open: toPrismaDecimal(details.open),
-          prevClose: toPrismaDecimal(details.previousClose),
-          earningsDate: details.earningsDate || null,
-          daysRange: details.daysRange || null,
-          fiftyTwoWeekRange: details.fiftyTwoWeekRange || null,
-
-          // New ETF Metrics
-          inceptionDate: details.inceptionDate || null,
-          payoutFrequency: details.payoutFrequency || null,
-          payoutRatio: toPrismaDecimal(details.payoutRatio),
-          holdingsCount: details.holdingsCount || null,
-
-          assetType: details.assetType,
-          isDeepAnalysisLoaded: true,
+          ticker,
+          name: details.name || ticker,
+          price: new Decimal(details.price || 0),
+          currency: details.currency || "CAD",
+          daily_change: new Decimal(details.dailyChange || 0),
+          updatedAt: new Date(),
+          yield: details.yield ? new Decimal(details.yield) : null,
+          assetType: details.assetType || "ETF",
+          description: details.description || undefined,
+          logoUrl: details.assetType
+            ? getAssetIconUrl(ticker, details.name || "", details.assetType)
+            : undefined,
+          marketCap: details.marketCap ? new Decimal(details.marketCap) : null,
+          beta5Y: details.beta ? new Decimal(details.beta) : null,
+          peRatio: details.pe ? new Decimal(details.pe) : null,
+          eps: details.eps ? new Decimal(details.eps) : null,
+          revenue: details.revenue ? new Decimal(details.revenue) : null,
+          netIncome: details.netIncome
+            ? new Decimal(details.netIncome)
+            : null,
+          sharesOut: details.sharesOut
+            ? new Decimal(details.sharesOut)
+            : null,
+          dividend: details.dividend
+            ? new Decimal(details.dividend)
+            : null,
+          expenseRatio: details.expenseRatio
+            ? new Decimal(details.expenseRatio)
+            : null,
+          volume: details.volume ? new Decimal(details.volume) : null,
+          openPrice: details.open ? new Decimal(details.open) : null,
+          prevClose: details.prevClose
+            ? new Decimal(details.prevClose)
+            : null,
+          fiftyTwoWeekHigh: details.fiftyTwoWeekHigh
+            ? new Decimal(details.fiftyTwoWeekHigh)
+            : null,
+          fiftyTwoWeekLow: details.fiftyTwoWeekLow
+            ? new Decimal(details.fiftyTwoWeekLow)
+            : null,
+          exDividendDate: details.exDividendDate
+            ? new Date(details.exDividendDate)
+            : null,
+          earningsDate: details.earningsDate
+            ? new Date(details.earningsDate)
+            : null,
         },
       });
-    } catch (upsertError: any) {
-      // Fallback Logic if DB is totally dead
+
+      // Update Sectors
+      // details.sectors is a Record<string, Decimal>
+      if (details.sectors && Object.keys(details.sectors).length > 0) {
+        await tx.etfSector.deleteMany({
+          where: { etfId: ticker },
+        });
+
+        await tx.etfSector.createMany({
+          data: Object.entries(details.sectors).map(([sector, weight]) => ({
+            etfId: ticker,
+            sector_name: sector,
+            weight: new Decimal(weight),
+          })),
+        });
+      }
+
       if (
-        upsertError.toString().includes("DriverAdapterError") ||
-        upsertError.toString().includes("Can't reach database server")
+        details.assetType === "ETF" &&
+        details.topHoldings &&
+        details.topHoldings.length > 0
       ) {
-        console.warn(
-          `[EtfSync] DB Unreachable for upsert. Returning live fallback object for ${ticker}.`,
-        );
-        throw upsertError; // Re-throw to be caught by outer catch block which constructs fallback
+        await tx.holding.deleteMany({
+          where: { etfId: ticker },
+        });
+
+        await tx.holding.createMany({
+          data: details.topHoldings.map((h) => ({
+            etfId: ticker,
+            ticker: h.ticker,
+            name: h.name,
+            sector: h.sector || "Unknown",
+            weight: new Decimal(h.weight),
+            shares: null, // Scraper doesn't return shares
+          })),
+        });
       }
-      throw upsertError;
-    }
 
-    console.log(`[EtfSync] Upserted base record for ${etf.ticker}`);
+      if (includeHistory && details.history && details.history.length > 0) {
+        const dates = details.history.map((h) => new Date(h.date));
+        const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
 
-    // 4 & 5. Update Sectors & Allocation (Separate Transaction - Fast)
-    await runTransactionWithRetry(
-      async (tx) => {
-        // Sectors
-        if (Object.keys(details.sectors).length > 0) {
-          await tx.etfSector.deleteMany({ where: { etfId: etf.ticker } });
-          await tx.etfSector.createMany({
-            data: Object.entries(details.sectors).map(([sector, weight]) => ({
-              etfId: etf.ticker,
-              sector_name: sector,
-              weight: toPrismaDecimalRequired(weight),
-            })),
-          });
-        }
-
-        // Allocation
-        await tx.etfAllocation.upsert({
-          where: { etfId: etf.ticker },
-          update: {
-            stocks_weight: toPrismaDecimalRequired(stocks_weight),
-            bonds_weight: toPrismaDecimalRequired(bonds_weight),
-            cash_weight: toPrismaDecimalRequired(cash_weight),
-          },
-          create: {
-            etfId: etf.ticker,
-            stocks_weight: toPrismaDecimalRequired(stocks_weight),
-            bonds_weight: toPrismaDecimalRequired(bonds_weight),
-            cash_weight: toPrismaDecimalRequired(cash_weight),
+        await tx.etfHistory.deleteMany({
+          where: {
+            etfId: ticker,
+            date: {
+              gte: minDate,
+              lte: maxDate,
+            },
+            interval: "1d",
           },
         });
-      },
-      {
-        timeout: 10000, // 10s is plenty for this
-      },
-    );
 
-    // 6. Update History (Separate Transaction - Heavy)
-    // We split this to release the DB connection after metadata update and before heavy history processing
-    if (details.history && details.history.length > 0) {
-      await runTransactionWithRetry(
-        async (tx) => {
-          // Identify which intervals we have in the new data
-          const fetchedIntervals = new Set(
-            details.history.map((h: any) => h.interval),
-          );
-          const dailyHistory = details.history.filter(
-            (h: any) => h.interval === "1d",
-          );
-
-          // Determine which non-daily intervals were fetched and need replacement
-          // We only replace intervals that were actually returned by the fetch
-          const intervalsToReplace = Array.from(fetchedIntervals).filter(
-            (i) => i !== "1d",
-          );
-
-          if (intervalsToReplace.length > 0) {
-            // Delete only the intervals we are about to replace
-            await tx.etfHistory.deleteMany({
-              where: {
-                etfId: etf.ticker,
-                interval: { in: intervalsToReplace },
-              },
-            });
-
-            const otherHistory = details.history.filter(
-              (h: any) => h.interval !== "1d",
-            );
-
-            if (otherHistory.length > 0) {
-              await tx.etfHistory.createMany({
-                data: otherHistory.map((h: any) => ({
-                  etfId: etf.ticker,
-                  date: new Date(h.date),
-                  close: toPrismaDecimalRequired(h.close),
-                  interval: h.interval,
-                })),
-              });
-            }
-          }
-
-          // Append daily history (skip duplicates)
-          if (dailyHistory.length > 0) {
-            // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
-            const dates = dailyHistory.map((h: any) => new Date(h.date));
-            // Optimization: If dates array is huge (>2000), 'in' clause might be slow.
-            // But for incremental sync it's small.
-            // For full sync, we might just delete all for '1d' if fromDate is undefined?
-            // But let's stick to safe logic.
-
-            if (dates.length > 0) {
-              await tx.etfHistory.deleteMany({
-                where: {
-                  etfId: etf.ticker,
-                  interval: "1d",
-                  date: { in: dates },
-                },
-              });
-            }
-
-            await tx.etfHistory.createMany({
-              data: dailyHistory.map((h: any) => ({
-                etfId: etf.ticker,
-                date: new Date(h.date),
-                close: toPrismaDecimalRequired(h.close),
-                interval: "1d",
-              })),
-              skipDuplicates: true,
-            });
-          }
-        },
-        {
-          timeout: 60000, // 60s for history
-          maxWait: 20000,
-        },
-      );
-    }
-
-    // 7. Update Holdings (Separate Transaction)
-    let holdingsSynced = false;
-
-    // Try StockAnalysis.com first (Only for ETFs)
-    if (etf.assetType === "ETF") {
-      try {
-        const scrapedHoldings = await getEtfHoldings(etf.ticker);
-        if (scrapedHoldings.length > 0) {
-          console.log(
-            `[EtfSync] Using StockAnalysis.com holdings for ${etf.ticker} (${scrapedHoldings.length} items)...`,
-          );
-
-          // Create a sector map from Yahoo data if available to enrich scraped data
-          const sectorMap = new Map<string, string>();
-          if (details.topHoldings) {
-            details.topHoldings.forEach((h) => {
-              if (h.ticker && h.sector) {
-                sectorMap.set(h.ticker, h.sector);
-              }
-            });
-          }
-
-          // Use interactive transaction for holdings update
-          await runTransactionWithRetry(
-            async (tx) => {
-              await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
-              await tx.holding.createMany({
-                data: scrapedHoldings.map((h) => ({
-                  etfId: etf.ticker,
-                  ticker: h.symbol,
-                  name: h.name,
-                  sector: sectorMap.get(h.symbol) || "Unknown",
-                  // Normalize StockAnalysis decimal weights (0.05) to percentage (5.0) to match Yahoo
-                  weight: toPrismaDecimalRequired(
-                    new Decimal(h.weight).mul(100),
-                  ),
-                  shares: toPrismaDecimal(
-                    h.shares ? new Decimal(h.shares) : null,
-                  ),
-                })),
-              });
-            },
-            {
-              timeout: 30000,
-            },
-          );
-          console.log(
-            `[EtfSync] Synced ${scrapedHoldings.length} holdings for ${etf.ticker} (StockAnalysis)`,
-          );
-          holdingsSynced = true;
-        }
-      } catch (saError) {
-        console.error(
-          `[EtfSync] Failed to sync StockAnalysis holdings for ${etf.ticker}`,
-          saError,
-        );
-      }
-    }
-
-    // Fallback to Yahoo Finance if StockAnalysis failed or returned no data
-    // Only fetch holdings for ETFs
-    if (
-      etf.assetType === "ETF" &&
-      !holdingsSynced &&
-      details.topHoldings &&
-      details.topHoldings.length > 0
-    ) {
-      try {
-        console.log(
-          `[EtfSync] Using Yahoo Finance top holdings for ${etf.ticker}...`,
-        );
-        // Use interactive transaction for holdings update
-        await runTransactionWithRetry(async (tx) => {
-          await tx.holding.deleteMany({ where: { etfId: etf.ticker } });
-          await tx.holding.createMany({
-            data: details.topHoldings!.map((h) => ({
-              etfId: etf.ticker,
-              ticker: h.ticker,
-              name: h.name,
-              sector: h.sector || "Unknown",
-              weight: toPrismaDecimalRequired(h.weight),
-              shares: null, // Yahoo doesn't provide share counts
-            })),
-          });
+        await tx.etfHistory.createMany({
+          data: details.history.map((h) => ({
+            etfId: ticker,
+            date: new Date(h.date),
+            close: new Decimal(h.close), // Map close -> close (not price)
+            interval: "1d",
+          })),
         });
-        console.log(
-          `[EtfSync] Synced ${details.topHoldings.length} holdings for ${etf.ticker} (Yahoo)`,
-        );
-      } catch (yhError) {
-        console.error(
-          `[EtfSync] Failed to sync Yahoo holdings for ${etf.ticker}`,
-          yhError,
-        );
       }
-    }
+    },
+    {
+      timeout: 60000,
+      maxWait: 10000,
+    },
+  );
 
-    const fullEtf = await prisma.etf.findUnique({
-      where: { ticker: etf.ticker },
-      include: {
-        history: { orderBy: { date: "asc" } },
-        sectors: true,
-        allocation: true,
-        holdings: true,
-      },
-    });
-
-    // Explicitly cast the result to ensure it matches the FullEtf type
-    // This handles the case where findUnique returns null, or the type inference is slightly off
-    if (!fullEtf) return null;
-    return fullEtf as FullEtf;
-  } catch (error) {
-    console.error(`[EtfSync] Failed to sync ${ticker}:`, error);
-    return null;
-  }
+  return details;
 }

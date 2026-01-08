@@ -31,7 +31,7 @@
     "@vercel/analytics"
   ],
   "dependencies": {
-    "@happy-dom/global-registrator": "^20.0.11",
+    "@happy-dom/global-registrator": "^20.1.0",
     "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "^7.2.0",

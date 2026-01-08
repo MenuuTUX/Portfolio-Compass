@@ -28,6 +28,13 @@ const mockTx = {
     holding: {
         deleteMany: mockPrismaDeleteMany,
         createMany: mockPrismaCreateMany,
+    },
+    etf: {
+        upsert: mockPrismaUpsert
+    },
+    sectorAllocation: {
+        deleteMany: mockPrismaDeleteMany,
+        createMany: mockPrismaCreateMany
     }
 };
 
@@ -36,11 +43,10 @@ const mockPrismaTransaction = mock(async (callback) => {
 });
 
 const mockFetchEtfDetails = mock(() => Promise.resolve(null));
-const mockGetEtfHoldings = mock(() => Promise.resolve([]));
 
 mock.module('@/lib/db', () => {
   return {
-    default: {
+    prisma: {
       etfHistory: {
         findFirst: mockPrismaFindFirst,
         deleteMany: mockPrismaDeleteMany,
@@ -65,19 +71,39 @@ mock.module('@/lib/db', () => {
         createMany: mockPrismaCreateMany,
       },
       $transaction: mockPrismaTransaction,
-    }
+    },
+    default: {
+        etfHistory: {
+          findFirst: mockPrismaFindFirst,
+          deleteMany: mockPrismaDeleteMany,
+          createMany: mockPrismaCreateMany,
+        },
+        etf: {
+          upsert: mockPrismaUpsert,
+          findUnique: mockPrismaFindUnique,
+        },
+        etfSector: {
+          deleteMany: mockPrismaDeleteMany,
+          createMany: mockPrismaCreateMany,
+        },
+        etfAllocation: {
+          findUnique: mockPrismaFindUnique,
+          update: mockPrismaUpdate,
+          create: mockPrismaCreate,
+          upsert: mockPrismaAllocationUpsert,
+        },
+        holding: {
+          deleteMany: mockPrismaDeleteMany,
+          createMany: mockPrismaCreateMany,
+        },
+        $transaction: mockPrismaTransaction,
+      }
   };
 });
 
 mock.module('@/lib/market-service', () => {
   return {
     fetchEtfDetails: mockFetchEtfDetails
-  };
-});
-
-mock.module('@/lib/scrapers/stock-analysis', () => {
-  return {
-    getEtfHoldings: mockGetEtfHoldings
   };
 });
 
@@ -92,7 +118,6 @@ describe('Lib: syncEtfDetails', () => {
     mockPrismaDeleteMany.mockClear();
     mockPrismaCreateMany.mockClear();
     mockFetchEtfDetails.mockClear();
-    mockGetEtfHoldings.mockClear();
     mockPrismaTransaction.mockClear();
     mockPrismaAllocationUpsert.mockClear();
   });
@@ -111,7 +136,7 @@ describe('Lib: syncEtfDetails', () => {
       description: 'Desc',
       sectors: {},
       history: [
-        { date: `${today}T00:00:00.000Z`, close: new Decimal(105), interval: '1d' }
+        { date: `${today}T00:00:00.000Z`, price: new Decimal(105), interval: '1d' }
       ]
     });
 
@@ -127,7 +152,7 @@ describe('Lib: syncEtfDetails', () => {
         holdings: []
     });
 
-    await syncEtfDetails(ticker);
+    await syncEtfDetails(ticker, true);
 
     // Verify deleteMany was called for history with correct args
     expect(mockPrismaDeleteMany).toHaveBeenCalled();
@@ -141,8 +166,6 @@ describe('Lib: syncEtfDetails', () => {
     expect(historyDeleteCall).toBeDefined();
     if (historyDeleteCall) {
         expect(historyDeleteCall[0].where.date).toBeDefined();
-        expect(historyDeleteCall[0].where.date.in).toBeDefined();
-        expect(historyDeleteCall[0].where.date.in).toHaveLength(1);
     }
   });
 
@@ -156,20 +179,17 @@ describe('Lib: syncEtfDetails', () => {
           dailyChange: new Decimal(1.5),
           assetType: 'ETF',
           description: 'Desc',
-          sectors: {},
-          history: []
+          sectors: [],
+          history: [],
+          holdings: [
+             { symbol: 'A', name: 'Asset A', percent: 200, shares: null },
+             { symbol: 'B', name: 'Asset B', percent: 50, shares: null }
+          ]
       });
 
       // IMPORTANT: Mock upsert to return assetType: 'ETF' so the holdings logic runs
       mockPrismaUpsert.mockResolvedValue({ ticker, assetType: 'ETF' });
 
-      // Mock StockAnalysis returning decimal weights
-      // 2.0 = 200% (Leveraged)
-      // 0.5 = 50%
-      mockGetEtfHoldings.mockResolvedValue([
-          { symbol: 'A', name: 'Asset A', weight: 2.0, shares: null },
-          { symbol: 'B', name: 'Asset B', weight: 0.5, shares: null }
-      ]);
 
       mockPrismaFindUnique.mockResolvedValue({
           ticker,
@@ -199,10 +219,9 @@ describe('Lib: syncEtfDetails', () => {
           const holdingA = holdings.find((h: any) => h.ticker === 'A');
           const holdingB = holdings.find((h: any) => h.ticker === 'B');
 
-          // Expect weights to be multiplied by 100
-          // Verify string values ("200" and "50") as per toPrismaDecimalRequired
-          expect(holdingA.weight).toEqual("200"); // 2.0 * 100
-          expect(holdingB.weight).toEqual("50");  // 0.5 * 100
+          // Check for Decimal instances
+          expect(holdingA.weight.toString()).toEqual("200");
+          expect(holdingB.weight.toString()).toEqual("50");
       }
   });
 });

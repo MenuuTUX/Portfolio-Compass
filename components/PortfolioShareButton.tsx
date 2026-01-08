@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { PortfolioShareCard, ShareCardProps } from "./PortfolioShareCard";
-import { embedDataInImage } from "@/lib/steganography";
 
 interface PortfolioShareButtonProps {
   portfolio: ShareCardProps["portfolio"];
@@ -38,54 +37,16 @@ export function PortfolioShareButton({
 
   const generateImage = async () => {
     if (!cardRef.current) return null;
-    // Small delay to ensure render
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // 1. Generate visual PNG
     const baseDataUrl = await toPng(cardRef.current, {
       cacheBust: true,
       backgroundColor: "#0a0a0a",
       quality: 1.0,
-      pixelRatio: 2, // High res
+      pixelRatio: 2,
     });
 
-    // 2. Encode hidden data
-    return new Promise<string>((resolve, reject) => {
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-
-          // Prepare payload
-          const payload = {
-            type: "PORTFOLIO_COMPASS_V1",
-            portfolio,
-            meta: {
-              name: portfolioName,
-              user: userName,
-              date: new Date().toISOString(),
-            },
-          };
-
-          try {
-            const finalDataUrl = await embedDataInImage(canvas, payload);
-            resolve(finalDataUrl);
-          } catch (e) {
-            console.error("Data embedding failed", e);
-            // Fallback to base image if encoding fails
-            resolve(baseDataUrl);
-          }
-        } else {
-          resolve(baseDataUrl);
-        }
-      };
-      img.onerror = reject;
-      img.src = baseDataUrl;
-    });
+    return baseDataUrl;
   };
 
   const handleDownload = useCallback(async () => {
@@ -204,7 +165,7 @@ export function PortfolioShareButton({
                     </h3>
                   </div>
                   <p className="text-neutral-400 text-sm leading-relaxed">
-                    Customize the header details for your portfolio report. Portfolio data will be securely embedded in the image.
+                    Customize the header details for your portfolio report.
                   </p>
                 </div>
 
