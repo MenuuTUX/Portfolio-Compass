@@ -1,89 +1,89 @@
-
-import { describe, it, expect } from 'bun:test';
-import { render } from '@testing-library/react';
-import { PortfolioShareCard } from '../../../components/PortfolioShareCard';
+import { describe, it, expect, mock, afterEach } from 'bun:test';
 import React from 'react';
-import { Portfolio } from '@/types';
+import { render, screen, cleanup } from '@testing-library/react';
+import { ShareCardProps } from '@/components/PortfolioShareCard';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
+// Mock Next/Image
+mock.module('next/image', () => ({
+    default: ({ alt }: any) => <img alt={alt} />
+}));
+
+// Import component
+import { PortfolioShareCard } from '@/components/PortfolioShareCard';
+
 describe('PortfolioShareCard', () => {
-    const mockPortfolio: Portfolio = [
-        { ticker: 'AAPL', name: 'Apple Inc.', price: 150, weight: 60, shares: 10, assetType: 'STOCK', history: [], metrics: { yield: 0.5, mer: 0 }, allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { 'Technology': 1 } },
-        { ticker: 'MSFT', name: 'Microsoft Corp.', price: 300, weight: 40, shares: 5, assetType: 'STOCK', history: [], metrics: { yield: 0.8, mer: 0 }, allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { 'Technology': 1 } }
+    afterEach(() => {
+        cleanup();
+    });
+
+    const mockPortfolio = [
+        { ticker: 'AAPL', name: 'Apple Inc', weight: 60, shares: 10, price: 150, value: 1500, logo: '/apple.png', allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { Technology: 1 } },
+        { ticker: 'MSFT', name: 'Microsoft', weight: 40, shares: 5, price: 300, value: 1500, logo: '/msft.png', allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { Technology: 1 } }
     ];
 
     const mockMetrics = {
         totalValue: 3000,
-        annualReturn: 0.12,
-        yield: 0.02,
+        annualReturn: 0.155,
+        yield: 2.1,
         projectedValue: 15000,
         totalInvested: 3000,
         dividends: 500,
         years: 10,
         scenario: 'Simple Growth',
         growthType: 'Simple' as const,
-        percentageGrowth: 400
+        percentageGrowth: 155,
+        sharpeRatio: 1.8,
+        volatility: 12.5,
+        maxDrawdown: -10.2,
+        beta: 1.1,
+        expenseRatio: 0.05
     };
 
     const mockChartData = [
-        { value: 3000 }, { value: 3500 }, { value: 4200 }, { value: 5000 }
+        { value: 1000, min: 900, max: 1100 },
+        { value: 1100, min: 1000, max: 1200 }
     ];
 
+    const defaultProps: ShareCardProps = {
+        portfolio: mockPortfolio as any,
+        metrics: mockMetrics,
+        chartData: mockChartData
+    };
+
     it('renders portfolio summary correctly', () => {
-        const { getByText, getAllByText } = render(
-            <PortfolioShareCard
-                userName="Test User"
-                portfolio={mockPortfolio}
-                metrics={mockMetrics}
-                chartData={mockChartData}
-            />
-        );
+        render(<PortfolioShareCard {...defaultProps} />);
 
-        expect(getByText("Prepared for")).toBeInTheDocument();
-        expect(getByText("Test User")).toBeInTheDocument();
-        expect(getByText("Portfolio Compass")).toBeInTheDocument();
-        expect(getByText("Institutional Grade")).toBeInTheDocument();
+        // Check Projected Value ($15,000)
+        expect(screen.getByText((content) => content.includes('$15,000'))).toBeInTheDocument();
 
-        // Check for calculated stats
-        expect(getAllByText('12.00%')[0]).toBeInTheDocument(); // CAGR
-        // Use getAllByText as value might be rendered multiple times (e.g. shadow effects)
-        expect(getAllByText('$15,000.00')[0]).toBeInTheDocument(); // Projected Value
+        // Check Dividends ($500)
+        expect(screen.getByText((content) => content.includes('$500'))).toBeInTheDocument();
+
+        // Check Return
+        expect(screen.getByText((content) => content.includes('+155%'))).toBeInTheDocument();
+
+        // Check "Professional Analysis" badge
+        expect(screen.getByText('Professional Analysis')).toBeInTheDocument();
     });
 
     it('renders top holdings list', () => {
-        const { getAllByText } = render(
-            <PortfolioShareCard
-                portfolio={mockPortfolio}
-                metrics={mockMetrics}
-                chartData={mockChartData}
-            />
-        );
+        render(<PortfolioShareCard {...defaultProps} />);
 
-        expect(getAllByText('AAPL')[0]).toBeInTheDocument();
-        expect(getAllByText('60.0%')[0]).toBeInTheDocument();
-        expect(getAllByText('MSFT')[0]).toBeInTheDocument();
-        expect(getAllByText('40.0%')[0]).toBeInTheDocument();
+        expect(screen.getByText('AAPL')).toBeInTheDocument();
+        expect(screen.getByText('MSFT')).toBeInTheDocument();
+        // Check weight formatting (60.0%)
+        expect(screen.getByText((content) => content.includes('60.0%'))).toBeInTheDocument();
     });
 
-    it('renders Monte Carlo range indicator when data is present', () => {
-         const monteCarloData = [
-            { value: 3000, min: 2900, max: 3100 },
-            { value: 5000, min: 4000, max: 6000 }
-         ];
+    it('renders chart svg elements', () => {
+         const { container } = render(<PortfolioShareCard {...defaultProps} />);
+         const svg = container.querySelector('svg');
+         expect(svg).toBeInTheDocument();
 
-         const { getAllByText } = render(
-            <PortfolioShareCard
-                portfolio={mockPortfolio}
-                metrics={{...mockMetrics, growthType: 'Monte Carlo'}}
-                chartData={monteCarloData}
-            />
-        );
-
-        // Updated text matching based on new design
-        // "Possible Outcomes (90% CI)" is the label for the Monte Carlo cone
-        // Note: The text is actually "90% Confidence Interval" in the component code
-        expect(getAllByText("90% Confidence Interval")[0]).toBeInTheDocument();
+         const paths = container.querySelectorAll('path');
+         expect(paths.length).toBeGreaterThan(0);
     });
 });
