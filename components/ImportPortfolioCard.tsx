@@ -6,9 +6,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  Smartphone,
 } from "lucide-react";
-import { extractDataFromImage } from "@/lib/steganography";
 import { motion, AnimatePresence } from "framer-motion";
 import { PortfolioItem } from "@/types";
 import { cn } from "@/lib/utils";
@@ -28,36 +26,20 @@ export default function ImportPortfolioCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Feature temporarily disabled as steganography lib was removed.
+    // In a real app, we might just parse a JSON file or similar.
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessing(true);
-    setStatus("idle");
-    setErrorMessage("");
+    setStatus("error");
+    setErrorMessage("Import feature is currently disabled.");
+    setTimeout(() => {
+        setStatus("idle");
+        setIsProcessing(false);
+    }, 3000);
 
-    try {
-      const data = await extractDataFromImage(file);
-
-      if (
-        data &&
-        data.type === "PORTFOLIO_COMPASS_V1" &&
-        Array.isArray(data.portfolio)
-      ) {
-        onImport(data.portfolio);
-        setStatus("success");
-        setTimeout(() => setStatus("idle"), 3000);
-      } else {
-        throw new Error("Invalid portfolio data structure found.");
-      }
-    } catch (error: any) {
-      console.error("Import failed:", error);
-      setStatus("error");
-      setErrorMessage(error.message || "Failed to decode portfolio data.");
-      setTimeout(() => setStatus("idle"), 5000);
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (

@@ -441,20 +441,21 @@ export default function MonteCarloSimulator({
                 percentageGrowth: percentageGrowth,
               }}
               // PASSING RANGE DATA IMPLICITLY VIA MIN/MAX PROPS
-              chartData={coneChartData.map(
+              history={coneChartData.map(
                 (d: {
                   median: number;
                   dividends: number;
                   p05: number;
                   p95: number;
+                  day: number;
                 }) => ({
                   value: d.median,
                   dividendValue: d.dividends,
                   min: d.p05, // Worst Case (5th percentile)
                   max: d.p95, // Best Case (95th percentile)
+                  date: `Y${(d.day / 252).toFixed(1)}` // Add required date string
                 }),
               )}
-              spyData={spyData}
             />
           )}
 
