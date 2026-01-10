@@ -80,13 +80,8 @@ export async function GET() {
   } catch (error) {
     console.error("[API] Portfolio fetch error:", error);
 
-    const errorMessage =
-      process.env.NODE_ENV === "development"
-        ? (error as Error).message
-        : "Internal Server Error";
-
     return NextResponse.json(
-      { error: errorMessage },
+      { error: "Internal Server Error" },
       { status: 500 },
     );
   }

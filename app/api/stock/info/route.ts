@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { getStockProfile } from "@/lib/scrapers/stock-analysis";
 import { getEtfDescription } from "@/lib/scrapers/etf-dot-com";
 import YahooFinance from "yahoo-finance2";
+import { z } from "zod";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
 });
+
+const tickerSchema = z.string().min(1).max(6).regex(/^[a-zA-Z0-9]+$/);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,6 +16,11 @@ export async function GET(request: Request) {
 
   if (!ticker) {
     return NextResponse.json({ error: "Ticker is required" }, { status: 400 });
+  }
+
+  const validation = tickerSchema.safeParse(ticker);
+  if (!validation.success) {
+    return NextResponse.json({ error: "Invalid ticker format" }, { status: 400 });
   }
 
   try {
@@ -105,13 +113,8 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Error fetching stock profile:", error);
 
-    const errorMessage =
-      process.env.NODE_ENV === "development"
-        ? (error as Error).message
-        : "Internal Server Error";
-
     return NextResponse.json(
-      { error: errorMessage },
+      { error: "Internal Server Error" },
       { status: 500 },
     );
   }

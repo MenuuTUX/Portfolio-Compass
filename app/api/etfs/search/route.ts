@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
         .filter((t) => t.length > 0);
 
       // Limit max tickers per request
-      if (requestedTickers.length > 50) {
-        requestedTickers = requestedTickers.slice(0, 50);
+      if (requestedTickers.length > 10) {
+        requestedTickers = requestedTickers.slice(0, 10);
       }
 
       requestedTickers = requestedTickers.filter((t) => {
