@@ -9,7 +9,44 @@ import { safeDecimal } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+// Simple in-memory rate limit: IP -> { count, startTime }
+const RATE_LIMIT = new Map<string, { count: number; startTime: number }>();
+
 export async function GET(request: NextRequest) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+
+  const currentTime = Date.now();
+  const windowTime = 60 * 1000; // 1 minute
+
+  const rateData = RATE_LIMIT.get(ip);
+
+  if (rateData) {
+    if (currentTime - rateData.startTime > windowTime) {
+      // Reset window
+      RATE_LIMIT.set(ip, { count: 1, startTime: currentTime });
+    } else {
+      if (rateData.count >= 10) {
+        return NextResponse.json(
+          { error: "Too Many Requests" },
+          { status: 429 },
+        );
+      }
+      rateData.count++;
+    }
+  } else {
+    RATE_LIMIT.set(ip, { count: 1, startTime: currentTime });
+  }
+
+  // Cleanup old entries periodically (lazy cleanup on request to avoid memory leak)
+  if (RATE_LIMIT.size > 1000) {
+    for (const [key, val] of RATE_LIMIT.entries()) {
+      if (currentTime - val.startTime > windowTime) {
+        RATE_LIMIT.delete(key);
+      }
+    }
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("query");
   const assetType = searchParams.get("type");

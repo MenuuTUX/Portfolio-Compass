@@ -38,8 +38,10 @@ mock.module('next/server', () => {
   return {
     NextRequest: class {
       nextUrl: URL;
-      constructor(url: string) {
+      headers: Headers;
+      constructor(url: string, init?: any) {
         this.nextUrl = new URL(url);
+        this.headers = new Headers(init?.headers);
       }
     },
     NextResponse: {
@@ -100,7 +102,7 @@ describe('API: /api/etfs/search', () => {
     });
 
     const request = new NextRequest('http://localhost/api/etfs/search?limit=100');
-    const response: any = await GET(request);
+    const response: any = await GET(request as any);
 
     expect(mockFetchMarketSnapshot).toHaveBeenCalled();
     expect(mockPrismaUpsert).toHaveBeenCalled();
@@ -131,7 +133,7 @@ describe('API: /api/etfs/search', () => {
     mockPrismaFindMany.mockResolvedValue([mockEtf]);
 
     const request = new NextRequest('http://localhost/api/etfs/search?query=VTI');
-    const response: any = await GET(request);
+    const response: any = await GET(request as any);
 
     expect(response._data).toHaveLength(1);
     expect(response._data[0].ticker).toBe('VTI');
@@ -162,7 +164,7 @@ describe('API: /api/etfs/search', () => {
     mockSyncEtfDetails.mockResolvedValue(syncedEtf);
 
     const request = new NextRequest('http://localhost/api/etfs/search?query=HQU.TO');
-    const response: any = await GET(request);
+    const response: any = await GET(request as any);
 
     expect(mockSyncEtfDetails).toHaveBeenCalledWith('HQU.TO');
     expect(mockFetchMarketSnapshot).not.toHaveBeenCalledWith(['HQU.TO']);
@@ -204,7 +206,7 @@ describe('API: /api/etfs/search', () => {
     mockPrismaUpsert.mockResolvedValue(createdEtf);
 
     const request = new NextRequest('http://localhost/api/etfs/search?query=NEW');
-    const response: any = await GET(request);
+    const response: any = await GET(request as any);
 
     expect(mockSyncEtfDetails).toHaveBeenCalledWith('NEW');
     expect(mockFetchMarketSnapshot).toHaveBeenCalledWith(['NEW']);
@@ -247,7 +249,7 @@ describe('API: /api/etfs/search', () => {
       mockPrismaFindMany.mockResolvedValue([nullFieldEtf]);
 
       const request = new NextRequest('http://localhost/api/etfs/search?query=NULLY');
-      const response: any = await GET(request);
+      const response: any = await GET(request as any);
 
       expect(response._data).toHaveLength(1);
       const item = response._data[0];

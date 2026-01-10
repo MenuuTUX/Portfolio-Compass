@@ -15,6 +15,26 @@ mock.module('@/lib/etf-sync', () => ({
   syncEtfDetails: mock(async () => ({})),
 }));
 
+mock.module('next/server', () => {
+    return {
+      NextRequest: class {
+        nextUrl: URL;
+        headers: Headers;
+        constructor(url: string, init?: any) {
+          this.nextUrl = new URL(url);
+          this.headers = new Headers(init?.headers);
+        }
+      },
+      NextResponse: {
+        json: (data: any, init?: any) => ({
+          _data: data,
+          status: init?.status || 200,
+          headers: new Headers(init?.headers)
+        })
+      }
+    };
+});
+
 describe('Bulk Sync API Security', () => {
   const originalEnv = process.env;
 
@@ -34,9 +54,9 @@ describe('Bulk Sync API Security', () => {
       method: 'POST',
     });
 
-    const res = await POST(req);
+    const res = await POST(req as any);
     expect(res.status).toBe(401);
-    const json = await res.json();
+    const json = (res as any)._data;
     expect(json.error).toBe('Unauthorized');
   });
 
@@ -51,7 +71,7 @@ describe('Bulk Sync API Security', () => {
       },
     });
 
-    const res = await POST(req);
+    const res = await POST(req as any);
     expect(res.status).toBe(401);
   });
 
@@ -63,9 +83,9 @@ describe('Bulk Sync API Security', () => {
       method: 'POST',
     });
 
-    const res = await POST(req);
+    const res = await POST(req as any);
     expect(res.status).toBe(500);
-    const json = await res.json();
+    const json = (res as any)._data;
     expect(json.error).toBe('Server Configuration Error: Missing CRON_SECRET');
   });
 
@@ -80,10 +100,10 @@ describe('Bulk Sync API Security', () => {
       },
     });
 
-    const res = await POST(req);
+    const res = await POST(req as any);
     // Since we mocked DB to return empty, it should be 200 with "No ETFs to sync"
     expect(res.status).toBe(200);
-    const json = await res.json();
+    const json = (res as any)._data;
     expect(json.message).toBe('No ETFs to sync');
   });
 
@@ -100,7 +120,7 @@ describe('Bulk Sync API Security', () => {
       method: 'POST',
     });
 
-    const res = await POST(req);
+    const res = await POST(req as any);
     expect(res.status).toBe(200);
     expect(warnSpy).toHaveBeenCalled();
 
