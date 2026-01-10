@@ -30,23 +30,16 @@ export async function GET(req: NextRequest) {
     // 1. Fail securely if the secret is not configured in the environment at all.
     // This prevents the endpoint from "failing open" (becoming public) if the env var is missing.
     if (!cronSecret) {
-      // In development, we might allow bypass for testing convenience, but warn loudly.
-      if (process.env.NODE_ENV === "development") {
-        console.warn(
-          "[Cron] WARNING: CRON_SECRET is not set. Allowing access for local development.",
-        );
-      } else {
-        console.error(
-          "[Cron] CRITICAL: CRON_SECRET is not set in production. Access denied.",
-        );
-        return NextResponse.json(
-          { error: "Server Configuration Error: Missing CRON_SECRET" },
-          { status: 500 },
-        );
-      }
+      console.error(
+        "[Cron] CRITICAL: CRON_SECRET is not set. Access denied.",
+      );
+      return NextResponse.json(
+        { error: "Server Configuration Error: Missing CRON_SECRET" },
+        { status: 500 },
+      );
     }
     // 2. If configured, strictly enforce the Bearer token match.
-    else if (authHeader !== `Bearer ${cronSecret}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
