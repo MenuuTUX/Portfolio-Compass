@@ -7,6 +7,7 @@ out/
 /lib/generated/prisma
 
 .env
+.env.production
 .env.local
 .env.development.local
 .env.test.local
@@ -17,4 +18,3 @@ __pycache__/
 # Lockfiles
 package-lock.json
 yarn.lock
-node_modules

@@ -3,10 +3,6 @@ import { Decimal } from "@/lib/decimal";
 
 /**
  * Calculates the Exponential Moving Average (EMA) for a given series of numbers.
- * Formula: EMA_today = (Value_today * (s / (1 + d))) + (EMA_yesterday * (1 - (s / (1 + d))))
- * where s = smoothing factor (usually 2).
- * But standard EMA formula is: alpha = 2 / (N + 1)
- * EMA_t = alpha * price_t + (1 - alpha) * EMA_t-1
  *
  * @param data Array of values sorted by date ascending (oldest first).
  * @param window The window size N.
@@ -17,23 +13,14 @@ export function calculateEMA(data: number[], window: number): number[] {
   const alpha = 2 / (window + 1);
   const emaValues: number[] = [];
 
-  // Initialize with SMA of first 'window' elements, or just first element if data is short
+  // Initialize with the first element if data is shorter than the window
+  // otherwise, we can start with the first data point as an approximation.
   let initialSma = 0;
   if (data.length < window) {
     initialSma = data.reduce((a, b) => a + b, 0) / data.length;
     emaValues.push(initialSma);
-    // Continue from index 1? Or just use this as base.
-    // Standard practice: First EMA is SMA of first N values.
-    // However, if we don't have N values, we can't compute a "proper" N-day EMA.
-    // For simplicity in this context (where we might just need the latest),
-    // we can seed with the first value.
     emaValues[0] = data[0];
   } else {
-    // Standard initialization: SMA of first N
-    // But commonly, simple implementations just start with data[0] as EMA[0]
-    // if history is long enough, the error decays.
-    // Given we want "last 14 days", we should try to be accurate.
-    // Let's assume the input `data` is the sequence we want to smooth.
     emaValues[0] = data[0];
   }
 
@@ -67,22 +54,16 @@ export async function seedSentimentData() {
   const today = new Date();
   const data = [];
 
-  // Generate 30 days of data
-  // Let's simulate a trend: High fear initially, moving to greed?
-  // Or fluctuating.
-  // Let's do a sine wave + noise around 50.
+  // Generate 30 days of synthetic data
+  // Simulates a trend moving from Fear (low score) to Greed (high score)
   for (let i = 29; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     d.setUTCHours(0, 0, 0, 0); // Normalize time
 
-    // Pattern:
-    // Days 29-20: Low (Fear) ~ 20-30
-    // Days 19-10: Neutral ~ 45-55
-    // Days 9-0: High (Greed) ~ 70-80
     let base = 50;
-    if (i >= 20) base = 25;
-    else if (i <= 9) base = 75;
+    if (i >= 20) base = 25;      // Days 29-20: Fear
+    else if (i <= 9) base = 75;  // Days 9-0: Greed
 
     const noise = (Math.random() - 0.5) * 10;
     const score = Math.max(0, Math.min(100, base + noise));
@@ -112,10 +93,19 @@ export async function seedSentimentData() {
 
 /**
  * Retrieves the market risk state based on 10-day EMA and hysteresis.
+ *
+ * Logic:
+ * 1. Fetches historical sentiment data (last 30 days).
+ * 2. Calculates the 10-day EMA.
+ * 3. Determines the Risk Regime based on a 3-day hysteresis check:
+ *    - RISK_ON: EMA > 75 for 3 consecutive days.
+ *    - RISK_OFF: EMA < 25 for 3 consecutive days.
+ *    - NEUTRAL: Otherwise.
+ * 4. Calculates Lambda (Risk Aversion Parameter) via linear mapping:
+ *    - EMA 0 -> Lambda 2.0 (Defensive)
+ *    - EMA 100 -> Lambda 0.5 (Aggressive)
  */
 export async function getMarketRiskState(): Promise<MarketRiskState> {
-  // 1. Fetch history (enough to stabilize EMA)
-  // We want 10-day EMA. To be safe, let's fetch 20-30 days.
   const lookbackDays = 30;
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - lookbackDays);
@@ -131,7 +121,6 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
     },
   });
 
-  // If empty, seed and retry (for dev environment)
   if (history.length === 0) {
     await seedSentimentData();
     history = await prisma.marketSentiment.findMany({
@@ -147,7 +136,6 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
   }
 
   if (history.length === 0) {
-    // Fallback if still empty
     return {
       sentimentEma: 50,
       riskRegime: "NEUTRAL",
@@ -162,17 +150,8 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
   const currentEma = emaValues[emaValues.length - 1];
   const latestScore = scores[scores.length - 1];
 
-  // 2. Determine Regime with Hysteresis (3 days)
-  // We check the last 3 days of EMA values.
-  // Logic:
-  // If EMA > 75 for 3 days -> RISK_ON (Low Lambda)
-  // If EMA < 25 for 3 days -> RISK_OFF (High Lambda)
-  // Else -> NEUTRAL
-
-  // Need at least 3 days of data for strict hysteresis
   let regime: RiskRegime = "NEUTRAL";
 
-  // Helper to check condition over last N days
   const checkCondition = (
     predicate: (val: number) => boolean,
     days: number = 3,
@@ -187,33 +166,12 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
   } else if (checkCondition((val) => val < 25, 3)) {
     regime = "RISK_OFF";
   } else {
-    // Default or Hold previous?
-    // The requirement says: "A regime change ... should only be confirmed if ... stays there for 3 consecutive days."
-    // This implies statefulness or looking at longer history.
-    // Without persistent state of "previous regime", we infer it from current data window.
-    // If it's NOT > 75 for 3 days AND NOT < 25 for 3 days, we are in NEUTRAL or Transition.
-    // For simplicity, we map directly.
     regime = "NEUTRAL";
   }
 
-  // 3. Map to Lambda
-  // Formula suggestion: Map EMA (0-100) to Lambda (0.5 - 2.0).
-  // Low Sentiment (Fear < 25) -> High Lambda (e.g., 2.0)
-  // High Sentiment (Greed > 75) -> Low Lambda (e.g., 0.5)
-  // Linear interpolation?
-  // EMA=0 => Lambda=2.0
-  // EMA=100 => Lambda=0.5
-  // Slope = (0.5 - 2.0) / 100 = -1.5 / 100 = -0.015
-  // Lambda = 2.0 + (EMA * -0.015)
-
-  // However, the requirement specifically mentions "Risk Logic Implementation (Hysteresis)" for Regime,
-  // and "Map the EMA to Lambda".
-  // Let's use the linear mapping for smoothness, but maybe clamped by regime if desired?
-  // "Low Sentiment (Fear < 25) -> High Lambda"
-  // Let's stick to the linear formula based on EMA.
-
+  // Map EMA (0-100) to Lambda (0.5 - 2.0)
+  // Formula: Lambda = 2.0 - (EMA * 0.015)
   let lambda = 2.0 - currentEma * 0.015;
-  // Clamp just in case
   lambda = Math.max(0.5, Math.min(2.0, lambda));
 
   return {

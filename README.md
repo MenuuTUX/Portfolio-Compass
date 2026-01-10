@@ -1,103 +1,58 @@
-# Portfolio Compass 🧭
+# Portfolio Compass
 
-**Professional Portfolio Intelligence for Retail Investors.**
+A Next.js 14 application for ETF analysis, portfolio optimization, and visualization.
 
-Portfolio Compass is an interactive, high-performance web application designed to help retail investors analyze, compare, and build diversified portfolios with precision. Merging algorithmic insights with a modern aesthetic, it offers a unique and engaging way to visualize wealth generation.
+## Features
 
-![Landing Page](public/screenshots/landing_page.png)
+- **ETF Search & Analysis**: Real-time data from Yahoo Finance.
+- **Portfolio Construction**: Build and optimize portfolios with drag-and-drop interface.
+- **Optimization**: Monte Carlo simulations and efficient frontier analysis.
+- **Biopunk Design**: Custom Framer Motion animations and dark mode aesthetic.
 
-## ✨ Features
+## Tech Stack
 
-### 🚀 Interactive Landing Experience
-- **Modern Interface**: A visually clean interface featuring smooth animations and dynamic lighting.
-- **Growth Simulation**: Real-time wealth projection slider that visualizes the impact of risk and time horizon on your potential returns.
-- **Live Market Status**: Real-time indicator of market status (Open/Closed).
+- **Framework**: Next.js 14 (App Router)
+- **Database**: PostgreSQL with Prisma
+- **Runtime**: Bun
+- **Styling**: Tailwind CSS, Shadcn UI
+- **Charts**: Recharts
 
-### 📈 Trending & Analysis
-- **Market Pulse**: View trending stocks and ETFs with real-time data.
-- **Sector Weightings**: Deep dive into ETF compositions and sector allocations.
-- **"Just Buy" & "Mag 7"**: Curated lists of popular investment strategies and top-performing assets.
+## Getting Started
 
-![Trending Tab](public/screenshots/trending_tab.png)
+1. **Configure Environment Variables**:
+   Create a `.env` file in the root directory and add your database connection string and cron secret:
+   ```bash
+   DATABASE_URL="postgresql://user:password@host:port/database"
+   CRON_SECRET="your-secure-cron-secret-here"
+   ```
 
-### 💼 Portfolio Builder
-- **Drag & Drop Interface**: Easily add stocks and ETFs to your portfolio.
-- **Dynamic Rebalancing**: Adjust weights and shares to see how they affect your overall portfolio composition.
-- **Visual Feedback**: Immediate visual cues for portfolio health and diversification.
+2. **Install Dependencies**:
+   ```bash
+   bun install
+   ```
 
-![Portfolio Tab](public/screenshots/portfolio_tab.png)
+3. **Database Setup**:
+   This project uses Prisma with PostgreSQL.
+   - Generate client: `bun run db:generate`
+   - Push schema: `bun run db:push`
+   - Seed data: `bun run db:seed`
 
-### 🌱 Wealth Projector
-- **Long-term Visualization**: Project your portfolio's growth over 10, 20, or 50 years.
-- **Scenario Planning**: Adjust contribution rates and expected returns to model different financial futures.
+4. **Run the Development Server**:
+   ```bash
+   bun run dev
+   ```
 
-![Growth Tab](public/screenshots/growth_tab.png)
+5. **Access the Application**:
+   Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-### 🔍 Comparison Engine
-- **Side-by-Side Analysis**: Compare ETFs and stocks on key metrics like Yield, MER (Management Expense Ratio), and historical performance.
-- **Data-Driven Insights**: Make informed decisions based on comprehensive financial data sourced from Yahoo Finance.
+## Deployment
 
-## 🛠️ Tech Stack
+If you are deploying to Vercel:
+1. Go to your Project Settings > Environment Variables.
+2. Add `DATABASE_URL` with your connection string.
+3. Add `CRON_SECRET` (generate a strong random string) to secure background jobs.
+4. Redeploy the application.
 
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Database**: [PostgreSQL](https://www.postgresql.org/) with [Prisma ORM](https://www.prisma.io/)
-- **Animations**: [Framer Motion](https://www.framer.com/motion/)
-- **Charts**: [Recharts](https://recharts.org/)
-- **Data Source**: [yahoo-finance2](https://github.com/gadicc/node-yahoo-finance2)
+## License
 
-## 🚀 Getting Started
-
-Follow these steps to set up the project locally.
-
-### Prerequisites
-- Node.js (v18+)
-- PostgreSQL installed and running
-
-### Installation
-
-1.  **Clone the repository**
-    ```bash
-    git clone https://github.com/MenuuTUX/Portfolio-Compass.git
-    cd Portfolio-Compass
-    ```
-
-2.  **Install dependencies**
-    ```bash
-    npm install
-    ```
-
-3.  **Environment Setup**
-    Create a `.env` file in the root directory (or copy `.example.env` if available) and add your database connection string:
-    ```env
-    DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/portfolio_compass?schema=public"
-    ```
-
-4.  **Database Migration**
-    Run Prisma migrations to set up your database schema:
-    ```bash
-    npx prisma migrate dev
-    ```
-
-5.  **Seed Data**
-    Populate the database with initial market data (ETFs, Stocks):
-    ```bash
-    npm run seed
-    ```
-
-6.  **Run the Application**
-    Start the development server:
-    ```bash
-    npm run dev
-    ```
-
-    Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the ISC License.
+MIT
