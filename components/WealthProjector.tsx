@@ -223,11 +223,12 @@ export default function WealthProjector({
                 growthType: "Simple",
                 percentageGrowth: percentageGrowth,
               }}
-              chartData={projectionData.map((d) => ({
+              // Pass projectionData as history, mapping keys correctly
+              history={projectionData.map((d) => ({
+                date: d.year,
                 value: d.balance,
                 dividendValue: d.dividends,
               }))}
-              spyData={spyData}
             />
 
             <button

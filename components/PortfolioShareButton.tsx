@@ -8,7 +8,13 @@ import { PortfolioShareCard, ShareCardProps } from "./PortfolioShareCard";
 interface PortfolioShareButtonProps {
   portfolio: ShareCardProps["portfolio"];
   metrics: ShareCardProps["metrics"];
-  history: ShareCardProps["history"];
+  history: {
+    date: string;
+    value: number;
+    dividendValue?: number;
+    min?: number;
+    max?: number;
+  }[];
 }
 
 export function PortfolioShareButton({
@@ -73,7 +79,7 @@ export function PortfolioShareButton({
           <PortfolioShareCard
             portfolio={portfolio}
             metrics={metrics}
-            history={history}
+            chartData={history}
           />
         </div>
       </div>
