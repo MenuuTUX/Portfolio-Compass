@@ -16,7 +16,7 @@ const prismaClientSingleton = () => {
   const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL.includes("sslmode=require")
-      ? { rejectUnauthorized: false }
+      ? { rejectUnauthorized: true }
       : undefined,
     max: 3,
     idleTimeoutMillis: 15000,

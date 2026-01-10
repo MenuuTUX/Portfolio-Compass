@@ -132,19 +132,8 @@ async function fetchWithFallback<T>(
   const retryingFetch = (t: string) =>
     retryWithBackoff(() => fetchFn(t), 5, 2000);
 
-  try {
-    const data = await retryingFetch(ticker);
-    return { data, resolvedTicker: ticker };
-  } catch (error: any) {
-    if (ticker.endsWith(".TO")) throw error;
-    try {
-      const altTicker = `${ticker}.TO`;
-      const data = await retryingFetch(altTicker);
-      return { data, resolvedTicker: altTicker };
-    } catch (innerError) {
-      throw error;
-    }
-  }
+  const data = await retryingFetch(ticker);
+  return { data, resolvedTicker: ticker };
 }
 
 async function fetchFinnhubQuote(
