@@ -12,6 +12,11 @@ import FearGreedGauge from "./FearGreedGauge";
 import ImportPortfolioCard from "./ImportPortfolioCard";
 import InstitutionalPortfolios from "./InstitutionalPortfolios";
 import { useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
+import {
+  MAG7_TICKERS,
+  JUST_BUY_TICKERS,
+  NATURAL_RESOURCES_TICKERS,
+} from "@/config/tickers";
 
 interface TrendingTabProps {
   onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -40,46 +45,6 @@ export default function TrendingTab({
 
   const batchAddMutation = useBatchAddPortfolio();
 
-  const MAG7_TICKERS = [
-    "AAPL",
-    "MSFT",
-    "GOOGL",
-    "AMZN",
-    "NVDA",
-    "META",
-    "TSLA",
-    "TSM",
-  ];
-  const JUSTBUY_TICKERS = [
-    "XEQT.TO",
-    "VEQT.TO",
-    "VGRO.TO",
-    "XGRO.TO",
-    "VFV.TO",
-    "VUN.TO",
-    "ZEB.TO",
-    "ZEQT.TO",
-  ];
-  const NATURAL_RESOURCES_TICKERS = [
-    "XLE",
-    "XOP",
-    "CVX",
-    "XOM",
-    "SHEL",
-    "COP", // Energy
-    "RIO",
-    "BHP",
-    "VALE",
-    "NEM",
-    "FCX", // Mining
-    "GLD",
-    "SLV",
-    "GDX",
-    "SIL", // Precious Metals
-    "MOO",
-    "PHO", // Ag/Water
-  ];
-
   const handleInstitutionalAdd = async (items: any[]) => {
     try {
       await batchAddMutation.mutateAsync({ items, replace: true });
@@ -96,7 +61,7 @@ export default function TrendingTab({
         // Collect all specific tickers to fetch
         const allSpecificTickers = [
           ...MAG7_TICKERS,
-          ...JUSTBUY_TICKERS,
+          ...JUST_BUY_TICKERS,
           ...NATURAL_RESOURCES_TICKERS,
         ];
 
@@ -191,7 +156,7 @@ export default function TrendingTab({
           ),
         );
         setJustBuyItems(
-          JUSTBUY_TICKERS.map((t) => specificMap.get(t)).filter(
+          JUST_BUY_TICKERS.map((t) => specificMap.get(t)).filter(
             (i): i is ETF => !!i,
           ),
         );
