@@ -16,16 +16,12 @@ import {
   Check,
   Pickaxe,
   ChevronDown,
-  Maximize2,
   MessageCircle,
 } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
-import { ETFSchema } from "@/schemas/assetSchema";
-import { z } from "zod";
 import Sparkline from "./Sparkline";
-import { getRedditCommunities, RedditCommunity } from "@/config/tickers";
 
 interface TrendingSectionProps {
   title: string;
@@ -36,6 +32,7 @@ interface TrendingSectionProps {
   portfolio?: PortfolioItem[];
   onRemoveFromPortfolio?: (ticker: string) => void;
   onSelectItem: (etf: ETF) => void;
+  communityLookup?: (ticker: string) => { name: string; url: string }[];
 }
 
 export default function TrendingSection({
@@ -47,6 +44,7 @@ export default function TrendingSection({
   portfolio = [],
   onRemoveFromPortfolio,
   onSelectItem,
+  communityLookup,
 }: TrendingSectionProps) {
   const [visibleCount, setVisibleCount] = useState(8);
   const [flashStates, setFlashStates] = useState<
@@ -115,16 +113,6 @@ export default function TrendingSection({
       setSyncingTicker(null);
       onSelectItem(etf);
     }
-  };
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
   };
 
   const isItemInPortfolio = (ticker: string) => {
@@ -236,10 +224,40 @@ export default function TrendingSection({
         )}
       </div>
 
+      {/* Empty State */}
+      {items.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-white/5 border border-white/10 border-dashed rounded-2xl p-8 text-center"
+        >
+          <div className={cn("w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4", styles.bg)}>
+            <Icon className={cn("w-8 h-8", styles.text)} />
+          </div>
+          <h3 className="text-white font-medium mb-2">Loading {title}...</h3>
+          <p className="text-neutral-400 text-sm max-w-md mx-auto">
+            Fetching the latest data. This may take a moment if the market data is being synced.
+          </p>
+          <div className="flex justify-center gap-1 mt-4">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className={cn("w-2 h-2 rounded-full", styles.tagBg)}
+                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {visibleItems.map((etf) => {
           const inPortfolio = isItemInPortfolio(etf.ticker);
           const flashState = flashStates[etf.ticker];
+          const communityLinks = communityLookup
+            ? communityLookup(etf.ticker)
+            : [];
 
           // Determine graph color based on history trend if available
           let isGraphPositive = etf.changePercent >= 0;
@@ -383,27 +401,23 @@ export default function TrendingSection({
                 </div>
 
                 {/* Reddit Communities */}
-                {(() => {
-                  const communities = getRedditCommunities(etf.ticker);
-                  if (communities.length === 0) return null;
-                  return (
-                    <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
-                      {communities.slice(0, 2).map((community) => (
-                        <a
-                          key={community.name}
-                          href={community.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 bg-[#FF5700]/10 hover:bg-[#FF5700]/20 border border-[#FF5700]/30 text-[#FF5700] text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
-                        >
-                          <MessageCircle className="w-2.5 h-2.5" />
-                          {community.displayName}
-                        </a>
-                      ))}
-                    </div>
-                  );
-                })()}
+                {communityLinks.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
+                    {communityLinks.slice(0, 2).map((community) => (
+                      <a
+                        key={`${etf.ticker}-${community.name}`}
+                        href={community.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 bg-[#FF5700]/10 hover:bg-[#FF5700]/20 border border-[#FF5700]/30 text-[#FF5700] text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
+                      >
+                        <MessageCircle className="w-2.5 h-2.5" />
+                        {community.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Hover Overlay */}

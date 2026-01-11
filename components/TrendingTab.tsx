@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
-import { cn } from "@/lib/utils";
 import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
@@ -16,6 +15,7 @@ import {
   MAG7_TICKERS,
   JUST_BUY_TICKERS,
   NATURAL_RESOURCES_TICKERS,
+  getRedditCommunities,
 } from "@/config/tickers";
 
 interface TrendingTabProps {
@@ -234,6 +234,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Natural Resources"
@@ -244,6 +245,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="r/justbuy..."
@@ -254,6 +256,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Best"
@@ -264,6 +267,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Discounted"
@@ -274,6 +278,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
         </>
       )}

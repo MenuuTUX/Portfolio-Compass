@@ -7,6 +7,8 @@ import pLimit from "p-limit";
 import { toPrismaDecimalRequired } from "@/lib/prisma-utils";
 import { safeDecimal } from "@/lib/utils";
 
+const MAX_TICKERS_PER_REQUEST = 50;
+
 export const dynamic = "force-dynamic";
 
 // Shared rate limiter to prevent DB connection exhaustion
@@ -180,7 +182,7 @@ export async function GET(request: NextRequest) {
         .split(",")
         .map((t) => t.trim().toUpperCase())
         .filter((t) => t.length > 0 && /^[A-Z0-9.-]{1,12}$/.test(t))
-        .slice(0, 100); // Limit to 100 tickers per request
+        .slice(0, MAX_TICKERS_PER_REQUEST); // Limit to prevent abuse
 
       if (requestedTickers.length > 0) {
         whereClause.ticker = {
