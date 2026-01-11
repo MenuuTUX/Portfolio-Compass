@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
           "[Bulk Sync] CRITICAL: CRON_SECRET is not set in production. Access denied.",
         );
         return NextResponse.json(
-          { error: "Server Configuration Error: Missing CRON_SECRET" },
+          { error: "Server Configuration Error" },
           { status: 500 },
         );
       }
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
         results.push({
           ticker: etf.ticker,
           status: "error",
-          error: error.message,
+          error: "Sync failed",
         });
         failureCount++;
       }

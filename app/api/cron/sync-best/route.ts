@@ -3,8 +3,8 @@ import prisma from "@/lib/db";
 import { syncEtfDetails } from "@/lib/etf-sync";
 import { isMarketOpen } from "@/lib/market-hours";
 import pLimit from "p-limit";
+import crypto from "crypto";
 
-// Force dynamic to ensure we don't cache the result of the stale check
 export const dynamic = "force-dynamic";
 
 const DEFAULT_TICKERS = [
@@ -22,24 +22,31 @@ const DEFAULT_TICKERS = [
 
 export async function GET(req: NextRequest) {
   try {
-    // SECURITY: Authorization check
-    // Vercel Cron sends the `Authorization` header automatically if `CRON_SECRET` is configured.
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get("authorization");
 
-    // 1. Fail securely if the secret is not configured in the environment at all.
-    // This prevents the endpoint from "failing open" (becoming public) if the env var is missing.
     if (!cronSecret) {
       console.error(
         "[Cron] CRITICAL: CRON_SECRET is not set. Access denied.",
       );
       return NextResponse.json(
-        { error: "Server Configuration Error: Missing CRON_SECRET" },
+        { error: "Server Configuration Error" },
         { status: 500 },
       );
     }
-    // 2. If configured, strictly enforce the Bearer token match.
-    if (authHeader !== `Bearer ${cronSecret}`) {
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const secretBuffer = Buffer.from(cronSecret);
+    const tokenBuffer = Buffer.from(token);
+
+    if (
+      secretBuffer.length !== tokenBuffer.length ||
+      !crypto.timingSafeEqual(secretBuffer, tokenBuffer)
+    ) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -117,7 +124,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("[Cron] Error syncing stale ETFs:", error);
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: "Internal Server Error" },
       { status: 500 },
     );
   }
