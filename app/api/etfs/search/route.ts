@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
         .map((t) => t.trim().toUpperCase())
         .filter((t) => t.length > 0);
 
-      // Limit max tickers per request
-      if (requestedTickers.length > 10) {
-        requestedTickers = requestedTickers.slice(0, 10);
+      // Limit max tickers per request (increased to handle trending sections)
+      if (requestedTickers.length > 50) {
+        requestedTickers = requestedTickers.slice(0, 50);
       }
 
       requestedTickers = requestedTickers.filter((t) => {
@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
     const includeObj: any = {
       sectors: true,
       allocation: true,
+      redditCommunities: true,
     };
     if (includeHistory) {
       const sixMonthsAgo = new Date();
@@ -378,9 +379,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Optimize: Only fetch missing targets if not already requested via tickersParam
+    // This prevents redundant fetches when tickersParam is provided
     const limitedTargets = targetsToFetch.slice(0, 5);
 
-    if (limitedTargets.length > 0 && !tickersParam) {
+    if (limitedTargets.length > 0 && !tickersParam && !query) {
       const limit = pLimit(1);
 
       {
@@ -583,6 +586,10 @@ export async function GET(request: NextRequest) {
           weight: safeDecimal(h.weight),
           sector: h.sector,
           shares: h.shares ? safeDecimal(h.shares) : undefined,
+        })),
+        redditCommunities: (etf.redditCommunities || []).map((rc: any) => ({
+          subreddit: rc.subreddit,
+          url: rc.url || `https://reddit.com/r/${rc.subreddit}`,
         })),
       };
     });

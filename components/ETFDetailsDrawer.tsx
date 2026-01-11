@@ -12,6 +12,7 @@ import {
   Landmark,
   Info,
   Scale,
+  ExternalLink,
 } from "lucide-react";
 import {
   AreaChart,
@@ -857,6 +858,33 @@ export default function ETFDetailsDrawer({
                       }
                     />
                   </div>
+
+                  {/* Reddit Communities Section */}
+                  {displayEtf.redditCommunities &&
+                    displayEtf.redditCommunities.length > 0 && (
+                      <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Activity className="w-5 h-5 text-[#FF5700]" />
+                          <h3 className="text-lg font-bold text-white">
+                            Reddit Communities
+                          </h3>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {displayEtf.redditCommunities.map((community, idx) => (
+                            <a
+                              key={idx}
+                              href={community.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-sm bg-[#FF5700]/20 hover:bg-[#FF5700]/30 text-[#FF5700] px-3 py-2 rounded-lg border border-[#FF5700]/30 hover:border-[#FF5700]/50 transition-all duration-200 group"
+                            >
+                              <span>r/{community.subreddit}</span>
+                              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                   {/* Sector & Holdings (ETFs Only) */}
                   {displayEtf.assetType !== "STOCK" && (

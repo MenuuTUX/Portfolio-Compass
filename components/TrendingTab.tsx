@@ -37,10 +37,6 @@ export default function TrendingTab({
   const [loadingStocks, setLoadingStocks] = useState(true);
 
   const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
-  const [message, setMessage] = useState<{
-    type: "success" | "error" | "info";
-    text: string;
-  } | null>(null);
 
   const batchAddMutation = useBatchAddPortfolio();
 
@@ -104,13 +100,30 @@ export default function TrendingTab({
           ...NATURAL_RESOURCES_TICKERS,
         ];
 
-        // Fetch data in parallel
+        // Fetch data in parallel - optimized to handle all tickers
         const promises = [
           fetch(
             `/api/etfs/search?tickers=${allSpecificTickers.join(",")}&includeHistory=true`,
-          ).then((res) => res.json()),
-          fetch("/api/market/movers?type=gainers").then((res) => res.json()),
-          fetch("/api/market/movers?type=losers").then((res) => res.json()),
+          ).then((res) => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch tickers: ${res.statusText}`);
+            }
+            return res.json();
+          }),
+          fetch("/api/market/movers?type=gainers").then((res) => {
+            if (!res.ok) {
+              console.warn("Failed to fetch gainers");
+              return { tickers: [] };
+            }
+            return res.json();
+          }),
+          fetch("/api/market/movers?type=losers").then((res) => {
+            if (!res.ok) {
+              console.warn("Failed to fetch losers");
+              return { tickers: [] };
+            }
+            return res.json();
+          }),
         ];
 
         const [specificDataRaw, gainersRaw, losersRaw] =

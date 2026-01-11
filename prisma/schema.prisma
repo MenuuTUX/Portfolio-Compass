@@ -56,6 +56,7 @@ model Etf {
   holdings       Holding[]
   allocation     EtfAllocation?
   portfolioItems PortfolioItem[]
+  redditCommunities RedditCommunity[]
 
   updatedAt      DateTime        @updatedAt
 }
@@ -166,4 +167,15 @@ model MarketSentiment {
   date   DateTime @unique
   score  Float
   rating String
+}
+
+model RedditCommunity {
+  id        String   @id @default(cuid())
+  etfId     String
+  subreddit String   // e.g., "justbuy", "stocks", "investing"
+  url       String?  // Full Reddit URL if available
+  etf       Etf      @relation(fields: [etfId], references: [ticker], onDelete: Cascade)
+
+  @@unique([etfId, subreddit])
+  @@index([etfId])
 }

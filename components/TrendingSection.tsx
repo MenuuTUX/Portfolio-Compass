@@ -16,7 +16,7 @@ import {
   Check,
   Pickaxe,
   ChevronDown,
-  Maximize2,
+  ExternalLink,
 } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -120,7 +120,7 @@ export default function TrendingSection({
     show: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.05,
+        staggerChildren: 0.03, // Faster stagger for better UX
       },
     },
   };
@@ -218,13 +218,14 @@ export default function TrendingSection({
           return (
             <motion.div
               key={etf.ticker}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={
                 flashState
-                  ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 }
-                  : { opacity: 1, y: 0 }
+                  ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0, scale: 1 }
+                  : { opacity: 1, y: 0, scale: 1 }
               }
-              transition={{ duration: 0.4 }}
+              whileHover={{ scale: 1.02, y: -2 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
               className={cn(
                 "group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
                 styles.border,
@@ -347,6 +348,27 @@ export default function TrendingSection({
                     </span>
                   </div>
                 </div>
+
+                {/* Reddit Communities */}
+                {etf.redditCommunities && etf.redditCommunities.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-white/5">
+                    <div className="flex flex-wrap gap-2">
+                      {etf.redditCommunities.map((community, idx) => (
+                        <a
+                          key={idx}
+                          href={community.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 text-xs bg-[#FF5700]/20 hover:bg-[#FF5700]/30 text-[#FF5700] px-2 py-1 rounded-full border border-[#FF5700]/30 hover:border-[#FF5700]/50 transition-all duration-200 group"
+                        >
+                          <span>r/{community.subreddit}</span>
+                          <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Hover Overlay */}
@@ -388,15 +410,20 @@ export default function TrendingSection({
       </div>
 
       {hasMore && (
-        <div className="flex justify-center mt-8">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex justify-center mt-8"
+        >
           <button
             onClick={handleLoadMore}
-            className="group flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white font-medium transition-all duration-300"
+            className="group flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-white/5 to-white/10 hover:from-white/10 hover:to-white/15 border border-white/10 hover:border-white/20 rounded-full text-white font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
           >
-            <span>Load More</span>
+            <span>Load More ({items.length - visibleCount} remaining)</span>
             <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
           </button>
-        </div>
+        </motion.div>
       )}
     </div>
   );

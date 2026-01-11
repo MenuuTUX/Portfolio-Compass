@@ -11,6 +11,7 @@ export type FullEtf = Prisma.EtfGetPayload<{
     sectors: true;
     allocation: true;
     holdings: true;
+    redditCommunities: true;
   };
 }>;
 
@@ -452,6 +453,7 @@ export async function syncEtfDetails(
         sectors: true,
         allocation: true,
         holdings: true,
+        redditCommunities: true,
       },
     });
 
