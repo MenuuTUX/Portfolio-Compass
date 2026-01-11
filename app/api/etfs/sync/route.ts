@@ -2,20 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import { syncEtfDetails } from "@/lib/etf-sync";
 import { EtfHistory } from "@prisma/client";
 import { Decimal } from "decimal.js";
+import { z } from "zod";
+
+const tickerSchema = z.string().min(1).max(12).regex(/^[A-Z0-9.-]+$/i);
+
+const syncRequestSchema = z.object({
+  ticker: tickerSchema,
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { ticker } = body;
-
-    if (!ticker) {
+    let body;
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json(
-        { error: "Ticker is required" },
+        { error: "Invalid JSON body" },
         { status: 400 },
       );
     }
 
-    const fullEtf = await syncEtfDetails(ticker);
+    const validation = syncRequestSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid ticker format" },
+        { status: 400 },
+      );
+    }
+
+    const { ticker } = validation.data;
+    const normalizedTicker = ticker.toUpperCase();
+
+    const fullEtf = await syncEtfDetails(normalizedTicker);
 
     if (!fullEtf) {
       return NextResponse.json(
@@ -75,7 +93,7 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: "Internal Server Error" },
       { status: 500 },
     );
   }

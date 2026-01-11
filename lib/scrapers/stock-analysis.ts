@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio';
 import { z } from 'zod';
 
 // Strict validation for ticker symbol
-const tickerSchema = z.string().min(1).max(6).regex(/^[a-zA-Z0-9]+$/);
+const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
 
 export interface StockProfile {
   sector: string;

@@ -1,7 +1,11 @@
 import * as cheerio from 'cheerio';
+import { z } from 'zod';
+
+const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
 
 const fetchWithUserAgent = async (url: string) => {
   return fetch(url, {
+    redirect: 'error',
     headers: {
        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -20,6 +24,11 @@ const fetchWithUserAgent = async (url: string) => {
 }
 
 export async function getEtfDescription(ticker: string): Promise<string | null> {
+    const validation = tickerSchema.safeParse(ticker);
+    if (!validation.success) {
+        return null;
+    }
+
     const url = `https://www.etf.com/${ticker.toUpperCase()}`;
     try {
         const res = await fetchWithUserAgent(url);

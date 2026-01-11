@@ -8,7 +8,7 @@ const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
 });
 
-const tickerSchema = z.string().min(1).max(6).regex(/^[a-zA-Z0-9]+$/);
+const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
