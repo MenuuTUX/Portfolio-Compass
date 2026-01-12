@@ -32,6 +32,7 @@ import AssetProfileCard from "./AssetProfileCard";
 import EtfVerdictCard from "./EtfVerdictCard";
 import ComparisonModal from "./ComparisonModal";
 import { useMemo, useState, useEffect, useRef } from "react";
+import { getRedditCommunities } from "@/config/tickers";
 
 interface ETFDetailsDrawerProps {
   etf: ETF | null;
@@ -601,13 +602,14 @@ export default function ETFDetailsDrawer({
                     </div>
 
                     <div className="flex items-center gap-4">
-                      {/* Full Comparison Button */}
+                      {/* Full Comparison Button - Made More Prominent */}
                       <button
                         onClick={() => setShowFullComparison(true)}
-                        className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors text-xs font-bold border border-emerald-500/20"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-500 hover:to-emerald-400 transition-all text-sm font-bold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95"
                       >
-                        <Scale className="w-3.5 h-3.5" />
-                        Compare
+                        <Scale className="w-4 h-4" />
+                        <span className="hidden sm:inline">Compare Assets</span>
+                        <span className="sm:hidden">Compare</span>
                       </button>
 
                       {/* Comparison Toggle */}
@@ -860,31 +862,58 @@ export default function ETFDetailsDrawer({
                   </div>
 
                   {/* Reddit Communities Section */}
-                  {displayEtf.redditCommunities &&
-                    displayEtf.redditCommunities.length > 0 && (
-                      <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+                  {(() => {
+                    // Get communities from config/tickers.ts
+                    const configCommunities = getRedditCommunities(displayEtf.ticker);
+                    // Get communities from ETF data (if any)
+                    const etfCommunities = displayEtf.redditCommunities || [];
+                    
+                    // Combine both sources, avoiding duplicates
+                    const allCommunities = [
+                      ...configCommunities.map(c => ({
+                        name: c.displayName,
+                        url: c.url,
+                      })),
+                      ...etfCommunities.map(c => ({
+                        name: `r/${c.subreddit}`,
+                        url: c.url,
+                      })).filter(ec => !configCommunities.some(cc => cc.url === ec.url)),
+                    ];
+
+                    if (allCommunities.length === 0) return null;
+
+                    return (
+                      <div className="bg-gradient-to-br from-[#FF5700]/10 to-orange-900/10 rounded-2xl p-6 border border-[#FF5700]/20">
                         <div className="flex items-center gap-2 mb-4">
-                          <Activity className="w-5 h-5 text-[#FF5700]" />
-                          <h3 className="text-lg font-bold text-white">
-                            Reddit Communities
-                          </h3>
+                          <div className="p-2 rounded-lg bg-[#FF5700]/20">
+                            <Activity className="w-5 h-5 text-[#FF5700]" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-white">
+                              Reddit Communities
+                            </h3>
+                            <p className="text-xs text-neutral-400">
+                              Discuss {displayEtf.ticker} with investors
+                            </p>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {displayEtf.redditCommunities.map((community, idx) => (
+                          {allCommunities.map((community, idx) => (
                             <a
                               key={idx}
                               href={community.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 text-sm bg-[#FF5700]/20 hover:bg-[#FF5700]/30 text-[#FF5700] px-3 py-2 rounded-lg border border-[#FF5700]/30 hover:border-[#FF5700]/50 transition-all duration-200 group"
+                              className="inline-flex items-center gap-2 text-sm bg-[#FF5700]/20 hover:bg-[#FF5700]/30 text-[#FF5700] px-4 py-2.5 rounded-xl border border-[#FF5700]/30 hover:border-[#FF5700]/50 transition-all duration-200 group hover:scale-105 active:scale-95 shadow-sm hover:shadow-[#FF5700]/20"
                             >
-                              <span>r/{community.subreddit}</span>
-                              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <span className="font-medium">{community.name}</span>
+                              <ExternalLink className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity" />
                             </a>
                           ))}
                         </div>
                       </div>
-                    )}
+                    );
+                  })()}
 
                   {/* Sector & Holdings (ETFs Only) */}
                   {displayEtf.assetType !== "STOCK" && (
