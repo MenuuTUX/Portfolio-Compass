@@ -146,6 +146,58 @@ describe('Lib: syncEtfDetails', () => {
     }
   });
 
+  it('should use range deletion for large history datasets', async () => {
+    const ticker = 'LARGE_HISTORY';
+
+    // Generate 150 days of history
+    const history = Array.from({ length: 150 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        return {
+            date: d.toISOString(),
+            close: new Decimal(100 + i),
+            interval: '1d'
+        };
+    });
+
+    mockFetchEtfDetails.mockResolvedValue({
+      ticker: ticker,
+      name: 'Test ETF',
+      price: new Decimal(100),
+      dailyChange: new Decimal(1.5),
+      assetType: 'ETF',
+      description: 'Desc',
+      sectors: {},
+      history: history
+    });
+
+    mockPrismaUpsert.mockResolvedValue({ ticker, assetType: 'ETF' });
+    mockPrismaFindUnique.mockResolvedValue({
+        ticker,
+        history: [],
+        sectors: [],
+        allocation: null,
+        holdings: []
+    });
+
+    await syncEtfDetails(ticker);
+
+    // Verify deleteMany uses gte/lte instead of in
+    const deleteCalls = mockPrismaDeleteMany.mock.calls;
+    const historyDeleteCall = deleteCalls.find(call => {
+        const arg = call[0];
+        return arg && arg.where && arg.where.etfId === ticker && arg.where.interval === '1d';
+    });
+
+    expect(historyDeleteCall).toBeDefined();
+    if (historyDeleteCall) {
+        const where = historyDeleteCall[0].where;
+        expect(where.date.in).toBeUndefined();
+        expect(where.date.gte).toBeDefined();
+        expect(where.date.lte).toBeDefined();
+    }
+  });
+
   it('should normalize StockAnalysis decimal weights to percentages', async () => {
       const ticker = 'LEVERAGED';
 

@@ -317,12 +317,27 @@ export async function syncEtfDetails(
           if (dailyHistory.length > 0) {
             // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
             const dates = dailyHistory.map((h: any) => new Date(h.date));
-            // Optimization: If dates array is huge (>2000), 'in' clause might be slow.
-            // But for incremental sync it's small.
-            // For full sync, we might just delete all for '1d' if fromDate is undefined?
-            // But let's stick to safe logic.
 
-            if (dates.length > 0) {
+            if (dates.length > 100) {
+              // Optimization: Use Range Deletion for large datasets (>100 items)
+              // This is significantly faster than 'in' clause for bulk updates
+              const sortedDates = dates.sort(
+                (a, b) => a.getTime() - b.getTime(),
+              );
+              const minDate = sortedDates[0];
+              const maxDate = sortedDates[sortedDates.length - 1];
+
+              await tx.etfHistory.deleteMany({
+                where: {
+                  etfId: etf.ticker,
+                  interval: "1d",
+                  date: {
+                    gte: minDate,
+                    lte: maxDate,
+                  },
+                },
+              });
+            } else if (dates.length > 0) {
               await tx.etfHistory.deleteMany({
                 where: {
                   etfId: etf.ticker,
