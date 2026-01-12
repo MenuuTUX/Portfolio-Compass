@@ -74,12 +74,23 @@ const mockFetch = mock((url: string | URL | Request) => {
 global.fetch = mockFetch;
 
 // Import after mocking
-import { getStockProfile } from '../../../../lib/scrapers/stock-analysis';
+// Use dynamic import or ensure this is after the mock
+const { getStockProfile } = await import('../../../../lib/scrapers/stock-analysis');
 
 describe('getStockProfile', () => {
   it('should scrape stock profile successfully', async () => {
     const profile = await getStockProfile('AAPL');
     // Note: getStockProfile returns { sector, industry, description }, not ticker
+    // If the scraper uses specific DOM structure, we must match it in the mock.
+    // The scraper looks for span with "Sector" text, then next element or sibling.
+    // Our mock: <div><span>Sector</span><a ...>Technology</a></div>
+    // The scraper:
+    // $('span, div, td, th').each ... if (text === label) ... next().text()
+    // It seems our mock should work if the scraper iterates spans.
+
+    // Debugging: If it returns Unknown, it means the extraction failed.
+    // Let's ensure strict matching.
+
     expect(profile?.sector).toBe('Technology');
     expect(profile?.industry).toBe('Consumer Electronics');
     expect(profile?.description).toContain('Apple Inc. designs');
@@ -95,8 +106,6 @@ describe('getStockProfile', () => {
         await getStockProfile('ERROR');
     } catch (e: any) {
         expect(e).toBeDefined();
-        // The mock returns 500 for 'error' ticker if we set it up, but let's check exact behavior
-        // Actually, 'ERROR' ticker -> /stocks/error/company/ -> 500 -> throw
     }
   });
 });
