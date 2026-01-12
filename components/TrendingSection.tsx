@@ -16,13 +16,11 @@ import {
   Check,
   Pickaxe,
   ChevronDown,
-  Maximize2,
+  MessageCircle,
 } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
-import { ETFSchema } from "@/schemas/assetSchema";
-import { z } from "zod";
 import Sparkline from "./Sparkline";
 
 interface TrendingSectionProps {
@@ -34,6 +32,7 @@ interface TrendingSectionProps {
   portfolio?: PortfolioItem[];
   onRemoveFromPortfolio?: (ticker: string) => void;
   onSelectItem: (etf: ETF) => void;
+  communityLookup?: (ticker: string) => { name: string; url: string }[];
 }
 
 export default function TrendingSection({
@@ -45,6 +44,7 @@ export default function TrendingSection({
   portfolio = [],
   onRemoveFromPortfolio,
   onSelectItem,
+  communityLookup,
 }: TrendingSectionProps) {
   const [visibleCount, setVisibleCount] = useState(8);
   const [flashStates, setFlashStates] = useState<
@@ -115,16 +115,6 @@ export default function TrendingSection({
     }
   };
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  };
-
   const isItemInPortfolio = (ticker: string) => {
     return portfolio.some((item) => item.ticker === ticker);
   };
@@ -188,24 +178,86 @@ export default function TrendingSection({
     setVisibleCount((prev) => prev + 8);
   };
 
+  // Calculate how many items are owned in this section
+  const ownedCount = items.filter((item) =>
+    portfolio.some((p) => p.ticker === item.ticker),
+  ).length;
+
   return (
-    <div className="mb-12">
-      <div className="flex items-center gap-3 mb-6">
-        <div className={cn("p-3 rounded-xl", styles.bg)}>
-          <Icon className={cn("w-6 h-6", styles.text)} />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="mb-12"
+    >
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            className={cn("p-3 rounded-xl", styles.bg)}
+          >
+            <Icon className={cn("w-6 h-6", styles.text)} />
+          </motion.div>
+          <div>
+            <h2 className="text-3xl font-bold text-white tracking-tight">
+              {title}
+            </h2>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-neutral-400 text-sm font-medium">
+                {visibleItems.length} of {items.length} assets
+              </span>
+              {ownedCount > 0 && (
+                <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-400 text-xs font-medium px-2 py-0.5 rounded-full">
+                  <Check className="w-3 h-3" />
+                  {ownedCount} owned
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <h2 className="text-3xl font-bold text-white tracking-tight">
-          {title}
-        </h2>
-        <span className="text-neutral-400 text-sm font-medium ml-2">
-          ({visibleItems.length} of {items.length})
-        </span>
+        {items.length > 8 && (
+          <div className="hidden md:flex items-center gap-2 text-sm text-neutral-400">
+            <span className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
+              {Math.min(visibleItems.length, items.length)}/{items.length}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Empty State */}
+      {items.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-white/5 border border-white/10 border-dashed rounded-2xl p-8 text-center"
+        >
+          <div className={cn("w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4", styles.bg)}>
+            <Icon className={cn("w-8 h-8", styles.text)} />
+          </div>
+          <h3 className="text-white font-medium mb-2">Loading {title}...</h3>
+          <p className="text-neutral-400 text-sm max-w-md mx-auto">
+            Fetching the latest data. This may take a moment if the market data is being synced.
+          </p>
+          <div className="flex justify-center gap-1 mt-4">
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                className={cn("w-2 h-2 rounded-full", styles.tagBg)}
+                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {visibleItems.map((etf) => {
           const inPortfolio = isItemInPortfolio(etf.ticker);
           const flashState = flashStates[etf.ticker];
+          const communityLinks = communityLookup
+            ? communityLookup(etf.ticker)
+            : [];
 
           // Determine graph color based on history trend if available
           let isGraphPositive = etf.changePercent >= 0;
@@ -347,6 +399,25 @@ export default function TrendingSection({
                     </span>
                   </div>
                 </div>
+
+                {/* Reddit Communities */}
+                {communityLinks.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
+                    {communityLinks.slice(0, 2).map((community) => (
+                      <a
+                        key={`${etf.ticker}-${community.name}`}
+                        href={community.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 bg-[#FF5700]/10 hover:bg-[#FF5700]/20 border border-[#FF5700]/30 text-[#FF5700] text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
+                      >
+                        <MessageCircle className="w-2.5 h-2.5" />
+                        {community.name}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Hover Overlay */}
@@ -389,15 +460,17 @@ export default function TrendingSection({
 
       {hasMore && (
         <div className="flex justify-center mt-8">
-          <button
+          <motion.button
             onClick={handleLoadMore}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="group flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white font-medium transition-all duration-300"
           >
             <span>Load More</span>
             <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
-          </button>
+          </motion.button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

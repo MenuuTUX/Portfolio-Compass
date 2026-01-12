@@ -57,6 +57,12 @@ export interface ETF {
   holdingsCount?: number;
   bondMaturity?: number;
   bondDuration?: number;
+
+  // Reddit Communities
+  redditCommunities?: {
+    subreddit: string;
+    url: string;
+  }[];
 }
 
 export interface PortfolioItem extends ETF {

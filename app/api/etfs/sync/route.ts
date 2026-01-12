@@ -81,6 +81,10 @@ export async function POST(req: NextRequest) {
         {} as { [key: string]: number },
       ),
       assetType: fullEtf.assetType,
+      redditCommunities: (fullEtf.redditCommunities || []).map((rc: any) => ({
+        subreddit: rc.subreddit,
+        url: rc.url || `https://reddit.com/r/${rc.subreddit}`,
+      })),
     };
 
     return NextResponse.json(formattedEtf);

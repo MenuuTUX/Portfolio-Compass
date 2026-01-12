@@ -82,3 +82,56 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #10b981;
 }
+
+/* Card hover shine effect */
+.card-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.03),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+
+.card-shine:hover::after {
+  left: 100%;
+}
+
+/* Gradient border animation for active items */
+@keyframes gradient-border {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.animated-border {
+  background: linear-gradient(
+    90deg,
+    #10b981,
+    #059669,
+    #10b981
+  );
+  background-size: 200% 100%;
+  animation: gradient-border 3s ease infinite;
+}
+
+/* Number counter animation */
+@keyframes count-up {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.count-animate {
+  animation: count-up 0.5s ease-out forwards;
+}

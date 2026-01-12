@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
-import { cn } from "@/lib/utils";
 import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
@@ -12,6 +11,12 @@ import FearGreedGauge from "./FearGreedGauge";
 import ImportPortfolioCard from "./ImportPortfolioCard";
 import InstitutionalPortfolios from "./InstitutionalPortfolios";
 import { useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
+import {
+  MAG7_TICKERS,
+  JUST_BUY_TICKERS,
+  NATURAL_RESOURCES_TICKERS,
+  getRedditCommunities,
+} from "@/config/tickers";
 
 interface TrendingTabProps {
   onAddToPortfolio: (etf: ETF) => Promise<void>;
@@ -37,52 +42,8 @@ export default function TrendingTab({
   const [loadingStocks, setLoadingStocks] = useState(true);
 
   const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
-  const [message, setMessage] = useState<{
-    type: "success" | "error" | "info";
-    text: string;
-  } | null>(null);
 
   const batchAddMutation = useBatchAddPortfolio();
-
-  const MAG7_TICKERS = [
-    "AAPL",
-    "MSFT",
-    "GOOGL",
-    "AMZN",
-    "NVDA",
-    "META",
-    "TSLA",
-    "TSM",
-  ];
-  const JUSTBUY_TICKERS = [
-    "XEQT.TO",
-    "VEQT.TO",
-    "VGRO.TO",
-    "XGRO.TO",
-    "VFV.TO",
-    "VUN.TO",
-    "ZEB.TO",
-    "ZEQT.TO",
-  ];
-  const NATURAL_RESOURCES_TICKERS = [
-    "XLE",
-    "XOP",
-    "CVX",
-    "XOM",
-    "SHEL",
-    "COP", // Energy
-    "RIO",
-    "BHP",
-    "VALE",
-    "NEM",
-    "FCX", // Mining
-    "GLD",
-    "SLV",
-    "GDX",
-    "SIL", // Precious Metals
-    "MOO",
-    "PHO", // Ag/Water
-  ];
 
   const handleInstitutionalAdd = async (items: any[]) => {
     try {
@@ -100,17 +61,34 @@ export default function TrendingTab({
         // Collect all specific tickers to fetch
         const allSpecificTickers = [
           ...MAG7_TICKERS,
-          ...JUSTBUY_TICKERS,
+          ...JUST_BUY_TICKERS,
           ...NATURAL_RESOURCES_TICKERS,
         ];
 
-        // Fetch data in parallel
+        // Fetch data in parallel - optimized to handle all tickers
         const promises = [
           fetch(
             `/api/etfs/search?tickers=${allSpecificTickers.join(",")}&includeHistory=true`,
-          ).then((res) => res.json()),
-          fetch("/api/market/movers?type=gainers").then((res) => res.json()),
-          fetch("/api/market/movers?type=losers").then((res) => res.json()),
+          ).then((res) => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch tickers: ${res.statusText}`);
+            }
+            return res.json();
+          }),
+          fetch("/api/market/movers?type=gainers").then((res) => {
+            if (!res.ok) {
+              console.warn("Failed to fetch gainers");
+              return { tickers: [] };
+            }
+            return res.json();
+          }),
+          fetch("/api/market/movers?type=losers").then((res) => {
+            if (!res.ok) {
+              console.warn("Failed to fetch losers");
+              return { tickers: [] };
+            }
+            return res.json();
+          }),
         ];
 
         const [specificDataRaw, gainersRaw, losersRaw] =
@@ -178,7 +156,7 @@ export default function TrendingTab({
           ),
         );
         setJustBuyItems(
-          JUSTBUY_TICKERS.map((t) => specificMap.get(t)).filter(
+          JUST_BUY_TICKERS.map((t) => specificMap.get(t)).filter(
             (i): i is ETF => !!i,
           ),
         );
@@ -256,6 +234,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Natural Resources"
@@ -266,6 +245,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="r/justbuy..."
@@ -276,6 +256,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Best"
@@ -286,6 +267,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Discounted"
@@ -296,6 +278,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
+            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
           />
         </>
       )}

@@ -24,6 +24,7 @@ export async function GET() {
             sectors: true,
             allocation: true,
             holdings: true,
+            redditCommunities: true,
             history: {
               orderBy: { date: "asc" },
               take: 1, // Minimal history for basic check, or remove if not needed
@@ -72,6 +73,10 @@ export async function GET() {
           weight: safeDecimal(h.weight),
           sector: h.sector,
           shares: h.shares ? safeDecimal(h.shares) : undefined,
+        })),
+        redditCommunities: (etf.redditCommunities || []).map((rc: any) => ({
+          subreddit: rc.subreddit,
+          url: rc.url || `https://reddit.com/r/${rc.subreddit}`,
         })),
       };
     });
