@@ -42,12 +42,12 @@ export default function Navigation({
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
             onClick={onBackToLanding}
           >
-            <div className="w-8 h-8 relative flex items-center justify-center">
+            <div className="w-12 h-12 relative flex items-center justify-center">
               <Image
                 src="/logo.png"
                 alt="PortfolioCompass Logo"
-                width={32}
-                height={32}
+                width={48}
+                height={48}
                 className="object-contain"
               />
             </div>
