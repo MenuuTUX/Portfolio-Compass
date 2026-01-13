@@ -316,35 +316,47 @@ export async function syncEtfDetails(
           // Append daily history (skip duplicates)
           if (dailyHistory.length > 0) {
             // Fix: Delete overlapping dates to ensure updates (e.g., price changes for today) are reflected
-            const dates = dailyHistory.map((h: any) => new Date(h.date));
 
-            if (dates.length > 100) {
-              // Optimization: Use Range Deletion for large datasets (>100 items)
-              // This is significantly faster than 'in' clause for bulk updates
-              const sortedDates = dates.sort(
-                (a, b) => a.getTime() - b.getTime(),
-              );
-              const minDate = sortedDates[0];
-              const maxDate = sortedDates[sortedDates.length - 1];
-
+            // Optimization: If fromDate was undefined (full sync/initial sync), wipe all '1d' history.
+            // This avoids large 'IN' clauses or range calculations and ensures a clean slate.
+            if (!fromDate) {
               await tx.etfHistory.deleteMany({
                 where: {
                   etfId: etf.ticker,
                   interval: "1d",
-                  date: {
-                    gte: minDate,
-                    lte: maxDate,
+                },
+              });
+            } else {
+              const dates = dailyHistory.map((h: any) => new Date(h.date));
+
+              if (dates.length > 100) {
+                // Optimization: Use Range Deletion for large datasets (>100 items)
+                // This is significantly faster than 'in' clause for bulk updates
+                const sortedDates = dates.sort(
+                  (a, b) => a.getTime() - b.getTime(),
+                );
+                const minDate = sortedDates[0];
+                const maxDate = sortedDates[sortedDates.length - 1];
+
+                await tx.etfHistory.deleteMany({
+                  where: {
+                    etfId: etf.ticker,
+                    interval: "1d",
+                    date: {
+                      gte: minDate,
+                      lte: maxDate,
+                    },
                   },
-                },
-              });
-            } else if (dates.length > 0) {
-              await tx.etfHistory.deleteMany({
-                where: {
-                  etfId: etf.ticker,
-                  interval: "1d",
-                  date: { in: dates },
-                },
-              });
+                });
+              } else if (dates.length > 0) {
+                await tx.etfHistory.deleteMany({
+                  where: {
+                    etfId: etf.ticker,
+                    interval: "1d",
+                    date: { in: dates },
+                  },
+                });
+              }
             }
 
             await tx.etfHistory.createMany({

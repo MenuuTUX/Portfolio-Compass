@@ -101,6 +101,9 @@ describe('Lib: syncEtfDetails', () => {
     const ticker = 'TEST';
     const today = new Date().toISOString().split('T')[0];
 
+    // Mock existing history so fromDate is defined (triggering incremental logic)
+    mockPrismaFindFirst.mockResolvedValue({ date: new Date('2023-01-01') });
+
     // Mock fetchEtfDetails returning history with today's date
     mockFetchEtfDetails.mockResolvedValue({
       ticker: ticker,
@@ -148,6 +151,9 @@ describe('Lib: syncEtfDetails', () => {
 
   it('should use range deletion for large history datasets', async () => {
     const ticker = 'LARGE_HISTORY';
+
+    // Mock existing history so fromDate is defined (triggering incremental logic)
+    mockPrismaFindFirst.mockResolvedValue({ date: new Date('2023-01-01') });
 
     // Generate 150 days of history
     const history = Array.from({ length: 150 }, (_, i) => {
