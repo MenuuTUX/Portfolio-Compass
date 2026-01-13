@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout } from "lucide-react";
+import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout, ChevronDown } from "lucide-react";
 import {
   motion,
   useMotionValue,
@@ -257,7 +257,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">
-                  Growth Simulation
+                  Shib's Portfolio Growth
                 </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
@@ -367,6 +367,17 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
           </motion.div>
         </div>
       </div>
+
+      {/* Scroll Indicator - Bounding Arrow */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.5, duration: 0.8 }}
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none"
+      >
+        <span className="text-[10px] text-stone-500 uppercase tracking-[0.2em] font-mono">Explore</span>
+        <ChevronDown className="w-6 h-6 text-emerald-500/50 animate-bounce" />
+      </motion.div>
     </div>
   );
 }
