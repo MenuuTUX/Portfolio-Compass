@@ -18,7 +18,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PortfolioItem } from "@/types";
+import { LocalPortfolioItem } from "@/lib/storage";
 
 // --- Types ---
 
@@ -36,15 +36,12 @@ interface Question {
   }[];
 }
 
-// Minimal structure for template items (compatible with LocalPortfolioItem)
-type TemplateItem = Pick<PortfolioItem, "ticker" | "weight" | "shares">;
-
 export interface QuizResult {
   score: number; // 0-100
   profile: RiskProfile;
   suggestedProviders: string[];
-  // Use a looser type here to avoid build errors with missing ETF fields
-  suggestedPortfolio: TemplateItem[];
+  // Use LocalPortfolioItem to match storage requirements
+  suggestedPortfolio: LocalPortfolioItem[];
   isSkipped?: boolean; // New flag to indicate skip
 }
 
@@ -117,8 +114,8 @@ const QUESTIONS: Question[] = [
   },
 ];
 
-// Use the minimal type for templates to satisfy TypeScript
-const PORTFOLIO_TEMPLATES: Record<RiskProfile | "Aggressive", TemplateItem[]> =
+// Use LocalPortfolioItem for templates to satisfy TypeScript and storage requirements
+const PORTFOLIO_TEMPLATES: Record<RiskProfile | "Aggressive", LocalPortfolioItem[]> =
   {
     Conservative: [
       { ticker: "BND", weight: 60, shares: 0 },
