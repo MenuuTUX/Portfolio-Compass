@@ -4,13 +4,13 @@ import {
   Activity,
   PieChart,
   TrendingUp,
-  Briefcase,
   BarChart3,
   Settings,
   Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 type Tab = "TRENDING" | "PORTFOLIO" | "ETFS" | "STOCKS";
 
@@ -42,8 +42,14 @@ export default function Navigation({
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity shrink-0"
             onClick={onBackToLanding}
           >
-            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-              <Briefcase className="w-4 h-4 text-emerald-400" />
+            <div className="w-12 h-12 relative flex items-center justify-center">
+              <Image
+                src="/logo.png"
+                alt="PortfolioCompass Logo"
+                width={48}
+                height={48}
+                className="object-contain"
+              />
             </div>
             <span className="text-white font-bold tracking-tight text-lg hidden md:block">
               Portfolio<span className="text-emerald-400">Compass</span>
