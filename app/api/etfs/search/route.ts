@@ -313,6 +313,14 @@ export async function GET(request: NextRequest) {
 
         if (includeHistory) {
           if (!e.history || e.history.length === 0) return true;
+
+          // Check for insufficient history depth
+          if (isFullHistoryRequested) {
+            const dailyCount = e.history.filter((h: any) => h.interval === "1d")
+              .length;
+            if (dailyCount < 200) return true; // Ensure enough data points for Monte Carlo
+          }
+
           const lastHistoryDate = e.history[e.history.length - 1].date;
           if (new Date(lastHistoryDate) < twoDaysAgo) return true;
 
@@ -327,7 +335,9 @@ export async function GET(request: NextRequest) {
 
       if (staleEtfs.length > 0) {
         const syncLimit = pLimit(1);
-        const maxSyncItems = isFullHistoryRequested ? 1 : 2;
+        // If full history is requested, we likely need to fix multiple items for simulation (e.g. Monte Carlo)
+        // so we process more items.
+        const maxSyncItems = isFullHistoryRequested ? Math.min(staleEtfs.length, 10) : 2;
         const itemsToSync = staleEtfs.slice(0, maxSyncItems);
 
         if (isFullHistoryRequested) {
