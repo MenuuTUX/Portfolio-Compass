@@ -9,6 +9,7 @@ const mockPrismaDeleteMany = mock(() => Promise.resolve({ count: 0 }));
 const mockPrismaCreateMany = mock(() => Promise.resolve({ count: 0 }));
 const mockPrismaUpdate = mock(() => Promise.resolve({}));
 const mockPrismaCreate = mock(() => Promise.resolve({}));
+const mockPrismaCount = mock(() => Promise.resolve(0));
 // Added missing mock for etfAllocation.upsert
 const mockPrismaAllocationUpsert = mock(() => Promise.resolve({}));
 
@@ -45,6 +46,7 @@ mock.module('@/lib/db', () => {
         findFirst: mockPrismaFindFirst,
         deleteMany: mockPrismaDeleteMany,
         createMany: mockPrismaCreateMany,
+        count: mockPrismaCount,
       },
       etf: {
         upsert: mockPrismaUpsert,
@@ -95,6 +97,7 @@ describe('Lib: syncEtfDetails', () => {
     mockGetEtfHoldings.mockClear();
     mockPrismaTransaction.mockClear();
     mockPrismaAllocationUpsert.mockClear();
+    mockPrismaCount.mockClear();
   });
 
   it('should delete overlapping daily history before inserting', async () => {
@@ -103,6 +106,8 @@ describe('Lib: syncEtfDetails', () => {
 
     // Mock existing history so fromDate is defined (triggering incremental logic)
     mockPrismaFindFirst.mockResolvedValue({ date: new Date('2023-01-01') });
+    // Mock sufficient history count to trigger incremental sync logic
+    mockPrismaCount.mockResolvedValue(300);
 
     // Mock fetchEtfDetails returning history with today's date
     mockFetchEtfDetails.mockResolvedValue({
@@ -154,6 +159,8 @@ describe('Lib: syncEtfDetails', () => {
 
     // Mock existing history so fromDate is defined (triggering incremental logic)
     mockPrismaFindFirst.mockResolvedValue({ date: new Date('2023-01-01') });
+    // Mock sufficient history count to trigger incremental sync logic
+    mockPrismaCount.mockResolvedValue(300);
 
     // Generate 150 days of history
     const history = Array.from({ length: 150 }, (_, i) => {

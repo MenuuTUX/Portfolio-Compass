@@ -54,6 +54,15 @@ export async function syncEtfDetails(
   try {
     console.log(`[EtfSync] Starting sync for ${ticker}...`);
 
+    // 0. Check Existing Data & Depth
+    // We check count to ensure we don't get stuck in an "incremental sync trap" with insufficient history
+    const historyCount = await prisma.etfHistory.count({
+      where: {
+        etfId: ticker,
+        interval: "1d",
+      },
+    });
+
     // 0. Smart Interval Selection to Minimize API Requests
     // Fetch the ETF metadata first to check staleness
     const etfMetadata = await prisma.etf.findUnique({
@@ -74,19 +83,19 @@ export async function syncEtfDetails(
         const hoursSinceUpdate =
           (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
 
-        // If updated recently (e.g., < 24 hours), we assume long-term charts (1wk, 1mo) are fresh enough.
+        // If updated recently (e.g., < 24 hours) AND we have healthy history depth, optimize.
         // We fetch '1d' (daily) to catch the latest close/price.
         // We MUST fetch '1h' (hourly) because the "1D" chart relies on it for intraday views.
-        if (hoursSinceUpdate < 24) {
+        if (hoursSinceUpdate < 24 && historyCount >= 200) {
           console.log(
-            `[EtfSync] Item updated recently (${hoursSinceUpdate.toFixed(1)}h ago). Optimizing to ['1d', '1h'].`,
+            `[EtfSync] Item updated recently (${hoursSinceUpdate.toFixed(1)}h ago) and has healthy history (${historyCount}). Optimizing to ['1d', '1h'].`,
           );
           targetIntervals = ["1d", "1h"];
         }
       }
     }
 
-    // 0. Check Existing Data to determine fromDate
+    // Determine fromDate (Incremental vs Full)
     const latestHistory = await prisma.etfHistory.findFirst({
       where: {
         etfId: ticker,
@@ -98,16 +107,20 @@ export async function syncEtfDetails(
     });
 
     let fromDate: Date | undefined;
-    if (latestHistory) {
+
+    // We require at least ~200 days (~10 months) of history for analysis.
+    // If we have less, we force a full fetch to backfill.
+    if (latestHistory && historyCount >= 200) {
       fromDate = new Date(latestHistory.date);
       fromDate.setDate(fromDate.getDate() + 1); // Start from next day
       console.log(
-        `[EtfSync] Found existing history for ${ticker}, fetching from ${fromDate.toISOString()}`,
+        `[EtfSync] Found existing history (${historyCount} days) for ${ticker}, fetching incremental from ${fromDate.toISOString()}`,
       );
     } else {
       console.log(
-        `[EtfSync] No existing history for ${ticker}, fetching full history`,
+        `[EtfSync] Insufficient history (${historyCount} days) for ${ticker}, forcing full history fetch.`,
       );
+      fromDate = undefined; // Force full lookback (defaults to 1y or more in market-service)
     }
 
     // 1. Fetch deep details from Yahoo
