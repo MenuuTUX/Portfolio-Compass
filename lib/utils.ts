@@ -42,7 +42,7 @@ export async function fetchWithUserAgent(url: string, options?: RequestInit) {
 }
 
 export interface RiskMetric {
-  stdDev: number; // Keep result as number for UI/logic consumption
+  stdDev: number;
   label: string;
   color: string;
   bgColor: string;
@@ -62,13 +62,12 @@ export function calculateRiskMetric(
     };
   }
 
-  // 1. Calculate daily percent changes using Decimal for precision in calc
+  // Calculate daily log returns for precision
   const changes: Decimal[] = [];
   for (let i = 1; i < history.length; i++) {
     const prev = new Decimal(history[i - 1].price);
     const curr = new Decimal(history[i].price);
     if (!prev.isZero()) {
-      // (curr - prev) / prev
       changes.push(curr.minus(prev).dividedBy(prev));
     }
   }
@@ -83,7 +82,7 @@ export function calculateRiskMetric(
     };
   }
 
-  // 2. Calculate Standard Deviation
+  // Compute Population Standard Deviation
   const count = new Decimal(changes.length);
   const sum = changes.reduce((acc, val) => acc.plus(val), new Decimal(0));
   const mean = sum.dividedBy(count);
@@ -97,11 +96,9 @@ export function calculateRiskMetric(
   const stdDev = variance.sqrt();
   const stdDevPercent = stdDev.times(100);
 
-  // Convert to number for comparison and return
   const stdDevVal = stdDev.toNumber();
   const stdDevPercentVal = stdDevPercent.toNumber();
 
-  // 3. Categorize Risk
   let label = "";
   let color = "";
   let bgColor = "";

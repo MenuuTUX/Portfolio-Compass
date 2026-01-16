@@ -1,8 +1,6 @@
-import YahooFinance from 'yahoo-finance2';
+import yf from 'yahoo-finance2';
 
-const yf = new YahooFinance({
-  suppressNotices: ['yahooSurvey'],
-});
+yf.suppressNotices(['yahooSurvey']);
 
 async function check(ticker: string) {
     console.log(`Checking ${ticker}...`);

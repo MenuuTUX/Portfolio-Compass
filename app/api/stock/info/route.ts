@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { getStockProfile } from "@/lib/scrapers/stock-analysis";
 import { getEtfDescription } from "@/lib/scrapers/etf-dot-com";
-import YahooFinance from "yahoo-finance2";
+import yahooFinance from "yahoo-finance2";
 import { z } from "zod";
 
-const yahooFinance = new YahooFinance({
-  suppressNotices: ["yahooSurvey"],
-});
+yahooFinance.suppressNotices(["yahooSurvey"]);
 
 const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
 

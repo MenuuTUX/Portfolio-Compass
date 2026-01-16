@@ -47,7 +47,7 @@ export default function CorrelationHeatmap({
       }
     }
     return mat;
-  }, [assets]);
+  }, [assets, n]);
 
   // Color logic
   const getColor = (
@@ -138,7 +138,7 @@ export default function CorrelationHeatmap({
                     Low/Negative (&lt; 0.3):
                   </strong>{" "}
                   They move independently or oppositely. This is
-                  "Diversification". <strong>(Lower Risk)</strong>
+                  &quot;Diversification&quot;. <strong>(Lower Risk)</strong>
                 </li>
               </ul>
               <p className="mt-2 text-emerald-300 italic border-l-2 border-emerald-500 pl-2">

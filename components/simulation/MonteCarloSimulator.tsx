@@ -268,7 +268,7 @@ export default function MonteCarloSimulator({
     numSimulations,
     timeHorizonYears,
     initialInvestment,
-    richPortfolio,
+    ensureFullHistory,
   ]);
 
   // Animation Loop
@@ -561,7 +561,7 @@ export default function MonteCarloSimulator({
           !isLoadingHistory && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-500 z-10">
               <Info className="w-12 h-12 mb-4 opacity-50" />
-              <p>Click "Run Simulation" to generate future paths.</p>
+              <p>Click &quot;Run Simulation&quot; to generate future paths.</p>
             </div>
           )}
 

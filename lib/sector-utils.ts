@@ -1,6 +1,6 @@
-import YahooFinance from "yahoo-finance2";
+import yahooFinance from "yahoo-finance2";
 
-const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+yahooFinance.suppressNotices(["yahooSurvey"]);
 
 export interface SectorWeighting {
   sector_name: string;

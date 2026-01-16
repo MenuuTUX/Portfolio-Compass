@@ -687,7 +687,7 @@ export default function ComparisonEngine({
             Found matches in {otherSection}
           </p>
           <p className="text-neutral-400">
-            We found "{sample}"{othersText ? ` ${othersText}` : ""} in the{" "}
+            We found &quot;{sample}&quot;{othersText ? ` ${othersText}` : ""} in the{" "}
             {otherSection} section.
           </p>
           <p className="text-sm text-neutral-400 mt-2">

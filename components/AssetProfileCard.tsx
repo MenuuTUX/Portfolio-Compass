@@ -199,7 +199,7 @@ export default function AssetProfileCard({
 
           <div className="relative pl-4 border-l-2 border-emerald-500/30 py-1">
             <p className="text-sm text-neutral-300 italic leading-relaxed">
-              "{info.analyst.summary}"
+              &quot;{info.analyst.summary}&quot;
             </p>
           </div>
 
