@@ -193,57 +193,33 @@ export async function fetchMarketSnapshot(
   });
 
   try {
+    // Optimization: Pre-calculate fallback tickers (e.g. adding .TO for potential TSX assets)
+    // and fetch them in a single batch with the original tickers.
+    const tsxFallbacks = tickers
+      .filter((t) => /^[A-Z]{3,4}$/.test(t) && !t.includes("."))
+      .map((t) => `${t}.TO`);
+
+    // Combine and deduplicate
+    const allTickersToFetch = Array.from(
+      new Set([...tickers, ...tsxFallbacks]),
+    );
+
     let quotes: any[] = [];
     try {
-      const results = await retryWithBackoff(() => yf.quote(tickers), 2, 500);
+      const results = await retryWithBackoff(
+        () => yf.quote(allTickersToFetch),
+        2,
+        500,
+      );
       quotes = Array.isArray(results) ? results : [results];
     } catch (e) {
-      console.warn("[Market Service] Initial Yahoo fetch failed", e);
+      console.warn("[Market Service] Yahoo fetch failed", e);
     }
 
     const snapshots = quotes.map(mapQuoteToSnapshot);
 
     // Filter valid snapshots (price > 0)
     const validSnapshots = snapshots.filter((s) => !s.price.isZero());
-    const foundTickers = new Set(
-      validSnapshots.map((s) => s.ticker.toUpperCase()),
-    );
-
-    // Identify missing tickers
-    const missingTickers = tickers.filter(
-      (t) =>
-        !foundTickers.has(t.toUpperCase()) &&
-        !foundTickers.has(t.toUpperCase() + ".TO"),
-    );
-
-    // Attempt fallback for likely TSX tickers (3-4 letters, no dot)
-    const fallbackCandidates = missingTickers.filter(
-      (t) => /^[A-Z]{3,4}$/.test(t) && !t.includes("."),
-    );
-
-    if (fallbackCandidates.length > 0) {
-      const fallbackTickers = fallbackCandidates.map((t) => `${t}.TO`);
-      try {
-        const fallbackResults = await retryWithBackoff(
-          () => yf.quote(fallbackTickers),
-          2,
-          500,
-        );
-        const fallbackQuotes = Array.isArray(fallbackResults)
-          ? fallbackResults
-          : [fallbackResults];
-        const fallbackSnapshots = fallbackQuotes.map(mapQuoteToSnapshot);
-
-        // Add valid fallbacks
-        fallbackSnapshots.forEach((s) => {
-          if (!s.price.isZero()) {
-            validSnapshots.push(s);
-          }
-        });
-      } catch (e) {
-        console.warn("[Market Service] Fallback Yahoo fetch failed", e);
-      }
-    }
 
     if (validSnapshots.length > 0) {
       return validSnapshots;
