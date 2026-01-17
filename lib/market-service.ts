@@ -193,13 +193,64 @@ export async function fetchMarketSnapshot(
   });
 
   try {
-    const results = await retryWithBackoff(() => yf.quote(tickers), 2, 500);
-
-    if (Array.isArray(results)) {
-      return results.map(mapQuoteToSnapshot);
-    } else {
-      return [mapQuoteToSnapshot(results)];
+    let quotes: any[] = [];
+    try {
+      const results = await retryWithBackoff(() => yf.quote(tickers), 2, 500);
+      quotes = Array.isArray(results) ? results : [results];
+    } catch (e) {
+      console.warn("[Market Service] Initial Yahoo fetch failed", e);
     }
+
+    const snapshots = quotes.map(mapQuoteToSnapshot);
+
+    // Filter valid snapshots (price > 0)
+    const validSnapshots = snapshots.filter((s) => !s.price.isZero());
+    const foundTickers = new Set(
+      validSnapshots.map((s) => s.ticker.toUpperCase()),
+    );
+
+    // Identify missing tickers
+    const missingTickers = tickers.filter(
+      (t) =>
+        !foundTickers.has(t.toUpperCase()) &&
+        !foundTickers.has(t.toUpperCase() + ".TO"),
+    );
+
+    // Attempt fallback for likely TSX tickers (3-4 letters, no dot)
+    const fallbackCandidates = missingTickers.filter(
+      (t) => /^[A-Z]{3,4}$/.test(t) && !t.includes("."),
+    );
+
+    if (fallbackCandidates.length > 0) {
+      const fallbackTickers = fallbackCandidates.map((t) => `${t}.TO`);
+      try {
+        const fallbackResults = await retryWithBackoff(
+          () => yf.quote(fallbackTickers),
+          2,
+          500,
+        );
+        const fallbackQuotes = Array.isArray(fallbackResults)
+          ? fallbackResults
+          : [fallbackResults];
+        const fallbackSnapshots = fallbackQuotes.map(mapQuoteToSnapshot);
+
+        // Add valid fallbacks
+        fallbackSnapshots.forEach((s) => {
+          if (!s.price.isZero()) {
+            validSnapshots.push(s);
+          }
+        });
+      } catch (e) {
+        console.warn("[Market Service] Fallback Yahoo fetch failed", e);
+      }
+    }
+
+    if (validSnapshots.length > 0) {
+      return validSnapshots;
+    }
+
+    // If no valid snapshots found, throw to trigger Finnhub fallback
+    throw new Error("No valid quotes found from Yahoo Finance");
   } catch (error) {
     console.warn(
       "[Market Service] Yahoo bulk fetch failed. Attempting Finnhub fallback...",
