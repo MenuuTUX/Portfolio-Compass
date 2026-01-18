@@ -195,8 +195,9 @@ export async function fetchMarketSnapshot(
   try {
     // Optimization: Pre-calculate fallback tickers (e.g. adding .TO for potential TSX assets)
     // and fetch them in a single batch with the original tickers.
+    // We allow 1-5 letters to support short tickers (e.g. T, RY) and standard ETFs.
     const tsxFallbacks = tickers
-      .filter((t) => /^[A-Z]{3,4}$/.test(t) && !t.includes("."))
+      .filter((t) => /^[A-Z]{1,5}$/.test(t) && !t.includes("."))
       .map((t) => `${t}.TO`);
 
     // Combine and deduplicate
