@@ -200,7 +200,7 @@ export default function PortfolioBuilder({
               className={cn(
                 "flex-1 md:flex-none justify-center px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer border",
                 isOptimizerActive
-                  ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
+                  ? "bg-amber-500/10 border-amber-500 text-amber-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
                   : "bg-white/5 border-white/10 hover:bg-white/10 text-white",
               )}
             >
@@ -211,7 +211,7 @@ export default function PortfolioBuilder({
                 setViewMode("PROJECTION");
                 setTimeout(() => setShowContributePopup(true), 800);
               }}
-              className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
+              className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
               See Growth Projection
             </button>
@@ -231,7 +231,7 @@ export default function PortfolioBuilder({
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
               builderView === "LIST"
-                ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500"
+                ? "bg-white/10 text-amber-400 border-b-2 border-amber-500"
                 : "text-neutral-400 hover:text-white hover:bg-white/5",
             )}
           >
@@ -242,7 +242,7 @@ export default function PortfolioBuilder({
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
               builderView === "ALLOCATION"
-                ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500"
+                ? "bg-white/10 text-amber-400 border-b-2 border-amber-500"
                 : "text-neutral-400 hover:text-white hover:bg-white/5",
             )}
           >
@@ -253,7 +253,7 @@ export default function PortfolioBuilder({
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
               builderView === "RISK"
-                ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500"
+                ? "bg-white/10 text-amber-400 border-b-2 border-amber-500"
                 : "text-neutral-400 hover:text-white hover:bg-white/5",
             )}
           >
@@ -282,7 +282,7 @@ export default function PortfolioBuilder({
                   <span className="font-medium text-white">
                     Total Portfolio Value
                   </span>
-                  <span className="font-bold text-xl text-emerald-400">
+                  <span className="font-bold text-xl text-amber-400">
                     $
                     {totalValue
                       .toNumber()
@@ -297,7 +297,7 @@ export default function PortfolioBuilder({
                   className={cn(
                     "p-4 rounded-lg border flex justify-between items-center",
                     isValid
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
                       : "bg-rose-500/10 border-rose-500/30 text-rose-400",
                   )}
                 >

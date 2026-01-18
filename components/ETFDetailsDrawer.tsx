@@ -87,7 +87,7 @@ function MetricCard({
       <div
         className={cn(
           "text-sm font-bold truncate font-mono",
-          highlight ? "text-emerald-400" : "text-white",
+          highlight ? "text-amber-400" : "text-white",
         )}
       >
         {value}
@@ -555,7 +555,7 @@ export default function ETFDetailsDrawer({
                   <div
                     className={cn(
                       "text-xs font-medium",
-                      isPositive ? "text-emerald-400" : "text-rose-400",
+                      isPositive ? "text-amber-400" : "text-rose-400",
                     )}
                   >
                     {isPositive ? "+" : ""}
@@ -595,7 +595,7 @@ export default function ETFDetailsDrawer({
                 <div className="lg:col-span-2 bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col h-full min-h-[400px]">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-emerald-400" />
+                      <TrendingUp className="w-5 h-5 text-amber-400" />
                       <h3 className="text-lg font-bold text-white">
                         Price History
                       </h3>
@@ -605,7 +605,7 @@ export default function ETFDetailsDrawer({
                       {/* Full Comparison Button - Made More Prominent */}
                       <button
                         onClick={() => setShowFullComparison(true)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-500 hover:to-emerald-400 transition-all text-sm font-bold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-105 active:scale-95"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 text-white hover:from-amber-500 hover:to-amber-400 transition-all text-sm font-bold shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95"
                       >
                         <Scale className="w-4 h-4" />
                         <span className="hidden sm:inline">Compare Assets</span>
@@ -632,7 +632,7 @@ export default function ETFDetailsDrawer({
                           className={cn(
                             "w-8 h-4 rounded-full relative transition-colors duration-300 focus:outline-none",
                             showComparison
-                              ? "bg-emerald-500"
+                              ? "bg-amber-500"
                               : "bg-neutral-700",
                           )}
                         >
@@ -987,7 +987,7 @@ export default function ETFDetailsDrawer({
                                     className={cn(
                                       "flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-all",
                                       onTickerSelect &&
-                                        "cursor-pointer hover:border-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] group/item",
+                                        "cursor-pointer hover:border-amber-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] group/item",
                                     )}
                                     onClick={() =>
                                       onTickerSelect && onTickerSelect(h.ticker)
@@ -1023,7 +1023,7 @@ export default function ETFDetailsDrawer({
                                         className={cn(
                                           "font-bold text-white text-sm",
                                           onTickerSelect &&
-                                            "group-hover/item:text-emerald-400 transition-colors",
+                                            "group-hover/item:text-amber-400 transition-colors",
                                         )}
                                       >
                                         {h.ticker}
@@ -1035,13 +1035,13 @@ export default function ETFDetailsDrawer({
                                     <div className="flex items-center gap-3">
                                       <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden hidden sm:block">
                                         <div
-                                          className="h-full bg-emerald-500 rounded-full"
+                                          className="h-full bg-amber-500 rounded-full"
                                           style={{
                                             width: `${Math.min(h.displayWeight * 2, 100)}%`,
                                           }}
                                         />
                                       </div>
-                                      <div className="text-emerald-400 font-medium text-sm w-12 text-right">
+                                      <div className="text-amber-400 font-medium text-sm w-12 text-right">
                                         {h.displayWeight.toFixed(2)}%
                                       </div>
                                     </div>
@@ -1115,7 +1115,7 @@ export default function ETFDetailsDrawer({
                                       className={cn(
                                         "font-medium text-white text-sm truncate",
                                         onTickerSelect &&
-                                          "group-hover/row:text-emerald-400 transition-colors",
+                                          "group-hover/row:text-amber-400 transition-colors",
                                       )}
                                     >
                                       {h.ticker}
@@ -1124,13 +1124,13 @@ export default function ETFDetailsDrawer({
                                   <div className="flex items-center gap-2 shrink-0">
                                     <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
                                       <div
-                                        className="h-full bg-emerald-500 rounded-full opacity-80"
+                                        className="h-full bg-amber-500 rounded-full opacity-80"
                                         style={{
                                           width: `${Math.min(h.displayWeight * 3, 100)}%`,
                                         }}
                                       />
                                     </div>
-                                    <div className="text-emerald-400 text-xs w-8 text-right font-mono">
+                                    <div className="text-amber-400 text-xs w-8 text-right font-mono">
                                       {h.displayWeight.toFixed(1)}%
                                     </div>
                                   </div>

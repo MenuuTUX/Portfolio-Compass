@@ -82,8 +82,8 @@ export default function InstitutionalPortfolios({
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <h3 className="text-white/90 font-bold text-lg">
-          Institutional Portfolios
+        <h3 className="text-amber-500 font-bold text-lg font-mono uppercase tracking-widest">
+          Institutional_Portfolios
         </h3>
       </div>
 
@@ -100,11 +100,11 @@ export default function InstitutionalPortfolios({
               onClick={() => setSelectedInstitution(inst)}
               className="relative aspect-square cursor-pointer group flex flex-col items-center justify-center gap-2"
             >
-              {/* App Icon Shape */}
+              {/* App Icon Shape - Chunky Plastic */}
               <div
                 className={cn(
-                  "w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center border border-white/10 transition-all duration-300 group-hover:border-white/20",
-                  "bg-white/5 backdrop-blur-sm",
+                  "w-full h-full rounded-lg overflow-hidden relative flex items-center justify-center border-2 border-neutral-800 transition-all duration-300 group-hover:border-neutral-600 shadow-lg",
+                  "bg-neutral-900",
                 )}
               >
                 <div className="relative w-3/4 h-3/4 flex items-center justify-center">
@@ -136,7 +136,7 @@ export default function InstitutionalPortfolios({
               </div>
 
               {/* Label */}
-              <span className="text-[10px] font-medium text-stone-500 group-hover:text-stone-300 transition-colors text-center w-full truncate px-1 opacity-0 group-hover:opacity-100 absolute -bottom-6">
+              <span className="text-[10px] font-medium text-neutral-500 group-hover:text-neutral-300 transition-colors text-center w-full truncate px-1 opacity-0 group-hover:opacity-100 absolute -bottom-6">
                 {inst.name.split(" ")[0]}
               </span>
             </motion.div>
@@ -164,9 +164,9 @@ export default function InstitutionalPortfolios({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="bg-[#0a0a0a] border border-white/10 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto glass-panel">
+              <div className="bg-neutral-900 border-2 border-neutral-800 text-white rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto">
                 {/* Modal Header */}
-                <div className="p-6 pb-2 flex items-start justify-between bg-white/5 border-b border-white/5 z-10 backdrop-blur-md">
+                <div className="p-6 pb-2 flex items-start justify-between bg-neutral-900 border-b border-neutral-800 z-10">
                   <div className="flex-1 pr-4">
                     <div className="h-8 w-32 relative mb-2 flex items-center">
                       {failedImages.has(selectedInstitution.id) ||
@@ -209,18 +209,18 @@ export default function InstitutionalPortfolios({
                 </div>
 
                 {/* Tabs */}
-                <div className="px-6 py-2 bg-black/20 z-10 border-b border-white/5">
-                  <div className="flex p-1 bg-white/5 rounded-lg border border-white/5">
+                <div className="px-6 py-2 bg-neutral-900 z-10 border-b border-neutral-800">
+                  <div className="flex p-1 bg-neutral-800 rounded-md border border-neutral-700">
                     {(["Growth", "Balanced", "Conservative"] as const).map(
                       (type) => (
                         <button
                           key={type}
                           onClick={() => setSelectedType(type)}
                           className={cn(
-                            "flex-1 py-2 text-sm font-medium rounded-md transition-all",
+                            "flex-1 py-2 text-sm font-medium rounded-sm transition-all font-mono uppercase tracking-wide",
                             selectedType === type
-                              ? "bg-white/10 text-white shadow-sm border border-white/10"
-                              : "text-neutral-400 hover:text-neutral-200",
+                              ? "bg-neutral-700 text-amber-500 shadow-sm border border-neutral-600"
+                              : "text-neutral-500 hover:text-neutral-300",
                           )}
                         >
                           {type}
@@ -244,23 +244,23 @@ export default function InstitutionalPortfolios({
                         {/* Description */}
                         <div
                           className={cn(
-                            "flex items-start gap-3 mb-6 p-4 rounded-xl border",
-                            "bg-white/5 border-white/10",
+                            "flex items-start gap-3 mb-6 p-4 rounded-lg border",
+                            "bg-neutral-800 border-neutral-700",
                           )}
                         >
                           <div
                             className={cn(
-                              "p-2 rounded-full shrink-0 bg-black/40 shadow-sm border border-white/10",
+                              "p-2 rounded-full shrink-0 bg-black/40 shadow-sm border border-neutral-700",
                               selectedInstitution.themeColor,
                             )}
                           >
                             <ActiveIcon className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-neutral-400 uppercase mb-1">
+                            <div className="text-xs font-bold text-neutral-500 uppercase mb-1 font-mono">
                               {activePortfolio.risk} • {activePortfolio.name}
                             </div>
-                            <div className="text-sm font-medium leading-relaxed text-neutral-300">
+                            <div className="text-sm font-medium leading-relaxed text-neutral-300 font-mono">
                               {activePortfolio.description}
                             </div>
                           </div>
@@ -268,29 +268,29 @@ export default function InstitutionalPortfolios({
 
                         {/* Holdings List */}
                         <table className="w-full text-sm text-left">
-                          <thead className="text-xs text-neutral-500 uppercase sticky top-0 bg-[#0a0a0a] backdrop-blur-md">
+                          <thead className="text-xs text-neutral-500 uppercase sticky top-0 bg-neutral-900">
                             <tr>
-                              <th className="pb-2 font-medium pl-2">Asset</th>
-                              <th className="pb-2 font-medium text-right pr-2">
+                              <th className="pb-2 font-medium pl-2 font-mono">Asset</th>
+                              <th className="pb-2 font-medium text-right pr-2 font-mono">
                                 Weight
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/5">
+                          <tbody className="divide-y divide-neutral-800">
                             {activePortfolio.holdings.map((h) => (
                               <tr
                                 key={h.ticker}
-                                className="group/row hover:bg-white/5 transition-colors"
+                                className="group/row hover:bg-neutral-800 transition-colors"
                               >
                                 <td className="py-3 pl-2">
-                                  <div className="font-bold text-white">
+                                  <div className="font-bold text-white font-mono">
                                     {h.ticker}
                                   </div>
-                                  <div className="text-xs text-neutral-500 truncate max-w-[200px] group-hover/row:text-neutral-400 transition-colors">
+                                  <div className="text-xs text-neutral-500 truncate max-w-[200px] group-hover/row:text-neutral-400 transition-colors font-mono">
                                     {h.name}
                                   </div>
                                 </td>
-                                <td className="py-3 text-right font-mono text-emerald-400 font-medium pr-2">
+                                <td className="py-3 text-right font-mono text-amber-500 font-medium pr-2">
                                   {h.weight}%
                                 </td>
                               </tr>
@@ -303,15 +303,15 @@ export default function InstitutionalPortfolios({
                 </div>
 
                 {/* Footer Action */}
-                <div className="p-6 border-t border-white/10 bg-white/5 z-10 backdrop-blur-md">
+                <div className="p-6 border-t border-neutral-800 bg-neutral-900 z-10">
                   <button
                     onClick={handleAdd}
                     disabled={isLoading || added}
                     className={cn(
-                      "w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
+                      "w-full py-3.5 rounded-sm font-bold transition-all flex items-center justify-center gap-2 font-mono uppercase tracking-wide",
                       added
-                        ? "bg-emerald-500 text-white"
-                        : "bg-white text-black hover:bg-neutral-200 active:scale-95",
+                        ? "bg-amber-500 text-black"
+                        : "bg-neutral-200 text-black hover:bg-white active:scale-95",
                     )}
                     aria-label="Copy This Portfolio"
                   >
@@ -322,7 +322,7 @@ export default function InstitutionalPortfolios({
                     ) : (
                       <>
                         {isLoading ? (
-                          <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                         ) : (
                           <Plus className="w-5 h-5" />
                         )}

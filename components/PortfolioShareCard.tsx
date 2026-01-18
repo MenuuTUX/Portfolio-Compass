@@ -189,24 +189,24 @@ export const PortfolioShareCard = React.forwardRef<
         className="w-[1080px] h-[1350px] bg-[#0a0a0a] text-white p-12 flex flex-col relative overflow-hidden font-sans"
         style={{ fontFamily: "var(--font-inter), sans-serif" }}
       >
-        <div className="absolute top-[-20%] right-[-10%] w-[1000px] h-[1000px] bg-emerald-900/10 blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[1000px] h-[1000px] bg-indigo-900/10 blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.03] pointer-events-none" />
+        <div className="absolute top-[-20%] right-[-10%] w-[1000px] h-[1000px] bg-amber-900/10 blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[1000px] h-[1000px] bg-neutral-900/20 blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.05] pointer-events-none" />
 
-        <div className="flex justify-between items-start mb-12 relative z-10 border-b border-white/10 pb-8 shrink-0">
+        <div className="flex justify-between items-start mb-12 relative z-10 border-b border-neutral-800 pb-8 shrink-0">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-2xl shadow-emerald-900/40 ring-1 ring-white/10">
-              <Share2 className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 rounded-lg bg-amber-600 flex items-center justify-center shadow-xl shadow-amber-900/20 border-2 border-amber-500/50">
+              <Share2 className="w-8 h-8 text-black" />
             </div>
             <div>
               <h1
-                className="text-4xl font-bold tracking-tight text-white mb-2 font-display"
-                style={{ fontFamily: "var(--font-space)" }}
+                className="text-4xl font-bold tracking-tight text-amber-500 mb-2 font-mono uppercase"
+                style={{ fontFamily: "var(--font-share-mono)" }}
               >
-                Portfolio Compass
+                Portfolio_Compass
               </h1>
               <div className="flex items-center gap-3">
-                <span className="px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                <span className="px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-widest bg-amber-500/10 text-amber-500 border border-amber-500/20">
                   Professional Analysis
                 </span>
                 <span className="text-neutral-500 text-xs font-medium uppercase tracking-wide">
@@ -237,7 +237,7 @@ export const PortfolioShareCard = React.forwardRef<
 
         <div className="grid grid-cols-4 gap-6 mb-8 relative z-10">
           <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group">
-            <div className="absolute top-4 right-4 text-emerald-500/20 group-hover:text-emerald-500/40 transition-colors">
+            <div className="absolute top-4 right-4 text-amber-500/20 group-hover:text-amber-500/40 transition-colors">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
@@ -246,20 +246,20 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="text-3xl font-bold text-white tracking-tight mb-1">
               {formatCurrency(metrics.projectedValue)}
             </div>
-            <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+            <div className="flex items-center gap-2 text-xs font-medium text-amber-400">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
               {metrics.years} Year Horizon
             </div>
           </div>
 
           <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-            <div className="absolute top-4 right-4 text-emerald-500/20">
+            <div className="absolute top-4 right-4 text-amber-500/20">
               <Activity className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
               Total Return
             </div>
-            <div className="text-3xl font-bold text-emerald-400 tracking-tight mb-1">
+            <div className="text-3xl font-bold text-amber-400 tracking-tight mb-1">
               +{metrics.percentageGrowth.toFixed(0)}%
             </div>
             <div className="text-xs text-neutral-500 font-medium">
@@ -267,14 +267,14 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-            <div className="absolute top-4 right-4 text-emerald-500/20">
+          <div className="bg-[#111] border border-neutral-800 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-4 right-4 text-amber-500/20">
               <DollarSign className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
               Accumulated Yield
             </div>
-            <div className="text-3xl font-bold text-blue-400 tracking-tight mb-1">
+            <div className="text-3xl font-bold text-amber-300 tracking-tight mb-1">
               {formatCurrency(metrics.dividends)}
             </div>
             <div className="text-xs text-neutral-500 font-medium">
@@ -282,8 +282,8 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
           </div>
 
-          <div className="bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden">
-            <div className="absolute top-4 right-4 text-emerald-500/20">
+          <div className="bg-[#111] border border-neutral-800 rounded-2xl p-6 relative overflow-hidden">
+            <div className="absolute top-4 right-4 text-amber-500/20">
               <PieChart className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
@@ -299,71 +299,71 @@ export const PortfolioShareCard = React.forwardRef<
         </div>
 
         <div className="grid grid-cols-12 gap-6 mb-8 relative z-10">
-          <div className="col-span-5 bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col justify-center">
+          <div className="col-span-5 bg-[#111] border border-neutral-800 rounded-2xl p-6 flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-4">
-              <Layers className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Asset Allocation
+              <Layers className="w-4 h-4 text-amber-500" />
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider font-mono">
+                Asset_Allocation
               </span>
             </div>
-            <div className="flex h-4 w-full rounded-full overflow-hidden bg-neutral-900 mb-4 ring-1 ring-white/5">
+            <div className="flex h-4 w-full rounded-sm overflow-hidden bg-neutral-900 mb-4 border border-neutral-800">
               <div
                 style={{ width: `${assetAllocation.equities * 100}%` }}
-                className="bg-emerald-500"
+                className="bg-amber-500"
               />
               <div
                 style={{ width: `${assetAllocation.bonds * 100}%` }}
-                className="bg-blue-500"
+                className="bg-neutral-500"
               />
               <div
                 style={{ width: `${assetAllocation.cash * 100}%` }}
-                className="bg-neutral-600"
+                className="bg-neutral-800"
               />
             </div>
-            <div className="flex justify-between text-xs font-medium">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                Equities {(assetAllocation.equities * 100).toFixed(0)}%
+            <div className="flex justify-between text-xs font-medium font-mono">
+              <div className="flex items-center gap-2 text-amber-400">
+                <div className="w-2 h-2 rounded-sm bg-amber-500"></div>
+                EQUITIES {(assetAllocation.equities * 100).toFixed(0)}%
               </div>
-              <div className="flex items-center gap-2 text-blue-400">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                Fixed Income {(assetAllocation.bonds * 100).toFixed(0)}%
+              <div className="flex items-center gap-2 text-neutral-400">
+                <div className="w-2 h-2 rounded-sm bg-neutral-500"></div>
+                FIXED {(assetAllocation.bonds * 100).toFixed(0)}%
               </div>
             </div>
           </div>
 
-          <div className="col-span-3 bg-[#111] border border-white/10 rounded-2xl p-6 flex flex-col justify-between">
+          <div className="col-span-3 bg-[#111] border border-neutral-800 rounded-2xl p-6 flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-rose-500" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Risk Profile
+              <Activity className="w-4 h-4 text-red-500" />
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider font-mono">
+                Risk_Profile
               </span>
             </div>
             <div className="flex justify-between items-end mb-2">
-              <span className="text-neutral-400 text-xs font-medium">Beta</span>
-              <span className="text-xl font-bold text-white">
+              <span className="text-neutral-400 text-xs font-medium font-mono">BETA</span>
+              <span className="text-xl font-bold text-white font-mono">
                 {weightedBeta.toFixed(2)}
               </span>
             </div>
-            <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-4">
+            <div className="w-full h-1.5 bg-neutral-800 rounded-sm overflow-hidden mb-4">
               <div
-                className="h-full bg-rose-500 rounded-full"
+                className="h-full bg-red-500 rounded-sm"
                 style={{ width: `${Math.min(weightedBeta * 50, 100)}%` }}
               />
             </div>
             <div className="flex justify-between items-end">
-              <span className="text-neutral-400 text-xs font-medium">MER</span>
-              <span className="text-xl font-bold text-white">
+              <span className="text-neutral-400 text-xs font-medium font-mono">MER</span>
+              <span className="text-xl font-bold text-white font-mono">
                 {weightedMER.toFixed(2)}%
               </span>
             </div>
           </div>
 
-          <div className="col-span-4 bg-[#111] border border-white/10 rounded-2xl p-6">
+          <div className="col-span-4 bg-[#111] border border-neutral-800 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
-              <PieChart className="w-4 h-4 text-indigo-500" />
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                Sector Exposure
+              <PieChart className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider font-mono">
+                Sector_Exposure
               </span>
             </div>
             <div className="space-y-3">
@@ -387,12 +387,12 @@ export const PortfolioShareCard = React.forwardRef<
         <div className="mb-8 bg-[#111] border border-white/10 rounded-2xl p-8 relative overflow-hidden flex-1 min-h-[300px]">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <TrendingUp className="w-5 h-5 text-emerald-500" />
+              <TrendingUp className="w-5 h-5 text-amber-500" />
               Wealth Growth vs S&P 500
             </h3>
             <div className="flex gap-6 text-xs font-medium">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <div className="w-3 h-1 rounded-full bg-emerald-500"></div>
+              <div className="flex items-center gap-2 text-amber-400">
+                <div className="w-3 h-1 rounded-full bg-amber-500"></div>
                 Your Portfolio
               </div>
               {spyData && (
@@ -402,8 +402,8 @@ export const PortfolioShareCard = React.forwardRef<
                 </div>
               )}
               {hasRange && (
-                <div className="flex items-center gap-2 text-emerald-400/50">
-                  <div className="w-3 h-3 rounded bg-emerald-500/10 border border-emerald-500/30"></div>
+                <div className="flex items-center gap-2 text-amber-400/50">
+                  <div className="w-3 h-3 rounded bg-amber-500/10 border border-amber-500/30"></div>
                   90% Confidence Interval
                 </div>
               )}
@@ -425,8 +425,8 @@ export const PortfolioShareCard = React.forwardRef<
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
                 </linearGradient>
               </defs>
 
@@ -523,7 +523,7 @@ export const PortfolioShareCard = React.forwardRef<
                 {hasRange && rangeAreaD && (
                   <path
                     d={rangeAreaD}
-                    fill="#10b981"
+                    fill="#f59e0b"
                     fillOpacity="0.08"
                     stroke="none"
                     style={{ filter: "blur(4px)" }}
@@ -534,7 +534,7 @@ export const PortfolioShareCard = React.forwardRef<
                   <path
                     d={spyPathD}
                     fill="none"
-                    stroke="#f59e0b"
+                    stroke="#737373"
                     strokeWidth="2"
                     strokeDasharray="6 6"
                     strokeLinecap="round"
@@ -554,7 +554,7 @@ export const PortfolioShareCard = React.forwardRef<
                   <path
                     d={pathD}
                     fill="none"
-                    stroke="#10b981"
+                    stroke="#f59e0b"
                     strokeWidth="4"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -568,7 +568,7 @@ export const PortfolioShareCard = React.forwardRef<
         <div className="relative z-10">
           <div className="flex justify-between items-center mb-5 border-b border-white/10 pb-2">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-emerald-500" />
+              <Shield className="w-5 h-5 text-amber-500" />
               Top Holdings
             </h3>
             <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
@@ -607,13 +607,13 @@ export const PortfolioShareCard = React.forwardRef<
                       <span className="font-bold text-white text-base truncate">
                         {item.ticker}
                       </span>
-                      <span className="font-mono text-emerald-400 text-sm font-bold">
+                      <span className="font-mono text-amber-400 text-sm font-bold">
                         {item.weight.toFixed(1)}%
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-emerald-600 rounded-full"
+                        className="h-full bg-amber-600 rounded-full"
                         style={{ width: `${Math.min(item.weight, 100)}%` }}
                       />
                     </div>
@@ -624,10 +624,10 @@ export const PortfolioShareCard = React.forwardRef<
           </div>
         </div>
 
-        <div className="mt-auto pt-8 flex justify-between items-center relative z-10 border-t border-white/10 shrink-0">
+        <div className="mt-auto pt-8 flex justify-between items-center relative z-10 border-t border-neutral-800 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.6)]" />
-            <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.6)]" />
+            <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest font-mono">
               Generated by Portfolio Compass
             </span>
           </div>

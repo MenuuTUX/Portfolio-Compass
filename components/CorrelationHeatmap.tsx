@@ -59,12 +59,12 @@ export default function CorrelationHeatmap({
     let base = "";
 
     if (value === 1.0)
-      base = "bg-emerald-900/40 border-emerald-500/20 text-emerald-600"; // Self
+      base = "bg-amber-900/40 border-amber-500/20 text-amber-600"; // Self
     else if (value > 0.7)
       base = "bg-rose-900/40 border-rose-500/20 text-rose-400"; // High correlation
     else if (value < 0.3)
       base = "bg-blue-900/40 border-blue-500/20 text-blue-400"; // Low correlation
-    else base = "bg-emerald-900/20 border-emerald-500/10 text-emerald-400"; // Moderate
+    else base = "bg-amber-900/20 border-amber-500/10 text-amber-400"; // Moderate
 
     // Interaction states
     if (hasHover) {
@@ -103,10 +103,10 @@ export default function CorrelationHeatmap({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-white/10 rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
+            className="absolute inset-4 z-20 bg-neutral-950/95 backdrop-blur-md border border-white/10 rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
           >
             <div className="flex justify-between items-start">
-              <h4 className="text-sm font-bold text-emerald-400">
+              <h4 className="text-sm font-bold text-amber-400">
                 Understanding Correlation
               </h4>
               <button
@@ -128,7 +128,7 @@ export default function CorrelationHeatmap({
                   <strong>(Higher Risk)</strong>
                 </li>
                 <li>
-                  <strong className="text-emerald-400">
+                  <strong className="text-amber-400">
                     Moderate (0.3 to 0.7):
                   </strong>{" "}
                   Some relationship, but not identical.
@@ -141,7 +141,7 @@ export default function CorrelationHeatmap({
                   "Diversification". <strong>(Lower Risk)</strong>
                 </li>
               </ul>
-              <p className="mt-2 text-emerald-300 italic border-l-2 border-emerald-500 pl-2">
+              <p className="mt-2 text-amber-300 italic border-l-2 border-amber-500 pl-2">
                 Goal: A portfolio with many{" "}
                 <strong>Blue (Low Correlation)</strong> squares is better
                 diversified and safer during crashes.
@@ -251,7 +251,7 @@ export default function CorrelationHeatmap({
                       ? "text-rose-400"
                       : matrix[hoveredCell.row][hoveredCell.col] < 0.3
                         ? "text-blue-400"
-                        : "text-emerald-400"
+                        : "text-amber-400"
                   }`}
                 >
                   {matrix[hoveredCell.row][hoveredCell.col].toFixed(2)}
@@ -278,7 +278,7 @@ export default function CorrelationHeatmap({
                 (&lt;0.3)
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 bg-emerald-500/20 rounded-sm"></div> Mod
+                <div className="w-2 h-2 bg-amber-500/20 rounded-sm"></div> Mod
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 bg-rose-500/40 rounded-sm"></div> High

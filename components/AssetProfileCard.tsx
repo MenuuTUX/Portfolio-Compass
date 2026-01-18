@@ -40,13 +40,13 @@ function DescriptionText({ text }: { text: string }) {
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <p className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap font-sans">
+      <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap font-sans">
         {displayText}
       </p>
       {shouldTruncate && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs font-medium text-emerald-400 hover:text-emerald-300 hover:underline focus:outline-none transition-colors"
+          className="text-xs font-medium text-amber-400 hover:text-amber-300 hover:underline focus:outline-none transition-colors"
         >
           {isExpanded ? "Read less" : "Read more"}
         </button>
@@ -147,7 +147,7 @@ export default function AssetProfileCard({
   return (
     <div className={cn("w-full h-full flex flex-col gap-4", className)}>
       <div className="flex items-center gap-2 text-white mb-1">
-        <BookOpen className="w-5 h-5 text-emerald-400" />
+        <BookOpen className="w-5 h-5 text-amber-400" />
         <h3 className="text-lg font-bold">About {ticker}</h3>
       </div>
 
@@ -155,7 +155,7 @@ export default function AssetProfileCard({
       <div className="flex flex-wrap items-center gap-2">
         <Badge
           variant="secondary"
-          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded-md"
+          className="bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 px-2 py-0.5 rounded-md"
         >
           {assetType === "ETF" ? "ETF" : "STOCK"}
         </Badge>
@@ -193,11 +193,11 @@ export default function AssetProfileCard({
       {assetType === "STOCK" && info?.analyst && (
         <div className="space-y-4 pt-4 mt-2 border-t border-white/5">
           <div className="flex items-center gap-2 text-white">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <TrendingUp className="w-4 h-4 text-amber-400" />
             <h3 className="font-bold text-sm tracking-wide">Analyst Summary</h3>
           </div>
 
-          <div className="relative pl-4 border-l-2 border-emerald-500/30 py-1">
+          <div className="relative pl-4 border-l-2 border-amber-500/30 py-1">
             <p className="text-sm text-neutral-300 italic leading-relaxed">
               "{info.analyst.summary}"
             </p>
@@ -214,7 +214,7 @@ export default function AssetProfileCard({
                 className={cn(
                   "text-sm font-bold px-3 py-1",
                   info.analyst.consensus.toLowerCase().includes("buy")
-                    ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                    ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
                     : info.analyst.consensus.toLowerCase().includes("sell")
                       ? "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
                       : "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
@@ -240,7 +240,7 @@ export default function AssetProfileCard({
                   className={cn(
                     "text-[10px] font-medium mt-0.5",
                     info.analyst.targetUpside >= 0
-                      ? "text-emerald-400"
+                      ? "text-amber-400"
                       : "text-rose-400",
                   )}
                 >

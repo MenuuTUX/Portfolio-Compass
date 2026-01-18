@@ -49,7 +49,7 @@ export default function EtfVerdictCard({
   const getIcon = (status: string) => {
     switch (status) {
       case "good":
-        return <CheckCircle className="w-5 h-5 text-emerald-400" />;
+        return <CheckCircle className="w-5 h-5 text-amber-400" />;
       case "warning":
         return <AlertTriangle className="w-5 h-5 text-rose-400" />;
       default:
@@ -60,7 +60,7 @@ export default function EtfVerdictCard({
   const getColor = (status: string) => {
     switch (status) {
       case "good":
-        return "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10";
+        return "border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10";
       case "warning":
         return "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10";
       default:

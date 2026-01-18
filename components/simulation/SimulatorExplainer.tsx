@@ -53,7 +53,7 @@ const steps = [
     title: "Stochastic Simulation",
     subtitle: "Geometric Brownian Motion",
     icon: GitBranch,
-    color: "emerald",
+    color: "amber",
     description:
       'Monte Carlo simulations model thousands of possible futures by introducing randomness (Brownian Motion) into the price path. It accounts for volatility and correlation between assets to generate a probabilistic "Cone of Uncertainty".',
     details: [
@@ -90,19 +90,19 @@ export default function SimulatorExplainer({
   return (
     <div className="w-full mt-12 mb-8 relative font-sans">
       {/* Ambient Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
       <div className="relative glass-panel border border-white/10 bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="p-8 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                <Binary className="w-6 h-6 text-emerald-400" />
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <Binary className="w-6 h-6 text-amber-400" />
               </div>
               <h2 className="text-2xl font-bold text-white tracking-tight">
                 Simulation Logic{" "}
-                <span className="text-emerald-400">Exposed</span>
+                <span className="text-amber-400">Exposed</span>
               </h2>
             </div>
             <p className="text-neutral-400 max-w-2xl text-sm">
@@ -153,7 +153,7 @@ export default function SimulatorExplainer({
                             className={cn(
                               "transition-colors cursor-help italic",
                               hoveredTerm === "P"
-                                ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                                ? "text-amber-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
                                 : "text-neutral-200",
                             )}
                             onMouseEnter={() => setHoveredTerm("P")}
@@ -270,12 +270,12 @@ export default function SimulatorExplainer({
                   >
                     {/* The Formula */}
                     <div className="relative group">
-                      <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute -inset-6 bg-amber-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
                       <div className="relative bg-black/80 border border-white/10 px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-2xl md:text-3xl font-serif text-white">
                         <span className="text-white">dS</span>
                         <span className="text-neutral-600 text-xl mx-1">=</span>
                         <div className="flex items-center group/drift cursor-help">
-                          <span className="text-emerald-400">μS dt</span>
+                          <span className="text-amber-400">μS dt</span>
                         </div>
                         <span className="text-neutral-600 text-xl mx-1">+</span>
                         <div className="flex items-center group/shock cursor-help">
@@ -284,7 +284,7 @@ export default function SimulatorExplainer({
                       </div>
                       <div className="mt-4 flex gap-4 justify-center text-xs text-neutral-500 font-mono">
                         <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-emerald-400" />{" "}
+                          <div className="w-2 h-2 rounded-full bg-amber-400" />{" "}
                           Drift (Trend)
                         </span>
                         <span className="flex items-center gap-1">
@@ -337,7 +337,7 @@ export default function SimulatorExplainer({
                           opacity="0.8"
                         />
                       </svg>
-                      <div className="absolute bottom-4 right-4 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                      <div className="absolute bottom-4 right-4 text-xs text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
                         Probabilistic
                       </div>
                     </div>
@@ -368,7 +368,7 @@ export default function SimulatorExplainer({
                     {isActive && (
                       <motion.div
                         layoutId="active-sim-indicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"
+                        className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"
                         transition={{
                           type: "spring",
                           stiffness: 300,
@@ -400,10 +400,10 @@ export default function SimulatorExplainer({
                             {step.title}
                           </h3>
                           {isActive && (
-                            <ChevronRight className="w-4 h-4 text-emerald-500 animate-pulse" />
+                            <ChevronRight className="w-4 h-4 text-amber-500 animate-pulse" />
                           )}
                         </div>
-                        <p className="text-xs font-mono text-emerald-500/70 mb-2 uppercase tracking-wide">
+                        <p className="text-xs font-mono text-amber-500/70 mb-2 uppercase tracking-wide">
                           {step.subtitle}
                         </p>
                         <p className="text-sm text-neutral-400 leading-relaxed mb-4">

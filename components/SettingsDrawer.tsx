@@ -115,7 +115,7 @@ export default function SettingsDrawer({
               {/* Data Management Section */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-neutral-200 flex items-center gap-2">
-                  <RefreshCw className="w-5 h-5 text-emerald-400" />
+                  <RefreshCw className="w-5 h-5 text-amber-400" />
                   Data Management
                 </h3>
 
@@ -193,7 +193,7 @@ export default function SettingsDrawer({
                     exit={{ opacity: 0 }}
                     className={`p-4 rounded-lg flex items-start gap-3 ${
                       status.type === "success"
-                        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                        ? "bg-amber-500/10 border border-amber-500/20 text-amber-400"
                         : "bg-red-500/10 border border-red-500/20 text-red-400"
                     }`}
                   >
