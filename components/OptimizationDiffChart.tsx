@@ -78,10 +78,10 @@ export default function OptimizationDiffChart({
                   const d = payload[0].payload;
                   const isBuy = d.delta > 0;
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs">
+                    <div className="bg-neutral-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs">
                       <span className="font-bold text-white">{d.ticker}: </span>
                       <span
-                        className={isBuy ? "text-emerald-400" : "text-rose-400"}
+                        className={isBuy ? "text-amber-400" : "text-rose-400"}
                       >
                         {isBuy ? "+" : ""}
                         {d.delta.toFixed(2)} shares

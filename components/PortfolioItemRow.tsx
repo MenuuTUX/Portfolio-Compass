@@ -71,7 +71,7 @@ const PortfolioItemRow = memo(
             </div>
             <div className="flex justify-between w-24">
               <span>Yield:</span>
-              <span className="text-emerald-400">{item.metrics.yield}%</span>
+              <span className="text-amber-400">{item.metrics.yield}%</span>
             </div>
           </div>
         </td>
@@ -92,7 +92,7 @@ const PortfolioItemRow = memo(
                 onChange={(e) =>
                   onUpdateShares(item.ticker, parseFloat(e.target.value))
                 }
-                className="w-24 bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark] text-sm"
+                className="w-24 bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-amber-500 focus:outline-none [color-scheme:dark] text-sm"
                 aria-label={`Shares for ${item.ticker}`}
               />
             </div>
@@ -124,7 +124,7 @@ const PortfolioItemRow = memo(
               onChange={(e) =>
                 onUpdateWeight(item.ticker, parseFloat(e.target.value))
               }
-              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-amber-500"
               aria-label={`Weight for ${item.ticker}`}
             />
           </div>

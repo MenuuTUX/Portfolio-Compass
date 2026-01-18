@@ -262,7 +262,7 @@ export default function TrendingTab({
             title="Best"
             items={trendingItems}
             Icon={ShoppingBag}
-            theme="emerald"
+            theme="amber"
             onAddToPortfolio={onAddToPortfolio}
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}

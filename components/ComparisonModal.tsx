@@ -65,7 +65,7 @@ function MetricRow({
       <div
         className={cn(
           "text-sm font-mono text-right",
-          better === "A" ? "text-emerald-400 font-bold" : "text-neutral-400",
+          better === "A" ? "text-amber-400 font-bold" : "text-neutral-400",
         )}
       >
         {valueA !== undefined ? formatter(valueA) : "--"}
@@ -80,13 +80,13 @@ function MetricRow({
           <div
             className={cn(
               "mt-1 flex items-center justify-center w-5 h-5 rounded-full",
-              better === "A" ? "bg-emerald-500/10" : "bg-blue-500/10",
+              better === "A" ? "bg-amber-500/10" : "bg-blue-500/10",
             )}
           >
             <Trophy
               className={cn(
                 "w-3 h-3",
-                better === "A" ? "text-emerald-500" : "text-blue-500",
+                better === "A" ? "text-amber-500" : "text-blue-500",
               )}
             />
           </div>
@@ -394,7 +394,7 @@ export default function ComparisonModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
           <div className="flex items-center gap-4">
-            <Scale className="w-6 h-6 text-emerald-400" />
+            <Scale className="w-6 h-6 text-amber-400" />
             <h2 className="text-xl font-bold text-white">Asset Comparison</h2>
           </div>
           <button
@@ -410,7 +410,7 @@ export default function ComparisonModal({
           {/* Asset Headers */}
           <div className="grid grid-cols-[1fr_auto_1fr] gap-4 mb-8">
             {/* Asset A (Left) */}
-            <div className="flex flex-col items-center p-4 bg-emerald-900/10 border border-emerald-500/20 rounded-xl">
+            <div className="flex flex-col items-center p-4 bg-amber-900/10 border border-amber-500/20 rounded-xl">
               <div className="w-12 h-12 mb-3">
                 {getAssetIconUrl(
                   baseAsset.ticker,
@@ -440,7 +440,7 @@ export default function ComparisonModal({
                 className={cn(
                   "mt-2 font-mono",
                   baseAsset.changePercent >= 0
-                    ? "text-emerald-400"
+                    ? "text-amber-400"
                     : "text-rose-400",
                 )}
               >
@@ -495,7 +495,7 @@ export default function ComparisonModal({
                   className={cn(
                     "mt-2 font-mono",
                     compareAsset.changePercent >= 0
-                      ? "text-emerald-400"
+                      ? "text-amber-400"
                       : "text-rose-400",
                   )}
                 >
@@ -511,7 +511,7 @@ export default function ComparisonModal({
                     placeholder="Search to compare..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50"
                     autoFocus
                   />
                   <Search className="absolute right-3 top-2.5 w-4 h-4 text-neutral-500" />
@@ -538,7 +538,7 @@ export default function ComparisonModal({
                                 {item.name}
                               </div>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-neutral-600 group-hover:text-emerald-400" />
+                            <ChevronRight className="w-4 h-4 text-neutral-600 group-hover:text-amber-400" />
                           </button>
                         ))
                       ) : (
@@ -563,7 +563,7 @@ export default function ComparisonModal({
               {/* 1. Comparison Chart */}
               <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                 <div className="flex items-center gap-2 mb-6">
-                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  <TrendingUp className="w-5 h-5 text-amber-400" />
                   <h3 className="text-lg font-bold text-white">
                     Performance Comparison (Normalized)
                   </h3>
@@ -668,7 +668,7 @@ export default function ComparisonModal({
               {/* 2. Key Metrics Head-to-Head */}
               <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
                 <div className="flex items-center gap-2 mb-6">
-                  <Activity className="w-5 h-5 text-emerald-400" />
+                  <Activity className="w-5 h-5 text-amber-400" />
                   <h3 className="text-lg font-bold text-white">
                     Head-to-Head Metrics
                   </h3>

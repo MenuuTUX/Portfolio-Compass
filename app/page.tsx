@@ -116,7 +116,7 @@ export default function Home() {
           >
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
-            <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
+            <footer className="relative w-full py-12 text-center text-neutral-600 text-xs border-t border-neutral-900 bg-neutral-950">
               <p>&copy; {new Date().getFullYear()} PortfolioCompass. Advanced Market Intelligence. Disclaimer: This is not financial advice.</p>
             </footer>
           </motion.div>

@@ -69,10 +69,10 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-white/10 rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
+            className="absolute inset-4 z-20 bg-neutral-950/95 backdrop-blur-md border border-white/10 rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
           >
             <div className="flex justify-between items-start">
-              <h4 className="text-sm font-bold text-emerald-400">
+              <h4 className="text-sm font-bold text-amber-400">
                 Understanding Risk vs Return
               </h4>
               <button
@@ -104,7 +104,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                   <br />• Beta &gt; 1.0: More volatile (Riskier).
                 </li>
               </ul>
-              <p className="mt-2 text-emerald-300 italic border-l-2 border-emerald-500 pl-2">
+              <p className="mt-2 text-amber-300 italic border-l-2 border-amber-500 pl-2">
                 Goal: Find assets in the <strong>Top-Left</strong> (High Return,
                 Low Risk). Avoid the Bottom-Right.
               </p>
@@ -157,7 +157,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg shadow-xl min-w-[150px]">
+                    <div className="bg-neutral-950/90 backdrop-blur-md border border-white/10 p-3 rounded-lg shadow-xl min-w-[150px]">
                       <p className="font-bold text-white mb-2 border-b border-white/10 pb-1">
                         {d.ticker}
                       </p>
@@ -169,7 +169,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                               d.x > 1.2
                                 ? "text-rose-400"
                                 : d.x < 0.8
-                                  ? "text-emerald-400"
+                                  ? "text-amber-400"
                                   : "text-amber-400"
                             }
                           >
@@ -178,7 +178,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                         </div>
                         <div className="flex justify-between gap-4">
                           <span className="text-neutral-400">Est. Return:</span>
-                          <span className="text-emerald-400">
+                          <span className="text-amber-400">
                             {d.y.toFixed(2)}%
                           </span>
                         </div>
@@ -227,7 +227,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
         </ResponsiveContainer>
 
         {/* Subtle Quadrant Labels */}
-        <div className="absolute top-4 left-10 text-[10px] text-emerald-500/30 font-bold uppercase tracking-widest pointer-events-none hidden sm:block">
+        <div className="absolute top-4 left-10 text-[10px] text-amber-500/30 font-bold uppercase tracking-widest pointer-events-none hidden sm:block">
           High Return / Low Risk
         </div>
       </div>

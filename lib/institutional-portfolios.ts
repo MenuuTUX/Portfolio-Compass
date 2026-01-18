@@ -748,7 +748,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     id: "blackrock",
     name: "BlackRock (iShares)",
     logo: "/logos/blackrock.svg", // Using iShares logo as it's the consumer brand
-    themeColor: "text-stone-900",
+    themeColor: "text-stone-400",
     themeGradient: "from-stone-800/20 to-transparent",
     description:
       "The world's largest asset manager. These 'Core' portfolios use market-cap weighted indexing.",

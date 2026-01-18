@@ -150,8 +150,8 @@ export default function TrendingSection({
       case "amber":
         return {
           bg: "bg-amber-500/20",
-          text: "text-amber-400",
-          border: "hover:border-amber-500/30",
+          text: "text-amber-500",
+          border: "hover:border-amber-500/50",
           shadow: "hover:shadow-amber-500/20",
           tagBg: "bg-amber-500",
           tagText: "RESOURCE",
@@ -159,11 +159,11 @@ export default function TrendingSection({
         };
       default:
         return {
-          bg: "bg-emerald-500/20",
-          text: "text-emerald-400",
-          border: "hover:border-white/20",
-          shadow: "hover:shadow-emerald-500/10",
-          tagBg: "bg-emerald-500",
+          bg: "bg-amber-500/10",
+          text: "text-amber-500",
+          border: "hover:border-amber-500/50",
+          shadow: "hover:shadow-amber-500/10",
+          tagBg: "bg-amber-500",
           tagText: "HOT",
           tagIcon: TrendingUp,
         };
@@ -207,7 +207,7 @@ export default function TrendingSection({
                 {visibleItems.length} of {items.length} assets
               </span>
               {ownedCount > 0 && (
-                <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-400 text-xs font-medium px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-400 text-xs font-medium px-2 py-0.5 rounded-full">
                   <Check className="w-3 h-3" />
                   {ownedCount} owned
                 </span>
@@ -278,11 +278,11 @@ export default function TrendingSection({
               }
               transition={{ duration: 0.4 }}
               className={cn(
-                "group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
+                "group relative bg-neutral-900 border-2 border-neutral-800 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
                 styles.border,
                 styles.shadow,
                 inPortfolio &&
-                  "shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)] border-emerald-500/30",
+                  "shadow-[0_0_15px_-2px_rgba(245,158,11,0.3)] border-amber-500/50",
               )}
             >
               {/* Flash Overlay */}
@@ -295,8 +295,8 @@ export default function TrendingSection({
                     className={cn(
                       "absolute inset-0 z-20 pointer-events-none backdrop-blur-[2px]",
                       flashState === "success"
-                        ? "bg-emerald-500/20"
-                        : "bg-rose-500/20",
+                        ? "bg-amber-500/20"
+                        : "bg-red-500/20",
                     )}
                   />
                 )}
@@ -312,17 +312,17 @@ export default function TrendingSection({
                 {styles.tagText}
               </div>
 
-              {/* Green Blur Overlay for Owned Items */}
+              {/* Amber Blur Overlay for Owned Items */}
               {inPortfolio && (
-                <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />
+                <div className="absolute inset-0 bg-amber-500/5 pointer-events-none" />
               )}
 
               <div className="p-5">
                 {/* Portfolio Indicator */}
                 {inPortfolio && (
-                  <div className="inline-flex items-center gap-1 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold px-2 py-1 rounded-full mb-3 shadow-sm">
+                  <div className="inline-flex items-center gap-1 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-500 text-xs font-bold px-2 py-1 rounded-sm mb-3 shadow-sm font-mono tracking-wide">
                     <Check className="w-3 h-3" />
-                    OWNED
+                    ACQUIRED
                   </div>
                 )}
 
@@ -355,15 +355,15 @@ export default function TrendingSection({
 
                 <div className="flex justify-between items-end mb-4">
                   <div>
-                    <span className="block text-2xl font-bold text-white mb-1">
+                    <span className="block text-2xl font-bold text-white mb-1 font-mono">
                       {formatCurrency(etf.price)}
                     </span>
                     <span
                       className={cn(
-                        "flex items-center text-sm font-medium",
+                        "flex items-center text-sm font-medium font-mono",
                         etf.changePercent >= 0
-                          ? "text-emerald-400"
-                          : "text-rose-400",
+                          ? "text-lime-400"
+                          : "text-red-500",
                       )}
                     >
                       {etf.changePercent >= 0 ? (
@@ -378,7 +378,7 @@ export default function TrendingSection({
                     <div className="pb-1">
                       <Sparkline
                         data={etf.history}
-                        color={isGraphPositive ? "#10b981" : "#f43f5e"}
+                        color={isGraphPositive ? "#a3e635" : "#ef4444"}
                         name={etf.ticker}
                       />
                     </div>
@@ -394,7 +394,7 @@ export default function TrendingSection({
                   </div>
                   <div className="text-right">
                     <span className="block mb-1">Yield</span>
-                    <span className="text-emerald-400 font-medium">
+                    <span className="text-amber-400 font-medium">
                       {etf.metrics?.yield?.toFixed(2)}%
                     </span>
                   </div>
@@ -433,7 +433,7 @@ export default function TrendingSection({
                 ) : (
                   <button
                     onClick={() => handleAdd(etf)}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-75 shadow-lg"
+                    className="bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-75 shadow-lg"
                     title="Add to Portfolio"
                   >
                     <Plus className="w-6 h-6" />

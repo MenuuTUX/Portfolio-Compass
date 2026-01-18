@@ -58,7 +58,7 @@ export default function ImportPortfolioCard({
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
-          "w-full h-full bg-stone-950/80 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 group overflow-hidden text-center relative hover:border-emerald-500/50 transition-colors",
+          "w-full h-full bg-neutral-950/80 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 group overflow-hidden text-center relative hover:border-amber-500/50 transition-colors",
           status === "error" && "border-rose-500/50",
         )}
       >
@@ -73,37 +73,37 @@ export default function ImportPortfolioCard({
         />
 
         {/* Glow Effect */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
         {isProcessing ? (
           <div className="relative z-10 flex flex-col items-center gap-3">
-            <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-            <span className="text-sm text-stone-400">Processing...</span>
+            <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
+            <span className="text-sm text-neutral-400">Processing...</span>
           </div>
         ) : status === "success" ? (
           <div className="relative z-10 flex flex-col items-center gap-3">
             <motion.div
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center"
+              className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center"
             >
-              <CheckCircle className="w-6 h-6 text-emerald-500" />
+              <CheckCircle className="w-6 h-6 text-amber-500" />
             </motion.div>
-            <span className="text-lg font-bold text-emerald-400">
+            <span className="text-lg font-bold text-amber-400">
               Imported!
             </span>
           </div>
         ) : (
           <>
-            <div className="relative z-10 w-16 h-16 rounded-2xl bg-stone-900 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-xl group-hover:shadow-emerald-500/20">
-              <Upload className="w-8 h-8 text-stone-400 group-hover:text-emerald-400 transition-colors" />
+            <div className="relative z-10 w-16 h-16 rounded-2xl bg-neutral-900 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-xl group-hover:shadow-amber-500/20">
+              <Upload className="w-8 h-8 text-neutral-400 group-hover:text-amber-400 transition-colors" />
             </div>
 
             <div className="relative z-10 space-y-1">
-              <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">
+              <h3 className="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">
                 Import Portfolio
               </h3>
-              <p className="text-xs text-stone-500 leading-relaxed max-w-[200px] mx-auto">
+              <p className="text-xs text-neutral-500 leading-relaxed max-w-[200px] mx-auto">
                 Upload a Portfolio Compass image to instantly import it.
               </p>
             </div>

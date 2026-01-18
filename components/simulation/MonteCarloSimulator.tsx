@@ -414,7 +414,7 @@ export default function MonteCarloSimulator({
           <div>
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
               Monte Carlo Simulation{" "}
-              <span className="text-xs px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">
+              <span className="text-xs px-2 py-1 bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30">
                 BETA
               </span>
             </h2>
@@ -463,7 +463,7 @@ export default function MonteCarloSimulator({
             <button
               onClick={prepareSimulation}
               disabled={isLoadingHistory}
-              className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors shadow-lg shadow-emerald-900/20"
+              className="flex items-center gap-2 px-6 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors shadow-lg shadow-amber-900/20"
             >
               {isLoadingHistory ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -493,7 +493,7 @@ export default function MonteCarloSimulator({
               initialInvestment !== currentPortfolioValue && (
                 <button
                   onClick={() => setInitialInvestment(currentPortfolioValue)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
                   title="Reset to current portfolio value"
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -522,7 +522,7 @@ export default function MonteCarloSimulator({
               max="30"
               value={timeHorizonYears}
               onChange={(e) => setTimeHorizonYears(Number(e.target.value))}
-              className="flex-1 accent-emerald-500"
+              className="flex-1 accent-amber-500"
             />
             <span className="text-xl font-mono text-white w-12 text-right">
               {timeHorizonYears}y
@@ -570,27 +570,29 @@ export default function MonteCarloSimulator({
             <LineChart data={chartData}>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#333"
+                stroke="#262626"
                 vertical={false}
               />
               <XAxis
                 dataKey="day"
-                stroke="#555"
+                stroke="#525252"
                 tickFormatter={(d) => `Y${Math.floor(d / 252)}`}
                 type="number"
                 domain={[0, timeHorizonYears * 252]}
+                tick={{ fontFamily: "monospace", fill: "#737373" }}
               />
               <YAxis
-                stroke="#555"
+                stroke="#525252"
                 domain={["auto", "auto"]}
                 tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                tick={{ fontFamily: "monospace", fill: "#737373" }}
               />
               {Array.from({ length: numSimulations }).map((_, i) => (
                 <Line
                   key={i}
                   type="monotone"
                   dataKey={`sim${i}`}
-                  stroke="#10b981"
+                  stroke="#f59e0b"
                   strokeWidth={1}
                   strokeOpacity={0.3}
                   dot={false}
@@ -611,23 +613,24 @@ export default function MonteCarloSimulator({
               <AreaChart data={coneChartData}>
                 <defs>
                   <linearGradient id="coneGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="#333"
+                  stroke="#262626"
                   vertical={false}
                 />
                 <XAxis
                   dataKey="day"
-                  stroke="#555"
+                  stroke="#525252"
                   tickFormatter={(d) => `Y${Math.floor(d / 252)}`}
                   minTickGap={30}
+                  tick={{ fontFamily: "monospace", fill: "#737373" }}
                 />
                 <YAxis
-                  stroke="#555"
+                  stroke="#525252"
                   tickFormatter={(value) => {
                     if (value >= 1000000)
                       return `$${(value / 1000000).toFixed(1)}M`;
@@ -635,11 +638,13 @@ export default function MonteCarloSimulator({
                     return `$${value}`;
                   }}
                   width={60}
+                  tick={{ fontFamily: "monospace", fill: "#737373" }}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#000",
-                    borderColor: "#333",
+                    backgroundColor: "#171717",
+                    borderColor: "#262626",
+                    fontFamily: "monospace",
                   }}
                   formatter={(val: any) => formatCurrency(Number(val))}
                   labelFormatter={(d) => `Year ${(d / 252).toFixed(1)}`}
@@ -649,7 +654,7 @@ export default function MonteCarloSimulator({
                   type="monotone"
                   dataKey="p95"
                   name="Best Case (95th)"
-                  stroke="#34d399"
+                  stroke="#fbbf24"
                   strokeWidth={2}
                   fill="url(#coneGradient)"
                   fillOpacity={1}
@@ -659,7 +664,7 @@ export default function MonteCarloSimulator({
                   type="monotone"
                   dataKey="median"
                   name="Median Outcome"
-                  stroke="#10b981"
+                  stroke="#f59e0b"
                   strokeWidth={3}
                   fill="none"
                 />
@@ -678,7 +683,7 @@ export default function MonteCarloSimulator({
                   type="monotone"
                   dataKey="dividends"
                   name="Accumulated Dividends (Est)"
-                  stroke="#60a5fa"
+                  stroke="#a3e635"
                   strokeWidth={2}
                   strokeDasharray="2 2"
                   fill="none"
@@ -697,15 +702,15 @@ export default function MonteCarloSimulator({
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"
           >
-            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-amber-500 bg-white/5">
               <div className="text-xs text-neutral-400">Median Outcome</div>
               <div className="text-xl font-bold text-white">
                 {formatCurrency(riskMetrics.medianOutcome)}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-amber-300 bg-white/5">
               <div className="text-xs text-neutral-400">Best Case (95th)</div>
-              <div className="text-lg font-bold text-emerald-300">
+              <div className="text-lg font-bold text-amber-300">
                 {formatCurrency(riskMetrics.best5Outcome)}
               </div>
             </div>
@@ -716,16 +721,16 @@ export default function MonteCarloSimulator({
               </div>
             </div>
             {/* New Dividends Card */}
-            <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-white/5">
-              <div className="text-xs text-neutral-400">Est. Dividends</div>
-              <div className="text-lg font-bold text-blue-400">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-lime-500 bg-neutral-800">
+              <div className="text-xs text-neutral-400 font-mono">EST. DIVIDENDS</div>
+              <div className="text-lg font-bold text-lime-400 font-mono">
                 {formatCurrency(riskMetrics.totalDividends)}
               </div>
             </div>
             {/* Combined VaR and Sharpe into one if needed, or expand grid */}
-            <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-white/5">
-              <div className="text-xs text-neutral-400">Value at Risk</div>
-              <div className="text-lg font-bold text-yellow-400">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-orange-500 bg-neutral-800">
+              <div className="text-xs text-neutral-400 font-mono">VALUE AT RISK</div>
+              <div className="text-lg font-bold text-orange-400 font-mono">
                 {formatCurrency(riskMetrics.vaR > 0 ? riskMetrics.vaR : 0)}
               </div>
             </div>

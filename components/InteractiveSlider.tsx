@@ -79,11 +79,11 @@ export default function InteractiveSlider({
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       <div className="flex justify-between items-end mb-1">
-        <span className="text-stone-400 text-xs font-mono uppercase tracking-wider">
+        <span className="text-neutral-400 text-xs font-mono uppercase tracking-wider">
           {label}
         </span>
         <motion.span
-          className="text-emerald-400 text-sm font-display font-bold"
+          className="text-amber-400 text-sm font-display font-bold"
           style={{ opacity: glowOpacity }}
         >
           {value}
@@ -96,9 +96,9 @@ export default function InteractiveSlider({
         ref={constraintsRef}
       >
         {/* Track Background */}
-        <div className="absolute top-1/2 left-0 w-full h-1 bg-stone-800/50 rounded-full overflow-hidden -translate-y-1/2 backdrop-blur-sm border border-stone-700/30">
+        <div className="absolute top-1/2 left-0 w-full h-1 bg-neutral-800/50 rounded-full overflow-hidden -translate-y-1/2 backdrop-blur-sm border border-neutral-700/30">
           <motion.div
-            className="h-full bg-emerald-900/40"
+            className="h-full bg-amber-900/40"
             style={{ width: percentage }}
           />
         </div>
@@ -106,7 +106,7 @@ export default function InteractiveSlider({
         {/* Active Fill Track */}
         <div className="absolute top-1/2 left-0 h-1 -translate-y-1/2 pointer-events-none">
           <motion.div
-            className="h-full rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+            className="h-full rounded-full bg-amber-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
             style={{ width: x, backgroundColor: color }}
           />
         </div>
@@ -125,7 +125,7 @@ export default function InteractiveSlider({
         >
           {/* Outer Glow */}
           <motion.div
-            className="absolute inset-0 bg-emerald-500 rounded-full blur-md"
+            className="absolute inset-0 bg-amber-500 rounded-full blur-md"
             animate={{
               scale: [1, 1.2, 1],
               opacity: [0.3, 0.6, 0.3],
@@ -134,8 +134,8 @@ export default function InteractiveSlider({
           />
 
           {/* Core */}
-          <div className="relative w-6 h-6 bg-stone-900 rounded-full border-2 border-emerald-400 flex items-center justify-center shadow-lg">
-            <div className="w-2 h-2 bg-emerald-200 rounded-full" />
+          <div className="relative w-6 h-6 bg-neutral-900 rounded-full border-2 border-amber-400 flex items-center justify-center shadow-lg">
+            <div className="w-2 h-2 bg-amber-200 rounded-full" />
           </div>
         </motion.div>
       </div>

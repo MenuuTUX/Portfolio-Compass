@@ -28,11 +28,11 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         transition={{ type: "spring", damping: 20, stiffness: 300 }}
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-[#0a0a0a] border border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-[#0a0a0a] border border-amber-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
       >
         {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
         <div className="relative p-6 md:p-8 flex flex-col items-center text-center">
           {/* Close button */}
@@ -46,9 +46,9 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
 
           {/* Icon */}
           <div className="mb-6 relative">
-            <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
-            <div className="relative w-16 h-16 rounded-full bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-center">
-              <Star className="w-8 h-8 text-emerald-400 fill-emerald-400/20" />
+            <div className="absolute inset-0 bg-amber-500/20 blur-xl rounded-full" />
+            <div className="relative w-16 h-16 rounded-full bg-amber-950/50 border border-amber-500/30 flex items-center justify-center">
+              <Star className="w-8 h-8 text-amber-400 fill-amber-400/20" />
             </div>
           </div>
 
@@ -65,7 +65,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
               href="https://github.com/Shib-Das/Portfolio-Compass"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] group"
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] group"
               onClick={onClose}
             >
               <Github className="w-5 h-5 group-hover:scale-110 transition-transform" />
