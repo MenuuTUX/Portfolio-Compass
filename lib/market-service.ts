@@ -193,13 +193,41 @@ export async function fetchMarketSnapshot(
   });
 
   try {
-    const results = await retryWithBackoff(() => yf.quote(tickers), 2, 500);
+    // Optimization: Pre-calculate fallback tickers (e.g. adding .TO for potential TSX assets)
+    // and fetch them in a single batch with the original tickers.
+    // We allow 1-5 letters to support short tickers (e.g. T, RY) and standard ETFs.
+    const tsxFallbacks = tickers
+      .filter((t) => /^[A-Z]{1,5}$/.test(t) && !t.includes("."))
+      .map((t) => `${t}.TO`);
 
-    if (Array.isArray(results)) {
-      return results.map(mapQuoteToSnapshot);
-    } else {
-      return [mapQuoteToSnapshot(results)];
+    // Combine and deduplicate
+    const allTickersToFetch = Array.from(
+      new Set([...tickers, ...tsxFallbacks]),
+    );
+
+    let quotes: any[] = [];
+    try {
+      const results = await retryWithBackoff(
+        () => yf.quote(allTickersToFetch),
+        2,
+        500,
+      );
+      quotes = Array.isArray(results) ? results : [results];
+    } catch (e) {
+      console.warn("[Market Service] Yahoo fetch failed", e);
     }
+
+    const snapshots = quotes.map(mapQuoteToSnapshot);
+
+    // Filter valid snapshots (price > 0)
+    const validSnapshots = snapshots.filter((s) => !s.price.isZero());
+
+    if (validSnapshots.length > 0) {
+      return validSnapshots;
+    }
+
+    // If no valid snapshots found, throw to trigger Finnhub fallback
+    throw new Error("No valid quotes found from Yahoo Finance");
   } catch (error) {
     console.warn(
       "[Market Service] Yahoo bulk fetch failed. Attempting Finnhub fallback...",
