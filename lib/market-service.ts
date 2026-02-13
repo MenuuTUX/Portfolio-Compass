@@ -1,11 +1,9 @@
-import YahooFinance from "yahoo-finance2";
+import yf from "yahoo-finance2";
 import { Decimal } from "@/lib/decimal";
 import { getStockProfile } from "./scrapers/stock-analysis";
 import pLimit from "p-limit";
 
-const yf = new YahooFinance({
-  suppressNotices: ["yahooSurvey"],
-});
+yf.suppressNotices(["yahooSurvey"]);
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || "";
 

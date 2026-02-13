@@ -161,7 +161,7 @@ const PurposeSection = () => {
               </h3>
             </div>
             <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-              "We built PortfolioCompass to bridge the gap between institutional tools and retail investors. Our goal is to provide a clear, data-driven platform that empowers you to make informed investment decisions without the noise."
+              &quot;We built PortfolioCompass to bridge the gap between institutional tools and retail investors. Our goal is to provide a clear, data-driven platform that empowers you to make informed investment decisions without the noise.&quot;
             </p>
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-stone-800" />

@@ -7,11 +7,9 @@ import {
   GreedyOptimizationResult,
 } from "@/lib/optimizer";
 import {
-  Check,
   ArrowRight,
   DollarSign,
   TrendingDown,
-  Layers,
   Activity,
   Minus,
   Plus,
@@ -19,7 +17,7 @@ import {
   ShieldCheck,
   Shield,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Decimal } from "@/lib/decimal";
 import OptimizationDiffChart from "./OptimizationDiffChart";
@@ -52,16 +50,15 @@ export default function OptimizationPanel({
   const [proposedShares, setProposedShares] = useState<Record<string, number>>(
     {},
   );
-  const [isApplying, setIsApplying] = useState(false);
   const [riskState, setRiskState] = useState<RiskState | null>(null);
   const [strategyMode, setStrategyMode] = useState<StrategyMode>("Balanced");
 
-  // Fetch Risk State
   useEffect(() => {
+    let isMounted = true;
     async function fetchRisk() {
       try {
         const res = await fetch("/api/market/sentiment");
-        if (res.ok) {
+        if (res.ok && isMounted) {
           const data = await res.json();
           setRiskState(data);
         }
@@ -70,14 +67,13 @@ export default function OptimizationPanel({
       }
     }
     fetchRisk();
+    return () => { isMounted = false; };
   }, []);
 
-  // Debounced calculation for initial recommendation
   useEffect(() => {
     onCalibrating?.(true);
     const timer = setTimeout(() => {
       if (portfolio.length > 0) {
-        // Calculate current portfolio value to determine remaining budget
         let currentPortfolioValue = 0;
         portfolio.forEach((p) => {
           currentPortfolioValue += (p.price || 0) * (p.shares || 0);
@@ -92,11 +88,10 @@ export default function OptimizationPanel({
           ticker: p.ticker,
           price: p.price,
           expectedReturn:
-            (p.metrics?.yield || 0) / 100 + (p.beta || 1.0) * 0.06, // Simple CAPM-ish proxy
+            (p.metrics?.yield || 0) / 100 + (p.beta || 1.0) * 0.06,
         }));
 
         const n = portfolio.length;
-        // Simple diagonal covariance matrix based on Beta (volatility proxy)
         const covarianceMatrix = Array(n)
           .fill(0)
           .map(() => Array(n).fill(0));
@@ -119,11 +114,10 @@ export default function OptimizationPanel({
         setProposedShares(res.addedShares);
       }
       onCalibrating?.(false);
-    }, 300); // 300ms debounce
+    }, 300);
     return () => clearTimeout(timer);
   }, [investmentAmount, portfolio, onCalibrating, riskState, strategyMode]);
 
-  // Ensure calibration state is reset on unmount
   useEffect(() => {
     return () => onCalibrating?.(false);
   }, [onCalibrating]);
@@ -172,21 +166,13 @@ export default function OptimizationPanel({
     const item = portfolio.find((p) => p.ticker === ticker);
     if (!item) return;
 
-    // Allow selling up to the current holding amount
-    // currentAdded is the 'delta'. if it is -5, it means we are selling 5 shares.
-    // We cannot sell more than item.shares.
-    // So currentAdded + delta cannot be less than -item.shares
     const minVal = -(item.shares || 0);
 
     if (nextVal < minVal) return;
 
     const costDelta = new Decimal(item.price || 0).times(delta);
-
-    // projectedMetrics.usedBudget is strictly the cost of *added* (delta) shares.
-    // If delta is negative, this reduces the used budget.
     const newUsedBudget = projectedMetrics.usedBudget.plus(costDelta);
 
-    // Calculate current holdings value (Initial state)
     let currentHoldingsValue = new Decimal(0);
     portfolio.forEach((p) => {
       currentHoldingsValue = currentHoldingsValue.plus(
@@ -194,7 +180,6 @@ export default function OptimizationPanel({
       );
     });
 
-    // Total proposed value = Initial Holdings + Cost of Changes
     const totalProposedValue = currentHoldingsValue.plus(newUsedBudget);
     const budgetLimit = new Decimal(investmentAmount);
 
@@ -203,13 +188,6 @@ export default function OptimizationPanel({
 
     if (delta > 0 && totalProposedValue.greaterThan(budgetLimit)) {
       let remainingDeficit = totalProposedValue.minus(budgetLimit);
-
-      // Auto-reduce "added" shares first to stay within budget
-      // We filter for items where we have added shares (delta > 0)
-      // Extending this to "sell" initial shares automatically is complex, so we stick to reducing additions.
-      // BUT, we should probably allow reducing *any* share that has value > 0?
-      // For now, keep existing logic: reduce from items that have positive delta.
-      // If the user wants to buy more, they must manually sell something else (create negative delta).
 
       const otherTickers = Object.keys(nextShares).filter(
         (t) => t !== ticker && nextShares[t] > 0,
@@ -222,7 +200,9 @@ export default function OptimizationPanel({
         if (!otherItem) continue;
 
         const otherPrice = new Decimal(otherItem.price || 0);
-        const availableAddedShares = nextShares[other]; // Only reduce the 'added' portion automatically
+        if (otherPrice.isZero()) continue;
+
+        const availableAddedShares = nextShares[other];
 
         const sharesToRemove = Math.ceil(
           remainingDeficit.div(otherPrice).toNumber(),
@@ -236,7 +216,7 @@ export default function OptimizationPanel({
       }
 
       if (remainingDeficit.greaterThan(0)) {
-        return; // Cannot afford even after reducing other additions
+        return;
       }
     }
 
@@ -245,11 +225,7 @@ export default function OptimizationPanel({
 
   const handleApply = () => {
     if (!projectedMetrics) return;
-    setIsApplying(true);
-    setTimeout(() => {
-      onApply(proposedShares, projectedMetrics.newWeights);
-      setIsApplying(false);
-    }, 500);
+    onApply(proposedShares, projectedMetrics.newWeights);
   };
 
   if (!result || !projectedMetrics)
@@ -259,7 +235,6 @@ export default function OptimizationPanel({
 
   const utilityScore = Math.min(100, Math.max(0, result.utility * 1000));
 
-  // Risk Regime Display Logic
   const getRegimeIcon = () => {
     switch (riskState?.riskRegime) {
       case "RISK_ON":
@@ -293,7 +268,6 @@ export default function OptimizationPanel({
     }
   };
 
-  // Construct proposed portfolio items for the Diff Chart
   const proposedPortfolioItems = portfolio.map((item) => ({
     ...item,
     shares: projectedMetrics.futureShares[item.ticker] || 0,
@@ -301,7 +275,6 @@ export default function OptimizationPanel({
 
   return (
     <div className="flex flex-col h-full bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
-      {/* Header */}
       <div className="p-6 border-b border-white/10 bg-black/20">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex justify-between items-center">
@@ -312,7 +285,6 @@ export default function OptimizationPanel({
               </h2>
             </div>
 
-            {/* Market Regime Badge */}
             {riskState && (
               <div className="flex flex-col items-end">
                 <div
@@ -328,7 +300,6 @@ export default function OptimizationPanel({
             )}
           </div>
 
-          {/* Strategy Mode Selector */}
           <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-white/10">
             {(["Conservative", "Balanced", "Growth"] as StrategyMode[]).map(
               (mode) => (
@@ -382,7 +353,6 @@ export default function OptimizationPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-        {/* Utility Score */}
         <section>
           <div className="flex justify-between items-end mb-3">
             <h3 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
@@ -409,7 +379,6 @@ export default function OptimizationPanel({
           </div>
         </section>
 
-        {/* Actionable Table */}
         <section>
           <h3 className="text-sm font-medium text-neutral-300 mb-3">
             Allocations (Interactive)
@@ -420,7 +389,6 @@ export default function OptimizationPanel({
               const newWeight =
                 projectedMetrics.newWeights[item.ticker] || item.weight;
 
-              // Min shares limit: we cannot sell more than we have
               const minSharesDelta = -(item.shares || 0);
 
               return (
@@ -460,7 +428,6 @@ export default function OptimizationPanel({
                     </div>
                   </div>
 
-                  {/* Weight Slider Visualization */}
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-neutral-500 uppercase tracking-wider">
                       <span>Weight</span>
@@ -489,7 +456,6 @@ export default function OptimizationPanel({
       </div>
 
       <div className="p-6 border-t border-white/10 bg-black/20 flex flex-col gap-4">
-        {/* Diff Chart Preview */}
         <OptimizationDiffChart
           current={portfolio}
           proposed={proposedPortfolioItems}
@@ -497,18 +463,10 @@ export default function OptimizationPanel({
 
         <button
           onClick={handleApply}
-          disabled={
-            isApplying || Object.values(proposedShares).every((s) => s === 0)
-          }
+          disabled={Object.values(proposedShares).every((s) => s === 0)}
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)] transition-all flex items-center justify-center gap-2"
         >
-          {isApplying ? (
-            <span className="animate-pulse">Applying...</span>
-          ) : (
-            <>
-              Apply Allocation <ArrowRight className="w-5 h-5" />
-            </>
-          )}
+          Apply Allocation <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>

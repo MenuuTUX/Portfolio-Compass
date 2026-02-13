@@ -40,7 +40,6 @@ export default function PortfolioBuilder({
   const [showContributePopup, setShowContributePopup] = useState(false);
 
   // New internal view state for the Builder section
-  // Renamed 'TREEMAP' to 'ALLOCATION'
   const [builderView, setBuilderView] = useState<
     "LIST" | "ALLOCATION" | "RISK"
   >("LIST");
@@ -121,7 +120,7 @@ export default function PortfolioBuilder({
     }
   }, [portfolio]);
 
-  const handleInteraction = () => {
+  const handleInteraction = useCallback(() => {
     isInteracting.current = true;
     if (sortTimeout.current) clearTimeout(sortTimeout.current);
 
@@ -129,14 +128,14 @@ export default function PortfolioBuilder({
       isInteracting.current = false;
       setDisplayPortfolio([...portfolio].sort((a, b) => b.weight - a.weight));
     }, 3000);
-  };
+  }, [portfolio]);
 
   const handleUpdateShares = useCallback(
     (ticker: string, shares: number) => {
       handleInteraction();
       onUpdateShares(ticker, shares);
     },
-    [onUpdateShares],
+    [onUpdateShares, handleInteraction],
   );
 
   const handleUpdateWeight = useCallback(
@@ -144,7 +143,7 @@ export default function PortfolioBuilder({
       handleInteraction();
       onUpdateWeight(ticker, weight);
     },
-    [onUpdateWeight],
+    [onUpdateWeight, handleInteraction],
   );
 
   const pieData = Object.entries(sectorAllocation)
@@ -209,7 +208,7 @@ export default function PortfolioBuilder({
             <button
               onClick={() => {
                 setViewMode("PROJECTION");
-                setTimeout(() => setShowContributePopup(true), 800);
+                setShowContributePopup(true);
               }}
               className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
             >
@@ -261,11 +260,6 @@ export default function PortfolioBuilder({
           </button>
         </div>
 
-        {/*
-            Expanded Height Layout:
-            - Changed h-[75vh] to flex-1 with min-h for better responsiveness
-            - Added gap-8 for spacing
-        */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 min-h-[800px]">
           {/* Main Content Area (Left 2/3) */}
           <div
@@ -428,35 +422,30 @@ export default function PortfolioBuilder({
                 portfolio={portfolio}
                 onCalibrating={setIsCalibrating}
                 onApply={(newShares, newWeights) => {
-                  setIsApplying(true);
+                  const updates: {
+                    ticker: string;
+                    weight?: number;
+                    shares?: number;
+                  }[] = [];
+                  const allTickers = new Set([
+                    ...Object.keys(newShares),
+                    ...Object.keys(newWeights),
+                  ]);
 
-                  setTimeout(() => {
-                    const updates: {
-                      ticker: string;
-                      weight?: number;
-                      shares?: number;
-                    }[] = [];
-                    const allTickers = new Set([
-                      ...Object.keys(newShares),
-                      ...Object.keys(newWeights),
-                    ]);
+                  allTickers.forEach((ticker) => {
+                    const item = portfolio.find((p) => p.ticker === ticker);
+                    const currentShares = item?.shares || 0;
+                    const additionalShares = newShares[ticker] || 0;
 
-                    allTickers.forEach((ticker) => {
-                      const item = portfolio.find((p) => p.ticker === ticker);
-                      const currentShares = item?.shares || 0;
-                      const additionalShares = newShares[ticker] || 0;
-
-                      updates.push({
-                        ticker,
-                        shares: currentShares + additionalShares,
-                        weight: newWeights[ticker],
-                      });
+                    updates.push({
+                      ticker,
+                      shares: currentShares + additionalShares,
+                      weight: newWeights[ticker],
                     });
+                  });
 
-                    onBatchUpdate(updates);
-                    setIsApplying(false);
-                    setIsOptimizerActive(false);
-                  }, 1500);
+                  onBatchUpdate(updates);
+                  setIsOptimizerActive(false);
                 }}
               />
             ) : (

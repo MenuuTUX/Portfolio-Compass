@@ -252,7 +252,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
 
             <div className="space-y-4">
               <h2 className="text-4xl md:text-5xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                Let's Find Your North Star
+                Let&apos;s Find Your North Star
               </h2>
               <p className="text-lg text-stone-400 max-w-md mx-auto leading-relaxed">
                 Before we build your portfolio, we need to understand your
@@ -421,11 +421,11 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
 
             <div className="space-y-4">
               <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
-                We've Built Your Portfolio
+                We&apos;ve Built Your Portfolio
               </h2>
               <p className="text-lg text-stone-400 max-w-md mx-auto">
                 Based on your <strong>{finalResult.profile}</strong> profile
-                (Score: {finalResult.score}/100), we've allocated a starting
+                (Score: {finalResult.score}/100), we&apos;ve allocated a starting
                 strategy for you.
               </p>
             </div>

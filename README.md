@@ -1,78 +1,40 @@
 # Portfolio Compass
 
-A professional-grade financial analytics platform for ETF analysis, portfolio optimization, and wealth projection. Built with **Next.js 16**, **React 19**, and **Bun**.
+Portfolio Compass is a financial analytics platform designed for ETF analysis, portfolio optimization, and wealth projection. It utilizes Next.js for the frontend and backend, with Bun as the JavaScript runtime.
 
-## 📚 Documentation
+## Technology Stack
 
-Detailed documentation is available in the **[Project Wiki](Portfolio-Compass.wiki/Home.md)**:
-- **[Financial Mathematics](Portfolio-Compass.wiki/Financial-Math.md)**: Explanation of the Greedy Optimization algorithm, Monte Carlo simulations, and Quant Scoring models.
-- **[System Architecture](Portfolio-Compass.wiki/Architecture.md)**: Overview of the tech stack, Local-First design, and database schema.
+*   **Runtime:** Bun v1.x
+*   **Framework:** Next.js 15.1.7 (App Router)
+*   **Language:** TypeScript
+*   **Database:** PostgreSQL
+*   **ORM:** Prisma
+*   **State Management:** TanStack Query v5
+*   **Styling:** Tailwind CSS v4
 
-## ✨ Key Features
+## Core Features
 
-- **Advanced Search**: Real-time searching of ETFs and Stocks with rich metadata.
-- **Portfolio Optimizer**: Client-side **Greedy Marginal Utility** optimizer to maximize Sharpe Ratio under budget constraints.
-- **Monte Carlo Simulation**: Mathematical projection of portfolio performance using Cholesky Decomposition for correlated asset paths.
-- **Deep Analysis**: Look-through exposure analysis (sectors, holdings), risk metrics (Beta, Volatility), and Factor Scoring.
-- **Biopunk Aesthetic**: A custom, high-fidelity dark UI designed for immersive analysis.
+### Portfolio Optimization
+The application implements a Greedy Marginal Utility algorithm to optimize portfolio allocations. This approach maximizes the Sharpe Ratio relative to a fixed budget constraint, handling integer constraints (whole shares) directly.
 
-## 🛠️ Tech Stack
+### Monte Carlo Simulation
+The platform projects future portfolio performance using Monte Carlo simulations. It employs Cholesky Decomposition to generate correlated random price paths, preserving the statistical relationships between assets in the portfolio.
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **Runtime**: Bun (v1.x)
-- **Database**: PostgreSQL (via Prisma ORM)
-- **State**: TanStack Query v5 + LocalStorage
-- **Styling**: Tailwind CSS v4 + Framer Motion
+### Market Data Aggregation
+Market data is sourced via `yahoo-finance2` and custom scrapers. The system implements an On-Demand Data Architecture, fetching granular history only when required for analysis to minimize bandwidth and API usage.
 
-## 🚀 Getting Started
+## Setup and Installation
 
-### Prerequisites
-- [Bun](https://bun.sh/) installed.
-- A PostgreSQL database (local or cloud).
+See [wiki_content/SETUP.md](wiki_content/SETUP.md) for detailed instructions.
 
-### Installation
+## Architecture
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/portfolio-compass.git
-   cd portfolio-compass
-   ```
+See [wiki_content/ADR.md](wiki_content/ADR.md) for architectural decision records.
 
-2. **Install dependencies**:
-   ```bash
-   bun install
-   ```
+## Known Limitations
 
-3. **Configure Environment**:
-   Create a `.env` file in the root directory:
-   ```bash
-   DATABASE_URL="postgresql://user:password@host:port/database"
-   CRON_SECRET="your-secure-random-string"
-   ```
+See [wiki_content/LIMITATIONS.md](wiki_content/LIMITATIONS.md).
 
-4. **Initialize Database**:
-   ```bash
-   bun run db:generate
-   bun run db:push
-   # Optional: Seed initial market data
-   bun run db:seed
-   ```
+## License
 
-5. **Start Development Server**:
-   ```bash
-   bun run dev
-   ```
-   Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## 🧪 Running Tests
-
-This project uses `bun:test` for high-performance unit testing.
-
-```bash
-bun test
-```
-
-## 📄 License
-
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License.

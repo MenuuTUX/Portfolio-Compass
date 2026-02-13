@@ -58,7 +58,7 @@ export default function InteractiveSlider({
       const initialX = ((defaultValue - min) / (max - min)) * trackWidth;
       x.set(initialX);
     }
-  }, [trackWidth, defaultValue, min, max]);
+  }, [trackWidth, defaultValue, min, max, x]);
 
   const handleDrag = () => {
     const currentX = x.get();

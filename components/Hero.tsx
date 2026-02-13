@@ -257,7 +257,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">
-                  Shib's Portfolio Growth
+                  Shib&apos;s Portfolio Growth
                 </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>

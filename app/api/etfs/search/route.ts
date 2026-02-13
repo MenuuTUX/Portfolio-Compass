@@ -1,73 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
-import { fetchMarketSnapshot, MarketSnapshot } from "@/lib/market-service";
+import { fetchMarketSnapshot } from "@/lib/market-service";
 import { syncEtfDetails } from "@/lib/etf-sync";
-import { Decimal } from "decimal.js";
 import pLimit from "p-limit";
-import { toPrismaDecimalRequired } from "@/lib/prisma-utils";
 import { safeDecimal } from "@/lib/utils";
+import {
+  upsertEtfWithFallback,
+  dbLimit,
+  processBackgroundSync,
+} from "@/lib/services/sync-service";
 
 const MAX_TICKERS_PER_REQUEST = 50;
 
 export const dynamic = "force-dynamic";
-
-// Shared rate limiter to prevent DB connection exhaustion
-const dbLimit = pLimit(3);
-
-// Helper to create a fallback ETF object from live data
-function createFallbackEtf(item: MarketSnapshot) {
-  return {
-    ticker: item.ticker,
-    name: item.name,
-    price: item.price,
-    daily_change: item.dailyChangePercent,
-    assetType: item.assetType || "ETF",
-    isDeepAnalysisLoaded: false,
-    yield: new Decimal(0),
-    mer: new Decimal(0),
-    history: [],
-    sectors: [],
-    allocation: null,
-    updatedAt: new Date(),
-  };
-}
-
-// Helper to upsert ETF with fallback on error
-async function upsertEtfWithFallback(
-  item: MarketSnapshot,
-  includeObj: any,
-): Promise<any> {
-  try {
-    return await prisma.etf.upsert({
-      where: { ticker: item.ticker },
-      update: {
-        price: toPrismaDecimalRequired(item.price),
-        daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
-        name: item.name,
-      },
-      create: {
-        ticker: item.ticker,
-        name: item.name,
-        price: toPrismaDecimalRequired(item.price),
-        daily_change: toPrismaDecimalRequired(item.dailyChangePercent),
-        currency: "USD",
-        assetType: item.assetType || "ETF",
-        isDeepAnalysisLoaded: false,
-      },
-      include: includeObj,
-    });
-  } catch (error: any) {
-    const isDbBusy =
-      error.toString().includes("MaxClientsInSessionMode") ||
-      error.toString().includes("DriverAdapterError");
-    if (isDbBusy) {
-      console.warn(`[API] DB Busy for ${item.ticker}, using fallback.`);
-    } else {
-      console.error(`[API] Failed to upsert ${item.ticker}:`, error);
-    }
-    return createFallbackEtf(item);
-  }
-}
 
 // Helper to format ETF for response
 function formatEtfForResponse(etf: any, isFullHistoryRequested: boolean) {
@@ -301,82 +246,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Background sync for stale data
+    // Background sync for stale data (Refactored)
     if ((query || tickersParam) && etfs.length > 0) {
-      const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-      const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
-
-      const staleEtfs = etfs.filter((e: any) => {
-        if (!e.isDeepAnalysisLoaded) return true;
-        if (!e.updatedAt || e.updatedAt < oneHourAgo) return true;
-
-        if (includeHistory) {
-          if (!e.history || e.history.length === 0) return true;
-
-          // Check for insufficient history depth
-          if (isFullHistoryRequested) {
-            const dailyCount = e.history.filter((h: any) => h.interval === "1d")
-              .length;
-            if (dailyCount < 200) return true; // Ensure enough data points for Monte Carlo
-          }
-
-          const lastHistoryDate = e.history[e.history.length - 1].date;
-          if (new Date(lastHistoryDate) < twoDaysAgo) return true;
-
-          if (isFullHistoryRequested) {
-            const hasWeekly = e.history.some((h: any) => h.interval === "1wk");
-            const hasMonthly = e.history.some((h: any) => h.interval === "1mo");
-            if (!hasWeekly || !hasMonthly) return true;
-          }
-        }
-        return false;
-      });
-
-      if (staleEtfs.length > 0) {
-        const syncLimit = pLimit(1);
-        // If full history is requested, we likely need to fix multiple items for simulation (e.g. Monte Carlo)
-        // so we process more items.
-        const maxSyncItems = isFullHistoryRequested ? Math.min(staleEtfs.length, 10) : 2;
-        const itemsToSync = staleEtfs.slice(0, maxSyncItems);
-
-        if (isFullHistoryRequested) {
-          // Blocking sync for full history requests
-          await Promise.all(
-            itemsToSync.map((staleEtf: any) =>
-              syncLimit(async () => {
-                try {
-                  const synced = await syncEtfDetails(staleEtf.ticker, [
-                    "1h",
-                    "1d",
-                    "1wk",
-                    "1mo",
-                  ]);
-                  if (synced) {
-                    const index = etfs.findIndex(
-                      (e) => e.ticker === staleEtf.ticker,
-                    );
-                    if (index !== -1) etfs[index] = synced;
-                  }
-                } catch (err) {
-                  console.error(`[API] Sync failed for ${staleEtf.ticker}:`, err);
-                }
-              }),
-            ),
-          );
-        } else {
-          // Non-blocking background sync
-          Promise.all(
-            itemsToSync.map((staleEtf: any) =>
-              syncLimit(() =>
-                syncEtfDetails(staleEtf.ticker, ["1d"]).catch((err) => {
-                  console.warn(`[API] Background sync failed for ${staleEtf.ticker}:`, err);
-                }),
-              ),
-            ),
-          );
-        }
-      }
+      await processBackgroundSync(etfs, isFullHistoryRequested, includeHistory);
     }
 
     // Handle query-based fetching for missing tickers (not when tickers param is used)
