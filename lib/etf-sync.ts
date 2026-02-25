@@ -342,26 +342,9 @@ export async function syncEtfDetails(
             } else {
               const dates = dailyHistory.map((h: any) => new Date(h.date));
 
-              if (dates.length > 100) {
-                // Optimization: Use Range Deletion for large datasets (>100 items)
-                // This is significantly faster than 'in' clause for bulk updates
-                const sortedDates = dates.sort(
-                  (a, b) => a.getTime() - b.getTime(),
-                );
-                const minDate = sortedDates[0];
-                const maxDate = sortedDates[sortedDates.length - 1];
-
-                await tx.etfHistory.deleteMany({
-                  where: {
-                    etfId: etf.ticker,
-                    interval: "1d",
-                    date: {
-                      gte: minDate,
-                      lte: maxDate,
-                    },
-                  },
-                });
-              } else if (dates.length > 0) {
+              if (dates.length > 0) {
+                // Always use IN clause for safety, even for large datasets, to avoid deleting valid data in gaps.
+                // This ensures we only replace records we actually have new data for.
                 await tx.etfHistory.deleteMany({
                   where: {
                     etfId: etf.ticker,

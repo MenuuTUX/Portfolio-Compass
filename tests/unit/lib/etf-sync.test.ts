@@ -154,7 +154,7 @@ describe('Lib: syncEtfDetails', () => {
     }
   });
 
-  it('should use range deletion for large history datasets', async () => {
+  it('should use IN clause for overlapping deletion regardless of dataset size', async () => {
     const ticker = 'LARGE_HISTORY';
 
     // Mock existing history so fromDate is defined (triggering incremental logic)
@@ -195,7 +195,7 @@ describe('Lib: syncEtfDetails', () => {
 
     await syncEtfDetails(ticker);
 
-    // Verify deleteMany uses gte/lte instead of in
+    // Verify deleteMany uses IN clause instead of risky range deletion
     const deleteCalls = mockPrismaDeleteMany.mock.calls;
     const historyDeleteCall = deleteCalls.find(call => {
         const arg = call[0];
@@ -205,9 +205,10 @@ describe('Lib: syncEtfDetails', () => {
     expect(historyDeleteCall).toBeDefined();
     if (historyDeleteCall) {
         const where = historyDeleteCall[0].where;
-        expect(where.date.in).toBeUndefined();
-        expect(where.date.gte).toBeDefined();
-        expect(where.date.lte).toBeDefined();
+        expect(where.date.in).toBeDefined();
+        expect(where.date.in.length).toBe(150);
+        expect(where.date.gte).toBeUndefined();
+        expect(where.date.lte).toBeUndefined();
     }
   });
 
@@ -268,6 +269,77 @@ describe('Lib: syncEtfDetails', () => {
           // Verify string values ("200" and "50") as per toPrismaDecimalRequired
           expect(holdingA.weight).toEqual("200"); // 2.0 * 100
           expect(holdingB.weight).toEqual("50");  // 0.5 * 100
+      }
+  });
+
+  it('should avoid range deletion (gte/lte) for sparse updates > 100 items to prevent data loss', async () => {
+      const ticker = 'SPARSE_HISTORY';
+
+      // Mock existing history so fromDate is defined (triggering incremental logic)
+      mockPrismaFindFirst.mockResolvedValue({ date: new Date('2023-01-01') });
+      mockPrismaCount.mockResolvedValue(300);
+
+      // Generate 150 days of history with a massive gap
+      const part1 = Array.from({ length: 50 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - 200 + i); // 200 days ago to 150 days ago
+          return {
+              date: d.toISOString(),
+              close: new Decimal(100),
+              interval: '1d'
+          };
+      });
+
+      const part2 = Array.from({ length: 100 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() - 100 + i); // 100 days ago to today
+          return {
+              date: d.toISOString(),
+              close: new Decimal(100),
+              interval: '1d'
+          };
+      });
+
+      const history = [...part1, ...part2]; // Total 150 items
+
+      mockFetchEtfDetails.mockResolvedValue({
+        ticker: ticker,
+        name: 'Sparse ETF',
+        price: new Decimal(100),
+        dailyChange: new Decimal(1.5),
+        assetType: 'ETF',
+        description: 'Desc',
+        sectors: {},
+        history: history
+      });
+
+      mockPrismaUpsert.mockResolvedValue({ ticker, assetType: 'ETF' });
+      mockPrismaFindUnique.mockResolvedValue({
+          ticker,
+          history: [],
+          sectors: [],
+          allocation: null,
+          holdings: []
+      });
+
+      await syncEtfDetails(ticker);
+
+      // Verify deleteMany uses IN clause, NOT gte/lte
+      const deleteCalls = mockPrismaDeleteMany.mock.calls;
+      const historyDeleteCall = deleteCalls.find(call => {
+          const arg = call[0];
+          return arg && arg.where && arg.where.etfId === ticker && arg.where.interval === '1d';
+      });
+
+      expect(historyDeleteCall).toBeDefined();
+      if (historyDeleteCall) {
+          const where = historyDeleteCall[0].where;
+
+          // Asserting strict safety:
+          expect(where.date.gte).toBeUndefined();
+          expect(where.date.lte).toBeUndefined();
+          expect(where.date.in).toBeDefined();
+          expect(where.date.in.length).toBe(150);
       }
   });
 });
