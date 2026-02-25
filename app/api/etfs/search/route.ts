@@ -10,6 +10,7 @@ import { safeDecimal } from "@/lib/utils";
 const MAX_TICKERS_PER_REQUEST = 50;
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Allow longer execution for sync operations
 
 // Shared rate limiter to prevent DB connection exhaustion
 const dbLimit = pLimit(3);
@@ -334,10 +335,14 @@ export async function GET(request: NextRequest) {
       });
 
       if (staleEtfs.length > 0) {
-        const syncLimit = pLimit(1);
         // If full history is requested, we likely need to fix multiple items for simulation (e.g. Monte Carlo)
-        // so we process more items.
-        const maxSyncItems = isFullHistoryRequested ? Math.min(staleEtfs.length, 10) : 2;
+        // so we process more items with higher concurrency.
+        const concurrency = isFullHistoryRequested ? 5 : 1;
+        const syncLimit = pLimit(concurrency);
+
+        const maxSyncItems = isFullHistoryRequested
+          ? Math.min(staleEtfs.length, MAX_TICKERS_PER_REQUEST)
+          : 2;
         const itemsToSync = staleEtfs.slice(0, maxSyncItems);
 
         if (isFullHistoryRequested) {
@@ -359,7 +364,10 @@ export async function GET(request: NextRequest) {
                     if (index !== -1) etfs[index] = synced;
                   }
                 } catch (err) {
-                  console.error(`[API] Sync failed for ${staleEtf.ticker}:`, err);
+                  console.error(
+                    `[API] Sync failed for ${staleEtf.ticker}:`,
+                    err,
+                  );
                 }
               }),
             ),
@@ -370,7 +378,10 @@ export async function GET(request: NextRequest) {
             itemsToSync.map((staleEtf: any) =>
               syncLimit(() =>
                 syncEtfDetails(staleEtf.ticker, ["1d"]).catch((err) => {
-                  console.warn(`[API] Background sync failed for ${staleEtf.ticker}:`, err);
+                  console.warn(
+                    `[API] Background sync failed for ${staleEtf.ticker}:`,
+                    err,
+                  );
                 }),
               ),
             ),
