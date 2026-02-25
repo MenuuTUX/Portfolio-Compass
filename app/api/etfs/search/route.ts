@@ -10,6 +10,7 @@ import { safeDecimal } from "@/lib/utils";
 const MAX_TICKERS_PER_REQUEST = 50;
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // Allow longer execution time for bulk syncs
 
 // Shared rate limiter to prevent DB connection exhaustion
 const dbLimit = pLimit(3);
@@ -334,10 +335,15 @@ export async function GET(request: NextRequest) {
       });
 
       if (staleEtfs.length > 0) {
-        const syncLimit = pLimit(1);
+        // Increase concurrency for full history requests to speed up batch processing
+        const concurrency = isFullHistoryRequested ? 5 : 1;
+        const syncLimit = pLimit(concurrency);
+
         // If full history is requested, we likely need to fix multiple items for simulation (e.g. Monte Carlo)
-        // so we process more items.
-        const maxSyncItems = isFullHistoryRequested ? Math.min(staleEtfs.length, 10) : 2;
+        // so we process all stale items up to the max request limit.
+        const maxSyncItems = isFullHistoryRequested
+          ? Math.min(staleEtfs.length, MAX_TICKERS_PER_REQUEST)
+          : 2;
         const itemsToSync = staleEtfs.slice(0, maxSyncItems);
 
         if (isFullHistoryRequested) {
