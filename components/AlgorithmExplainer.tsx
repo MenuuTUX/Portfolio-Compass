@@ -24,7 +24,7 @@ const steps = [
     title: "Objective Function",
     subtitle: "Maximizing utility",
     icon: Target,
-    color: "emerald",
+    color: "amber",
     description:
       'We calculate a "Utility Score" (U) for every possible portfolio configuration. The goal is to maximize this score, which represents the optimal trade-off between expected profit and potential loss.',
     details: [
@@ -124,15 +124,15 @@ export default function AlgorithmExplainer() {
   return (
     <div className="w-full max-w-7xl mx-auto mt-12 mb-24 relative font-sans">
       {/* Ambient Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
       <div className="relative glass-panel border border-white/10 bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="p-8 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                <BrainCircuit className="w-6 h-6 text-emerald-400" />
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                <BrainCircuit className="w-6 h-6 text-amber-400" />
               </div>
               <h2 className="text-2xl font-bold text-white tracking-tight">
                 Optimization Algorithm
@@ -171,13 +171,13 @@ export default function AlgorithmExplainer() {
                   >
                     {/* The Equation */}
                     <div className="relative group">
-                      <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
+                      <div className="absolute -inset-6 bg-amber-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
                       <div className="relative bg-black/80 border border-white/10 px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
                             hoveredTerm === "U"
-                              ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                              ? "text-amber-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
                               : "text-white",
                           )}
                           onMouseEnter={() => setHoveredTerm("U")}
@@ -276,7 +276,7 @@ export default function AlgorithmExplainer() {
                         <span className="text-neutral-300 font-medium">
                           Risk Aversion (λ)
                         </span>
-                        <span className="font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
+                        <span className="font-mono text-amber-400 bg-amber-500/10 px-2 py-1 rounded">
                           {lambda.toFixed(1)}
                         </span>
                       </div>
@@ -287,7 +287,7 @@ export default function AlgorithmExplainer() {
                         step="0.5"
                         value={lambda}
                         onChange={(e) => setLambda(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all"
+                        className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-amber-500 hover:accent-amber-400 transition-all"
                       />
 
                       {/* Mini Graph Visual */}
@@ -310,7 +310,7 @@ export default function AlgorithmExplainer() {
                             name: "Conservative",
                             base: 20,
                             risk: -4,
-                            color: "bg-emerald-500",
+                            color: "bg-amber-500",
                           },
                         ].map((asset, i) => (
                           <div
@@ -362,7 +362,7 @@ export default function AlgorithmExplainer() {
                     {/* The Formula */}
                     <div className="bg-black/60 border border-white/10 px-6 py-4 rounded-xl flex items-center gap-3 text-lg font-serif text-neutral-300">
                       <span>Maximize</span>
-                      <span className="text-emerald-400 font-bold">ΔU</span>
+                      <span className="text-amber-400 font-bold">ΔU</span>
                       <span>=</span>
                       <span>
                         U(w + δ<sub className="text-xs">i</sub>)
@@ -402,7 +402,7 @@ export default function AlgorithmExplainer() {
                                   className={cn(
                                     "w-full rounded-t-sm absolute bottom-[40%] border-b border-black/50 transition-colors duration-500",
                                     simulationState === "SELECTED" && isWinner
-                                      ? "bg-emerald-500"
+                                      ? "bg-amber-500"
                                       : simulationState === "SELECTED"
                                         ? "bg-white/5 opacity-20"
                                         : "bg-blue-500",
@@ -433,7 +433,7 @@ export default function AlgorithmExplainer() {
                                         "absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-mono font-bold",
                                         isWinner &&
                                           simulationState === "SELECTED"
-                                          ? "text-emerald-400 scale-125"
+                                          ? "text-amber-400 scale-125"
                                           : "text-neutral-400",
                                       )}
                                     >
@@ -448,7 +448,7 @@ export default function AlgorithmExplainer() {
                                 className={cn(
                                   "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all duration-500",
                                   simulationState === "SELECTED" && isWinner
-                                    ? "bg-emerald-500 text-black border-emerald-400 scale-110 shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                    ? "bg-amber-500 text-black border-amber-400 scale-110 shadow-[0_0_15px_rgba(16,185,129,0.4)]"
                                     : "bg-white/5 border-white/10 text-neutral-500",
                                 )}
                               >
@@ -468,7 +468,7 @@ export default function AlgorithmExplainer() {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
                               onClick={runSimulation}
-                              className="flex items-center gap-2 px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)]"
+                              className="flex items-center gap-2 px-8 py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)]"
                             >
                               <Zap className="w-4 h-4" /> Start Simulation
                             </motion.button>
@@ -505,7 +505,7 @@ export default function AlgorithmExplainer() {
                               exit={{ opacity: 0 }}
                               className="flex flex-col items-center gap-3"
                             >
-                              <div className="text-sm text-emerald-400 font-medium">
+                              <div className="text-sm text-amber-400 font-medium">
                                 Asset D maximizes Utility (+55)
                               </div>
                               <button
@@ -557,7 +557,7 @@ export default function AlgorithmExplainer() {
                             <sub className="text-xs">i</sub>)
                           </span>
                           <span>≤</span>
-                          <span className="text-emerald-400">B</span>
+                          <span className="text-amber-400">B</span>
                         </div>
                         <div className="text-[10px] text-neutral-500 text-center">
                           Total cost cannot exceed cash
@@ -579,15 +579,15 @@ export default function AlgorithmExplainer() {
                                 initial={{ opacity: 0, scale: 0 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: i * 0.2 }}
-                                className="w-12 h-8 bg-emerald-500/20 border border-emerald-500/50 rounded flex items-center justify-center"
+                                className="w-12 h-8 bg-amber-500/20 border border-amber-500/50 rounded flex items-center justify-center"
                               >
-                                <span className="text-[10px] text-emerald-400">
+                                <span className="text-[10px] text-amber-400">
                                   1.0
                                 </span>
                               </motion.div>
                             ))}
                           </div>
-                          <div className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                          <div className="text-xs text-amber-400 font-medium flex items-center gap-1">
                             <Target className="w-3 h-3" /> Valid
                           </div>
                         </div>
@@ -629,7 +629,7 @@ export default function AlgorithmExplainer() {
                   key={i}
                   className={cn(
                     "w-2 h-2 rounded-full transition-colors",
-                    i === activeStep ? "bg-emerald-500" : "bg-white/20",
+                    i === activeStep ? "bg-amber-500" : "bg-white/20",
                   )}
                 />
               ))}
@@ -660,7 +660,7 @@ export default function AlgorithmExplainer() {
                     {isActive && (
                       <motion.div
                         layoutId="active-indicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"
+                        className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"
                         transition={{
                           type: "spring",
                           stiffness: 300,
@@ -692,10 +692,10 @@ export default function AlgorithmExplainer() {
                             {step.title}
                           </h3>
                           {isActive && (
-                            <ChevronRight className="w-4 h-4 text-emerald-500 animate-pulse" />
+                            <ChevronRight className="w-4 h-4 text-amber-500 animate-pulse" />
                           )}
                         </div>
-                        <p className="text-xs font-mono text-emerald-500/70 mb-2 uppercase tracking-wide">
+                        <p className="text-xs font-mono text-amber-500/70 mb-2 uppercase tracking-wide">
                           {step.subtitle}
                         </p>
                         <p className="text-sm text-neutral-400 leading-relaxed mb-4">

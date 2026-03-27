@@ -93,8 +93,8 @@ const ETFCard = memo(
         className={cn(
           "glass-card rounded-xl relative overflow-hidden bg-white/5 border transition-all group flex flex-col",
           inPortfolio
-            ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]"
-            : "border-white/5 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
+            ? "border-amber-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]"
+            : "border-white/5 hover:border-amber-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
         )}
       >
         {/* Flash Overlay */}
@@ -107,7 +107,7 @@ const ETFCard = memo(
               className={cn(
                 "absolute inset-0 z-20 pointer-events-none backdrop-blur-[2px]",
                 flashState === "success"
-                  ? "bg-emerald-500/20"
+                  ? "bg-amber-500/20"
                   : "bg-rose-500/20",
               )}
             />
@@ -116,7 +116,7 @@ const ETFCard = memo(
 
         {/* Green Blur Overlay for Owned Items */}
         {inPortfolio && (
-          <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />
+          <div className="absolute inset-0 bg-amber-500/5 pointer-events-none" />
         )}
 
         <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
@@ -153,7 +153,7 @@ const ETFCard = memo(
             <div className="flex flex-col items-end gap-2">
               {/* Owned Indicator */}
               {inPortfolio && (
-                <div className="flex items-center gap-1 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                <div className="flex items-center gap-1 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                   <Check className="w-3 h-3" />
                   OWNED
                 </div>
@@ -162,7 +162,7 @@ const ETFCard = memo(
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
                   isGraphPositive
-                    ? "bg-emerald-500/10 text-emerald-400"
+                    ? "bg-amber-500/10 text-amber-400"
                     : "bg-rose-500/10 text-rose-400",
                 )}
               >
@@ -195,7 +195,7 @@ const ETFCard = memo(
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
             <div>
               <div className="text-xs text-neutral-400 mb-1">Yield</div>
-              <div className="text-sm font-medium text-emerald-400">
+              <div className="text-sm font-medium text-amber-400">
                 {etf.metrics?.yield?.toFixed(2)}%
               </div>
             </div>
@@ -220,7 +220,7 @@ const ETFCard = memo(
           ) : (
             <button
               onClick={() => onAdd(etf)}
-              className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"
+              className="flex-1 py-3 bg-amber-500/10 text-amber-400 font-medium flex items-center justify-center gap-2 active:bg-amber-500/20"
             >
               <Plus className="w-4 h-4" /> Add
             </button>
@@ -252,7 +252,7 @@ const ETFCard = memo(
           ) : (
             <button
               onClick={() => onAdd(etf)}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-amber-500/20"
             >
               <Plus className="w-4 h-4" />
               Add to Portfolio
@@ -682,7 +682,7 @@ export default function ComparisonEngine({
 
       return (
         <div className="col-span-full text-center text-neutral-400 py-12 flex flex-col items-center">
-          <Search className="h-12 w-12 text-emerald-400 mb-4" />
+          <Search className="h-12 w-12 text-amber-400 mb-4" />
           <p className="text-lg text-white mb-2">
             Found matches in {otherSection}
           </p>
@@ -760,13 +760,13 @@ export default function ComparisonEngine({
                 className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10"
                 aria-hidden="true"
               >
-                <Search className="h-6 w-6 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all" />
+                <Search className="h-6 w-6 text-amber-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all" />
               </div>
               <input
                 type="text"
                 aria-label="Search tickers"
                 placeholder="Search ticker or name..."
-                className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
+                className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
                 value={search}
                 onChange={(e) => {
                   const value = e.target.value
@@ -813,7 +813,7 @@ export default function ComparisonEngine({
                           className={cn(
                             "text-xs font-medium",
                             item.changePercent >= 0
-                              ? "text-emerald-400"
+                              ? "text-amber-400"
                               : "text-rose-400",
                           )}
                         >
@@ -858,7 +858,7 @@ export default function ComparisonEngine({
               <div className="col-span-full flex justify-center mt-8">
                 <button
                   onClick={handleLoadMore}
-                  className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/10 hover:border-emerald-500/50"
+                  className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/10 hover:border-amber-500/50"
                 >
                   <ChevronDown className="w-4 h-4" />
                   Load More{" "}

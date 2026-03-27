@@ -245,16 +245,16 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, type: "spring" }}
-              className="w-24 h-24 mx-auto bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 rounded-full flex items-center justify-center border border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]"
+              className="w-24 h-24 mx-auto bg-gradient-to-br from-amber-500/20 to-cyan-500/20 rounded-full flex items-center justify-center border border-amber-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)]"
             >
-              <Sparkles className="w-10 h-10 text-emerald-400" />
+              <Sparkles className="w-10 h-10 text-amber-400" />
             </motion.div>
 
             <div className="space-y-4">
-              <h2 className="text-4xl md:text-5xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+              <h2 className="text-4xl md:text-5xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-cyan-400">
                 Let's Find Your North Star
               </h2>
-              <p className="text-lg text-stone-400 max-w-md mx-auto leading-relaxed">
+              <p className="text-lg text-neutral-400 max-w-md mx-auto leading-relaxed">
                 Before we build your portfolio, we need to understand your
                 journey. Answer 5 quick questions to unlock your personalized
                 strategy.
@@ -266,7 +266,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleStart}
-                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.7)]"
+                className="group relative inline-flex items-center gap-3 px-8 py-4 bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.7)]"
               >
                 <span>Start Analysis</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -277,7 +277,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 1 }}
                 onClick={handleSkip}
-                className="text-stone-500 text-sm hover:text-emerald-400 transition-colors flex items-center gap-2"
+                className="text-neutral-500 text-sm hover:text-amber-400 transition-colors flex items-center gap-2"
               >
                 Skip for now (I got diamond hands 💎)
               </motion.button>
@@ -298,7 +298,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             <div className="absolute -top-10 right-0">
               <button
                 onClick={handleSkip}
-                className="text-xs text-stone-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                className="text-xs text-neutral-500 hover:text-amber-400 transition-colors flex items-center gap-1"
               >
                 <span>Skip (Diamond Hands)</span>
                 <ArrowRight className="w-3 h-3" />
@@ -306,9 +306,9 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full h-1.5 bg-stone-800 rounded-full mb-8 overflow-hidden">
+            <div className="w-full h-1.5 bg-neutral-800 rounded-full mb-8 overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500"
+                className="h-full bg-gradient-to-r from-amber-500 to-cyan-500"
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.5 }}
@@ -327,13 +327,13 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               >
                 {/* Question Header */}
                 <div className="text-center space-y-4">
-                  <div className="inline-flex items-center justify-center p-3 rounded-xl bg-stone-800/50 border border-stone-700 text-emerald-400 mb-2">
+                  <div className="inline-flex items-center justify-center p-3 rounded-xl bg-neutral-800/50 border border-neutral-700 text-amber-400 mb-2">
                     <currentQ.icon className="w-6 h-6" />
                   </div>
-                  <h3 className="text-3xl font-display font-bold text-stone-100">
+                  <h3 className="text-3xl font-display font-bold text-neutral-100">
                     {currentQ.title}
                   </h3>
-                  <p className="text-stone-400 text-lg">
+                  <p className="text-neutral-400 text-lg">
                     {currentQ.description}
                   </p>
                 </div>
@@ -350,12 +350,12 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                       }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => handleAnswer(option.value)}
-                      className="flex flex-col items-center justify-center p-6 rounded-2xl border border-stone-800 bg-stone-900/40 text-center transition-colors group h-full w-full"
+                      className="flex flex-col items-center justify-center p-6 rounded-2xl border border-neutral-800 bg-neutral-900/40 text-center transition-colors group h-full w-full"
                     >
                       <span className="text-4xl mb-3 filter grayscale group-hover:grayscale-0 transition-all duration-300">
                         {option.emoji}
                       </span>
-                      <span className="text-lg font-medium text-stone-300 group-hover:text-emerald-300 transition-colors">
+                      <span className="text-lg font-medium text-neutral-300 group-hover:text-amber-300 transition-colors">
                         {option.label}
                       </span>
                     </motion.button>
@@ -364,7 +364,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               </motion.div>
             </AnimatePresence>
 
-            <div className="text-center mt-8 text-stone-600 text-sm font-mono">
+            <div className="text-center mt-8 text-neutral-600 text-sm font-mono">
               Question {currentQuestionIndex + 1} of {QUESTIONS.length}
             </div>
           </motion.div>
@@ -384,23 +384,23 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
-                className="w-32 h-32 rounded-full border-2 border-stone-800 border-t-emerald-500 border-r-transparent"
+                className="w-32 h-32 rounded-full border-2 border-neutral-800 border-t-amber-500 border-r-transparent"
               />
               <motion.div
                 animate={{ rotate: -360 }}
                 transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                className="absolute inset-2 rounded-full border-2 border-stone-800 border-b-cyan-500 border-l-transparent"
+                className="absolute inset-2 rounded-full border-2 border-neutral-800 border-b-cyan-500 border-l-transparent"
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <Brain className="w-8 h-8 text-stone-500 animate-pulse" />
+                <Brain className="w-8 h-8 text-neutral-500 animate-pulse" />
               </div>
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-2xl font-display font-bold text-stone-200">
+              <h3 className="text-2xl font-display font-bold text-neutral-200">
                 Analyzing Your DNA
               </h3>
-              <p className="text-stone-500 animate-pulse">
+              <p className="text-neutral-500 animate-pulse">
                 Constructing optimal asset allocation...
               </p>
             </div>
@@ -415,15 +415,15 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center space-y-8"
           >
-            <div className="w-24 h-24 mx-auto bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20">
-              <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+            <div className="w-24 h-24 mx-auto bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/20">
+              <CheckCircle2 className="w-10 h-10 text-amber-400" />
             </div>
 
             <div className="space-y-4">
               <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
                 We've Built Your Portfolio
               </h2>
-              <p className="text-lg text-stone-400 max-w-md mx-auto">
+              <p className="text-lg text-neutral-400 max-w-md mx-auto">
                 Based on your <strong>{finalResult.profile}</strong> profile
                 (Score: {finalResult.score}/100), we've allocated a starting
                 strategy for you.
@@ -431,20 +431,20 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             </div>
 
             {/* Mini Portfolio Preview */}
-            <div className="bg-stone-900/50 rounded-xl border border-stone-800 p-4 max-w-sm mx-auto">
-              <h4 className="text-xs text-stone-500 font-mono uppercase tracking-widest mb-3 text-left pl-2">
+            <div className="bg-neutral-900/50 rounded-xl border border-neutral-800 p-4 max-w-sm mx-auto">
+              <h4 className="text-xs text-neutral-500 font-mono uppercase tracking-widest mb-3 text-left pl-2">
                 Allocation
               </h4>
               <div className="space-y-2">
                 {finalResult.suggestedPortfolio.map((item) => (
                   <div
                     key={item.ticker}
-                    className="flex items-center justify-between p-2 rounded bg-stone-950/50"
+                    className="flex items-center justify-between p-2 rounded bg-neutral-950/50"
                   >
-                    <span className="font-bold text-stone-200">
+                    <span className="font-bold text-neutral-200">
                       {item.ticker}
                     </span>
-                    <span className="text-emerald-400 font-mono">
+                    <span className="text-amber-400 font-mono">
                       {item.weight}%
                     </span>
                   </div>
@@ -456,7 +456,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onComplete(finalResult)}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-amber-900/20"
             >
               Go to Dashboard
               <ArrowRight className="w-5 h-5" />

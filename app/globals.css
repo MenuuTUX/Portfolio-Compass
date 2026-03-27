@@ -1,21 +1,24 @@
 @import "tailwindcss";
 
 @theme {
-  --color-emerald-400: #34d399;
-  --color-emerald-500: #10b981;
-  --color-emerald-600: #059669;
-  --color-emerald-900: #064e3b;
+  /* Solari / Cassette Futurism Palette */
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-900: #78350f;
 
-  --color-stone-800: #292524;
-  --color-stone-900: #1c1917;
-  --color-stone-950: #0c0a09;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui;
   --font-display: var(--font-space), ui-sans-serif, system-ui;
+  --font-mono: var(--font-share-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-breathe: breathe 4s ease-in-out infinite;
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-flip: flip 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 
   @keyframes float {
     0%, 100% { transform: translateY(0); }
@@ -26,64 +29,77 @@
     0%, 100% { transform: scale(1); opacity: 0.8; }
     50% { transform: scale(1.05); opacity: 1; }
   }
+
+  @keyframes flip {
+    0% { transform: rotateX(0deg); }
+    100% { transform: rotateX(-180deg); }
+  }
 }
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 12, 10, 9; /* Stone 950 */
+  --foreground-rgb: 245, 245, 245; /* Off-white text */
+  --background-start-rgb: 10, 10, 10; /* Neutral 950 */
   --background-end-rgb: 0, 0, 0;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: var(--color-stone-950);
+  background: var(--color-neutral-950);
 }
 
 @layer utilities {
+  /* Solari / Matte Black Casing Styles */
   .glass-panel {
-    @apply bg-stone-900/40 border border-emerald-500/10 backdrop-blur-md shadow-lg shadow-black/20;
+    @apply bg-neutral-900 border-2 border-neutral-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)];
   }
 
   .glass-card {
-    @apply bg-stone-900/60 border border-white/5 backdrop-blur-md;
+    @apply bg-neutral-900 border border-neutral-800 shadow-lg;
   }
 
   .text-balance {
     text-wrap: balance;
   }
 
-  /* Biopunk Textures */
+  /* Solari / Amber Grid Pattern */
   .bg-grid-pattern {
-    background-image: linear-gradient(to right, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
-    background-size: 20px 20px;
+    background-image: linear-gradient(to right, rgba(245, 158, 11, 0.05) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(245, 158, 11, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px; /* Larger grid for retro feel */
   }
 
   .organic-glow {
-    box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
+    /* Replaced with amber circuit glow */
+    box-shadow: 0 0 15px -2px rgba(245, 158, 11, 0.2);
+  }
+
+  .amber-glow {
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    text-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Retro Chunky */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0c0a09;
+  background: #0a0a0a;
+  border-left: 1px solid #262626;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #292524;
-  border-radius: 4px;
+  background: #262626;
+  border: 2px solid #0a0a0a; /* Creates a padding effect */
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #10b981;
+  background: #f59e0b;
 }
 
-/* Card hover shine effect */
+/* Card hover shine effect - Adjusted for matte plastic */
 .card-shine {
   position: relative;
   overflow: hidden;
@@ -99,7 +115,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.05),
     transparent
   );
   transition: left 0.6s ease;
@@ -109,21 +125,15 @@ body {
   left: 100%;
 }
 
-/* Gradient border animation for active items */
-@keyframes gradient-border {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+/* Gradient border animation -> Amber Pulse */
+@keyframes amber-pulse {
+  0%, 100% { border-color: rgba(245, 158, 11, 0.2); }
+  50% { border-color: rgba(245, 158, 11, 0.6); }
 }
 
 .animated-border {
-  background: linear-gradient(
-    90deg,
-    #10b981,
-    #059669,
-    #10b981
-  );
-  background-size: 200% 100%;
-  animation: gradient-border 3s ease infinite;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  animation: amber-pulse 3s ease infinite;
 }
 
 /* Number counter animation */
@@ -134,4 +144,11 @@ body {
 
 .count-animate {
   animation: count-up 0.5s ease-out forwards;
+}
+
+/* Split Flap Utilities */
+.split-flap-char {
+  @apply bg-neutral-800 text-white font-mono px-1 rounded-sm border-b border-black shadow-sm inline-block;
+  background: linear-gradient(to bottom, #262626 50%, #171717 50%);
+  line-height: 1;
 }

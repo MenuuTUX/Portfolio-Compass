@@ -99,11 +99,11 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   const segmentSpan = (totalSpan - (segmentCount - 1) * gap) / segmentCount;
 
   const colors = [
-    "#f43f5e", // Red (Extreme Fear)
+    "#ef4444", // Red (Extreme Fear)
     "#f97316", // Orange (Fear)
-    "#eab308", // Yellow (Neutral)
-    "#84cc16", // Lime (Greed)
-    "#10b981", // Green (Extreme Greed)
+    "#f59e0b", // Amber (Neutral)
+    "#facc15", // Yellow (Greed)
+    "#a3e635", // Lime (Extreme Greed)
   ];
 
   // Determine active color for text and gradient based on score
@@ -131,17 +131,17 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   return (
     <div
       className={cn(
-        "w-full bg-stone-950 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group",
+        "w-full bg-neutral-900 border-2 border-neutral-800 rounded-lg p-8 flex flex-col items-center justify-between relative overflow-hidden group shadow-lg",
         className,
       )}
     >
-      {/* Background Texture */}
+      {/* Background Texture - Grid */}
       <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
-          backgroundSize: "32px 32px",
+            "linear-gradient(to right, #fbbf24 1px, transparent 1px), linear-gradient(to bottom, #fbbf24 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
         }}
       />
 
@@ -157,17 +157,17 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
       <div className="absolute top-6 left-6 flex items-center gap-2 z-20">
         <div
           className={cn(
-            "w-2 h-2 rounded-full shadow-lg",
-            marketOpen ? "bg-emerald-500 animate-pulse" : "bg-stone-600",
+            "w-2 h-2 rounded-sm shadow-sm",
+            marketOpen ? "bg-amber-500 animate-pulse" : "bg-neutral-600",
           )}
         />
-        <span className="text-xs font-medium text-white/40 tracking-wider uppercase">
-          Market {marketOpen ? "Open" : "Closed"}
+        <span className="text-xs font-medium text-neutral-500 tracking-wider uppercase font-mono">
+          MARKET:{marketOpen ? "OPEN" : "CLOSED"}
         </span>
       </div>
 
       <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center mt-2">
-        <h3 className="text-white/90 font-bold text-lg">Fear & Greed</h3>
+        <h3 className="text-amber-500 font-bold text-lg font-mono uppercase tracking-widest">Sentiment_Index</h3>
       </div>
 
       {/* Gauge Container */}
@@ -191,7 +191,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
             cx={0}
             cy={0}
             r="8"
-            fill="stone-950"
+            fill="#171717"
             stroke="white"
             strokeWidth="3"
             initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
@@ -208,12 +208,12 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
 
         {/* Score & Rating Text */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-2 pointer-events-none">
-          <div className="text-5xl font-bold font-space text-white tracking-tight leading-none drop-shadow-xl">
+          <div className="text-5xl font-bold font-mono text-white tracking-tight leading-none drop-shadow-xl">
             {score}
           </div>
           {/* Rating text follows active color */}
           <div
-            className="text-base font-medium capitalize mt-2 transition-colors duration-300"
+            className="text-sm font-medium uppercase mt-2 transition-colors duration-300 font-mono tracking-widest"
             style={{ color: activeColor }}
           >
             {data.rating}
@@ -221,8 +221,8 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
         </div>
       </div>
 
-      <div className="text-xs font-mono text-white/30 z-10">
-        Updated: {new Date(data.updatedAt).toLocaleDateString()}
+      <div className="text-[10px] font-mono text-neutral-600 z-10 uppercase">
+        LAST_UPDATE: {new Date(data.updatedAt).toLocaleDateString()}
       </div>
     </div>
   );

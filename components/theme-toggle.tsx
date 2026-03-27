@@ -15,7 +15,7 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <div className="flex items-center gap-1 border border-stone-800 rounded-full p-1 bg-stone-950/50 backdrop-blur-sm h-[34px] w-[106px]" />
+      <div className="flex items-center gap-1 border border-neutral-800 rounded-full p-1 bg-neutral-950/50 backdrop-blur-sm h-[34px] w-[106px]" />
     );
   }
 

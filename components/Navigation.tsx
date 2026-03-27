@@ -52,7 +52,7 @@ export default function Navigation({
               />
             </div>
             <span className="text-white font-bold tracking-tight text-lg hidden md:block">
-              Portfolio<span className="text-emerald-400">Compass</span>
+              Portfolio<span className="text-amber-400">Compass</span>
             </span>
           </div>
 
@@ -97,7 +97,7 @@ export default function Navigation({
                     <tab.icon
                       className={cn(
                         "w-5 h-5 sm:w-4 sm:h-4 relative z-10",
-                        isActive && "text-emerald-400",
+                        isActive && "text-amber-400",
                         isTrending && !isActive && "text-amber-400",
                       )}
                     />

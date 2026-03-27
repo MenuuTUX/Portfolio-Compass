@@ -23,38 +23,35 @@ interface PortfolioBarChartProps {
   portfolio: Portfolio;
 }
 
-// Biopunk / Neon Aesthetic Palette (Lighter/Brighter)
+// Solari / Cassette Futurism Palette (Warm/Amber/Retro)
 const PALETTE = {
-  emerald: { main: "#34d399", dark: "#059669" }, // Lighter Emerald
-  blue: { main: "#60a5fa", dark: "#2563eb" }, // Lighter Blue
-  violet: { main: "#a78bfa", dark: "#7c3aed" }, // Lighter Violet
-  cyan: { main: "#22d3ee", dark: "#0891b2" }, // Lighter Cyan
-  rose: { main: "#fb7185", dark: "#e11d48" }, // Lighter Rose
-  amber: { main: "#fcd34d", dark: "#d97706" }, // Lighter Amber
-  fuchsia: { main: "#e879f9", dark: "#c026d3" }, // Lighter Fuchsia
-  sky: { main: "#38bdf8", dark: "#0284c7" }, // Lighter Sky
-  indigo: { main: "#818cf8", dark: "#4f46e5" }, // Lighter Indigo
-  lime: { main: "#a3e635", dark: "#65a30d" }, // Lighter Lime
-  teal: { main: "#2dd4bf", dark: "#0d9488" }, // Lighter Teal
+  amber: { main: "#fbbf24", dark: "#b45309" }, // Amber-400 / Amber-700
+  orange: { main: "#fb923c", dark: "#c2410c" }, // Orange-400 / Orange-700
+  red: { main: "#f87171", dark: "#b91c1c" }, // Red-400 / Red-700
+  stone: { main: "#a8a29e", dark: "#57534e" }, // Stone-400 / Stone-700
+  yellow: { main: "#facc15", dark: "#a16207" }, // Yellow-400 / Yellow-700
+  zinc: { main: "#a1a1aa", dark: "#52525b" }, // Zinc-400 / Zinc-700
+  lime: { main: "#a3e635", dark: "#4d7c0f" }, // Lime-400 / Lime-700 (Retro Green)
+  neutral: { main: "#d4d4d4", dark: "#404040" }, // Neutral-300 / Neutral-700
 };
 
 const SOURCE_COLORS = [
-  PALETTE.blue,
-  PALETTE.violet,
-  PALETTE.cyan,
-  PALETTE.fuchsia,
-  PALETTE.indigo,
-  PALETTE.sky,
-  PALETTE.teal,
+  PALETTE.amber,
+  PALETTE.orange,
+  PALETTE.yellow,
+  PALETTE.stone,
+  PALETTE.zinc,
+  PALETTE.red,
   PALETTE.lime,
+  PALETTE.neutral,
 ];
 
-// Risk Colors (Neon Pastel / Lighter)
+// Risk Colors (Retro/Industrial)
 const RISK_COLORS = {
-  SAFE: "#6ee7b7", // Emerald-300
-  WARN: "#fcd34d", // Amber-300
-  HIGH: "#fdba74", // Orange-300
-  CRIT: "#fda4af", // Rose-300
+  SAFE: "#a3e635", // Lime-400 (Retro Safe Green)
+  WARN: "#facc15", // Yellow-400 (Warning)
+  HIGH: "#fb923c", // Orange-400 (High Alert)
+  CRIT: "#ef4444", // Red-500 (Critical)
 };
 
 const getRiskColor = (totalWeight: number) => {
@@ -266,8 +263,8 @@ export default function PortfolioBarChart({
 
   if (portfolio.length === 0) {
     return (
-      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
-        No assets in portfolio
+      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl font-mono">
+        NO_ASSETS_DETECTED
       </div>
     );
   }
@@ -278,12 +275,12 @@ export default function PortfolioBarChart({
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col border border-white/5 bg-gradient-to-br from-stone-950/50 to-stone-900/50"
+      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col bg-neutral-900"
     >
       <div className="flex flex-col gap-1 mb-8">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-white tracking-tight">
-            Portfolio Look-Through
+          <h3 className="text-xl font-bold text-amber-500 tracking-tight font-mono uppercase">
+            Portfolio_Look_Through
           </h3>
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
@@ -439,22 +436,22 @@ export default function PortfolioBarChart({
               />
 
               <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                cursor={{ fill: "rgba(245, 158, 11, 0.05)" }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="bg-stone-950/95 backdrop-blur-xl border border-white/10 p-4 rounded-xl text-xs shadow-2xl z-50 min-w-[220px]">
-                        <div className="font-bold text-white mb-0.5 text-base tracking-tight">
+                      <div className="bg-neutral-900 border-2 border-neutral-800 p-4 rounded-lg text-xs shadow-xl z-50 min-w-[220px]">
+                        <div className="font-bold text-amber-500 mb-0.5 text-base tracking-tight font-mono">
                           {d.name}
                         </div>
-                        <div className="text-neutral-500 mb-3 font-medium">
+                        <div className="text-neutral-500 mb-3 font-medium font-mono">
                           {d.fullName}
                         </div>
 
-                        <div className="flex justify-between gap-6 border-t border-white/5 pt-3 mb-3">
-                          <span className="text-neutral-400 font-medium">
-                            Total Weight
+                        <div className="flex justify-between gap-6 border-t border-neutral-800 pt-3 mb-3">
+                          <span className="text-neutral-400 font-medium font-mono">
+                            WEIGHT
                           </span>
                           <span
                             className="font-mono font-bold text-base"
@@ -465,18 +462,18 @@ export default function PortfolioBarChart({
                         </div>
 
                         {d.totalWeight > 10 && (
-                          <div className="flex items-start gap-2 mb-4 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg text-rose-200">
-                            <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
-                            <span className="leading-snug">
-                              Concentration exceeds recommended limit (
+                          <div className="flex items-start gap-2 mb-4 bg-red-500/10 border border-red-500/20 p-2.5 rounded-sm text-red-400">
+                            <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                            <span className="leading-snug font-mono">
+                              CONCENTRATION WARNING (
                               {d.totalWeight > 20 ? "20%" : "10%"}).
                             </span>
                           </div>
                         )}
 
-                        <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
-                          <span className="text-[10px] uppercase tracking-wider text-neutral-600 font-bold mb-1">
-                            Source Breakdown
+                        <div className="flex flex-col gap-2 border-t border-neutral-800 pt-3">
+                          <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold mb-1 font-mono">
+                            SOURCES
                           </span>
                           {[...payload]
                             .sort(
@@ -493,7 +490,7 @@ export default function PortfolioBarChart({
                                     className="w-1.5 h-1.5 rounded-full shadow-sm"
                                     style={{ backgroundColor: entry.color }}
                                   />
-                                  <span className="text-neutral-300 font-medium">
+                                  <span className="text-neutral-300 font-medium font-mono">
                                     {entry.name}
                                   </span>
                                 </div>

@@ -23,7 +23,7 @@ export default function MessageDrawer({
       case "error":
         return "text-rose-400";
       case "success":
-        return "text-emerald-400";
+        return "text-amber-400";
       default:
         return "text-blue-400";
     }

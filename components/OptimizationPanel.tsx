@@ -263,7 +263,7 @@ export default function OptimizationPanel({
   const getRegimeIcon = () => {
     switch (riskState?.riskRegime) {
       case "RISK_ON":
-        return <ShieldCheck className="w-4 h-4 text-emerald-400" />;
+        return <ShieldCheck className="w-4 h-4 text-amber-400" />;
       case "RISK_OFF":
         return <ShieldAlert className="w-4 h-4 text-rose-400" />;
       default:
@@ -285,7 +285,7 @@ export default function OptimizationPanel({
   const getRegimeColor = () => {
     switch (riskState?.riskRegime) {
       case "RISK_ON":
-        return "text-emerald-400";
+        return "text-amber-400";
       case "RISK_OFF":
         return "text-rose-400";
       default:
@@ -305,7 +305,7 @@ export default function OptimizationPanel({
       <div className="p-6 border-b border-white/10 bg-black/20">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2 text-emerald-400">
+            <div className="flex items-center gap-2 text-amber-400">
               <Activity className="w-5 h-5" />
               <h2 className="font-bold text-lg tracking-wide uppercase">
                 Greedy Optimizer
@@ -338,7 +338,7 @@ export default function OptimizationPanel({
                   className={cn(
                     "flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all",
                     strategyMode === mode
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_-3px_rgba(16,185,129,0.3)]"
+                      ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_10px_-3px_rgba(16,185,129,0.3)]"
                       : "text-neutral-500 hover:text-neutral-300 hover:bg-white/5",
                   )}
                 >
@@ -351,7 +351,7 @@ export default function OptimizationPanel({
 
         <div className="relative group">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <DollarSign className="h-6 w-6 text-emerald-500/80" />
+            <DollarSign className="h-6 w-6 text-amber-500/80" />
           </div>
           <input
             type="number"
@@ -359,7 +359,7 @@ export default function OptimizationPanel({
             onChange={(e) =>
               setInvestmentAmount(Math.max(0, Number(e.target.value)))
             }
-            className="block w-full pl-12 pr-4 py-4 bg-black/40 border border-white/10 rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
+            className="block w-full pl-12 pr-4 py-4 bg-black/40 border border-white/10 rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all outline-none"
             placeholder="0.00"
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500 font-medium">
@@ -386,7 +386,7 @@ export default function OptimizationPanel({
         <section>
           <div className="flex justify-between items-end mb-3">
             <h3 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-emerald-400" />
+              <TrendingDown className="w-4 h-4 text-amber-400" />
               Utility Score
             </h3>
           </div>
@@ -394,13 +394,13 @@ export default function OptimizationPanel({
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-neutral-500">
                 <span>Projected Utility</span>
-                <span className="text-emerald-400 font-bold">
+                <span className="text-amber-400 font-bold">
                   {utilityScore.toFixed(1)}
                 </span>
               </div>
               <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-emerald-500"
+                  className="h-full bg-amber-500"
                   initial={{ width: 0 }}
                   animate={{ width: `${utilityScore}%` }}
                 />
@@ -443,7 +443,7 @@ export default function OptimizationPanel({
                         className={cn(
                           "text-sm font-mono w-6 text-center",
                           sharesToAdd > 0
-                            ? "text-emerald-400 font-bold"
+                            ? "text-amber-400 font-bold"
                             : sharesToAdd < 0
                               ? "text-rose-400 font-bold"
                               : "text-neutral-500",
@@ -470,7 +470,7 @@ export default function OptimizationPanel({
                     </div>
                     <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
                       <motion.div
-                        className="h-full bg-emerald-500"
+                        className="h-full bg-amber-500"
                         initial={false}
                         animate={{ width: `${newWeight}%` }}
                         transition={{
@@ -500,7 +500,7 @@ export default function OptimizationPanel({
           disabled={
             isApplying || Object.values(proposedShares).every((s) => s === 0)
           }
-          className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)] transition-all flex items-center justify-center gap-2"
+          className="w-full py-4 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)] transition-all flex items-center justify-center gap-2"
         >
           {isApplying ? (
             <span className="animate-pulse">Applying...</span>

@@ -233,7 +233,7 @@ export default function WealthProjector({
 
             <button
               onClick={() => setMode("MONTE_CARLO")}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-amber-900/20 border border-white/10"
             >
               <Sparkles className="w-4 h-4" />
               Try Monte Carlo
@@ -258,7 +258,7 @@ export default function WealthProjector({
                       onClick={() =>
                         setInitialInvestment(currentPortfolioValue)
                       }
-                      className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                      className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
                       title="Reset to current portfolio value"
                     >
                       <RefreshCw className="w-3 h-3" />
@@ -275,7 +275,7 @@ export default function WealthProjector({
                   type="number"
                   value={initialInvestment}
                   onChange={(e) => setInitialInvestment(Number(e.target.value))}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -298,7 +298,7 @@ export default function WealthProjector({
                   onChange={(e) =>
                     setMonthlyContribution(Number(e.target.value))
                   }
-                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -317,7 +317,7 @@ export default function WealthProjector({
                 max="50"
                 value={years}
                 onChange={(e) => setYears(Number(e.target.value))}
-                className="w-full accent-emerald-500"
+                className="w-full accent-amber-500"
               />
             </div>
 
@@ -326,7 +326,7 @@ export default function WealthProjector({
                 <div className="text-sm text-neutral-400 mb-1">
                   Projected Annual Return
                 </div>
-                <div className="text-2xl font-bold text-emerald-400">
+                <div className="text-2xl font-bold text-amber-400">
                   {(weightedReturn * 100).toFixed(2)}%
                 </div>
               </div>
@@ -334,7 +334,7 @@ export default function WealthProjector({
                 <div className="text-sm text-neutral-400 mb-1">
                   Avg. Dividend Yield
                 </div>
-                <div className="text-xl font-bold text-blue-400">
+                <div className="text-xl font-bold text-amber-300">
                   {(weightedYield * 100).toFixed(2)}%
                 </div>
               </div>
@@ -342,19 +342,19 @@ export default function WealthProjector({
           </div>
 
           {/* Chart */}
-          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5">
+          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-neutral-900 border border-neutral-800">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div>
-                <div className="text-sm text-neutral-400">Projected Wealth</div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-sm text-neutral-400 font-mono">PROJECTED WEALTH</div>
+                <div className="text-3xl font-bold text-white font-mono">
                   {formatCurrency(finalAmount)}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-neutral-400">
-                  Est. Dividends Gained
+                <div className="text-sm text-neutral-400 font-mono">
+                  EST. DIVIDENDS
                 </div>
-                <div className="text-3xl font-bold text-blue-400">
+                <div className="text-3xl font-bold text-amber-300 font-mono">
                   {formatCurrency(totalDividends)}
                 </div>
               </div>
@@ -377,34 +377,35 @@ export default function WealthProjector({
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="#333"
+                    stroke="#262626"
                     vertical={false}
                   />
                   <XAxis
                     dataKey="year"
-                    stroke="#666"
-                    tick={{ fill: "#666" }}
+                    stroke="#525252"
+                    tick={{ fill: "#737373", fontFamily: "monospace" }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    stroke="#666"
-                    tick={{ fill: "#666" }}
+                    stroke="#525252"
+                    tick={{ fill: "#737373", fontFamily: "monospace" }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(value) => `$${value / 1000}k`}
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#000",
-                      borderColor: "#333",
+                      backgroundColor: "#171717",
+                      borderColor: "#262626",
                       color: "#fff",
+                      fontFamily: "monospace",
                     }}
                     formatter={(value: any) => formatCurrency(Number(value))}
                   />
@@ -412,7 +413,7 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="balance"
                     name="Projected Balance"
-                    stroke="#10b981"
+                    stroke="#f59e0b"
                     fillOpacity={1}
                     fill="url(#colorBalance)"
                   />
@@ -428,7 +429,7 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="dividends"
                     name="Accumulated Dividends"
-                    stroke="#60a5fa"
+                    stroke="#fcd34d"
                     strokeWidth={2}
                     fill="transparent"
                   />

@@ -25,9 +25,9 @@ const textVariants = {
 };
 
 const titleWords = [
-  { text: "fun", font: "font-cursive", color: "text-emerald-400" },
-  { text: "stable", font: "font-sans", color: "text-blue-400" },
-  { text: "aggressive", font: "font-serif", color: "text-red-400" },
+  { text: "LOGICAL", font: "font-mono italic", color: "text-amber-400" },
+  { text: "STABLE", font: "font-mono", color: "text-blue-400" },
+  { text: "PRECISE", font: "font-mono font-bold", color: "text-red-400" },
 ];
 
 interface HeroProps {
@@ -74,12 +74,12 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-stone-950 text-stone-100 font-sans selection:bg-emerald-500/30"
+      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-neutral-950 text-neutral-100 font-sans selection:bg-amber-500/30"
       onMouseMove={handleMouseMove}
     >
       {/* 1. Organic Background Layer - "The Overgrowth" */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-stone-950 to-stone-950" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-neutral-950 to-neutral-950" />
         <div className="absolute inset-0 bg-grid-pattern opacity-20 mask-image-gradient" />
 
         {/* Floating Spores/Particles */}
@@ -87,7 +87,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
           [...Array(15)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute bg-emerald-500/10 rounded-full blur-sm"
+              className="absolute bg-amber-500/10 rounded-full blur-sm"
               initial={{
                 x: Math.random() * window.innerWidth,
                 y: Math.random() * window.innerHeight,
@@ -123,16 +123,16 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               variants={textVariants}
               className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${
                 marketStatus === "OPEN"
-                  ? "bg-emerald-900/20 border-emerald-500/20 text-emerald-400"
+                  ? "bg-amber-900/20 border-amber-500/20 text-amber-400"
                   : "bg-red-900/20 border-red-500/20 text-red-400"
               }`}
             >
               <span className="relative flex h-2 w-2">
                 <span
-                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === "OPEN" ? "bg-emerald-400" : "bg-red-400"}`}
+                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === "OPEN" ? "bg-amber-400" : "bg-red-400"}`}
                 ></span>
                 <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === "OPEN" ? "bg-emerald-500" : "bg-red-500"}`}
+                  className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === "OPEN" ? "bg-amber-500" : "bg-red-500"}`}
                 ></span>
               </span>
               MARKET: {marketStatus}
@@ -143,7 +143,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               variants={textVariants}
               className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight mt-6"
             >
-              Make your <span className="text-stone-600">portfolio</span> <br />
+              Make your <span className="text-neutral-600">portfolio</span> <br />
               <div className="h-[1.2em] relative overflow-hidden">
                 <AnimatePresence mode="wait">
                   <motion.span
@@ -163,14 +163,14 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             <motion.p
               custom={2}
               variants={textVariants}
-              className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
+              className="text-base sm:text-lg text-neutral-400 max-w-xl leading-relaxed mt-6"
             >
               Experience professional portfolio management tools.
               PortfolioCompass merges algorithmic precision with sustainable
               growth strategies. Watch your wealth evolve with data-driven
               clarity.
               <br />
-              <span className="text-xs text-stone-500 mt-2 block italic">
+              <span className="text-xs text-neutral-500 mt-2 block italic">
                 Disclaimer: This is not financial advice.
               </span>
             </motion.p>
@@ -182,13 +182,13 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <motion.button
                 onClick={onStart}
-                whileHover={{ scale: 1.05, backgroundColor: "#059669" }} // emerald-600
+                whileHover={{ scale: 1.05, backgroundColor: "#d97706" }}
                 whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+                className="group px-8 py-4 rounded-sm bg-amber-600 text-white font-mono font-bold tracking-wider uppercase shadow-[0_0_20px_-5px_rgba(245,158,11,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto border-2 border-amber-500"
               >
-                <span className="relative z-10">Start Analysis</span>
-                <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                <span className="relative z-10">Initialize_Core</span>
+                <Cpu className="w-4 h-4 relative z-10 group-hover:rotate-90 transition-transform" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
               </motion.button>
 
               <motion.button
@@ -198,7 +198,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                   borderColor: "rgba(255,255,255,0.2)",
                 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
+                className="px-8 py-4 rounded-lg bg-neutral-900/50 border border-neutral-700 text-neutral-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
               >
                 <Activity className="w-4 h-4" />
                 View the Market
@@ -209,7 +209,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             <motion.div
               custom={4}
               variants={textVariants}
-              className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50 mt-12"
+              className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-neutral-800/50 mt-12"
             >
               {[
                 { label: "Data Updates", val: "Daily", icon: Zap },
@@ -217,11 +217,11 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 { label: "Privacy", val: "Local-First", icon: Activity },
               ].map((item, i) => (
                 <div key={i} className="space-y-1">
-                  <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
+                  <item.icon className="w-5 h-5 text-amber-500 mb-2" />
                   <div className="text-xl sm:text-2xl font-display font-bold text-white">
                     {item.val}
                   </div>
-                  <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">
+                  <div className="text-[10px] sm:text-xs text-neutral-500 uppercase tracking-wider">
                     {item.label}
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
           {/* Background Glow */}
           <motion.div
             style={{ y: y2 }}
-            className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent rounded-full blur-3xl"
+            className="absolute inset-0 bg-gradient-to-tr from-amber-500/10 to-transparent rounded-full blur-3xl"
           />
 
           {/* The "Artifact" - Glassmorphism Card + Interactive Slider */}
@@ -249,21 +249,21 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
-            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto pointer-events-auto"
+            className="relative w-full max-w-md bg-neutral-900/80 border border-neutral-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto pointer-events-auto"
           >
             <div
               className="space-y-6 relative z-10"
               style={{ transform: "translateZ(30px)" }}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">
+                <h3 className="text-lg sm:text-xl font-display font-bold text-amber-100">
                   Shib's Portfolio Growth
                 </h3>
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
               </div>
 
               <div
-                className="h-32 sm:h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group"
+                className="h-32 sm:h-40 bg-neutral-950/50 rounded-lg border border-neutral-800/50 p-4 relative overflow-hidden group"
                 style={{ transform: "translateZ(20px)" }}
               >
                 {/* Simulated Chart */}
@@ -299,7 +299,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                     return (
                       <motion.div
                         key={i}
-                        className="w-full bg-emerald-500/80 rounded-t-sm"
+                        className="w-full bg-amber-500/80 rounded-t-sm"
                         animate={{ height: `${finalHeight}%` }}
                         transition={{
                           type: "spring",
@@ -312,7 +312,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                   })}
                 </div>
                 {/* Overlay Text */}
-                <div className="absolute top-2 left-4 text-xs text-stone-500 font-mono">
+                <div className="absolute top-2 left-4 text-xs text-neutral-500 font-mono">
                   PROJECTION: +
                   {(
                     (Math.pow(
@@ -350,7 +350,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               </div>
 
               <div
-                className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap"
+                className="pt-4 flex gap-3 text-xs text-neutral-500 border-t border-neutral-800 flex-wrap"
                 style={{ transform: "translateZ(10px)" }}
               >
                 <span>• Professional</span>
@@ -375,8 +375,8 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         transition={{ delay: 1.5, duration: 0.8 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none"
       >
-        <span className="text-[10px] text-stone-500 uppercase tracking-[0.2em] font-mono">Explore</span>
-        <ChevronDown className="w-6 h-6 text-emerald-500/50 animate-bounce" />
+        <span className="text-[10px] text-neutral-500 uppercase tracking-[0.2em] font-mono">Explore</span>
+        <ChevronDown className="w-6 h-6 text-amber-500/50 animate-bounce" />
       </motion.div>
     </div>
   );
