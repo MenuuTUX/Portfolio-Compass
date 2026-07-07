@@ -1,25 +1,28 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 
-// Define mock functions
-const mockGetStockProfile = mock(() => Promise.resolve({
+// Define mock functions (loosely typed so tests can stub varying shapes)
+type AsyncMockFn = (...args: any[]) => Promise<any>;
+
+const mockGetStockProfile = mock<AsyncMockFn>(async () => ({
   sector: 'Technology',
   industry: 'Consumer Electronics',
   description: 'Apple Inc. designs...'
 }));
 
-const mockGetEtfDescription = mock(() => Promise.resolve(null));
+const mockGetEtfDescription = mock<AsyncMockFn>(async () => null);
 
 // Mock the modules
-mock.module('@/lib/scrapers/stock-analysis', () => ({
+await mockModule('@/lib/scrapers/stock-analysis', () => ({
   getStockProfile: mockGetStockProfile
 }));
 
-mock.module('@/lib/scrapers/etf-dot-com', () => ({
+await mockModule('@/lib/scrapers/etf-dot-com', () => ({
   getEtfDescription: mockGetEtfDescription
 }));
 
 // Mock yahoo-finance2
-const mockQuoteSummary = mock(() => Promise.resolve({}));
+const mockQuoteSummary = mock<AsyncMockFn>(async () => ({}));
 
 // Create a mock class
 class MockYahooFinance {
@@ -27,7 +30,7 @@ class MockYahooFinance {
   // Add other methods if needed
 }
 
-mock.module('yahoo-finance2', () => ({
+await mockModule('yahoo-finance2', () => ({
     default: MockYahooFinance
 }));
 
@@ -117,7 +120,7 @@ describe('GET /api/stock/info', () => {
        });
        mockGetEtfDescription.mockResolvedValueOnce('Better ETF description');
 
-       const req = new Request('http://localhost/api/stock/info?ticker=BAD_DATA');
+       const req = new Request('http://localhost/api/stock/info?ticker=BADDATA');
        const res = await GET(req);
        const json = await res.json();
 

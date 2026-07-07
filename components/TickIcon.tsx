@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Image from "next/image";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 
 export const TickIcon = ({
@@ -43,10 +44,12 @@ export const TickIcon = ({
 
   return (
     <foreignObject x={x - 80} y={y - 10} width={20} height={20}>
-      {/* We use img tag here inside foreignObject because SVG <image> doesn't support onError well */}
-      <img
+      {/* Rendered inside foreignObject because SVG <image> doesn't support onError well */}
+      <Image
         src={iconUrl}
         alt={ticker}
+        width={20}
+        height={20}
         className="w-full h-full rounded-full object-cover"
         onError={() => setHasError(true)}
       />

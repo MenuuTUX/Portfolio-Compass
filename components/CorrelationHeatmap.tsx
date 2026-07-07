@@ -8,6 +8,21 @@ interface CorrelationHeatmapProps {
   assets: string[];
 }
 
+// Mock correlation: deterministic hash based on ticker pairs so values are
+// consistent (but fake). Diagonal is 1.0 (Dark Emerald).
+const getCorrelation = (t1: string, t2: string) => {
+  if (t1 === t2) return 1.0;
+  // Ensure symmetry: Hash(A, B) must equal Hash(B, A)
+  const sorted = [t1, t2].sort().join("");
+  let hash = 0;
+  for (let i = 0; i < sorted.length; i++) {
+    hash = (hash * 31 + sorted.charCodeAt(i)) % 1000;
+  }
+  // Map to range -0.2 to 0.9 (some negative correlation possible)
+  // 0 -> -0.2, 1000 -> 0.9
+  return -0.2 + (hash / 1000) * 1.1;
+};
+
 export default function CorrelationHeatmap({
   assets,
 }: CorrelationHeatmapProps) {
@@ -17,32 +32,15 @@ export default function CorrelationHeatmap({
     col: number;
   } | null>(null);
 
-  // Logic: Mock correlation matrix
-  // Uses a deterministic hash based on ticker pairs so values are consistent (but fake).
-  // Diagonal is 1.0 (Dark Emerald)
-
   const n = assets.length;
 
-  // Pseudo-random deterministic function
-  const getCorrelation = (t1: string, t2: string) => {
-    if (t1 === t2) return 1.0;
-    // Ensure symmetry: Hash(A, B) must equal Hash(B, A)
-    const sorted = [t1, t2].sort().join("");
-    let hash = 0;
-    for (let i = 0; i < sorted.length; i++) {
-      hash = (hash * 31 + sorted.charCodeAt(i)) % 1000;
-    }
-    // Map to range -0.2 to 0.9 (some negative correlation possible)
-    // 0 -> -0.2, 1000 -> 0.9
-    return -0.2 + (hash / 1000) * 1.1;
-  };
-
   const matrix: number[][] = useMemo(() => {
-    const mat: number[][] = Array(n)
+    const size = assets.length;
+    const mat: number[][] = Array(size)
       .fill(0)
-      .map(() => Array(n).fill(0));
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
+      .map(() => Array(size).fill(0));
+    for (let i = 0; i < size; i++) {
+      for (let j = 0; j < size; j++) {
         mat[i][j] = getCorrelation(assets[i], assets[j]);
       }
     }
@@ -138,7 +136,7 @@ export default function CorrelationHeatmap({
                     Low/Negative (&lt; 0.3):
                   </strong>{" "}
                   They move independently or oppositely. This is
-                  "Diversification". <strong>(Lower Risk)</strong>
+                  &ldquo;Diversification&rdquo;. <strong>(Lower Risk)</strong>
                 </li>
               </ul>
               <p className="mt-2 text-emerald-300 italic border-l-2 border-emerald-500 pl-2">

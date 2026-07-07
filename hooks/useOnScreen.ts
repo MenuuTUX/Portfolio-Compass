@@ -14,16 +14,13 @@ export function useOnScreen(
       }
     }, options);
 
-    if (ref.current) {
-      observer.observe(ref.current);
+    const element = ref.current;
+    if (element) {
+      observer.observe(element);
     }
 
-    return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
-    };
-  }, [ref, options]);
+    return () => observer.disconnect();
+  }, [options]);
 
   return [ref, isVisible];
 }

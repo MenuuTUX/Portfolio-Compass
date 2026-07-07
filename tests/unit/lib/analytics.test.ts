@@ -1,9 +1,12 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 
-// Mocks
-const mockPrismaFindMany = mock(() => Promise.resolve([]));
+// Mocks (loosely typed so tests can freely stub Prisma-shaped results)
+const mockPrismaFindMany = mock<(...args: any[]) => Promise<any>>(
+  async () => [],
+);
 
-mock.module('@/lib/db', () => {
+await mockModule('@/lib/db', () => {
   return {
     default: {
       holding: {

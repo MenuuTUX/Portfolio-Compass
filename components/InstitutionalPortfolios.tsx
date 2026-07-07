@@ -24,6 +24,14 @@ interface InstitutionalPortfoliosProps {
   isLoading?: boolean;
 }
 
+// Maps icon names to existing lucide components (module scope so render
+// only selects a component, never creates one)
+const PORTFOLIO_ICONS: Record<string, typeof Wallet> = {
+  TrendingUp,
+  Scale,
+  Shield,
+};
+
 export default function InstitutionalPortfolios({
   onBatchAdd,
   isLoading = false,
@@ -61,23 +69,8 @@ export default function InstitutionalPortfolios({
 
   const activePortfolio = selectedInstitution?.portfolios[selectedType];
 
-  // Helper to get the correct icon component
-  const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case "TrendingUp":
-        return TrendingUp;
-      case "Scale":
-        return Scale;
-      case "Shield":
-        return Shield;
-      default:
-        return Wallet;
-    }
-  };
-
-  const ActiveIcon = activePortfolio
-    ? getIcon(activePortfolio.iconName)
-    : Wallet;
+  const ActiveIcon =
+    (activePortfolio && PORTFOLIO_ICONS[activePortfolio.iconName]) || Wallet;
 
   return (
     <div className="h-full flex flex-col gap-4">

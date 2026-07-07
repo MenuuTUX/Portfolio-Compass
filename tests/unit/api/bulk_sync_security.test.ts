@@ -1,8 +1,9 @@
 import { describe, it, expect, mock, beforeAll, afterAll } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 import { POST } from '@/app/api/etfs/sync/all/route';
 
 // Mock dependencies
-mock.module('@/lib/db', () => ({
+await mockModule('@/lib/db', () => ({
   default: {
     etf: {
       findMany: mock(async () => []),
@@ -10,11 +11,11 @@ mock.module('@/lib/db', () => ({
   },
 }));
 
-mock.module('@/lib/etf-sync', () => ({
+await mockModule('@/lib/etf-sync', () => ({
   syncEtfDetails: mock(async () => ({})),
 }));
 
-mock.module('next/server', () => ({
+await mockModule('next/server', () => ({
   NextRequest: class {},
   NextResponse: {
     json: (body: any, init?: any) => ({
@@ -40,6 +41,11 @@ const createMockRequest = (headers: Record<string, string> = {}) => {
   } as any;
 };
 
+// @types/node declares NODE_ENV readonly; tests legitimately need to vary it
+const setNodeEnv = (value: string) => {
+  (process.env as Record<string, string | undefined>).NODE_ENV = value;
+};
+
 describe('Bulk Sync API Security', () => {
   const originalEnv = process.env;
 
@@ -53,7 +59,7 @@ describe('Bulk Sync API Security', () => {
 
   it('should return 401 if CRON_SECRET is set but header is missing', async () => {
     process.env.CRON_SECRET = 'supersecret';
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
 
     const req = createMockRequest({});
     const res = await POST(req);
@@ -65,7 +71,7 @@ describe('Bulk Sync API Security', () => {
 
   it('should return 401 if Authorization header is incorrect', async () => {
     process.env.CRON_SECRET = 'supersecret';
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
 
     const req = createMockRequest({
         'Authorization': 'Bearer wrongsecret',
@@ -77,7 +83,7 @@ describe('Bulk Sync API Security', () => {
 
   it('should return 500 if CRON_SECRET is missing in production', async () => {
     delete process.env.CRON_SECRET;
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
 
     const req = createMockRequest({});
     const res = await POST(req);
@@ -89,7 +95,7 @@ describe('Bulk Sync API Security', () => {
 
   it('should allow access if headers match CRON_SECRET', async () => {
     process.env.CRON_SECRET = 'supersecret';
-    process.env.NODE_ENV = 'production';
+    setNodeEnv('production');
 
     const req = createMockRequest({
         'Authorization': 'Bearer supersecret',
@@ -104,7 +110,7 @@ describe('Bulk Sync API Security', () => {
 
   it('should warn but allow access in development if CRON_SECRET is missing', async () => {
     delete process.env.CRON_SECRET;
-    process.env.NODE_ENV = 'development';
+    setNodeEnv('development');
 
     // Spy on console.warn
     const warnSpy = mock();

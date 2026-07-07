@@ -1,10 +1,13 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 
-// Define the mock
-const mockQuoteSummary = mock(() => Promise.resolve({}));
+// Define the mock (accepts any args so the class wrapper below can forward them)
+const mockQuoteSummary = mock<(...args: any[]) => Promise<any>>(
+  async () => ({}),
+);
 
 // Mock the module BEFORE importing the code under test
-mock.module('yahoo-finance2', () => {
+await mockModule('yahoo-finance2', () => {
   return {
     default: class YahooFinance {
       constructor() {

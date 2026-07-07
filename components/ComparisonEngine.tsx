@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useState,
   useEffect,
@@ -38,6 +39,18 @@ interface ETFCardProps {
   onView: (etf: ETF) => void;
 }
 
+// Deterministic noise seeded by ticker + index so the fake sparkline keeps
+// the same shape across renders instead of reshuffling
+const seededNoise = (seed: string, i: number): number => {
+  let h = 2166136261;
+  const s = `${seed}:${i}`;
+  for (let j = 0; j < s.length; j++) {
+    h ^= s.charCodeAt(j);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967295 - 0.5;
+};
+
 // ETFCard component - Memoized to isolate state updates (like flash animations)
 const ETFCard = memo(
   ({
@@ -64,14 +77,14 @@ const ETFCard = memo(
         date.setDate(date.getDate() - i);
         // Create a gentle trend matching the changePercent sign
         const trend = isPositive ? (30 - i) * 0.002 : (30 - i) * -0.002;
-        const noise = (Math.random() - 0.5) * 0.02;
+        const noise = seededNoise(etf.ticker, i) * 0.02;
         fakeData.push({
           date: date.toISOString(),
           price: basePrice * (1 + trend + noise),
         });
       }
       return fakeData;
-    }, [etf.history, etf.price, isPositive]);
+    }, [etf.history, etf.price, etf.ticker, isPositive]);
 
     // Determine graph color based on history trend if available
     let isGraphPositive = isPositive;
@@ -125,11 +138,12 @@ const ETFCard = memo(
               {/* Provider Logo */}
               {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <img
+                  <Image
                     src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!}
                     alt={`${etf.ticker} logo`}
+                    width={40}
+                    height={40}
                     className="w-full h-full object-contain"
-                    loading="lazy"
                     onError={(e) => {
                       // Hide the image container if loading fails
                       e.currentTarget.style.display = "none";
@@ -687,7 +701,7 @@ export default function ComparisonEngine({
             Found matches in {otherSection}
           </p>
           <p className="text-neutral-400">
-            We found "{sample}"{othersText ? ` ${othersText}` : ""} in the{" "}
+            We found &ldquo;{sample}&rdquo;{othersText ? ` ${othersText}` : ""} in the{" "}
             {otherSection} section.
           </p>
           <p className="text-sm text-neutral-400 mt-2">

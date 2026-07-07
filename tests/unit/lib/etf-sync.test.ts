@@ -1,17 +1,20 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { Decimal } from '@/lib/decimal';
+import { mockModule } from '@/tests/helpers/mock-module';
 
-// Define mocks
-const mockPrismaUpsert = mock(() => Promise.resolve({}));
-const mockPrismaFindFirst = mock(() => Promise.resolve(null));
-const mockPrismaFindUnique = mock(() => Promise.resolve(null));
-const mockPrismaDeleteMany = mock(() => Promise.resolve({ count: 0 }));
-const mockPrismaCreateMany = mock(() => Promise.resolve({ count: 0 }));
-const mockPrismaUpdate = mock(() => Promise.resolve({}));
-const mockPrismaCreate = mock(() => Promise.resolve({}));
-const mockPrismaCount = mock(() => Promise.resolve(0));
+// Define mocks (loosely typed so tests can freely stub Prisma-shaped results)
+type AsyncMockFn = (...args: any[]) => Promise<any>;
+
+const mockPrismaUpsert = mock<AsyncMockFn>(async () => ({}));
+const mockPrismaFindFirst = mock<AsyncMockFn>(async () => null);
+const mockPrismaFindUnique = mock<AsyncMockFn>(async () => null);
+const mockPrismaDeleteMany = mock<AsyncMockFn>(async () => ({ count: 0 }));
+const mockPrismaCreateMany = mock<AsyncMockFn>(async () => ({ count: 0 }));
+const mockPrismaUpdate = mock<AsyncMockFn>(async () => ({}));
+const mockPrismaCreate = mock<AsyncMockFn>(async () => ({}));
+const mockPrismaCount = mock<AsyncMockFn>(async () => 0);
 // Added missing mock for etfAllocation.upsert
-const mockPrismaAllocationUpsert = mock(() => Promise.resolve({}));
+const mockPrismaAllocationUpsert = mock<AsyncMockFn>(async () => ({}));
 
 // Mock Transaction Client
 const mockTx = {
@@ -32,14 +35,16 @@ const mockTx = {
     }
 };
 
-const mockPrismaTransaction = mock(async (callback) => {
-    return await callback(mockTx);
-});
+const mockPrismaTransaction = mock(
+    async (callback: (tx: typeof mockTx) => Promise<any>) => {
+        return await callback(mockTx);
+    },
+);
 
-const mockFetchEtfDetails = mock(() => Promise.resolve(null));
-const mockGetEtfHoldings = mock(() => Promise.resolve([]));
+const mockFetchEtfDetails = mock<AsyncMockFn>(async () => null);
+const mockGetEtfHoldings = mock<AsyncMockFn>(async () => []);
 
-mock.module('@/lib/db', () => {
+await mockModule('@/lib/db', () => {
   return {
     default: {
       etfHistory: {
@@ -71,13 +76,13 @@ mock.module('@/lib/db', () => {
   };
 });
 
-mock.module('@/lib/market-service', () => {
+await mockModule('@/lib/market-service', () => {
   return {
     fetchEtfDetails: mockFetchEtfDetails
   };
 });
 
-mock.module('@/lib/scrapers/stock-analysis', () => {
+await mockModule('@/lib/scrapers/stock-analysis', () => {
   return {
     getEtfHoldings: mockGetEtfHoldings
   };

@@ -35,8 +35,32 @@ interface HeroProps {
   onViewMarket?: () => void;
 }
 
+interface Spore {
+  x: number;
+  y: number;
+  scale: number;
+  driftX: number;
+  driftY: number;
+  duration: number;
+  size: number;
+}
+
+// Generated once on mount: re-rolling Math.random() during render would
+// resize and restart every particle whenever the title rotation re-renders.
+const generateSpores = (): Spore[] =>
+  Array.from({ length: 15 }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    scale: Math.random() * 0.5 + 0.2,
+    driftX: Math.random() * 50 - 25,
+    driftY: Math.random() * -50,
+    duration: Math.random() * 10 + 10,
+    size: Math.random() * 20 + 5,
+  }));
+
 export default function Hero({ onStart, onViewMarket }: HeroProps) {
-  const [mounted, setMounted] = useState(false);
+  // Empty until mounted on the client, which also serves as the SSR gate
+  const [spores, setSpores] = useState<Spore[]>([]);
   const [marketStatus, setMarketStatus] = useState("OPEN");
   const [titleIndex, setTitleIndex] = useState(0);
   const [riskValue, setRiskValue] = useState(65);
@@ -55,11 +79,16 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
   const y2 = useTransform(mouseY, [-0.5, 0.5], [20, -20]);
 
   useEffect(() => {
-    setMounted(true);
+    // Deferred to a frame callback so the effect body stays free of
+    // synchronous setState (react-hooks/set-state-in-effect)
+    const raf = requestAnimationFrame(() => setSpores(generateSpores()));
     const interval = setInterval(() => {
       setTitleIndex((prev) => (prev + 1) % titleWords.length);
     }, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(interval);
+    };
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -83,32 +112,31 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         <div className="absolute inset-0 bg-grid-pattern opacity-20 mask-image-gradient" />
 
         {/* Floating Spores/Particles */}
-        {mounted &&
-          [...Array(15)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute bg-emerald-500/10 rounded-full blur-sm"
-              initial={{
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
-                scale: Math.random() * 0.5 + 0.2,
-              }}
-              animate={{
-                y: [null, Math.random() * -50],
-                x: [null, Math.random() * 50 - 25],
-                opacity: [0.2, 0.5, 0.2],
-              }}
-              transition={{
-                duration: Math.random() * 10 + 10,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              style={{
-                width: Math.random() * 20 + 5,
-                height: Math.random() * 20 + 5,
-              }}
-            />
-          ))}
+        {spores.map((spore, i) => (
+          <motion.div
+            key={i}
+            className="absolute bg-emerald-500/10 rounded-full blur-sm"
+            initial={{
+              x: spore.x,
+              y: spore.y,
+              scale: spore.scale,
+            }}
+            animate={{
+              y: [null, spore.driftY],
+              x: [null, spore.driftX],
+              opacity: [0.2, 0.5, 0.2],
+            }}
+            transition={{
+              duration: spore.duration,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            style={{
+              width: spore.size,
+              height: spore.size,
+            }}
+          />
+        ))}
       </div>
 
       {/* 2. Main Content Wrapper */}
@@ -257,7 +285,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">
-                  Shib's Portfolio Growth
+                  Shib&apos;s Portfolio Growth
                 </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
@@ -291,10 +319,10 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                     const maxLogScale = 2.5;
 
                     const barHeight = 10 + (logGrowth / maxLogScale) * 90;
-                    const finalHeight = Math.min(
-                      100,
-                      barHeight + Math.random() * 2,
-                    ); // Add subtle jitter
+                    // Subtle per-bar jitter, deterministic so re-renders
+                    // (title rotation, slider moves) don't make bars twitch
+                    const jitter = ((i * 7919) % 100) / 50;
+                    const finalHeight = Math.min(100, barHeight + jitter);
 
                     return (
                       <motion.div

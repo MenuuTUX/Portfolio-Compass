@@ -1,4 +1,5 @@
 import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 import { render, screen, cleanup } from '@testing-library/react';
 import React from 'react';
 import * as ResizeObserverModule from 'happy-dom/lib/resize-observer/ResizeObserver';
@@ -7,7 +8,7 @@ import * as ResizeObserverModule from 'happy-dom/lib/resize-observer/ResizeObser
 global.ResizeObserver = ResizeObserverModule.default;
 
 // Mock Recharts ResponsiveContainer to render children immediately
-mock.module('recharts', () => {
+await mockModule('recharts', () => {
     return {
         ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div className="recharts-responsive-container">{children}</div>,
         PieChart: ({ children }: { children: React.ReactNode }) => <div data-testid="pie-chart">{children}</div>,
@@ -83,6 +84,7 @@ describe('Visualization Components', () => {
             const portfolio = [
                 {
                     ticker: 'ETF1',
+                    name: 'Test ETF One',
                     weight: 50,
                     price: 100,
                     shares: 1,
@@ -97,6 +99,7 @@ describe('Visualization Components', () => {
                 },
                 {
                     ticker: 'GOOGL',
+                    name: 'Alphabet Inc.',
                     weight: 40,
                     price: 2800,
                     shares: 5,

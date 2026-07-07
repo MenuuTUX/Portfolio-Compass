@@ -1,10 +1,13 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 import { Decimal } from 'decimal.js';
 
-// Mocks
-const mockPrismaFindMany = mock(() => Promise.resolve([]));
-const mockPrismaUpdate = mock(() => Promise.resolve({}));
-const mockSyncEtfDetails = mock(() => Promise.resolve(null));
+// Mocks (loosely typed so tests can freely stub Prisma-shaped results)
+type AsyncMockFn = (...args: any[]) => Promise<any>;
+
+const mockPrismaFindMany = mock<AsyncMockFn>(async () => []);
+const mockPrismaUpdate = mock<AsyncMockFn>(async () => ({}));
+const mockSyncEtfDetails = mock<AsyncMockFn>(async () => null);
 
 // Mock p-limit
 const mockPLimitImplementation = mock((concurrency: number) => {
@@ -12,13 +15,13 @@ const mockPLimitImplementation = mock((concurrency: number) => {
     return (fn: () => Promise<any>) => fn();
 });
 
-mock.module('p-limit', () => {
+await mockModule('p-limit', () => {
     return {
         default: mockPLimitImplementation
     };
 });
 
-mock.module('@/lib/db', () => {
+await mockModule('@/lib/db', () => {
   return {
     default: {
       etf: {
@@ -31,20 +34,20 @@ mock.module('@/lib/db', () => {
   };
 });
 
-mock.module('@/lib/market-service', () => {
+await mockModule('@/lib/market-service', () => {
   return {
     fetchMarketSnapshot: mock(() => Promise.resolve([])),
     fetchEtfDetails: mock(() => Promise.resolve({}))
   };
 });
 
-mock.module('@/lib/etf-sync', () => {
+await mockModule('@/lib/etf-sync', () => {
     return {
         syncEtfDetails: mockSyncEtfDetails
     };
 });
 
-mock.module('next/server', () => {
+await mockModule('next/server', () => {
   return {
     NextRequest: class {
       nextUrl: URL;

@@ -18,3 +18,7 @@ __pycache__/
 # Lockfiles
 package-lock.json
 yarn.lock
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -417,7 +418,7 @@ export default function ComparisonModal({
                   baseAsset.name,
                   baseAsset.assetType,
                 ) && (
-                  <img
+                  <Image
                     src={
                       getAssetIconUrl(
                         baseAsset.ticker,
@@ -426,6 +427,8 @@ export default function ComparisonModal({
                       )!
                     }
                     alt="A"
+                    width={48}
+                    height={48}
                     className="w-full h-full object-contain"
                   />
                 )}
@@ -472,7 +475,7 @@ export default function ComparisonModal({
                     compareAsset.name,
                     compareAsset.assetType,
                   ) && (
-                    <img
+                    <Image
                       src={
                         getAssetIconUrl(
                           compareAsset.ticker,
@@ -481,6 +484,8 @@ export default function ComparisonModal({
                         )!
                       }
                       alt="B"
+                      width={48}
+                      height={48}
                       className="w-full h-full object-contain"
                     />
                   )}
