@@ -1,11 +1,12 @@
 import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 import { calculateOverlap } from '@/lib/analytics';
 import { Decimal } from '@/lib/decimal';
 
 // Mock Prisma
 const mockFindMany = mock();
 
-mock.module('@/lib/db', () => ({
+await mockModule('@/lib/db', () => ({
   default: {
     holding: {
       findMany: mockFindMany

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -13,6 +14,8 @@ import {
   Info,
   Scale,
   ExternalLink,
+  RefreshCw,
+  LineChart,
 } from "lucide-react";
 import {
   AreaChart,
@@ -67,6 +70,25 @@ function formatNumber(num: number | undefined, decimals = 2): string {
   });
 }
 
+// Nullable variants: return null for missing values so sparse assets
+// (e.g. microcaps with no scraped fundamentals) drop the card entirely
+// instead of rendering a wall of "n/a".
+function largeNumberOrNull(num: number | undefined | null): string | null {
+  return num == null ? null : formatLargeNumber(num);
+}
+
+function numberOrNull(
+  num: number | undefined | null,
+  decimals = 2,
+): string | null {
+  return num == null ? null : formatNumber(num, decimals);
+}
+
+function volumeOrNull(num: number | undefined | null): string | null {
+  if (num == null) return null;
+  return num > 1e6 ? (num / 1e6).toFixed(1) + "M" : num.toLocaleString();
+}
+
 // Compact card for the Metrics grid
 function MetricCard({
   label,
@@ -95,6 +117,44 @@ function MetricCard({
       {subValue && (
         <div className="text-[10px] text-neutral-500 mt-0.5">{subValue}</div>
       )}
+    </div>
+  );
+}
+
+interface MetricItem {
+  label: string;
+  value: string | null;
+  subValue?: string;
+  highlight?: boolean;
+}
+
+// Titled metrics grid that drops missing values; renders nothing when the
+// whole section is empty so sparse assets get a compact, clean panel
+function MetricSection({
+  title,
+  metrics,
+}: {
+  title: string;
+  metrics: MetricItem[];
+}) {
+  const available = metrics.filter((m) => m.value !== null);
+  if (available.length === 0) return null;
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
+        {title}
+      </h4>
+      <div className="grid grid-cols-2 gap-3">
+        {available.map((m) => (
+          <MetricCard
+            key={m.label}
+            label={m.label}
+            value={m.value!}
+            subValue={m.subValue}
+            highlight={m.highlight}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -426,14 +486,18 @@ export default function ETFDetailsDrawer({
   }, [filteredEtfHistory, showComparison, spyData, timeRange]);
 
   const { percentageChange, isPositive } = useMemo(() => {
-    if (filteredEtfHistory.length < 2)
-      return { percentageChange: 0, isPositive: true };
+    if (filteredEtfHistory.length < 2) {
+      // No usable history for the selected range: fall back to the asset's
+      // daily change instead of a misleading flat 0.00%
+      const fallback = displayEtf?.changePercent ?? 0;
+      return { percentageChange: fallback, isPositive: fallback >= 0 };
+    }
 
     const startPrice = filteredEtfHistory[0].price;
     const endPrice = filteredEtfHistory[filteredEtfHistory.length - 1].price;
     const change = ((endPrice - startPrice) / startPrice) * 100;
     return { percentageChange: change, isPositive: change >= 0 };
-  }, [filteredEtfHistory]);
+  }, [filteredEtfHistory, displayEtf]);
 
   const riskData = useMemo(() => {
     if (!displayEtf) return null;
@@ -494,6 +558,171 @@ export default function ETFDetailsDrawer({
 
   const topHoldings = useMemo(() => allHoldings.slice(0, 5), [allHoldings]);
 
+  // Key Metrics computed up front so empty cards/sections collapse and a
+  // fully-sparse asset (e.g. an unlisted microcap) shows a single notice
+  // instead of a wall of "n/a"
+  const metricSections = useMemo<{ title: string; metrics: MetricItem[] }[]>(() => {
+    if (!displayEtf) return [];
+
+    if (displayEtf.assetType === "STOCK") {
+      return [
+        {
+          title: "Valuation",
+          metrics: [
+            {
+              label: "Market Cap",
+              value: largeNumberOrNull(displayEtf.marketCap),
+            },
+            { label: "PE Ratio", value: numberOrNull(displayEtf.peRatio) },
+            { label: "Forward PE", value: numberOrNull(displayEtf.forwardPe) },
+            { label: "EPS (ttm)", value: numberOrNull(displayEtf.eps) },
+          ],
+        },
+        {
+          title: "Dividends",
+          metrics: [
+            {
+              label: "Div Yield",
+              value: displayEtf.dividendYield
+                ? `${displayEtf.dividendYield.toFixed(2)}%`
+                : null,
+              highlight: !!displayEtf.dividendYield,
+            },
+            {
+              label: "Dividend",
+              value: displayEtf.dividend
+                ? formatCurrency(displayEtf.dividend)
+                : null,
+            },
+            { label: "Ex-Div Date", value: displayEtf.exDividendDate || null },
+            {
+              label: "Earnings Date",
+              value: displayEtf.earningsDate || null,
+            },
+          ],
+        },
+        {
+          title: "Trading",
+          metrics: [
+            { label: "Beta", value: numberOrNull(displayEtf.beta) },
+            { label: "Volume", value: volumeOrNull(displayEtf.volume) },
+            {
+              label: "52W High",
+              value: numberOrNull(displayEtf.fiftyTwoWeekHigh),
+            },
+            {
+              label: "52W Low",
+              value: numberOrNull(displayEtf.fiftyTwoWeekLow),
+            },
+          ],
+        },
+        {
+          title: "Financials",
+          metrics: [
+            { label: "Revenue", value: largeNumberOrNull(displayEtf.revenue) },
+            {
+              label: "Net Income",
+              value: largeNumberOrNull(displayEtf.netIncome),
+            },
+            {
+              label: "Shares Out",
+              value: largeNumberOrNull(displayEtf.sharesOutstanding),
+            },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        title: "Overview",
+        metrics: [
+          { label: "Assets", value: largeNumberOrNull(displayEtf.marketCap) },
+          {
+            label: "Expense Ratio",
+            value: displayEtf.metrics?.mer
+              ? `${displayEtf.metrics.mer.toFixed(2)}%`
+              : null,
+          },
+          { label: "PE Ratio", value: numberOrNull(displayEtf.peRatio) },
+          {
+            label: "Shares Out",
+            value: largeNumberOrNull(displayEtf.sharesOutstanding),
+          },
+          { label: "Volume", value: volumeOrNull(displayEtf.volume) },
+          {
+            label: "Holdings",
+            value: displayEtf.holdingsCount
+              ? displayEtf.holdingsCount.toLocaleString()
+              : displayEtf.holdings && displayEtf.holdings.length > 0
+                ? displayEtf.holdings.length.toLocaleString()
+                : null,
+          },
+          {
+            label: "Inception Date",
+            value: displayEtf.inceptionDate || null,
+          },
+          { label: "Beta", value: numberOrNull(displayEtf.beta) },
+        ],
+      },
+      {
+        title: "Dividends",
+        metrics: [
+          {
+            label: "Dividend Yield",
+            value: displayEtf.metrics?.yield
+              ? `${displayEtf.metrics.yield.toFixed(2)}%`
+              : null,
+            highlight: !!displayEtf.metrics?.yield,
+          },
+          {
+            label: "Dividend (ttm)",
+            value: displayEtf.dividend
+              ? formatCurrency(displayEtf.dividend)
+              : null,
+          },
+          {
+            label: "Ex-Dividend Date",
+            value: displayEtf.exDividendDate || null,
+          },
+          {
+            label: "Payout Frequency",
+            value: displayEtf.payoutFrequency || null,
+          },
+          {
+            label: "Payout Ratio",
+            value: displayEtf.payoutRatio
+              ? `${displayEtf.payoutRatio.toFixed(2)}%`
+              : null,
+          },
+        ],
+      },
+      {
+        title: "Trading",
+        metrics: [
+          { label: "Open", value: numberOrNull(displayEtf.open) },
+          {
+            label: "Previous Close",
+            value: numberOrNull(displayEtf.previousClose),
+          },
+          { label: "Day's Range", value: displayEtf.daysRange || null },
+          {
+            label: "52-Week Low",
+            value: numberOrNull(displayEtf.fiftyTwoWeekLow),
+          },
+          {
+            label: "52-Week High",
+            value: numberOrNull(displayEtf.fiftyTwoWeekHigh),
+          },
+        ],
+      },
+    ];
+  }, [displayEtf]);
+
+  const hasAnyMetric = metricSections.some((section) =>
+    section.metrics.some((m) => m.value !== null),
+  );
+
   return (
     <AnimatePresence>
       {displayEtf && (
@@ -524,7 +753,7 @@ export default function ETFDetailsDrawer({
                   displayEtf.assetType,
                 ) && (
                   <div className="w-12 h-12 flex items-center justify-center shrink-0">
-                    <img
+                    <Image
                       src={
                         getAssetIconUrl(
                           displayEtf.ticker,
@@ -533,6 +762,8 @@ export default function ETFDetailsDrawer({
                         )!
                       }
                       alt={`${displayEtf.ticker} logo`}
+                      width={48}
+                      height={48}
                       className="w-full h-full object-contain"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
@@ -565,7 +796,7 @@ export default function ETFDetailsDrawer({
               </div>
 
               <div className="flex items-center gap-4">
-                {riskData && (
+                {riskData && riskData.label !== "Unknown" && (
                   <div
                     className={cn(
                       "hidden md:flex px-4 py-2 rounded-full border backdrop-blur-md items-center gap-2",
@@ -665,15 +896,37 @@ export default function ETFDetailsDrawer({
                       </div>
                     </div>
                   </div>
-                  <div
-                    className={cn(
-                      "flex-1 w-full h-full min-h-0 transition-all duration-500",
-                      isLoading || isSpyLoading
-                        ? "blur-sm opacity-50"
-                        : "blur-0 opacity-100",
-                    )}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
+                  {historyData.length === 0 ? (
+                    isLoading || isSpyLoading ? (
+                      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                        <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                        <p className="text-neutral-400 text-sm">
+                          Syncing price history…
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 px-6">
+                        <LineChart className="w-10 h-10 text-neutral-600" />
+                        <p className="text-neutral-300 font-medium">
+                          No price history available
+                        </p>
+                        <p className="text-neutral-500 text-sm max-w-sm">
+                          We couldn&apos;t load chart data for this asset. It
+                          may be thinly traded, recently listed, or the data
+                          sync failed — try again later.
+                        </p>
+                      </div>
+                    )
+                  ) : (
+                    <div
+                      className={cn(
+                        "flex-1 w-full h-full min-h-0 transition-all duration-500",
+                        isLoading || isSpyLoading
+                          ? "blur-sm opacity-50"
+                          : "blur-0 opacity-100",
+                      )}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={historyData}>
                         <defs>
                           <linearGradient
@@ -844,7 +1097,8 @@ export default function ETFDetailsDrawer({
                         ))}
                       </tbody>
                     </table>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Col Wrapper */}
@@ -1000,7 +1254,7 @@ export default function ETFDetailsDrawer({
                                         "ETF",
                                       ) && (
                                         <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-                                          <img
+                                          <Image
                                             src={
                                               getAssetIconUrl(
                                                 h.ticker,
@@ -1009,6 +1263,8 @@ export default function ETFDetailsDrawer({
                                               )!
                                             }
                                             alt={h.ticker}
+                                            width={24}
+                                            height={24}
                                             className="w-full h-full object-contain"
                                             onError={(e) => {
                                               e.currentTarget.style.display =
@@ -1092,7 +1348,7 @@ export default function ETFDetailsDrawer({
                                       "ETF",
                                     ) && (
                                       <div className="w-5 h-5 shrink-0 flex items-center justify-center">
-                                        <img
+                                        <Image
                                           src={
                                             getAssetIconUrl(
                                               h.ticker,
@@ -1101,6 +1357,8 @@ export default function ETFDetailsDrawer({
                                             )!
                                           }
                                           alt={h.ticker}
+                                          width={20}
+                                          height={20}
                                           className="w-full h-full object-contain"
                                           onError={(e) => {
                                             e.currentTarget.style.display =
@@ -1178,254 +1436,27 @@ export default function ETFDetailsDrawer({
                       Key Metrics
                     </h3>
 
-                    {displayEtf.assetType === "STOCK" ? (
+                    {hasAnyMetric ? (
                       <div className="space-y-8">
-                        {/* Valuation Section */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                            Valuation
-                          </h4>
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricCard
-                              label="Market Cap"
-                              value={formatLargeNumber(displayEtf.marketCap)}
-                            />
-                            <MetricCard
-                              label="PE Ratio"
-                              value={formatNumber(displayEtf.peRatio)}
-                            />
-                            <MetricCard
-                              label="Forward PE"
-                              value={formatNumber(displayEtf.forwardPe)}
-                            />
-                            <MetricCard
-                              label="EPS (ttm)"
-                              value={formatNumber(displayEtf.eps)}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Dividends & Returns */}
-                        {(displayEtf.dividend || displayEtf.dividendYield) && (
-                          <div className="space-y-3">
-                            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                              Dividends
-                            </h4>
-                            <div className="grid grid-cols-2 gap-3">
-                              <MetricCard
-                                label="Div Yield"
-                                value={
-                                  displayEtf.dividendYield
-                                    ? `${displayEtf.dividendYield.toFixed(2)}%`
-                                    : "n/a"
-                                }
-                                highlight={!!displayEtf.dividendYield}
-                              />
-                              <MetricCard
-                                label="Dividend"
-                                value={
-                                  displayEtf.dividend
-                                    ? formatCurrency(displayEtf.dividend)
-                                    : "n/a"
-                                }
-                              />
-                              <MetricCard
-                                label="Ex-Div Date"
-                                value={displayEtf.exDividendDate || "n/a"}
-                              />
-                              <MetricCard
-                                label="Earnings Date"
-                                value={displayEtf.earningsDate || "n/a"}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Market Performance */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                            Trading
-                          </h4>
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricCard
-                              label="Beta"
-                              value={formatNumber(displayEtf.beta)}
-                            />
-                            <MetricCard
-                              label="Volume"
-                              value={
-                                displayEtf.volume
-                                  ? displayEtf.volume > 1e6
-                                    ? (displayEtf.volume / 1e6).toFixed(1) + "M"
-                                    : displayEtf.volume.toLocaleString()
-                                  : "n/a"
-                              }
-                            />
-                            <MetricCard
-                              label="52W High"
-                              value={formatNumber(displayEtf.fiftyTwoWeekHigh)}
-                            />
-                            <MetricCard
-                              label="52W Low"
-                              value={formatNumber(displayEtf.fiftyTwoWeekLow)}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Financials */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                            Financials
-                          </h4>
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricCard
-                              label="Revenue"
-                              value={formatLargeNumber(displayEtf.revenue)}
-                            />
-                            <MetricCard
-                              label="Net Income"
-                              value={formatLargeNumber(displayEtf.netIncome)}
-                            />
-                            <MetricCard
-                              label="Shares Out"
-                              value={formatLargeNumber(
-                                displayEtf.sharesOutstanding,
-                              )}
-                            />
-                          </div>
-                        </div>
+                        {metricSections.map((section) => (
+                          <MetricSection
+                            key={section.title}
+                            title={section.title}
+                            metrics={section.metrics}
+                          />
+                        ))}
                       </div>
                     ) : (
-                      <div className="space-y-8">
-                        {/* Overview Section */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                            Overview
-                          </h4>
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricCard
-                              label="Assets"
-                              value={formatLargeNumber(displayEtf.marketCap)}
-                            />
-                            <MetricCard
-                              label="Expense Ratio"
-                              value={
-                                displayEtf.metrics?.mer
-                                  ? `${displayEtf.metrics.mer.toFixed(2)}%`
-                                  : "n/a"
-                              }
-                            />
-                            <MetricCard
-                              label="PE Ratio"
-                              value={formatNumber(displayEtf.peRatio)}
-                            />
-                            <MetricCard
-                              label="Shares Out"
-                              value={formatLargeNumber(
-                                displayEtf.sharesOutstanding,
-                              )}
-                            />
-                            <MetricCard
-                              label="Volume"
-                              value={
-                                displayEtf.volume
-                                  ? displayEtf.volume > 1e6
-                                    ? (displayEtf.volume / 1e6).toFixed(1) + "M"
-                                    : displayEtf.volume.toLocaleString()
-                                  : "n/a"
-                              }
-                            />
-                            <MetricCard
-                              label="Holdings"
-                              value={
-                                displayEtf.holdingsCount
-                                  ? displayEtf.holdingsCount.toLocaleString()
-                                  : displayEtf.holdings
-                                    ? displayEtf.holdings.length.toLocaleString()
-                                    : "n/a"
-                              }
-                            />
-                            <MetricCard
-                              label="Inception Date"
-                              value={displayEtf.inceptionDate || "n/a"}
-                            />
-                            <MetricCard
-                              label="Beta"
-                              value={formatNumber(displayEtf.beta)}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Dividends */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                            Dividends
-                          </h4>
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricCard
-                              label="Dividend Yield"
-                              value={
-                                displayEtf.metrics?.yield
-                                  ? `${displayEtf.metrics.yield.toFixed(2)}%`
-                                  : "n/a"
-                              }
-                              highlight={!!displayEtf.metrics?.yield}
-                            />
-                            <MetricCard
-                              label="Dividend (ttm)"
-                              value={
-                                displayEtf.dividend
-                                  ? formatCurrency(displayEtf.dividend)
-                                  : "n/a"
-                              }
-                            />
-                            <MetricCard
-                              label="Ex-Dividend Date"
-                              value={displayEtf.exDividendDate || "n/a"}
-                            />
-                            <MetricCard
-                              label="Payout Frequency"
-                              value={displayEtf.payoutFrequency || "n/a"}
-                            />
-                            <MetricCard
-                              label="Payout Ratio"
-                              value={
-                                displayEtf.payoutRatio
-                                  ? `${displayEtf.payoutRatio.toFixed(2)}%`
-                                  : "n/a"
-                              }
-                            />
-                          </div>
-                        </div>
-
-                        {/* Trading / Price */}
-                        <div className="space-y-3">
-                          <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider pl-1">
-                            Trading
-                          </h4>
-                          <div className="grid grid-cols-2 gap-3">
-                            <MetricCard
-                              label="Open"
-                              value={formatNumber(displayEtf.open)}
-                            />
-                            <MetricCard
-                              label="Previous Close"
-                              value={formatNumber(displayEtf.previousClose)}
-                            />
-                            <MetricCard
-                              label="Day's Range"
-                              value={displayEtf.daysRange || "n/a"}
-                            />
-                            <MetricCard
-                              label="52-Week Low"
-                              value={formatNumber(displayEtf.fiftyTwoWeekLow)}
-                            />
-                            <MetricCard
-                              label="52-Week High"
-                              value={formatNumber(displayEtf.fiftyTwoWeekHigh)}
-                            />
-                          </div>
-                        </div>
+                      <div className="flex flex-col items-center justify-center text-center gap-2 py-10">
+                        <Info className="w-8 h-8 text-neutral-600" />
+                        <p className="text-neutral-300 font-medium text-sm">
+                          No detailed metrics available
+                        </p>
+                        <p className="text-neutral-500 text-xs max-w-[220px]">
+                          We couldn&apos;t find fundamentals for this asset.
+                          Thinly traded or delisted tickers often have limited
+                          data.
+                        </p>
                       </div>
                     )}
                   </div>

@@ -97,6 +97,13 @@ export default function PortfolioBuilder({
   const sortTimeout = useRef<NodeJS.Timeout | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // Latest portfolio for the debounced re-sort: without this, the timeout in
+  // handleInteraction would close over a stale portfolio snapshot
+  const portfolioRef = useRef(portfolio);
+  useEffect(() => {
+    portfolioRef.current = portfolio;
+  }, [portfolio]);
+
   // Sync portfolio props to displayPortfolio with debounce logic
   useEffect(() => {
     if (isInteracting.current) {
@@ -121,22 +128,24 @@ export default function PortfolioBuilder({
     }
   }, [portfolio]);
 
-  const handleInteraction = () => {
+  const handleInteraction = useCallback(() => {
     isInteracting.current = true;
     if (sortTimeout.current) clearTimeout(sortTimeout.current);
 
     sortTimeout.current = setTimeout(() => {
       isInteracting.current = false;
-      setDisplayPortfolio([...portfolio].sort((a, b) => b.weight - a.weight));
+      setDisplayPortfolio(
+        [...portfolioRef.current].sort((a, b) => b.weight - a.weight),
+      );
     }, 3000);
-  };
+  }, []);
 
   const handleUpdateShares = useCallback(
     (ticker: string, shares: number) => {
       handleInteraction();
       onUpdateShares(ticker, shares);
     },
-    [onUpdateShares],
+    [handleInteraction, onUpdateShares],
   );
 
   const handleUpdateWeight = useCallback(
@@ -144,7 +153,7 @@ export default function PortfolioBuilder({
       handleInteraction();
       onUpdateWeight(ticker, weight);
     },
-    [onUpdateWeight],
+    [handleInteraction, onUpdateWeight],
   );
 
   const pieData = Object.entries(sectorAllocation)
@@ -156,6 +165,7 @@ export default function PortfolioBuilder({
     .sort((a, b) => b.value - a.value);
 
   // Virtualizer setup
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual isn't React Compiler-safe yet; the compiler just skips this component
   const rowVirtualizer = useVirtualizer({
     count: displayPortfolio.length,
     getScrollElement: () => parentRef.current,

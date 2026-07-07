@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp,
@@ -82,10 +82,13 @@ export default function SimulatorExplainer({
   const [activeStep, setActiveStep] = useState(mode === "MONTE_CARLO" ? 1 : 0);
   const [hoveredTerm, setHoveredTerm] = useState<string | null>(null);
 
-  // Sync active step if mode prop changes
-  useEffect(() => {
+  // Sync active step if mode prop changes (adjust-state-during-render pattern,
+  // avoids the extra render an effect would cause)
+  const [prevMode, setPrevMode] = useState(mode);
+  if (prevMode !== mode) {
+    setPrevMode(mode);
     setActiveStep(mode === "MONTE_CARLO" ? 1 : 0);
-  }, [mode]);
+  }
 
   return (
     <div className="w-full mt-12 mb-8 relative font-sans">

@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { Portfolio } from "@/types";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -590,9 +591,15 @@ export const PortfolioShareCard = React.forwardRef<
                 >
                   <div className="w-10 h-10 rounded-lg bg-black/40 flex items-center justify-center p-1.5 overflow-hidden shrink-0 border border-white/5">
                     {iconUrl ? (
-                      <img
+                      // unoptimized: html-to-image captures this card, so the
+                      // src must stay the direct CORS-enabled CDN URL rather
+                      // than the /_next/image proxy
+                      <Image
                         src={iconUrl}
                         alt={item.ticker}
+                        width={40}
+                        height={40}
+                        unoptimized
                         className="w-full h-full object-contain opacity-90"
                         crossOrigin="anonymous"
                       />

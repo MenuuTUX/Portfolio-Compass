@@ -513,24 +513,56 @@ export async function fetchEtfDetails(
     profile?.longBusinessSummary ||
     "No description available.";
 
+  // Yahoo fallbacks keep metrics populated when the StockAnalysis scrape
+  // fails or returns partial data (common for microcaps and OTC tickers)
   const marketCap =
-    toDecimal(stockProfile?.marketCap) ||
-    (summaryDetail?.marketCap
-      ? new Decimal(summaryDetail.marketCap)
-      : undefined);
+    toDecimal(stockProfile?.marketCap) ?? toDecimal(summaryDetail?.marketCap);
   const revenue = toDecimal(stockProfile?.revenue);
   const netIncome = toDecimal(stockProfile?.netIncome);
-  const eps = toDecimal(stockProfile?.eps);
-  const sharesOutstanding = toDecimal(stockProfile?.sharesOutstanding);
-  const volume = toDecimal(stockProfile?.volume);
-  const open = toDecimal(stockProfile?.open);
-  const previousClose = toDecimal(stockProfile?.previousClose);
-  const dividend = toDecimal(stockProfile?.dividend);
+  const eps =
+    toDecimal(stockProfile?.eps) ??
+    toDecimal(defaultKeyStatistics?.trailingEps);
+  const sharesOutstanding =
+    toDecimal(stockProfile?.sharesOutstanding) ??
+    toDecimal(defaultKeyStatistics?.sharesOutstanding);
+  const volume =
+    toDecimal(stockProfile?.volume) ??
+    toDecimal(summaryDetail?.volume ?? price?.regularMarketVolume);
+  const open =
+    toDecimal(stockProfile?.open) ??
+    toDecimal(summaryDetail?.open ?? price?.regularMarketOpen);
+  const previousClose =
+    toDecimal(stockProfile?.previousClose) ??
+    toDecimal(
+      summaryDetail?.previousClose ?? price?.regularMarketPreviousClose,
+    );
+  const dividend =
+    toDecimal(stockProfile?.dividend) ??
+    toDecimal(summaryDetail?.dividendRate);
 
-  const daysRange = stockProfile?.daysRange;
-  const fiftyTwoWeekRange = stockProfile?.fiftyTwoWeekRange;
+  const formatRange = (
+    low: number | undefined,
+    high: number | undefined,
+  ): string | undefined =>
+    low !== undefined && high !== undefined
+      ? `${low.toFixed(2)} - ${high.toFixed(2)}`
+      : undefined;
+
+  const daysRange =
+    stockProfile?.daysRange ??
+    formatRange(summaryDetail?.dayLow, summaryDetail?.dayHigh);
+  const fiftyTwoWeekRange =
+    stockProfile?.fiftyTwoWeekRange ??
+    formatRange(
+      summaryDetail?.fiftyTwoWeekLow,
+      summaryDetail?.fiftyTwoWeekHigh,
+    );
   const earningsDate = stockProfile?.earningsDate;
-  const exDividendDate = stockProfile?.exDividendDate;
+  const exDividendDate =
+    stockProfile?.exDividendDate ??
+    (summaryDetail?.exDividendDate
+      ? new Date(summaryDetail.exDividendDate).toISOString().split("T")[0]
+      : undefined);
   const inceptionDate = stockProfile?.inceptionDate;
   const payoutFrequency = stockProfile?.payoutFrequency;
   const payoutRatio = toDecimal(stockProfile?.payoutRatio);

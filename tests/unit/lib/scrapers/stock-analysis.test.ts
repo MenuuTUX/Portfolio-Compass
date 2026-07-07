@@ -71,11 +71,12 @@ const mockFetch = mock((url: string | URL | Request) => {
   });
 });
 
-global.fetch = mockFetch;
+// The stub only implements the call signature, not fetch's preconnect property
+global.fetch = mockFetch as unknown as typeof fetch;
 
 // Import after mocking
 // Use dynamic import or ensure this is after the mock
-const { getStockProfile } = await import('../../../../lib/scrapers/stock-analysis');
+const { getStockProfile, parseMarketNumber } = await import('../../../../lib/scrapers/stock-analysis');
 
 describe('getStockProfile', () => {
   it('should scrape stock profile successfully', async () => {
@@ -107,5 +108,31 @@ describe('getStockProfile', () => {
     } catch (e: any) {
         expect(e).toBeDefined();
     }
+  });
+});
+
+describe('parseMarketNumber', () => {
+  it('parses suffixed values', () => {
+    expect(parseMarketNumber('1.12M')).toBe(1_120_000);
+    expect(parseMarketNumber('$3.5B')).toBe(3_500_000_000);
+    expect(parseMarketNumber('2T')).toBe(2e12);
+    expect(parseMarketNumber('850K')).toBe(850_000);
+    expect(parseMarketNumber('1,234')).toBe(1234);
+  });
+
+  it('keeps the multiplier when the cell has surrounding whitespace', () => {
+    // Regression: stockanalysis.com serves "1.12M " with a trailing space,
+    // which used to parse as 1.12 instead of 1,120,000
+    expect(parseMarketNumber('1.12M ')).toBe(1_120_000);
+    expect(parseMarketNumber(' 4.6M\n')).toBe(4_600_000);
+  });
+
+  it('ignores extra stats concatenated after the value', () => {
+    // Regression: table cells can contain the value plus the 1-year change,
+    // e.g. "1.12M -92.3%" for NCRA — only the first token is the value
+    expect(parseMarketNumber('1.12M -92.3%')).toBe(1_120_000);
+    expect(parseMarketNumber('3.5B +12.1%')).toBe(3_500_000_000);
+    expect(parseMarketNumber('-12.5M')).toBe(-12_500_000);
+    expect(parseMarketNumber('n/a')).toBeUndefined();
   });
 });

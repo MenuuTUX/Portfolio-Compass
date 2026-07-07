@@ -177,24 +177,27 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
     return holdings;
 }
 
-function parseMarketNumber(val: string): number | undefined {
+export function parseMarketNumber(val: string): number | undefined {
     if (!val) return undefined;
-    val = val.toUpperCase().replace('$', '').replace(/,/g, '');
-    let multiplier = 1;
-    if (val.endsWith('T')) {
-        multiplier = 1e12;
-        val = val.slice(0, -1);
-    } else if (val.endsWith('B')) {
-        multiplier = 1e9;
-        val = val.slice(0, -1);
-    } else if (val.endsWith('M')) {
-        multiplier = 1e6;
-        val = val.slice(0, -1);
-    } else if (val.endsWith('K')) {
-        multiplier = 1e3;
-        val = val.slice(0, -1);
-    }
-    const num = parseFloat(val);
+    // Scraped cells often contain more than the value itself — trailing
+    // whitespace ("1.12M ") or extra stats ("1.12M -92.3%", value plus the
+    // 1-year change). Grab the first number+suffix token instead of
+    // suffix-checking the whole string, which silently dropped multipliers.
+    const match = val
+        .toUpperCase()
+        .replace(/[$,]/g, '')
+        .match(/-?\d+(?:\.\d+)?\s*[TBMK]?/);
+    if (!match) return undefined;
+
+    const token = match[0].replace(/\s+/g, '');
+    const multipliers: Record<string, number> = {
+        T: 1e12,
+        B: 1e9,
+        M: 1e6,
+        K: 1e3,
+    };
+    const multiplier = multipliers[token.slice(-1)] ?? 1;
+    const num = parseFloat(multiplier === 1 ? token : token.slice(0, -1));
     if (isNaN(num)) return undefined;
     return num * multiplier;
 }

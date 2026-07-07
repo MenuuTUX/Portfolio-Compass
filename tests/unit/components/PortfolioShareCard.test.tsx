@@ -1,4 +1,5 @@
 import { describe, it, expect, mock, afterEach } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import { ShareCardProps } from '@/components/PortfolioShareCard';
@@ -7,7 +8,7 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
 
 // Mock Next/Image
-mock.module('next/image', () => ({
+await mockModule('next/image', () => ({
     default: ({ alt }: any) => <img alt={alt} />
 }));
 

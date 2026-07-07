@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -329,13 +330,14 @@ export default function TrendingSection({
                 <div className="flex items-start gap-3 mb-4">
                   {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
                     <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      <img
+                      <Image
                         src={
                           getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!
                         }
                         alt={`${etf.ticker} logo`}
+                        width={40}
+                        height={40}
                         className="w-full h-full object-contain"
-                        loading="lazy"
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                           e.currentTarget.parentElement!.style.display = "none";

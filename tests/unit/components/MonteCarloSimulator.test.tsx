@@ -1,13 +1,14 @@
-import { describe, it, expect, mock, afterEach } from 'bun:test';
+import { describe, it, expect, afterEach } from 'bun:test';
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import { Portfolio, PortfolioItem } from '@/types';
 import * as matchers from '@testing-library/jest-dom/matchers';
+import { mockModule } from '@/tests/helpers/mock-module';
 
 expect.extend(matchers);
 
 // Mock rechart components to avoid rendering issues in test env
-mock.module('recharts', () => ({
+await mockModule('recharts', () => ({
     AreaChart: () => <div />,
     Area: () => <div />,
     XAxis: () => <div />,
@@ -21,7 +22,7 @@ mock.module('recharts', () => ({
 }));
 
 // Mock Monte Carlo calculations
-mock.module('@/lib/monte-carlo', () => ({
+await mockModule('@/lib/monte-carlo', () => ({
     calculateLogReturns: () => [],
     calculateCovarianceMatrix: () => [],
     getCholeskyDecomposition: () => [],
@@ -35,7 +36,7 @@ mock.module('@/lib/monte-carlo', () => ({
 }));
 
 // Mock Decimal
-mock.module('decimal.js', () => ({
+await mockModule('decimal.js', () => ({
     Decimal: class {
         constructor(val: any) { }
         toNumber() { return 0; }

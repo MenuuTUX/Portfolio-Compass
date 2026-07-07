@@ -1,5 +1,6 @@
 
 import { describe, it, expect, mock } from 'bun:test';
+import { mockModule } from '@/tests/helpers/mock-module';
 import { Decimal } from '@/lib/decimal';
 
 // Define mocks before importing the module under test
@@ -9,7 +10,7 @@ const mockGetServerSession = mock(() => Promise.resolve({
     user: { id: 'test-user-id', name: 'Test User' }
 }));
 
-mock.module('next-auth', () => ({
+await mockModule('next-auth', () => ({
     getServerSession: mockGetServerSession
 }));
 
@@ -39,7 +40,7 @@ const mockFindMany = mock(() => Promise.resolve([
     }
 ]));
 
-mock.module('@/lib/db', () => ({
+await mockModule('@/lib/db', () => ({
     default: {
         portfolioItem: {
             findMany: mockFindMany
@@ -48,14 +49,14 @@ mock.module('@/lib/db', () => ({
 }));
 
 // Mock NextResponse
-mock.module('next/server', () => ({
+await mockModule('next/server', () => ({
     NextResponse: {
         json: (body: any, options?: any) => ({ body, status: options?.status || 200 })
     }
 }));
 
 // Mock lib/auth
-mock.module('@/lib/auth', () => ({
+await mockModule('@/lib/auth', () => ({
     authOptions: {}
 }));
 
@@ -64,7 +65,8 @@ const { GET } = await import('@/app/api/portfolio/route');
 
 describe('Portfolio API', () => {
     it('returns formatted portfolio items with optimized sector reduction for authenticated user', async () => {
-        const response = await GET();
+        // The mocked NextResponse returns a plain { body, status } object
+        const response = (await GET()) as any;
 
         // If unauthorized, it returns { error: 'Unauthorized' }
         if (response.status === 401) {

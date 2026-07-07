@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   AreaChart,
   Area,
@@ -44,33 +44,31 @@ export default function WealthProjector({
 
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
-  const [historicalReturn, setHistoricalReturn] = useState<number | null>(null);
 
-  // Effect to sync initialInvestment with portfolio value if it loads later and we are at default
-  useEffect(() => {
+  // Sync initialInvestment with portfolio value if it loads later and we are
+  // still at the default (adjust-state-during-render instead of an effect)
+  const [prevPortfolioValue, setPrevPortfolioValue] = useState(
+    currentPortfolioValue,
+  );
+  if (currentPortfolioValue !== prevPortfolioValue) {
+    setPrevPortfolioValue(currentPortfolioValue);
     if (currentPortfolioValue > 0 && initialInvestment === 10000) {
       setInitialInvestment(currentPortfolioValue);
     }
-  }, [currentPortfolioValue, initialInvestment]);
+  }
 
-  useEffect(() => {
-    // Try to get historical stats if available
-    // Check if we have history
+  // Historical stats are derived from the portfolio prop, not state
+  const historicalReturn = useMemo<number | null>(() => {
     const hasHistory = portfolio.some(
       (p) => p.history && p.history.length > 30,
     );
-    if (hasHistory) {
-      try {
-        const stats = calculatePortfolioHistoricalStats(portfolio);
-        if (stats.annualizedReturn !== 0) {
-          setHistoricalReturn(stats.annualizedReturn);
-        }
-      } catch (e) {
-        console.warn(
-          "Failed to calc historical stats for simple projection",
-          e,
-        );
-      }
+    if (!hasHistory) return null;
+    try {
+      const stats = calculatePortfolioHistoricalStats(portfolio);
+      return stats.annualizedReturn !== 0 ? stats.annualizedReturn : null;
+    } catch (e) {
+      console.warn("Failed to calc historical stats for simple projection", e);
+      return null;
     }
   }, [portfolio]);
 
