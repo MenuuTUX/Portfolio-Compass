@@ -67,10 +67,15 @@ describe('ETFDetailsDrawer sparse-data handling', () => {
     it('shows a friendly empty state instead of a broken chart when history is missing', async () => {
         render(<ETFDetailsDrawer etf={sparseAsset} onClose={() => {}} />);
 
-        await waitFor(() => {
-            expect(screen.getByText('No price history available')).toBeInTheDocument();
-        });
-    });
+        // The drawer retries the sync with backoff (~6s) before giving up
+        await waitFor(
+            () => {
+                expect(screen.getByText('No price history available')).toBeInTheDocument();
+            },
+            { timeout: 10000 },
+        );
+        expect(screen.getByText('Retry sync')).toBeInTheDocument();
+    }, 15000);
 
     it('shows a single notice instead of a wall of n/a when all metrics are missing', async () => {
         render(<ETFDetailsDrawer etf={sparseAsset} onClose={() => {}} />);
@@ -84,11 +89,14 @@ describe('ETFDetailsDrawer sparse-data handling', () => {
     it('hides the risk badge when history is too thin to compute risk', async () => {
         render(<ETFDetailsDrawer etf={sparseAsset} onClose={() => {}} />);
 
-        await waitFor(() => {
-            expect(screen.getByText('No price history available')).toBeInTheDocument();
-        });
+        await waitFor(
+            () => {
+                expect(screen.getByText('No price history available')).toBeInTheDocument();
+            },
+            { timeout: 10000 },
+        );
         expect(screen.queryByText('Unknown')).not.toBeInTheDocument();
-    });
+    }, 15000);
 
     it('renders available metrics and drops missing ones', async () => {
         render(<ETFDetailsDrawer etf={richStock} onClose={() => {}} />);

@@ -5,13 +5,18 @@ import { ETF } from '@/types';
 describe('analyzeEtf', () => {
   it('should analyze cost correctly', () => {
     const highCostEtf = { metrics: { mer: 0.8, yield: 0 } } as ETF;
-    expect(analyzeEtf(highCostEtf).cost.status).toBe('warning');
+    expect(analyzeEtf(highCostEtf).cost?.status).toBe('warning');
 
     const moderateCostEtf = { metrics: { mer: 0.5, yield: 0 } } as ETF;
-    expect(analyzeEtf(moderateCostEtf).cost.status).toBe('neutral');
+    expect(analyzeEtf(moderateCostEtf).cost?.status).toBe('neutral');
 
     const lowCostEtf = { metrics: { mer: 0.1, yield: 0 } } as ETF;
-    expect(analyzeEtf(lowCostEtf).cost.status).toBe('good');
+    expect(analyzeEtf(lowCostEtf).cost?.status).toBe('good');
+  });
+
+  it('should omit the cost verdict for stocks (no expense ratio)', () => {
+    const stock = { assetType: 'STOCK', metrics: {} } as ETF;
+    expect(analyzeEtf(stock).cost).toBeUndefined();
   });
 
   it('should analyze liquidity correctly', () => {
@@ -39,11 +44,17 @@ describe('analyzeEtf', () => {
     expect(analyzeEtf(marketBetaEtf).volatility.status).toBe('neutral');
   });
 
-  it('should handle missing metrics gracefully', () => {
+  it('treats missing data as unknown, not as a judgement', () => {
+    // Regression: a seeded row without volume/beta used to claim
+    // "Low Liquidity" and "Low Cost 0% fee" for blue chips like MSFT
     const emptyEtf = { metrics: {} } as ETF;
     const verdict = analyzeEtf(emptyEtf);
-    expect(verdict.cost.status).toBe('good'); // Default 0 MER is good
-    expect(verdict.liquidity.status).toBe('warning'); // Default 0 volume is warning
-    expect(verdict.volatility.status).toBe('neutral'); // Default 1 beta is neutral
+
+    expect(verdict.cost?.status).toBe('neutral');
+    expect(verdict.cost?.label).toBe('Fee Unknown');
+    expect(verdict.liquidity.status).toBe('neutral');
+    expect(verdict.liquidity.label).toBe('Liquidity Unknown');
+    expect(verdict.volatility.status).toBe('neutral');
+    expect(verdict.volatility.label).toBe('Volatility Unknown');
   });
 });

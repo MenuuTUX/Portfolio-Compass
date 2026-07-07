@@ -5,7 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { analyzeEtf } from "@/lib/etf-analysis";
+import { analyzeEtf, VerdictEntry } from "@/lib/etf-analysis";
 import { ETF } from "@/types";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,7 +70,9 @@ export default function EtfVerdictCard({
 
   return (
     <div className={cn("grid grid-cols-1 gap-4", className)}>
-      {Object.entries(verdict).map(([key, data]) => {
+      {Object.entries(verdict)
+        .filter((entry): entry is [string, VerdictEntry] => !!entry[1])
+        .map(([key, data]) => {
         const isExpanded = expandedKey === key;
         const explanation = EXPLANATIONS[key];
 

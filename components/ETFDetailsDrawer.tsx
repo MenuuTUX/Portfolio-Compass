@@ -173,6 +173,7 @@ export default function ETFDetailsDrawer({
   const [showAllHoldings, setShowAllHoldings] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpyLoading, setIsSpyLoading] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const lastFetchTime = useRef<number>(0);
 
   // Use fresh data if available, otherwise fall back to prop
@@ -189,33 +190,46 @@ export default function ETFDetailsDrawer({
   // Fetch fresh data for the current ETF to ensure it's up to date
   useEffect(() => {
     if (!etf) return;
+    let cancelled = false;
 
     const fetchFreshData = async () => {
-      try {
-        // This call will trigger the backend auto-sync if data is stale (>24h)
-        // Request full history for the detailed chart
-        const res = await fetch(
-          `/api/etfs/search?query=${etf.ticker}&full=true`,
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            // Find the exact match
-            const match = data.find((item) => item.ticker === etf.ticker);
-            if (match) {
-              setFreshEtf(match);
+      // The backend sync can fail transiently (upstream rate limits), which
+      // used to leave seeded-but-shallow rows stuck on an empty chart.
+      // Retry with backoff until the row comes back hydrated.
+      const maxAttempts = 3;
+      for (let attempt = 1; attempt <= maxAttempts && !cancelled; attempt++) {
+        try {
+          // This call triggers a blocking backend sync when data is missing
+          // or stale; request full history for the detailed chart
+          const res = await fetch(
+            `/api/etfs/search?query=${etf.ticker}&full=true`,
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+              // Find the exact match
+              const match = data.find((item) => item.ticker === etf.ticker);
+              if (match && !cancelled) {
+                setFreshEtf(match);
+                if (match.history && match.history.length > 0) break;
+              }
             }
           }
+        } catch (err) {
+          console.error("Failed to fetch fresh ETF data:", err);
         }
-      } catch (err) {
-        console.error("Failed to fetch fresh ETF data:", err);
-      } finally {
-        setIsLoading(false);
+        if (attempt < maxAttempts && !cancelled) {
+          await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+        }
       }
+      if (!cancelled) setIsLoading(false);
     };
 
     fetchFreshData();
-  }, [etf]);
+    return () => {
+      cancelled = true;
+    };
+  }, [etf, refreshNonce]);
 
   // Fetch SPY data when toggle is enabled
   useEffect(() => {
@@ -913,8 +927,18 @@ export default function ETFDetailsDrawer({
                         <p className="text-neutral-500 text-sm max-w-sm">
                           We couldn&apos;t load chart data for this asset. It
                           may be thinly traded, recently listed, or the data
-                          sync failed — try again later.
+                          sync failed.
                         </p>
+                        <button
+                          onClick={() => {
+                            setIsLoading(true);
+                            setRefreshNonce((n) => n + 1);
+                          }}
+                          className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30 transition-colors text-sm font-medium"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          Retry sync
+                        </button>
                       </div>
                     )
                   ) : (
