@@ -6,11 +6,20 @@ async function getSP500Tickers(): Promise<string[]> {
   try {
     const response = await fetch('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies');
     const html = await response.text();
-    const regex = /<a rel="nofollow" class="external text" href="[^"]+">([A-Z0-9\.]+)<\/a>/g;
+    // Match constituent symbols by their exchange quote links; attribute
+    // order/format varies (Wikipedia now serves Parsoid HTML), so anchor on
+    // the stable exchange URLs rather than rel/class ordering.
+    const regex = /<a[^>]+href="https?:\/\/(?:www\.)?(?:nyse|nasdaq|cboe)\.com[^"]*"[^>]*>([A-Z0-9.]{1,7})<\/a>/g;
     const matches = [...html.matchAll(regex)];
     let tickers = matches.map(m => m[1]);
     tickers = tickers.map(t => t.replace(/\./g, '-'));
-    return Array.from(new Set(tickers));
+    const unique = Array.from(new Set(tickers));
+    if (unique.length < 400) {
+      // A partial parse means the markup changed again — don't trust it
+      console.warn(`[Seed] Only parsed ${unique.length} S&P 500 tickers, using fallback list.`);
+      return unique.length > SP500_FALLBACK.length ? unique : SP500_FALLBACK;
+    }
+    return unique;
   } catch (e) {
     console.error('[Seed] Failed to fetch S&P 500 tickers, using fallback:', e);
     return SP500_FALLBACK;

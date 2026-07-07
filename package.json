@@ -15,6 +15,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "bun scripts/seed_market.ts",
+    "db:sync-all": "bun scripts/sync_all.ts",
     "postinstall": "prisma generate"
   },
   "repository": {
