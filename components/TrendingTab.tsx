@@ -169,7 +169,13 @@ export default function TrendingTab({
 
   return (
     <section className="py-12 px-4 max-w-7xl mx-auto min-h-full">
-      <div className="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+      <div className="mb-6 flex items-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="text-xs font-semibold tracking-[0.2em] uppercase text-muted">
+          Market Pulse
+        </span>
+      </div>
+      <div className="mb-14 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         {/* Institutional Portfolios Section */}
         <div className="w-full h-full">
           <InstitutionalPortfolios
@@ -217,7 +223,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
+            communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Natural Resources"
@@ -228,7 +234,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
+            communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="r/justbuy..."
@@ -239,7 +245,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
+            communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Best"
@@ -250,7 +256,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
+            communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
             title="Discounted"
@@ -261,7 +267,7 @@ export default function TrendingTab({
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={(ticker) => getRedditCommunities(ticker).map(c => ({ name: c.displayName, url: c.url }))}
+            communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
         </>
       )}

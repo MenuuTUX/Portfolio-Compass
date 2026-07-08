@@ -238,7 +238,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                   borderColor: "rgba(50,48,47,0.35)",
                 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 rounded-xl bg-white/80 border border-hairline-strong text-ink font-semibold transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto hover:bg-white"
+                className="px-8 py-4 rounded-xl bg-surface-card/80 border border-hairline-strong text-ink font-semibold transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto hover:bg-surface-card"
               >
                 <Activity className="w-4 h-4" />
                 View the Market

@@ -400,9 +400,9 @@ export default function WealthProjector({
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#FFFFFF",
-                      borderColor: "#333",
-                      color: "#32302F",
+                      backgroundColor: "var(--surface-card)",
+                      borderColor: "var(--hairline)",
+                      color: "var(--ink)",
                     }}
                     formatter={(value: any) => formatCurrency(Number(value))}
                   />
