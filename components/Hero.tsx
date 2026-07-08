@@ -121,7 +121,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
       </div>
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {/* Soft warm wash so text panels stay readable over the glyphs */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(250,250,250,0.72)_0%,_rgba(250,250,250,0.28)_60%,_transparent_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(var(--background-start-rgb),0.72)_0%,_rgba(var(--background-start-rgb),0.28)_60%,_transparent_100%)]" />
 
         {/* Floating Spores/Particles */}
         {spores.map((spore, i) => (
@@ -224,7 +224,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 onClick={onStart}
                 whileHover={{ scale: 1.05, backgroundColor: "#1f1d1c" }} // ink, darkened
                 whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 rounded-xl bg-ink text-white font-semibold shadow-lg shadow-ink/15 flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+                className="group px-8 py-4 rounded-xl bg-dune text-white font-semibold shadow-lg shadow-ink/15 flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
               >
                 <span className="relative z-10">Start Analysis</span>
                 <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />

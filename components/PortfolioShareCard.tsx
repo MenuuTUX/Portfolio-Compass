@@ -589,7 +589,7 @@ export const PortfolioShareCard = React.forwardRef<
                   key={item.ticker}
                   className="flex items-center gap-4 bg-[#151515] border border-hairline p-4 rounded-xl"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-ink/30 flex items-center justify-center p-1.5 overflow-hidden shrink-0 border border-hairline">
+                  <div className="w-10 h-10 rounded-lg bg-dune/30 flex items-center justify-center p-1.5 overflow-hidden shrink-0 border border-hairline">
                     {iconUrl ? (
                       // unoptimized: html-to-image captures this card, so the
                       // src must stay the direct CORS-enabled CDN URL rather

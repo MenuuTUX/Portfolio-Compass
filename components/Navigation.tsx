@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { ThemeToggle } from "./theme-toggle";
 
 type Tab = "TRENDING" | "PORTFOLIO" | "ETFS" | "STOCKS";
 
@@ -113,6 +114,8 @@ export default function Navigation({
                 );
               })}
             </div>
+
+            <ThemeToggle />
 
             {onOpenSettings && (
               <button

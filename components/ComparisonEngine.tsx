@@ -254,7 +254,7 @@ const ETFCard = memo(
         </div>
 
         {/* Desktop Overlay (Hover only) */}
-        <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-ink/40 backdrop-blur-sm">
+        <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-dune/40 backdrop-blur-sm">
           {inPortfolio ? (
             <button
               onClick={() => onRemove(etf.ticker)}
@@ -442,9 +442,9 @@ export default function ComparisonEngine({
     async (query: string, skip = 0) => {
       if (skip === 0) setLoading(true);
       try {
-        // We pass the type as a hint to the backend (though backend might search broadly now)
-        // ComparisonEngine requires history for Sparklines, so we explicitly request it.
-        let url = `/api/etfs/search?query=${encodeURIComponent(query)}&includeHistory=true&skip=${skip}`;
+        // Fast, DB-free browse/search: curated tickers when query is empty,
+        // Yahoo symbol search otherwise. Never blocks on the database.
+        let url = `/api/market/search?query=${encodeURIComponent(query)}&skip=${skip}&limit=24`;
         if (assetType) {
           url += `&type=${encodeURIComponent(assetType)}`;
         }

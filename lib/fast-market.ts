@@ -387,3 +387,42 @@ export async function getFastHistory(
 export function isChartRange(value: string): value is ChartRange {
   return value in RANGE_CONFIG;
 }
+
+// ---------------------------------------------------------------------------
+// Symbol search: Yahoo's public autocomplete endpoint resolves free-text
+// queries ("meta", "apple") to tickers without touching our database.
+// ---------------------------------------------------------------------------
+
+const SEARCH_TTL_MS = 60_000;
+
+export async function searchFastSymbols(
+  query: string,
+  assetType?: "STOCK" | "ETF",
+  limit = 15,
+): Promise<string[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const key = `search:${trimmed.toLowerCase()}`;
+  const quoteTypeFilter =
+    assetType === "STOCK" ? "EQUITY" : assetType === "ETF" ? "ETF" : null;
+
+  const results = await cached(key, SEARCH_TTL_MS, async () => {
+    const res = await yf.search(trimmed, {
+      quotesCount: 20,
+      newsCount: 0,
+    });
+    return (res.quotes || [])
+      .filter((q: any) => q.symbol && q.quoteType)
+      .map((q: any) => ({
+        symbol: q.symbol as string,
+        quoteType: q.quoteType as string,
+      }));
+  });
+
+  const filtered = quoteTypeFilter
+    ? results.filter((r) => r.quoteType === quoteTypeFilter)
+    : results.filter((r) => r.quoteType === "EQUITY" || r.quoteType === "ETF");
+
+  return Array.from(new Set(filtered.map((r) => r.symbol))).slice(0, limit);
+}

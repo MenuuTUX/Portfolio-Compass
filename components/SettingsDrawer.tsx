@@ -91,7 +91,7 @@ export default function SettingsDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[60]"
+            className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-[60]"
           />
           <motion.div
             initial={{ x: "100%" }}

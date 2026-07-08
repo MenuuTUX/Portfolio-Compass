@@ -95,7 +95,7 @@ export default function SimulatorExplainer({
       {/* Ambient Background */}
       <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
-      <div className="relative glass-panel border border-hairline bg-ink/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+      <div className="relative glass-panel border border-hairline bg-dune/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -137,7 +137,7 @@ export default function SimulatorExplainer({
                     {/* The Formula */}
                     <div className="relative group">
                       <div className="absolute -inset-6 bg-blue-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative bg-ink/50 border border-hairline px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex flex-wrap justify-center items-center gap-4 text-2xl md:text-3xl font-serif text-white">
+                      <div className="relative bg-dune/50 border border-hairline px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex flex-wrap justify-center items-center gap-4 text-2xl md:text-3xl font-serif text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
@@ -274,7 +274,7 @@ export default function SimulatorExplainer({
                     {/* The Formula */}
                     <div className="relative group">
                       <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative bg-ink/50 border border-hairline px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-2xl md:text-3xl font-serif text-white">
+                      <div className="relative bg-dune/50 border border-hairline px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-2xl md:text-3xl font-serif text-white">
                         <span className="text-ink">dS</span>
                         <span className="text-neutral-600 text-xl mx-1">=</span>
                         <div className="flex items-center group/drift cursor-help">

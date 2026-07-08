@@ -329,7 +329,7 @@ export default function OptimizationPanel({
           </div>
 
           {/* Strategy Mode Selector */}
-          <div className="flex gap-2 bg-ink/30 p-1 rounded-lg border border-hairline">
+          <div className="flex gap-2 bg-dune/30 p-1 rounded-lg border border-hairline">
             {(["Conservative", "Balanced", "Growth"] as StrategyMode[]).map(
               (mode) => (
                 <button
@@ -359,7 +359,7 @@ export default function OptimizationPanel({
             onChange={(e) =>
               setInvestmentAmount(Math.max(0, Number(e.target.value)))
             }
-            className="block w-full pl-12 pr-4 py-4 bg-ink/30 border border-hairline rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
+            className="block w-full pl-12 pr-4 py-4 bg-dune/30 border border-hairline rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
             placeholder="0.00"
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500 font-medium">
@@ -468,7 +468,7 @@ export default function OptimizationPanel({
                         {newWeight.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="h-1.5 w-full bg-ink/30 rounded-full overflow-hidden">
+                    <div className="h-1.5 w-full bg-dune/30 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-emerald-500"
                         initial={false}

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
 
 interface AsciiBackgroundProps {
   className?: string;
-  /** Glyph color, any CSS color. Defaults to Dune ink. */
+  /** Glyph color, any CSS color. Defaults to the theme's ink color. */
   color?: string;
   /** 0-1 overall strength of the effect */
   opacity?: number;
@@ -15,6 +16,11 @@ const RAMP = " .·:;=+*x%#@";
 const CELL = 12; // px per character cell
 const FPS = 14;
 
+// Canvas fillStyle can't read CSS custom properties, so the light/dark ink
+// hex values are duplicated here (must match --ink in globals.css)
+const INK_LIGHT = "#32302F";
+const INK_DARK = "#F5F3EF";
+
 /**
  * Animated ASCII field: a slowly breathing, mirror-symmetric ink pattern
  * (Rorschach-style) rendered as text glyphs on a canvas. Designed to sit
@@ -22,10 +28,17 @@ const FPS = 14;
  */
 export default function AsciiBackground({
   className = "",
-  color = "#32302F",
+  color,
   opacity = 0.55,
 }: AsciiBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // This component only ever draws inside a client-only effect (canvas has
+  // no server-rendered markup to mismatch), so resolvedTheme's initial
+  // `undefined` before mount is safe to fall through to the light default.
+  const { resolvedTheme } = useTheme();
+
+  const resolvedColor =
+    color ?? (resolvedTheme === "dark" ? INK_DARK : INK_LIGHT);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,7 +76,7 @@ export default function AsciiBackground({
 
     const draw = (t: number) => {
       ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = color;
+      ctx.fillStyle = resolvedColor;
 
       const cx = cols / 2;
       const cy = rows / 2;
@@ -128,7 +141,7 @@ export default function AsciiBackground({
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
     };
-  }, [color, opacity]);
+  }, [resolvedColor, opacity]);
 
   return (
     <canvas
