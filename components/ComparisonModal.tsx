@@ -171,7 +171,7 @@ export default function ComparisonModal({
           ? `&type=${baseAsset.assetType}`
           : "";
         const res = await fetch(
-          `/api/etfs/search?query=${searchQuery}${typeFilter}`,
+          `/api/market/search?query=${encodeURIComponent(searchQuery)}${typeFilter}`,
         );
         if (res.ok) {
           const data = await res.json();
@@ -409,7 +409,7 @@ export default function ComparisonModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-ink/50 backdrop-blur-md z-[60]"
+        className="fixed inset-0 bg-dune/50 backdrop-blur-md z-[60]"
       />
       <motion.div
         key="modal"
@@ -490,7 +490,7 @@ export default function ComparisonModal({
               <div className="relative flex flex-col items-center p-4 bg-blue-900/10 border border-blue-500/20 rounded-xl group">
                 <button
                   onClick={handleRemoveComparison}
-                  className="absolute top-2 right-2 p-1.5 bg-ink/30 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-400 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-2 right-2 p-1.5 bg-dune/30 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-400 rounded-full transition-colors opacity-0 group-hover:opacity-100"
                   title="Remove Asset"
                 >
                   <X className="w-4 h-4" />

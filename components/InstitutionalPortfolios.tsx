@@ -147,7 +147,7 @@ export default function InstitutionalPortfolios({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedInstitution(null)}
-              className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-50"
             />
 
             {/* Modal Container */}
@@ -243,7 +243,7 @@ export default function InstitutionalPortfolios({
                         >
                           <div
                             className={cn(
-                              "p-2 rounded-full shrink-0 bg-ink/30 shadow-sm border border-hairline",
+                              "p-2 rounded-full shrink-0 bg-dune/30 shadow-sm border border-hairline",
                               selectedInstitution.themeColor,
                             )}
                           >

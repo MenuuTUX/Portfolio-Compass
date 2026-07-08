@@ -19,7 +19,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dune/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
     >

@@ -554,7 +554,7 @@ export default function MonteCarloSimulator({
       )}
 
       {/* Chart */}
-      <div className="flex-1 min-h-[400px] glass-panel p-6 rounded-xl bg-ink/30 border border-hairline relative overflow-hidden">
+      <div className="flex-1 min-h-[400px] glass-panel p-6 rounded-xl bg-dune/30 border border-hairline relative overflow-hidden">
         {!isSimulating &&
           !simulationComplete &&
           !error &&

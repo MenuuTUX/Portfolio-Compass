@@ -392,7 +392,7 @@ export default function TrendingSection({
               </div>
 
               {/* Hover Overlay */}
-              <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+              <div className="absolute inset-0 bg-dune/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
                 {inPortfolio ? (
                   <button
                     onClick={() => handleRemove(etf.ticker)}

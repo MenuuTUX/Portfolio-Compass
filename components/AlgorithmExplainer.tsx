@@ -126,7 +126,7 @@ export default function AlgorithmExplainer() {
       {/* Ambient Background */}
       <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
-      <div className="relative glass-panel border border-hairline bg-ink/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+      <div className="relative glass-panel border border-hairline bg-dune/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -172,7 +172,7 @@ export default function AlgorithmExplainer() {
                     {/* The Equation */}
                     <div className="relative group">
                       <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative bg-ink/50 border border-hairline px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
+                      <div className="relative bg-dune/50 border border-hairline px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
@@ -327,7 +327,7 @@ export default function AlgorithmExplainer() {
                               }}
                               transition={{ type: "spring", stiffness: 100 }}
                             >
-                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-ink/50 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
+                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-dune/50 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
                                 Score:{" "}
                                 {Math.max(
                                   0,
@@ -360,7 +360,7 @@ export default function AlgorithmExplainer() {
                     className="w-full max-w-lg flex flex-col items-center gap-8"
                   >
                     {/* The Formula */}
-                    <div className="bg-ink/40 border border-hairline px-6 py-4 rounded-xl flex items-center gap-3 text-lg font-serif text-neutral-300">
+                    <div className="bg-dune/40 border border-hairline px-6 py-4 rounded-xl flex items-center gap-3 text-lg font-serif text-neutral-300">
                       <span>Maximize</span>
                       <span className="text-emerald-400 font-bold">ΔU</span>
                       <span>=</span>
@@ -566,7 +566,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Visual Metaphor */}
-                    <div className="relative w-full max-w-sm aspect-video bg-ink/30 border border-hairline rounded-xl overflow-hidden p-6 flex items-center justify-center">
+                    <div className="relative w-full max-w-sm aspect-video bg-dune/30 border border-hairline rounded-xl overflow-hidden p-6 flex items-center justify-center">
                       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
 
                       <div className="flex items-end gap-1 h-32 w-full justify-center">

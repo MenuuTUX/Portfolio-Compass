@@ -50,7 +50,7 @@ export default function MessageDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-50"
           />
           <motion.div
             key="drawer"

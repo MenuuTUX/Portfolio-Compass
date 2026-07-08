@@ -1,5 +1,25 @@
 export const SP500_FALLBACK = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'NVDA', 'META', 'TSLA'];
 
+// Broad set of large, liquid US (+ a few TSX) stocks across sectors, used to
+// seed the Stocks tab browse grid before any search query is typed.
+export const TOP_STOCKS = [
+  // Mega-cap tech
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'AVGO', 'ORCL', 'ADBE',
+  'CRM', 'AMD', 'CSCO', 'INTC', 'QCOM', 'TXN', 'IBM', 'NOW', 'INTU', 'UBER',
+  // Financials
+  'JPM', 'BAC', 'WFC', 'GS', 'MS', 'V', 'MA', 'AXP', 'BLK', 'SCHW',
+  // Healthcare
+  'UNH', 'JNJ', 'LLY', 'ABBV', 'MRK', 'PFE', 'TMO', 'ABT', 'DHR', 'BMY',
+  // Consumer
+  'WMT', 'HD', 'PG', 'KO', 'PEP', 'COST', 'NKE', 'MCD', 'SBUX', 'DIS',
+  // Industrials & Energy
+  'XOM', 'CVX', 'CAT', 'BA', 'GE', 'HON', 'UPS', 'LMT', 'RTX', 'DE',
+  // Communication & Media
+  'NFLX', 'CMCSA', 'TMUS', 'VZ', 'T',
+  // Canadian large caps
+  'RY.TO', 'TD.TO', 'ENB.TO', 'CNR.TO', 'BNS.TO', 'BMO.TO', 'SU.TO', 'CP.TO',
+];
+
 export const TOP_ETFS = [
   'SPY', 'IVV', 'VOO', 'VTI', 'QQQ', 'VEA', 'VTV', 'IEFA', 'BND', 'AGG',
   'VUG', 'VIG', 'IJR', 'IWF', 'VWO', 'IJH', 'VGT', 'XLK', 'IWM', 'GLD',

@@ -1,6 +1,7 @@
 import "./globals.css";
 import React from "react";
 import Providers from "@/components/Providers";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Inter, Libre_Caslon_Text } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
@@ -28,9 +29,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${libreCaslon.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased bg-canvas text-ink" suppressHydrationWarning>
-        <Providers>
-          {children}
-        </Providers>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Providers>
+            {children}
+          </Providers>
+        </ThemeProvider>
         <SpeedInsights />
         <Analytics />
       </body>

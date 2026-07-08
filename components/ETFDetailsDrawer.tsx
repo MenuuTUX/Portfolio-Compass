@@ -650,7 +650,7 @@ export default function ETFDetailsDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-40"
           />
           <motion.div
             key="drawer"
@@ -1329,7 +1329,7 @@ export default function ETFDetailsDrawer({
                           {/* Right: Pie Chart */}
                           <div className="w-1/2 relative bg-surface-card rounded-xl border border-hairline p-2 flex items-center justify-center">
                             <div className="absolute top-2 left-2 z-10">
-                              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-ink/30 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-dune/30 px-1.5 py-0.5 rounded backdrop-blur-sm">
                                 Sectors
                               </div>
                             </div>
@@ -1343,7 +1343,7 @@ export default function ETFDetailsDrawer({
                             />
                             {sectorData.length === 0 && (
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-xs text-neutral-500 bg-ink/50 px-2 py-1 rounded">
+                                <span className="text-xs text-neutral-500 bg-dune/50 px-2 py-1 rounded">
                                   No Sector Data
                                 </span>
                               </div>
