@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     .split(",")
     .map((t) => t.trim())
     .filter(Boolean)
-    .slice(0, 20);
+    .slice(0, 60);
 
   if (tickers.length === 0) {
     return NextResponse.json({ error: "No tickers provided" }, { status: 400 });

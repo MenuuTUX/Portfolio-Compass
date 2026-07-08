@@ -13,7 +13,7 @@ import {
   Line,
 } from "recharts";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Portfolio, ETF } from "@/types";
+import { Portfolio } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -97,17 +97,21 @@ export default function MonteCarloSimulator({
 
     try {
       const tickers = portfolio.map((p) => p.ticker).join(",");
-      // Request full history for the portfolio tickers
-      const res = await fetch(`/api/etfs/search?tickers=${tickers}&full=true`);
+      // Fast, DB-free daily history (~1Y, ~250 points per ticker) — one
+      // batched Yahoo request instead of the old per-ticker DB sync, which
+      // could time out or leave several assets thin within one request.
+      const res = await fetch(
+        `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`,
+      );
       if (!res.ok) throw new Error("Failed to fetch historical data");
 
-      const richEtfs: ETF[] = await res.json();
+      const { series } = await res.json();
 
       // Merge rich data into portfolio
       const newPortfolio = portfolio.map((item) => {
-        const richItem = richEtfs.find((e) => e.ticker === item.ticker);
-        if (richItem) {
-          return { ...item, history: richItem.history };
+        const points = series?.[item.ticker.toUpperCase()];
+        if (points && points.length > 0) {
+          return { ...item, history: points };
         }
         return item;
       });

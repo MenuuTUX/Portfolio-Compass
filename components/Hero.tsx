@@ -222,13 +222,13 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <motion.button
                 onClick={onStart}
-                whileHover={{ scale: 1.05, backgroundColor: "#1f1d1c" }} // ink, darkened
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 rounded-xl bg-dune text-white font-semibold shadow-lg shadow-ink/15 flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+                className="group px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-shadow flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
               >
                 <span className="relative z-10">Start Analysis</span>
                 <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-ink/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
               </motion.button>
 
               <motion.button

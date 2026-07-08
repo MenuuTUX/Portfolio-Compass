@@ -265,9 +265,6 @@ export default function TrendingSection({
                   "shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)] border-emerald-500/30",
               )}
             >
-              {/* Accent strip */}
-              <div className={cn("h-1 w-full", styles.tagBg)} />
-
               {/* Flash Overlay */}
               <AnimatePresence>
                 {flashState && (
@@ -287,7 +284,7 @@ export default function TrendingSection({
 
               <div
                 className={cn(
-                  "absolute top-4 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
+                  "absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
                   styles.tagBg,
                 )}
               >
