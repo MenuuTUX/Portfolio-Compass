@@ -72,14 +72,14 @@ export default function OptimizationDiffChart({
               width={40}
             />
             <Tooltip
-              cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              cursor={{ fill: "rgba(50,48,47,0.05)" }}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
                   const isBuy = d.delta > 0;
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-white/10 p-2 rounded-lg text-xs">
-                      <span className="font-bold text-white">{d.ticker}: </span>
+                    <div className="bg-stone-950/90 backdrop-blur-md border border-hairline p-2 rounded-lg text-xs">
+                      <span className="font-bold text-ink">{d.ticker}: </span>
                       <span
                         className={isBuy ? "text-emerald-400" : "text-rose-400"}
                       >

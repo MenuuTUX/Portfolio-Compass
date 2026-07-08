@@ -278,11 +278,11 @@ export default function PortfolioBarChart({
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col border border-white/5 bg-gradient-to-br from-stone-950/50 to-stone-900/50"
+      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col border border-hairline bg-gradient-to-br from-stone-950/50 to-stone-900/50"
     >
       <div className="flex flex-col gap-1 mb-8">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-white tracking-tight">
+          <h3 className="text-xl font-bold text-ink tracking-tight">
             Portfolio Look-Through
           </h3>
           <div className="flex items-center gap-4 text-xs">
@@ -439,20 +439,20 @@ export default function PortfolioBarChart({
               />
 
               <Tooltip
-                cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                cursor={{ fill: "rgba(50,48,47,0.04)" }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="bg-stone-950/95 backdrop-blur-xl border border-white/10 p-4 rounded-xl text-xs shadow-2xl z-50 min-w-[220px]">
-                        <div className="font-bold text-white mb-0.5 text-base tracking-tight">
+                      <div className="bg-stone-950/95 backdrop-blur-xl border border-hairline p-4 rounded-xl text-xs shadow-2xl z-50 min-w-[220px]">
+                        <div className="font-bold text-ink mb-0.5 text-base tracking-tight">
                           {d.name}
                         </div>
                         <div className="text-neutral-500 mb-3 font-medium">
                           {d.fullName}
                         </div>
 
-                        <div className="flex justify-between gap-6 border-t border-white/5 pt-3 mb-3">
+                        <div className="flex justify-between gap-6 border-t border-hairline pt-3 mb-3">
                           <span className="text-neutral-400 font-medium">
                             Total Weight
                           </span>
@@ -474,7 +474,7 @@ export default function PortfolioBarChart({
                           </div>
                         )}
 
-                        <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                        <div className="flex flex-col gap-2 border-t border-hairline pt-3">
                           <span className="text-[10px] uppercase tracking-wider text-neutral-600 font-bold mb-1">
                             Source Breakdown
                           </span>

@@ -35,7 +35,7 @@ export default function Navigation({
   ];
 
   return (
-    <nav className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/80 backdrop-blur-md">
+    <nav className="fixed top-0 w-full z-50 border-b border-hairline bg-canvas/85 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div
@@ -51,7 +51,7 @@ export default function Navigation({
                 className="object-contain"
               />
             </div>
-            <span className="text-white font-bold tracking-tight text-lg hidden md:block">
+            <span className="text-ink font-bold tracking-tight text-lg hidden md:block">
               Portfolio<span className="text-emerald-400">Compass</span>
             </span>
           </div>
@@ -69,17 +69,17 @@ export default function Navigation({
                     className={cn(
                       "relative px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 overflow-hidden group shrink-0",
                       isActive
-                        ? "text-white"
-                        : "text-neutral-400 hover:text-white hover:bg-white/5",
+                        ? "text-ink"
+                        : "text-neutral-400 hover:text-ink hover:bg-surface-soft",
                       isTrending &&
                         !isActive &&
-                        "text-amber-300 hover:text-amber-200",
+                        "text-gold-deep hover:text-gold-deep",
                     )}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="activeTab"
-                        className="absolute inset-0 bg-white/10 rounded-md"
+                        className="absolute inset-0 bg-surface-soft rounded-md"
                         initial={false}
                         transition={{
                           type: "spring",
@@ -117,7 +117,7 @@ export default function Navigation({
             {onOpenSettings && (
               <button
                 onClick={onOpenSettings}
-                className="p-2 text-neutral-400 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                className="p-2 text-neutral-400 hover:text-ink hover:bg-surface-soft rounded-md transition-colors"
                 title="Settings"
               >
                 <Settings className="w-5 h-5" />

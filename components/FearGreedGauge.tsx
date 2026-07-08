@@ -44,11 +44,11 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
     return (
       <div
         className={cn(
-          "w-full min-h-[300px] bg-white/5 rounded-2xl animate-pulse flex items-center justify-center",
+          "w-full min-h-[300px] bg-surface-card rounded-2xl animate-pulse flex items-center justify-center",
           className,
         )}
       >
-        <span className="text-white/20">Loading Market Sentiment...</span>
+        <span className="text-ink/20">Loading Market Sentiment...</span>
       </div>
     );
   }
@@ -57,11 +57,11 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
     return (
       <div
         className={cn(
-          "w-full min-h-[300px] bg-white/5 rounded-2xl flex flex-col items-center justify-center gap-2",
+          "w-full min-h-[300px] bg-surface-card rounded-2xl flex flex-col items-center justify-center gap-2",
           className,
         )}
       >
-        <span className="text-white/40">Sentiment Data Unavailable</span>
+        <span className="text-ink/40">Sentiment Data Unavailable</span>
         <button
           onClick={() => window.location.reload()}
           className="text-xs text-primary hover:underline"
@@ -131,7 +131,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   return (
     <div
       className={cn(
-        "w-full bg-stone-950 border border-white/10 rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group",
+        "w-full bg-stone-950 border border-hairline rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group",
         className,
       )}
     >
@@ -140,7 +140,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
         className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(circle at 2px 2px, white 1px, transparent 0)",
+            "radial-gradient(circle at 2px 2px, #32302F 1px, transparent 0)",
           backgroundSize: "32px 32px",
         }}
       />
@@ -161,13 +161,13 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
             marketOpen ? "bg-emerald-500 animate-pulse" : "bg-stone-600",
           )}
         />
-        <span className="text-xs font-medium text-white/40 tracking-wider uppercase">
+        <span className="text-xs font-medium text-ink/40 tracking-wider uppercase">
           Market {marketOpen ? "Open" : "Closed"}
         </span>
       </div>
 
       <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center mt-2">
-        <h3 className="text-white/90 font-bold text-lg">Fear & Greed</h3>
+        <h3 className="text-ink/90 font-bold text-lg">Fear & Greed</h3>
       </div>
 
       {/* Gauge Container */}
@@ -191,8 +191,8 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
             cx={0}
             cy={0}
             r="8"
-            fill="stone-950"
-            stroke="white"
+            fill="#FFFFFF"
+            stroke="#32302F"
             strokeWidth="3"
             initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
             animate={{ x: indicatorX, y: indicatorY, opacity: 1 }}
@@ -202,13 +202,13 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
               damping: 20,
               delay: 0.2,
             }}
-            className="drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]"
+            className="drop-shadow-[0_0_10px_rgba(50,48,47,0.25)]"
           />
         </svg>
 
         {/* Score & Rating Text */}
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-2 pointer-events-none">
-          <div className="text-5xl font-bold font-space text-white tracking-tight leading-none drop-shadow-xl">
+          <div className="text-5xl font-bold font-space text-ink tracking-tight leading-none drop-shadow-xl">
             {score}
           </div>
           {/* Rating text follows active color */}
@@ -221,7 +221,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
         </div>
       </div>
 
-      <div className="text-xs font-mono text-white/30 z-10">
+      <div className="text-xs font-mono text-ink/30 z-10">
         Updated: {new Date(data.updatedAt).toLocaleDateString()}
       </div>
     </div>

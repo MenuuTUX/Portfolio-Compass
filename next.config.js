@@ -12,7 +12,9 @@ const nextConfig = {
             },
         ],
     },
-    serverExternalPackages: ['yahoo-finance2', 'prisma', '@prisma/client'],
+    // yahoo-finance2 is intentionally bundled (not external): the bun runtime
+    // cannot resolve Turbopack's hashed external aliases for it in dev
+    serverExternalPackages: ['prisma', '@prisma/client'],
 };
 
 export default nextConfig;

@@ -167,7 +167,7 @@ export default function WealthProjector({
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setMode("SIMPLE")}
-            className="text-sm text-neutral-400 hover:text-white underline"
+            className="text-sm text-neutral-400 hover:text-ink underline"
           >
             Switch to Simple Projection
           </button>
@@ -189,7 +189,7 @@ export default function WealthProjector({
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+                className="p-2 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-ink transition-colors"
                 title="Back to Portfolio"
                 aria-label="Back to Portfolio"
               >
@@ -197,7 +197,7 @@ export default function WealthProjector({
               </button>
             )}
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">
+              <h2 className="text-3xl font-bold text-ink mb-2">
                 Wealth Projector
               </h2>
               <p className="text-neutral-400">
@@ -231,7 +231,7 @@ export default function WealthProjector({
 
             <button
               onClick={() => setMode("MONTE_CARLO")}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-white/10"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-hairline"
             >
               <Sparkles className="w-4 h-4" />
               Try Monte Carlo
@@ -241,7 +241,7 @@ export default function WealthProjector({
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
           {/* Controls */}
-          <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-white/5 border border-white/5">
+          <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-surface-card border border-hairline">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label
@@ -273,7 +273,7 @@ export default function WealthProjector({
                   type="number"
                   value={initialInvestment}
                   onChange={(e) => setInitialInvestment(Number(e.target.value))}
-                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-black/50 border border-hairline rounded-lg pl-8 pr-4 py-2 text-ink focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -296,7 +296,7 @@ export default function WealthProjector({
                   onChange={(e) =>
                     setMonthlyContribution(Number(e.target.value))
                   }
-                  className="w-full bg-black/50 border border-white/10 rounded-lg pl-8 pr-4 py-2 text-white focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-black/50 border border-hairline rounded-lg pl-8 pr-4 py-2 text-ink focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -319,7 +319,7 @@ export default function WealthProjector({
               />
             </div>
 
-            <div className="pt-6 border-t border-white/10 space-y-4">
+            <div className="pt-6 border-t border-hairline space-y-4">
               <div>
                 <div className="text-sm text-neutral-400 mb-1">
                   Projected Annual Return
@@ -340,11 +340,11 @@ export default function WealthProjector({
           </div>
 
           {/* Chart */}
-          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5">
+          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-surface-card border border-hairline">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div>
                 <div className="text-sm text-neutral-400">Projected Wealth</div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-3xl font-bold text-ink">
                   {formatCurrency(finalAmount)}
                 </div>
               </div>
@@ -400,9 +400,9 @@ export default function WealthProjector({
                   />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: "#000",
+                      backgroundColor: "#FFFFFF",
                       borderColor: "#333",
-                      color: "#fff",
+                      color: "#32302F",
                     }}
                     formatter={(value: any) => formatCurrency(Number(value))}
                   />

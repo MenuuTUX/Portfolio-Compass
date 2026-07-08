@@ -61,7 +61,7 @@ function MetricRow({
   better: "A" | "B" | "Equal" | null;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors px-4 rounded-lg">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 border-b border-hairline last:border-0 hover:bg-surface-soft transition-colors px-4 rounded-lg">
       {/* Asset A Value */}
       <div
         className={cn(
@@ -124,6 +124,9 @@ export default function ComparisonModal({
   const [searchResults, setSearchResults] = useState<ETF[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [comparisonSeries, setComparisonSeries] = useState<
+    Record<string, { date: string; price: number }[]>
+  >({});
 
   // Reset state when modal opens
   useEffect(() => {
@@ -131,8 +134,28 @@ export default function ComparisonModal({
       setCompareAsset(null);
       setSearchQuery("");
       setSearchResults([]);
+      setComparisonSeries({});
     }
   }, [isOpen]);
+
+  // Fetch aligned 1Y history for both assets from the fast market endpoint
+  // (one round trip, no DB sync involved)
+  useEffect(() => {
+    if (!compareAsset || !isOpen) return;
+    let cancelled = false;
+    const tickers = `${baseAsset.ticker.toUpperCase()},${compareAsset.ticker.toUpperCase()}`;
+
+    fetch(`/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.series) setComparisonSeries(data.series);
+      })
+      .catch((err) => console.error("Comparison chart fetch failed:", err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [compareAsset, baseAsset.ticker, isOpen]);
 
   // Search Logic
   useEffect(() => {
@@ -169,25 +192,39 @@ export default function ComparisonModal({
 
   const handleSelectAsset = async (asset: ETF) => {
     setIsSyncing(true);
+    // Show the selection immediately; live quote metrics merge in right after
+    setCompareAsset(asset);
     try {
-      // Need full details including history and holdings
       const res = await fetch(
-        `/api/etfs/search?query=${asset.ticker}&full=true`,
+        `/api/market/snapshot?tickers=${asset.ticker}&history=false`,
       );
       if (res.ok) {
         const data = await res.json();
-        const fullDetails = data.find(
-          (item: ETF) => item.ticker === asset.ticker,
-        );
-        if (fullDetails) {
-          setCompareAsset(fullDetails);
-        } else {
-          // Fallback if exact match not found in array (unlikely)
-          setCompareAsset(asset);
+        const snap = Array.isArray(data)
+          ? data.find(
+              (item: ETF) => item.ticker === asset.ticker.toUpperCase(),
+            )
+          : null;
+        if (snap) {
+          // Merge live quote data over the search result without letting
+          // placeholder fields clobber existing DB-backed values
+          setCompareAsset({
+            ...asset,
+            ...snap,
+            metrics:
+              asset.metrics?.mer || asset.metrics?.yield
+                ? asset.metrics
+                : snap.metrics,
+            sectors:
+              asset.sectors && Object.keys(asset.sectors).length > 0
+                ? asset.sectors
+                : snap.sectors,
+            allocation: asset.allocation ?? snap.allocation,
+          });
         }
       }
     } catch (err) {
-      console.error("Failed to fetch full asset details", err);
+      console.error("Failed to fetch live quote for comparison:", err);
     } finally {
       setIsSyncing(false);
       setSearchQuery(""); // Clear search for clean view
@@ -300,25 +337,14 @@ export default function ComparisonModal({
   // ----------------------------------------------------------------------
 
   const chartData = useMemo(() => {
-    if (!compareAsset || !baseAsset.history || !compareAsset.history) return [];
+    if (!compareAsset) return [];
 
-    // Filter to 1Y or max overlapping range
-    const historyA = baseAsset.history.filter(
-      (h) => !h.interval || h.interval === "1d" || h.interval === "1wk",
-    );
-    const historyB = compareAsset.history.filter(
-      (h) => !h.interval || h.interval === "1d" || h.interval === "1wk",
-    );
+    // Both series come pre-sorted at daily granularity from the fast
+    // market endpoint, so alignment is straightforward
+    const sortedA = comparisonSeries[baseAsset.ticker.toUpperCase()] || [];
+    const sortedB = comparisonSeries[compareAsset.ticker.toUpperCase()] || [];
 
-    if (historyA.length === 0 || historyB.length === 0) return [];
-
-    // Sort by date
-    const sortedA = [...historyA].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-    const sortedB = [...historyB].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
+    if (sortedA.length === 0 || sortedB.length === 0) return [];
 
     // Find common start date
     const startA = new Date(sortedA[0].date).getTime();
@@ -367,7 +393,7 @@ export default function ComparisonModal({
       .filter((p) => p !== null);
 
     return dataPoints;
-  }, [baseAsset, compareAsset]);
+  }, [baseAsset, compareAsset, comparisonSeries]);
 
   // ----------------------------------------------------------------------
   // Render
@@ -383,24 +409,24 @@ export default function ComparisonModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60]"
+        className="fixed inset-0 bg-ink/50 backdrop-blur-md z-[60]"
       />
       <motion.div
         key="modal"
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed inset-0 m-auto w-full max-w-6xl h-[90vh] bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl z-[70] overflow-hidden flex flex-col"
+        className="fixed inset-0 m-auto w-full max-w-6xl h-[90vh] bg-canvas border border-hairline rounded-2xl shadow-2xl z-[70] overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
+        <div className="flex items-center justify-between p-6 border-b border-hairline bg-surface-card">
           <div className="flex items-center gap-4">
             <Scale className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-white">Asset Comparison</h2>
+            <h2 className="text-xl font-bold text-ink">Asset Comparison</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+            className="p-2 hover:bg-surface-soft rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-neutral-400" />
           </button>
@@ -433,7 +459,7 @@ export default function ComparisonModal({
                   />
                 )}
               </div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-ink">
                 {baseAsset.ticker}
               </div>
               <div className="text-sm text-neutral-400 text-center line-clamp-1">
@@ -454,7 +480,7 @@ export default function ComparisonModal({
 
             {/* VS Divider */}
             <div className="flex flex-col items-center justify-center">
-              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 font-bold text-neutral-500 text-xs">
+              <div className="w-10 h-10 rounded-full bg-surface-card flex items-center justify-center border border-hairline font-bold text-neutral-500 text-xs">
                 VS
               </div>
             </div>
@@ -464,7 +490,7 @@ export default function ComparisonModal({
               <div className="relative flex flex-col items-center p-4 bg-blue-900/10 border border-blue-500/20 rounded-xl group">
                 <button
                   onClick={handleRemoveComparison}
-                  className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-400 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-2 right-2 p-1.5 bg-ink/30 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-400 rounded-full transition-colors opacity-0 group-hover:opacity-100"
                   title="Remove Asset"
                 >
                   <X className="w-4 h-4" />
@@ -490,7 +516,7 @@ export default function ComparisonModal({
                     />
                   )}
                 </div>
-                <div className="text-2xl font-bold text-white">
+                <div className="text-2xl font-bold text-ink">
                   {compareAsset.ticker}
                 </div>
                 <div className="text-sm text-neutral-400 text-center line-clamp-1">
@@ -509,21 +535,21 @@ export default function ComparisonModal({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-4 border border-dashed border-white/20 rounded-xl h-full min-h-[160px]">
+              <div className="flex flex-col items-center justify-center p-4 border border-dashed border-hairline-strong rounded-xl h-full min-h-[160px]">
                 <div className="w-full max-w-xs relative">
                   <input
                     type="text"
                     placeholder="Search to compare..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-surface-card border border-hairline rounded-lg px-4 py-2 text-ink text-sm focus:outline-none focus:border-emerald-500/50"
                     autoFocus
                   />
                   <Search className="absolute right-3 top-2.5 w-4 h-4 text-neutral-500" />
 
                   {/* Search Results Dropdown */}
                   {searchQuery && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto z-20">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto z-20">
                       {isSearching ? (
                         <div className="p-4 text-center text-xs text-neutral-500">
                           Searching...
@@ -533,10 +559,10 @@ export default function ComparisonModal({
                           <button
                             key={item.ticker}
                             onClick={() => handleSelectAsset(item)}
-                            className="w-full text-left px-4 py-3 hover:bg-white/5 flex items-center justify-between group"
+                            className="w-full text-left px-4 py-3 hover:bg-surface-soft flex items-center justify-between group"
                           >
                             <div>
-                              <div className="font-bold text-white text-sm">
+                              <div className="font-bold text-ink text-sm">
                                 {item.ticker}
                               </div>
                               <div className="text-xs text-neutral-400 truncate w-40">
@@ -566,10 +592,10 @@ export default function ComparisonModal({
           {compareAsset && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* 1. Comparison Chart */}
-              <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+              <div className="bg-surface-card rounded-2xl p-6 border border-hairline">
                 <div className="flex items-center gap-2 mb-6">
                   <TrendingUp className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-lg font-bold text-ink">
                     Performance Comparison (Normalized)
                   </h3>
                 </div>
@@ -604,7 +630,7 @@ export default function ComparisonModal({
                       </defs>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="rgba(255,255,255,0.05)"
+                        stroke="rgba(50,48,47,0.08)"
                         vertical={false}
                       />
                       <XAxis dataKey="date" hide />
@@ -617,8 +643,8 @@ export default function ComparisonModal({
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#171717",
-                          border: "1px solid rgba(255,255,255,0.1)",
+                          backgroundColor: "#FFFFFF",
+                          border: "1px solid #E5E3E0",
                           borderRadius: "8px",
                         }}
                         formatter={(val: any, name: any) => [
@@ -671,10 +697,10 @@ export default function ComparisonModal({
               </div>
 
               {/* 2. Key Metrics Head-to-Head */}
-              <div className="bg-white/5 rounded-2xl p-6 border border-white/5">
+              <div className="bg-surface-card rounded-2xl p-6 border border-hairline">
                 <div className="flex items-center gap-2 mb-6">
                   <Activity className="w-5 h-5 text-emerald-400" />
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-lg font-bold text-ink">
                     Head-to-Head Metrics
                   </h3>
                 </div>
@@ -695,8 +721,8 @@ export default function ComparisonModal({
                 compareAsset.assetType === "ETF" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Asset A Sector */}
-                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col items-center">
-                      <h4 className="text-sm font-bold text-white mb-4">
+                    <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col items-center">
+                      <h4 className="text-sm font-bold text-ink mb-4">
                         {baseAsset.ticker} Allocation
                       </h4>
                       <div className="w-full h-[200px] flex justify-center">
@@ -715,8 +741,8 @@ export default function ComparisonModal({
                       </div>
                     </div>
                     {/* Asset B Sector */}
-                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col items-center">
-                      <h4 className="text-sm font-bold text-white mb-4">
+                    <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col items-center">
+                      <h4 className="text-sm font-bold text-ink mb-4">
                         {compareAsset.ticker} Allocation
                       </h4>
                       <div className="w-full h-[200px] flex justify-center">

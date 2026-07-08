@@ -197,7 +197,7 @@ export default function PortfolioBuilder({
       >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 flex-shrink-0">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            <h2 className="text-2xl md:text-3xl font-bold text-ink mb-2">
               Portfolio Builder
             </h2>
             <p className="text-sm md:text-base text-neutral-400">
@@ -211,7 +211,7 @@ export default function PortfolioBuilder({
                 "flex-1 md:flex-none justify-center px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer border",
                 isOptimizerActive
                   ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
-                  : "bg-white/5 border-white/10 hover:bg-white/10 text-white",
+                  : "bg-surface-card border-hairline hover:bg-surface-soft text-ink",
               )}
             >
               Optimization Mode
@@ -235,14 +235,14 @@ export default function PortfolioBuilder({
         </div>
 
         {/* View Tabs */}
-        <div className="flex space-x-2 mb-6 border-b border-white/10 pb-1 overflow-x-auto">
+        <div className="flex space-x-2 mb-6 border-b border-hairline pb-1 overflow-x-auto">
           <button
             onClick={() => setBuilderView("LIST")}
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
               builderView === "LIST"
-                ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500"
-                : "text-neutral-400 hover:text-white hover:bg-white/5",
+                ? "bg-surface-soft text-emerald-400 border-b-2 border-emerald-500"
+                : "text-neutral-400 hover:text-ink hover:bg-surface-soft",
             )}
           >
             List View
@@ -252,8 +252,8 @@ export default function PortfolioBuilder({
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
               builderView === "ALLOCATION"
-                ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500"
-                : "text-neutral-400 hover:text-white hover:bg-white/5",
+                ? "bg-surface-soft text-emerald-400 border-b-2 border-emerald-500"
+                : "text-neutral-400 hover:text-ink hover:bg-surface-soft",
             )}
           >
             Allocation
@@ -263,8 +263,8 @@ export default function PortfolioBuilder({
             className={cn(
               "px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap",
               builderView === "RISK"
-                ? "bg-white/10 text-emerald-400 border-b-2 border-emerald-500"
-                : "text-neutral-400 hover:text-white hover:bg-white/5",
+                ? "bg-surface-soft text-emerald-400 border-b-2 border-emerald-500"
+                : "text-neutral-400 hover:text-ink hover:bg-surface-soft",
             )}
           >
             Risk Analysis
@@ -288,8 +288,8 @@ export default function PortfolioBuilder({
             {/* Header Stats */}
             {portfolio.length > 0 && (
               <div className="flex flex-col gap-2 mb-4 flex-shrink-0">
-                <div className="p-4 rounded-lg border border-white/10 bg-white/5 flex justify-between items-center">
-                  <span className="font-medium text-white">
+                <div className="p-4 rounded-lg border border-hairline bg-surface-card flex justify-between items-center">
+                  <span className="font-medium text-ink">
                     Total Portfolio Value
                   </span>
                   <span className="font-bold text-xl text-emerald-400">
@@ -322,9 +322,9 @@ export default function PortfolioBuilder({
             {/* View Switcher Logic */}
             <div className="flex-1 min-h-0 relative flex flex-col">
               {builderView === "LIST" && (
-                <div className="flex-1 border border-white/5 rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden min-h-[500px]">
+                <div className="flex-1 border border-hairline rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden min-h-[500px]">
                   {displayPortfolio.length === 0 ? (
-                    <div className="h-full border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
+                    <div className="h-full border-2 border-dashed border-hairline rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
                       Select ETFs from the Market Engine to build your
                       portfolio.
                     </div>
@@ -334,7 +334,7 @@ export default function PortfolioBuilder({
                       className="overflow-auto h-full w-full custom-scrollbar"
                     >
                       <table className="w-full text-left border-collapse">
-                        <thead className="sticky top-0 z-10 bg-[#0a0a0a] border-b border-white/10 shadow-sm">
+                        <thead className="sticky top-0 z-10 bg-canvas border-b border-hairline shadow-sm">
                           <tr>
                             <th className="p-4 text-xs font-medium text-neutral-400 uppercase tracking-wider w-[30%]">
                               Asset
@@ -470,8 +470,8 @@ export default function PortfolioBuilder({
                 }}
               />
             ) : (
-              <div className="glass-panel p-6 rounded-xl flex flex-col bg-white/5 border border-white/5 h-fit">
-                <h3 className="text-lg font-medium text-white mb-6 flex-shrink-0">
+              <div className="glass-panel p-6 rounded-xl flex flex-col bg-surface-card border border-hairline h-fit">
+                <h3 className="text-lg font-medium text-ink mb-6 flex-shrink-0">
                   Sector X-Ray
                 </h3>
                 <div className="w-full h-[300px] flex-shrink-0">
@@ -497,7 +497,7 @@ export default function PortfolioBuilder({
                           }}
                         />
                         <span className="truncate">{entry.name}</span>
-                        <span className="ml-auto text-white">
+                        <span className="ml-auto text-ink">
                           {entry.value.toFixed(1)}%
                         </span>
                       </div>

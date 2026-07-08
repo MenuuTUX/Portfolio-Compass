@@ -51,7 +51,6 @@ export default function TrendingSection({
   const [flashStates, setFlashStates] = useState<
     Record<string, "success" | "error" | null>
   >({});
-  const [syncingTicker, setSyncingTicker] = useState<string | null>(null);
 
   const triggerFlash = useCallback(
     (ticker: string, type: "success" | "error") => {
@@ -80,40 +79,10 @@ export default function TrendingSection({
     }
   };
 
-  const handleView = async (etf: ETF) => {
-    if (etf.isDeepAnalysisLoaded) {
-      onSelectItem(etf);
-      return;
-    }
-
-    setSyncingTicker(etf.ticker);
-    try {
-      const res = await fetch("/api/etfs/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: etf.ticker }),
-      });
-
-      if (!res.ok) {
-        // If sync fails, we still try to show what we have, or show error
-        // For now, let's just proceed with what we have if sync fails,
-        // or just log it. The Drawer might fetch its own fresh data too.
-        console.error("Sync failed:", res.statusText);
-      } else {
-        const rawUpdatedEtf = await res.json();
-        // We don't update the list here because it's managed by parent/React Query
-        // But we pass the potentially updated data to onSelectItem if we could merge it.
-        // However, onSelectItem expects an ETF object.
-        // If we want to show fresh data, we should ideally update the state in TrendingTab.
-        // But simply opening the drawer triggers fetching fresh data inside the drawer too.
-        // So the sync here ensures the backend is up to date.
-      }
-    } catch (e) {
-      console.error("Sync error", e);
-    } finally {
-      setSyncingTicker(null);
-      onSelectItem(etf);
-    }
+  // Open the drawer immediately — it streams its own chart and metrics from
+  // the fast market endpoints and hydrates deep data in the background.
+  const handleView = (etf: ETF) => {
+    onSelectItem(etf);
   };
 
   const isItemInPortfolio = (ticker: string) => {
@@ -162,7 +131,7 @@ export default function TrendingSection({
         return {
           bg: "bg-emerald-500/20",
           text: "text-emerald-400",
-          border: "hover:border-white/20",
+          border: "hover:border-hairline-strong",
           shadow: "hover:shadow-emerald-500/10",
           tagBg: "bg-emerald-500",
           tagText: "HOT",
@@ -200,7 +169,7 @@ export default function TrendingSection({
             <Icon className={cn("w-6 h-6", styles.text)} />
           </motion.div>
           <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">
+            <h2 className="text-3xl font-bold text-ink tracking-tight">
               {title}
             </h2>
             <div className="flex items-center gap-3 mt-1">
@@ -218,7 +187,7 @@ export default function TrendingSection({
         </div>
         {items.length > 8 && (
           <div className="hidden md:flex items-center gap-2 text-sm text-neutral-400">
-            <span className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
+            <span className="px-3 py-1 bg-surface-card rounded-full border border-hairline">
               {Math.min(visibleItems.length, items.length)}/{items.length}
             </span>
           </div>
@@ -230,12 +199,12 @@ export default function TrendingSection({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="bg-white/5 border border-white/10 border-dashed rounded-2xl p-8 text-center"
+          className="bg-surface-card border border-hairline border-dashed rounded-2xl p-8 text-center"
         >
           <div className={cn("w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4", styles.bg)}>
             <Icon className={cn("w-8 h-8", styles.text)} />
           </div>
-          <h3 className="text-white font-medium mb-2">Loading {title}...</h3>
+          <h3 className="text-ink font-medium mb-2">Loading {title}...</h3>
           <p className="text-neutral-400 text-sm max-w-md mx-auto">
             Fetching the latest data. This may take a moment if the market data is being synced.
           </p>
@@ -279,7 +248,7 @@ export default function TrendingSection({
               }
               transition={{ duration: 0.4 }}
               className={cn(
-                "group relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
+                "group relative bg-surface-card border border-hairline rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
                 styles.border,
                 styles.shadow,
                 inPortfolio &&
@@ -305,7 +274,7 @@ export default function TrendingSection({
 
               <div
                 className={cn(
-                  "absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
+                  "absolute top-3 right-3 text-ink text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
                   styles.tagBg,
                 )}
               >
@@ -346,7 +315,7 @@ export default function TrendingSection({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-white mb-1">
+                    <h3 className="text-xl font-bold text-ink mb-1">
                       {etf.ticker}
                     </h3>
                     <p className="text-xs text-neutral-400 line-clamp-1">
@@ -357,7 +326,7 @@ export default function TrendingSection({
 
                 <div className="flex justify-between items-end mb-4">
                   <div>
-                    <span className="block text-2xl font-bold text-white mb-1">
+                    <span className="block text-2xl font-bold text-ink mb-1">
                       {formatCurrency(etf.price)}
                     </span>
                     <span
@@ -387,7 +356,7 @@ export default function TrendingSection({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 border-t border-white/5 pt-4">
+                <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 border-t border-hairline pt-4">
                   <div>
                     <span className="block mb-1">Asset Type</span>
                     <span className="text-neutral-300 font-medium">
@@ -404,7 +373,7 @@ export default function TrendingSection({
 
                 {/* Reddit Communities */}
                 {communityLinks.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-hairline">
                     {communityLinks.slice(0, 2).map((community) => (
                       <a
                         key={`${etf.ticker}-${community.name}`}
@@ -423,7 +392,7 @@ export default function TrendingSection({
               </div>
 
               {/* Hover Overlay */}
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+              <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
                 {inPortfolio ? (
                   <button
                     onClick={() => handleRemove(etf.ticker)}
@@ -444,15 +413,10 @@ export default function TrendingSection({
 
                 <button
                   onClick={() => handleView(etf)}
-                  disabled={syncingTicker === etf.ticker}
-                  className="bg-white text-black hover:bg-neutral-200 p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-100 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-white text-black hover:bg-neutral-200 p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-100 shadow-lg"
                   title="View Details"
                 >
-                  {syncingTicker === etf.ticker ? (
-                    <div className="w-6 h-6 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  ) : (
-                    <ArrowUpRight className="w-6 h-6" />
-                  )}
+                  <ArrowUpRight className="w-6 h-6" />
                 </button>
               </div>
             </motion.div>
@@ -466,7 +430,7 @@ export default function TrendingSection({
             onClick={handleLoadMore}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="group flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-full text-white font-medium transition-all duration-300"
+            className="group flex items-center gap-2 px-6 py-3 bg-surface-card hover:bg-surface-soft border border-hairline hover:border-hairline-strong rounded-full text-ink font-medium transition-all duration-300"
           >
             <span>Load More</span>
             <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />

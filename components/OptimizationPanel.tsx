@@ -300,9 +300,9 @@ export default function OptimizationPanel({
   }));
 
   return (
-    <div className="flex flex-col h-full bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden relative">
+    <div className="flex flex-col h-full bg-surface-card backdrop-blur-md border border-hairline rounded-xl overflow-hidden relative">
       {/* Header */}
-      <div className="p-6 border-b border-white/10 bg-black/20">
+      <div className="p-6 border-b border-hairline bg-black/5">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2 text-emerald-400">
@@ -317,7 +317,7 @@ export default function OptimizationPanel({
               <div className="flex flex-col items-end">
                 <div
                   className={cn(
-                    "flex items-center gap-1.5 text-xs font-bold uppercase px-2 py-1 rounded-full bg-white/5 border border-white/10",
+                    "flex items-center gap-1.5 text-xs font-bold uppercase px-2 py-1 rounded-full bg-surface-card border border-hairline",
                     getRegimeColor(),
                   )}
                 >
@@ -329,7 +329,7 @@ export default function OptimizationPanel({
           </div>
 
           {/* Strategy Mode Selector */}
-          <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-white/10">
+          <div className="flex gap-2 bg-ink/30 p-1 rounded-lg border border-hairline">
             {(["Conservative", "Balanced", "Growth"] as StrategyMode[]).map(
               (mode) => (
                 <button
@@ -339,7 +339,7 @@ export default function OptimizationPanel({
                     "flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all",
                     strategyMode === mode
                       ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_-3px_rgba(16,185,129,0.3)]"
-                      : "text-neutral-500 hover:text-neutral-300 hover:bg-white/5",
+                      : "text-neutral-500 hover:text-neutral-300 hover:bg-surface-soft",
                   )}
                 >
                   {mode}
@@ -359,7 +359,7 @@ export default function OptimizationPanel({
             onChange={(e) =>
               setInvestmentAmount(Math.max(0, Number(e.target.value)))
             }
-            className="block w-full pl-12 pr-4 py-4 bg-black/40 border border-white/10 rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
+            className="block w-full pl-12 pr-4 py-4 bg-ink/30 border border-hairline rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
             placeholder="0.00"
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500 font-medium">
@@ -398,7 +398,7 @@ export default function OptimizationPanel({
                   {utilityScore.toFixed(1)}
                 </span>
               </div>
-              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-surface-card rounded-full overflow-hidden">
                 <motion.div
                   className="h-full bg-emerald-500"
                   initial={{ width: 0 }}
@@ -427,14 +427,14 @@ export default function OptimizationPanel({
                 <motion.div
                   key={item.ticker}
                   layout
-                  className="p-3 bg-white/5 border border-white/10 rounded-lg flex flex-col gap-3 group hover:bg-white/10 transition-colors"
+                  className="p-3 bg-surface-card border border-hairline rounded-lg flex flex-col gap-3 group hover:bg-surface-soft transition-colors"
                 >
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-white">{item.ticker}</span>
+                    <span className="font-bold text-ink">{item.ticker}</span>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => handleShareChange(item.ticker, -1)}
-                        className="p-1 rounded bg-white/10 hover:bg-white/20 text-white disabled:opacity-30"
+                        className="p-1 rounded bg-surface-soft hover:bg-surface-soft text-ink disabled:opacity-30"
                         disabled={sharesToAdd <= minSharesDelta}
                       >
                         <Minus className="w-3 h-3" />
@@ -453,7 +453,7 @@ export default function OptimizationPanel({
                       </span>
                       <button
                         onClick={() => handleShareChange(item.ticker, 1)}
-                        className="p-1 rounded bg-white/10 hover:bg-white/20 text-white"
+                        className="p-1 rounded bg-surface-soft hover:bg-surface-soft text-ink"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -464,11 +464,11 @@ export default function OptimizationPanel({
                   <div className="space-y-1">
                     <div className="flex justify-between text-[10px] text-neutral-500 uppercase tracking-wider">
                       <span>Weight</span>
-                      <span className="text-white">
+                      <span className="text-ink">
                         {newWeight.toFixed(2)}%
                       </span>
                     </div>
-                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                    <div className="h-1.5 w-full bg-ink/30 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-emerald-500"
                         initial={false}
@@ -488,7 +488,7 @@ export default function OptimizationPanel({
         </section>
       </div>
 
-      <div className="p-6 border-t border-white/10 bg-black/20 flex flex-col gap-4">
+      <div className="p-6 border-t border-hairline bg-black/5 flex flex-col gap-4">
         {/* Diff Chart Preview */}
         <OptimizationDiffChart
           current={portfolio}

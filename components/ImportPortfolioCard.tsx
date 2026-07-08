@@ -58,7 +58,7 @@ export default function ImportPortfolioCard({
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
-          "w-full h-full bg-stone-950/80 border border-white/10 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 group overflow-hidden text-center relative hover:border-emerald-500/50 transition-colors",
+          "w-full h-full bg-stone-950/80 border border-hairline rounded-2xl p-6 flex flex-col items-center justify-center gap-4 group overflow-hidden text-center relative hover:border-emerald-500/50 transition-colors",
           status === "error" && "border-rose-500/50",
         )}
       >
@@ -95,12 +95,12 @@ export default function ImportPortfolioCard({
           </div>
         ) : (
           <>
-            <div className="relative z-10 w-16 h-16 rounded-2xl bg-stone-900 border border-white/5 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-xl group-hover:shadow-emerald-500/20">
+            <div className="relative z-10 w-16 h-16 rounded-2xl bg-stone-900 border border-hairline flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-xl group-hover:shadow-emerald-500/20">
               <Upload className="w-8 h-8 text-stone-400 group-hover:text-emerald-400 transition-colors" />
             </div>
 
             <div className="relative z-10 space-y-1">
-              <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">
+              <h3 className="text-lg font-bold text-ink group-hover:text-emerald-400 transition-colors">
                 Import Portfolio
               </h3>
               <p className="text-xs text-stone-500 leading-relaxed max-w-[200px] mx-auto">

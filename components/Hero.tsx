@@ -10,6 +10,7 @@ import {
   AnimatePresence,
 } from "framer-motion";
 import InteractiveSlider from "./InteractiveSlider";
+import AsciiBackground from "./AsciiBackground";
 
 const textVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -103,13 +104,24 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-stone-950 text-stone-100 font-sans selection:bg-emerald-500/30"
+      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-canvas text-ink font-sans selection:bg-emerald-500/30"
       onMouseMove={handleMouseMove}
     >
-      {/* 1. Organic Background Layer - "The Overgrowth" */}
+      {/* 1. Animated ASCII field background, faded behind the content */}
+      <div
+        className="absolute inset-0 overflow-hidden pointer-events-none z-0"
+        style={{
+          maskImage:
+            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.15) 100%)",
+          WebkitMaskImage:
+            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.15) 100%)",
+        }}
+      >
+        <AsciiBackground className="absolute inset-0" opacity={0.34} />
+      </div>
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-stone-950 to-stone-950" />
-        <div className="absolute inset-0 bg-grid-pattern opacity-20 mask-image-gradient" />
+        {/* Soft warm wash so text panels stay readable over the glyphs */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(250,250,250,0.72)_0%,_rgba(250,250,250,0.28)_60%,_transparent_100%)]" />
 
         {/* Floating Spores/Particles */}
         {spores.map((spore, i) => (
@@ -210,23 +222,23 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <motion.button
                 onClick={onStart}
-                whileHover={{ scale: 1.05, backgroundColor: "#059669" }} // emerald-600
+                whileHover={{ scale: 1.05, backgroundColor: "#1f1d1c" }} // ink, darkened
                 whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 rounded-lg bg-emerald-600 text-white font-medium shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+                className="group px-8 py-4 rounded-xl bg-ink text-white font-semibold shadow-lg shadow-ink/15 flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
               >
                 <span className="relative z-10">Start Analysis</span>
                 <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-ink/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
               </motion.button>
 
               <motion.button
                 onClick={onViewMarket}
                 whileHover={{
                   scale: 1.05,
-                  borderColor: "rgba(255,255,255,0.2)",
+                  borderColor: "rgba(50,48,47,0.35)",
                 }}
                 whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 rounded-lg bg-stone-900/50 border border-stone-700 text-stone-300 hover:text-white font-medium transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto"
+                className="px-8 py-4 rounded-xl bg-white/80 border border-hairline-strong text-ink font-semibold transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto hover:bg-white"
               >
                 <Activity className="w-4 h-4" />
                 View the Market
@@ -246,7 +258,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               ].map((item, i) => (
                 <div key={i} className="space-y-1">
                   <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
-                  <div className="text-xl sm:text-2xl font-display font-bold text-white">
+                  <div className="text-xl sm:text-2xl font-display font-bold text-ink">
                     {item.val}
                   </div>
                   <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">
@@ -277,14 +289,14 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.5 }}
-            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-black/50 overflow-hidden mx-auto pointer-events-auto"
+            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-ink/10 overflow-hidden mx-auto pointer-events-auto"
           >
             <div
               className="space-y-6 relative z-10"
               style={{ transform: "translateZ(30px)" }}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-display font-bold text-emerald-100">
+                <h3 className="text-lg sm:text-xl font-display font-bold text-ink">
                   Shib&apos;s Portfolio Growth
                 </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -389,7 +401,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
 
             {/* Glass Shine Effect */}
             <div
-              className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none"
+              className="absolute inset-0 bg-gradient-to-tr from-ink/5 to-transparent pointer-events-none"
               style={{ transform: "translateZ(50px)" }}
             />
           </motion.div>

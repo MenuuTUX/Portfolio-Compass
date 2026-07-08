@@ -99,7 +99,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-black overflow-hidden relative">
+    <main className="min-h-screen bg-canvas overflow-hidden relative">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="blob blob-1" />
         <div className="blob blob-2" />
