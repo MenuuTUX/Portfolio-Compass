@@ -157,9 +157,35 @@ export const REDDIT_COMMUNITIES: Record<string, RedditCommunity[]> = {
   'PHO': [createCommunity('water'), COMMUNITIES.investing],
 };
 
-// Helper function to get Reddit communities for a ticker
-export function getRedditCommunities(ticker: string): RedditCommunity[] {
-  return REDDIT_COMMUNITIES[ticker.toUpperCase()] || [];
+// Helper function to get Reddit communities for a ticker.
+//
+// Reddit locked down unauthenticated API/JSON access in 2023 (every
+// subreddit-search and about.json request now 403s, even with browser-like
+// headers), so live discovery of ticker subreddits isn't possible without
+// registering an OAuth app. As a best-effort fallback for tickers we haven't
+// hand-curated, we generate the well-known "r/{TICKER}_Stock" convention
+// (e.g. r/GOOG_Stock) that a bot network maintains for most actively-traded
+// stocks. It's unverified — the link may 404 for thinly-traded tickers —
+// but it's a reasonable guess and Reddit renders a friendly "community
+// doesn't exist" page rather than a broken link.
+export function getRedditCommunities(
+  ticker: string,
+  assetType?: string,
+): RedditCommunity[] {
+  const upperTicker = ticker.toUpperCase();
+  const curated = REDDIT_COMMUNITIES[upperTicker];
+  if (curated) return curated;
+
+  // Only guess for individual stocks — the "_Stock" convention doesn't
+  // apply to ETFs/funds, and we can't tell for callers that omit assetType
+  if (assetType !== "STOCK") return [];
+
+  // Strip exchange suffixes (e.g. "SHOP.TO" -> "SHOP") to match the
+  // convention's plain-ticker naming
+  const cleanTicker = upperTicker.split(".")[0];
+  if (!cleanTicker) return [];
+
+  return [createCommunity(`${cleanTicker}_Stock`)];
 }
 
 /**

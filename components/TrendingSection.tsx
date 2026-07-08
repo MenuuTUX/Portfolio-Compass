@@ -33,7 +33,10 @@ interface TrendingSectionProps {
   portfolio?: PortfolioItem[];
   onRemoveFromPortfolio?: (ticker: string) => void;
   onSelectItem: (etf: ETF) => void;
-  communityLookup?: (ticker: string) => { name: string; url: string }[];
+  communityLookup?: (
+    ticker: string,
+    assetType?: string,
+  ) => { name: string; url: string }[];
 }
 
 export default function TrendingSection({
@@ -113,6 +116,10 @@ export default function TrendingSection({
         };
       case "orange":
         return {
+          bg: "bg-[#FF5700]/20",
+          text: "text-[#FF5700]",
+          border: "hover:border-[#FF5700]/30",
+          shadow: "hover:shadow-[#FF5700]/20",
           tagBg: "bg-[#FF5700]",
           tagText: "REDDIT",
           tagIcon: Sprout,
@@ -161,7 +168,7 @@ export default function TrendingSection({
       className="mb-12"
     >
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
             className={cn("p-3 rounded-xl", styles.bg)}
@@ -169,11 +176,14 @@ export default function TrendingSection({
             <Icon className={cn("w-6 h-6", styles.text)} />
           </motion.div>
           <div>
-            <h2 className="text-3xl font-bold text-ink tracking-tight">
+            <h2 className="text-3xl font-bold text-ink tracking-tight leading-tight">
               {title}
             </h2>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-neutral-400 text-sm font-medium">
+            <div
+              className={cn("h-[3px] w-10 rounded-full mt-1.5 mb-1.5", styles.tagBg)}
+            />
+            <div className="flex items-center gap-3">
+              <span className="text-muted text-sm font-medium">
                 {visibleItems.length} of {items.length} assets
               </span>
               {ownedCount > 0 && (
@@ -186,7 +196,7 @@ export default function TrendingSection({
           </div>
         </div>
         {items.length > 8 && (
-          <div className="hidden md:flex items-center gap-2 text-sm text-neutral-400">
+          <div className="hidden md:flex items-center gap-2 text-sm text-muted">
             <span className="px-3 py-1 bg-surface-card rounded-full border border-hairline">
               {Math.min(visibleItems.length, items.length)}/{items.length}
             </span>
@@ -226,7 +236,7 @@ export default function TrendingSection({
           const inPortfolio = isItemInPortfolio(etf.ticker);
           const flashState = flashStates[etf.ticker];
           const communityLinks = communityLookup
-            ? communityLookup(etf.ticker)
+            ? communityLookup(etf.ticker, etf.assetType)
             : [];
 
           // Determine graph color based on history trend if available
@@ -255,6 +265,9 @@ export default function TrendingSection({
                   "shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)] border-emerald-500/30",
               )}
             >
+              {/* Accent strip */}
+              <div className={cn("h-1 w-full", styles.tagBg)} />
+
               {/* Flash Overlay */}
               <AnimatePresence>
                 {flashState && (
@@ -274,7 +287,7 @@ export default function TrendingSection({
 
               <div
                 className={cn(
-                  "absolute top-3 right-3 text-ink text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
+                  "absolute top-4 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
                   styles.tagBg,
                 )}
               >
@@ -346,7 +359,7 @@ export default function TrendingSection({
                     </span>
                   </div>
                   {etf.history && etf.history.length > 0 && (
-                    <div className="pb-1">
+                    <div className="pb-1 pr-1 rounded-lg bg-surface-soft/60">
                       <Sparkline
                         data={etf.history}
                         color={isGraphPositive ? "#10b981" : "#f43f5e"}
@@ -356,19 +369,13 @@ export default function TrendingSection({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 border-t border-hairline pt-4">
-                  <div>
-                    <span className="block mb-1">Asset Type</span>
-                    <span className="text-neutral-300 font-medium">
-                      {etf.assetType || "ETF"}
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="block mb-1">Yield</span>
-                    <span className="text-emerald-400 font-medium">
-                      {etf.metrics?.yield?.toFixed(2)}%
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2 border-t border-hairline pt-4">
+                  <span className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium text-muted bg-surface-soft rounded-lg py-1.5">
+                    {etf.assetType || "ETF"}
+                  </span>
+                  <span className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 rounded-lg py-1.5">
+                    {etf.metrics?.yield?.toFixed(2)}% yield
+                  </span>
                 </div>
 
                 {/* Reddit Communities */}

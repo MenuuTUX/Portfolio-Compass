@@ -426,3 +426,80 @@ export async function searchFastSymbols(
 
   return Array.from(new Set(filtered.map((r) => r.symbol))).slice(0, limit);
 }
+
+// ---------------------------------------------------------------------------
+// ETF/fund technicals: expense ratio, sector weights, holdings, description.
+// One quoteSummary call per ticker (not batchable like quote()/spark()), but
+// still a single fast request — no scraping, no DB. Called on-demand when a
+// drawer opens, not blocking the initial chart/price paint.
+// ---------------------------------------------------------------------------
+
+const ETF_DETAILS_TTL_MS = 10 * 60_000;
+
+export interface FastEtfDetails {
+  ticker: string;
+  description?: string;
+  expenseRatio?: number; // percent, e.g. 0.09 for 0.09%
+  beta?: number;
+  holdingsCount?: number;
+  sectors: Record<string, number>; // fraction 0-1, keyed by raw sector slug
+  holdings: { ticker: string; name: string; weight: number }[]; // weight as %
+}
+
+export async function getFastEtfDetails(
+  ticker: string,
+): Promise<FastEtfDetails | null> {
+  const key = `etfdetail:${ticker.trim().toUpperCase()}`;
+
+  try {
+    return await cached(key, ETF_DETAILS_TTL_MS, async () => {
+      const data = await yf.quoteSummary(ticker, {
+        modules: [
+          "summaryProfile",
+          "fundProfile",
+          "topHoldings",
+          "defaultKeyStatistics",
+        ],
+      });
+
+      const sectors: Record<string, number> = {};
+      data.topHoldings?.sectorWeightings?.forEach((w: any) => {
+        const [sectorKey] = Object.keys(w);
+        if (sectorKey && typeof w[sectorKey] === "number") {
+          sectors[sectorKey] = w[sectorKey];
+        }
+      });
+
+      const holdings = (data.topHoldings?.holdings || [])
+        .filter((h: any) => h.symbol)
+        .map((h: any) => ({
+          ticker: h.symbol as string,
+          name: (h.holdingName as string) || h.symbol,
+          weight: (h.holdingPercent || 0) * 100,
+        }));
+
+      let expenseRatio =
+        data.fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
+      if (typeof expenseRatio === "number" && expenseRatio > 0 && expenseRatio < 1) {
+        expenseRatio *= 100;
+      }
+
+      return {
+        ticker: ticker.toUpperCase(),
+        description:
+          data.summaryProfile?.longBusinessSummary || undefined,
+        expenseRatio:
+          typeof expenseRatio === "number" && expenseRatio > 0
+            ? expenseRatio
+            : undefined,
+        beta: data.defaultKeyStatistics?.beta,
+        holdingsCount: holdings.length || undefined,
+        sectors,
+        holdings,
+      } satisfies FastEtfDetails;
+    });
+  } catch (e) {
+    console.warn(`[FastMarket] ETF details fetch failed for ${ticker}:`, e);
+    return null;
+  }
+}

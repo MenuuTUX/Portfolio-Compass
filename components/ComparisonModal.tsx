@@ -643,10 +643,12 @@ export default function ComparisonModal({
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#FFFFFF",
-                          border: "1px solid #E5E3E0",
+                          backgroundColor: "var(--surface-card)",
+                          border: "1px solid var(--hairline)",
                           borderRadius: "8px",
+                          color: "var(--ink)",
                         }}
+                        itemStyle={{ color: "var(--ink)" }}
                         formatter={(val: any, name: any) => [
                           `${Number(val).toFixed(2)}%`,
                           name === "valueA"

@@ -638,9 +638,11 @@ export default function MonteCarloSimulator({
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#FFFFFF",
-                    borderColor: "#333",
+                    backgroundColor: "var(--surface-card)",
+                    borderColor: "var(--hairline)",
+                    color: "var(--ink)",
                   }}
+                  itemStyle={{ color: "var(--ink)" }}
                   formatter={(val: any) => formatCurrency(Number(val))}
                   labelFormatter={(d) => `Year ${(d / 252).toFixed(1)}`}
                 />

@@ -303,6 +303,32 @@ export default function ETFDetailsDrawer({
       })
       .catch(() => {});
 
+    // Fast, DB-free fund technicals (expense ratio, sectors, holdings) —
+    // one Yahoo request, usually resolves in under a second
+    fetch(`/api/market/etf-details?ticker=${etf.ticker}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((fund) => {
+        if (cancelled || !fund) return;
+        setFreshEtf((prev) => {
+          const base = prev || etf;
+          return mergeAssetData(base, {
+            sectors: fund.sectors,
+            holdings: fund.holdings.map((h: any) => ({
+              ticker: h.ticker,
+              name: h.name,
+              weight: h.weight,
+            })),
+            holdingsCount: fund.holdingsCount,
+            beta: fund.beta,
+            metrics: {
+              yield: base.metrics?.yield ?? 0,
+              mer: fund.expenseRatio ?? base.metrics?.mer ?? 0,
+            },
+          });
+        });
+      })
+      .catch(() => {});
+
     // Whatever the DB already knows (sectors, holdings from a past sync)
     fetch(`/api/etfs/search?query=${etf.ticker}&includeHoldings=true`)
       .then((res) => (res.ok ? res.json() : []))
@@ -928,11 +954,12 @@ export default function ETFDetailsDrawer({
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#FFFFFF",
-                            border: "1px solid #E5E3E0",
+                            backgroundColor: "var(--surface-card)",
+                            border: "1px solid var(--hairline)",
                             borderRadius: "8px",
+                            color: "var(--ink)",
                           }}
-                          itemStyle={{ color: "#32302F" }}
+                          itemStyle={{ color: "var(--ink)" }}
                           formatter={(value: any, name: any, item: any) => {
                             // Ensure value is treated as a number safely
                             const numValue = Number(value);
@@ -1042,7 +1069,7 @@ export default function ETFDetailsDrawer({
                   {/* Reddit Communities Section */}
                   {(() => {
                     // Get communities from config/tickers.ts
-                    const configCommunities = getRedditCommunities(displayEtf.ticker);
+                    const configCommunities = getRedditCommunities(displayEtf.ticker, displayEtf.assetType);
                     // Get communities from ETF data (if any)
                     const etfCommunities = displayEtf.redditCommunities || [];
                     
