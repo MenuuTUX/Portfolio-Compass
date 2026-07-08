@@ -420,7 +420,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
             </div>
 
             <div className="space-y-4">
-              <h2 className="text-3xl md:text-4xl font-display font-bold text-white">
+              <h2 className="text-3xl md:text-4xl font-display font-bold text-ink">
                 We&apos;ve Built Your Portfolio
               </h2>
               <p className="text-lg text-stone-400 max-w-md mx-auto">

@@ -67,14 +67,14 @@ describe('ETFDetailsDrawer sparse-data handling', () => {
     it('shows a friendly empty state instead of a broken chart when history is missing', async () => {
         render(<ETFDetailsDrawer etf={sparseAsset} onClose={() => {}} />);
 
-        // The drawer retries the sync with backoff (~6s) before giving up
+        // The chart fetch fails fast (no retry loop), leaving the empty state
         await waitFor(
             () => {
                 expect(screen.getByText('No price history available')).toBeInTheDocument();
             },
             { timeout: 10000 },
         );
-        expect(screen.getByText('Retry sync')).toBeInTheDocument();
+        expect(screen.getByText('Retry')).toBeInTheDocument();
     }, 15000);
 
     it('shows a single notice instead of a wall of n/a when all metrics are missing', async () => {

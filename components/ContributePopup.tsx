@@ -19,7 +19,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
     >
@@ -28,7 +28,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
         transition={{ type: "spring", damping: 20, stiffness: 300 }}
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-[#0a0a0a] border border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-canvas border border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
       >
         {/* Decorative background elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
@@ -38,7 +38,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full text-neutral-500 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 p-2 rounded-full text-neutral-500 hover:text-ink hover:bg-surface-soft transition-colors cursor-pointer"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -52,7 +52,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
             </div>
           </div>
 
-          <h3 className="text-2xl font-bold text-white mb-2 font-space">
+          <h3 className="text-2xl font-bold text-ink mb-2 font-space">
             Enjoying Portfolio Compass?
           </h3>
           <p className="text-neutral-400 mb-8 max-w-xs mx-auto">
@@ -74,7 +74,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
 
             <button
               onClick={onClose}
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-300 font-medium transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-surface-card hover:bg-surface-soft border border-hairline text-neutral-300 font-medium transition-colors cursor-pointer"
             >
               <span>Maybe Later</span>
             </button>

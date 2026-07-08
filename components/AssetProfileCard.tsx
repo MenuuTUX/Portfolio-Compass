@@ -130,7 +130,7 @@ export default function AssetProfileCard({
             <Skeleton className="h-4 w-3/4" />
           </div>
           {assetType === "STOCK" && (
-            <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
+            <div className="mt-4 p-4 border border-hairline rounded-xl bg-surface-card">
               <Skeleton className="h-20 w-full" />
             </div>
           )}
@@ -146,7 +146,7 @@ export default function AssetProfileCard({
 
   return (
     <div className={cn("w-full h-full flex flex-col gap-4", className)}>
-      <div className="flex items-center gap-2 text-white mb-1">
+      <div className="flex items-center gap-2 text-ink mb-1">
         <BookOpen className="w-5 h-5 text-emerald-400" />
         <h3 className="text-lg font-bold">About {ticker}</h3>
       </div>
@@ -162,7 +162,7 @@ export default function AssetProfileCard({
         {sector && sector !== "Unknown" && (
           <Badge
             variant="outline"
-            className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal"
+            className="border-hairline text-neutral-300 gap-1.5 px-2 py-0.5 font-normal"
           >
             <Layers className="w-3 h-3 text-neutral-400" />
             {sector}
@@ -171,7 +171,7 @@ export default function AssetProfileCard({
         {industry && industry !== "Unknown" && (
           <Badge
             variant="outline"
-            className="border-white/10 text-neutral-300 gap-1.5 px-2 py-0.5 font-normal"
+            className="border-hairline text-neutral-300 gap-1.5 px-2 py-0.5 font-normal"
           >
             <Factory className="w-3 h-3 text-neutral-400" />
             {industry}
@@ -191,8 +191,8 @@ export default function AssetProfileCard({
 
       {/* Analyst Analysis Section - Only for Stocks */}
       {assetType === "STOCK" && info?.analyst && (
-        <div className="space-y-4 pt-4 mt-2 border-t border-white/5">
-          <div className="flex items-center gap-2 text-white">
+        <div className="space-y-4 pt-4 mt-2 border-t border-hairline">
+          <div className="flex items-center gap-2 text-ink">
             <TrendingUp className="w-4 h-4 text-emerald-400" />
             <h3 className="font-bold text-sm tracking-wide">Analyst Summary</h3>
           </div>
@@ -205,7 +205,7 @@ export default function AssetProfileCard({
 
           <div className="grid grid-cols-2 gap-3 mt-4">
             {/* Consensus Card */}
-            <div className="bg-gradient-to-br from-white/5 to-white/0 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+            <div className="bg-gradient-to-br from-ink/5 to-white/0 rounded-xl p-3 border border-hairline flex flex-col items-center justify-center text-center shadow-sm">
               <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold">
                 Consensus
               </span>
@@ -225,12 +225,12 @@ export default function AssetProfileCard({
             </div>
 
             {/* Price Target Card */}
-            <div className="bg-gradient-to-br from-white/5 to-white/0 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center text-center shadow-sm">
+            <div className="bg-gradient-to-br from-ink/5 to-white/0 rounded-xl p-3 border border-hairline flex flex-col items-center justify-center text-center shadow-sm">
               <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold flex items-center gap-1">
                 <Target className="w-3 h-3" />
                 Target
               </span>
-              <div className="text-lg font-bold text-white tracking-tight">
+              <div className="text-lg font-bold text-ink tracking-tight">
                 {info.analyst.targetPrice
                   ? `$${info.analyst.targetPrice.toFixed(2)}`
                   : "N/A"}

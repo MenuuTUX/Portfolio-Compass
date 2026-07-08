@@ -88,7 +88,7 @@ export default function CorrelationHeatmap({
         </div>
         <button
           onClick={() => setShowInfo(!showInfo)}
-          className="p-1.5 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-ink transition-colors"
           aria-label="What does this mean?"
         >
           <Info className="w-4 h-4" />
@@ -101,7 +101,7 @@ export default function CorrelationHeatmap({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-white/10 rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
+            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-hairline rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
           >
             <div className="flex justify-between items-start">
               <h4 className="text-sm font-bold text-emerald-400">
@@ -109,7 +109,7 @@ export default function CorrelationHeatmap({
               </h4>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-neutral-500 hover:text-white"
+                className="text-neutral-500 hover:text-ink"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -161,18 +161,18 @@ export default function CorrelationHeatmap({
           }}
         >
           {/* Header Row (Corner) */}
-          <div className="sticky top-0 left-0 z-20 bg-[#0a0a0a]"></div>
+          <div className="sticky top-0 left-0 z-20 bg-canvas"></div>
 
           {/* Header Row (Columns) */}
           {assets.map((ticker, j) => (
             <div
               key={`col-${j}`}
-              className="sticky top-0 z-10 bg-[#0a0a0a] flex items-end justify-center pb-2"
+              className="sticky top-0 z-10 bg-canvas flex items-end justify-center pb-2"
             >
               <span
                 className={`
                          text-[10px] font-bold rotate-[-45deg] origin-bottom-left translate-x-3 -translate-y-1 whitespace-nowrap transition-colors
-                         ${hoveredCell && hoveredCell.col === j ? "text-white scale-110" : "text-neutral-400"}
+                         ${hoveredCell && hoveredCell.col === j ? "text-ink scale-110" : "text-neutral-400"}
                        `}
               >
                 {ticker}
@@ -184,11 +184,11 @@ export default function CorrelationHeatmap({
           {matrix.map((row, i) => (
             <React.Fragment key={`row-${i}`}>
               {/* Row Label */}
-              <div className="sticky left-0 z-10 bg-[#0a0a0a] flex items-center justify-end pr-2">
+              <div className="sticky left-0 z-10 bg-canvas flex items-center justify-end pr-2">
                 <span
                   className={`
                         text-[10px] font-bold transition-colors
-                        ${hoveredCell && hoveredCell.row === i ? "text-white scale-110" : "text-neutral-400"}
+                        ${hoveredCell && hoveredCell.row === i ? "text-ink scale-110" : "text-neutral-400"}
                       `}
                 >
                   {assets[i]}
@@ -226,7 +226,7 @@ export default function CorrelationHeatmap({
       </div>
 
       {/* Legend or Interaction Detail Box */}
-      <div className="h-16 mt-3 border-t border-white/5 pt-2 flex items-center relative">
+      <div className="h-16 mt-3 border-t border-hairline pt-2 flex items-center relative">
         <AnimatePresence mode="wait">
           {hoveredCell ? (
             <motion.div
@@ -255,7 +255,7 @@ export default function CorrelationHeatmap({
                   {matrix[hoveredCell.row][hoveredCell.col].toFixed(2)}
                 </span>
               </div>
-              <div className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded bg-white/5 border border-white/10 text-neutral-300">
+              <div className="text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded bg-surface-card border border-hairline text-neutral-300">
                 {matrix[hoveredCell.row][hoveredCell.col] > 0.7
                   ? "High Correlation"
                   : matrix[hoveredCell.row][hoveredCell.col] < 0.3

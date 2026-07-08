@@ -104,10 +104,10 @@ const ETFCard = memo(
         }
         transition={{ duration: 0.4 }}
         className={cn(
-          "glass-card rounded-xl relative overflow-hidden bg-white/5 border transition-all group flex flex-col",
+          "glass-card rounded-xl relative overflow-hidden bg-surface-card border transition-all group flex flex-col",
           inPortfolio
             ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]"
-            : "border-white/5 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
+            : "border-hairline hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
         )}
       >
         {/* Flash Overlay */}
@@ -153,7 +153,7 @@ const ETFCard = memo(
                 </div>
               )}
               <div>
-                <h3 className="text-2xl font-bold text-white tracking-tight">
+                <h3 className="text-2xl font-bold text-ink tracking-tight">
                   {etf.ticker}
                 </h3>
                 <p
@@ -192,7 +192,7 @@ const ETFCard = memo(
 
           <div className="flex justify-between items-end mb-6">
             <div>
-              <div className="text-3xl font-light text-white">
+              <div className="text-3xl font-light text-ink">
                 {formatCurrency(etf.price)}
               </div>
               <div className="text-xs text-neutral-400 mt-1">Closing Price</div>
@@ -206,7 +206,7 @@ const ETFCard = memo(
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline">
             <div>
               <div className="text-xs text-neutral-400 mb-1">Yield</div>
               <div className="text-sm font-medium text-emerald-400">
@@ -223,7 +223,7 @@ const ETFCard = memo(
         </div>
 
         {/* Mobile Actions (Visible by default) */}
-        <div className="flex md:hidden border-t border-white/10 divide-x divide-white/10">
+        <div className="flex md:hidden border-t border-hairline divide-x divide-hairline">
           {inPortfolio ? (
             <button
               onClick={() => onRemove(etf.ticker)}
@@ -242,7 +242,7 @@ const ETFCard = memo(
           <button
             onClick={() => onView(etf)}
             disabled={syncingTicker === etf.ticker}
-            className="flex-1 py-3 bg-white/5 text-white font-medium flex items-center justify-center gap-2 active:bg-white/10 disabled:opacity-50"
+            className="flex-1 py-3 bg-surface-card text-ink font-medium flex items-center justify-center gap-2 active:bg-surface-soft disabled:opacity-50"
           >
             {syncingTicker === etf.ticker ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -254,7 +254,7 @@ const ETFCard = memo(
         </div>
 
         {/* Desktop Overlay (Hover only) */}
-        <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-black/60 backdrop-blur-sm">
+        <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-ink/40 backdrop-blur-sm">
           {inPortfolio ? (
             <button
               onClick={() => onRemove(etf.ticker)}
@@ -275,7 +275,7 @@ const ETFCard = memo(
           <button
             onClick={() => onView(etf)}
             disabled={syncingTicker === etf.ticker}
-            className="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-white/10 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-surface-soft hover:bg-surface-soft text-ink font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-hairline transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {syncingTicker === etf.ticker ? (
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -589,63 +589,59 @@ export default function ComparisonEngine({
   };
 
   const handleAdvancedView = useCallback(
-    async (etf: ETF) => {
+    (etf: ETF) => {
       addToRecent(etf.ticker);
-      if (etf.isDeepAnalysisLoaded) {
-        setSelectedETF(etf);
-        return;
-      }
+      // Open immediately — the drawer streams its chart and metrics from the
+      // fast market endpoints and hydrates deep data in the background
+      setSelectedETF(etf);
 
-      setSyncingTicker(etf.ticker);
-      try {
-        const res = await fetch("/api/etfs/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ticker: etf.ticker }),
-        });
+      if (etf.isDeepAnalysisLoaded) return;
 
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
+      // Refresh this row in the background; never blocks the drawer
+      fetch("/api/etfs/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: etf.ticker }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
 
-          if (res.status === 404 && errorData.deleted) {
-            setEtfs((prev) => prev.filter((e) => e.ticker !== etf.ticker));
-            setMessageDrawer({
-              isOpen: true,
-              title: "Ticker Not Found",
-              message: `Ticker ${etf.ticker} was not found and has been removed from your list.`,
-              type: "error",
-            });
+            if (res.status === 404 && errorData.deleted) {
+              setEtfs((prev) => prev.filter((e) => e.ticker !== etf.ticker));
+              setMessageDrawer({
+                isOpen: true,
+                title: "Ticker Not Found",
+                message: `Ticker ${etf.ticker} was not found and has been removed from your list.`,
+                type: "error",
+              });
+              return;
+            }
+
+            console.error("Sync failed response:", JSON.stringify(errorData));
             return;
           }
 
-          console.error("Sync failed response:", JSON.stringify(errorData));
-          throw new Error(`Sync failed: ${res.status} ${res.statusText}`);
-        }
-
-        const rawUpdatedEtf = await res.json();
-        let updatedEtf: ETF;
-        try {
-          updatedEtf = ETFSchema.parse(rawUpdatedEtf);
-        } catch (e) {
-          if (e instanceof z.ZodError) {
-            console.warn("API response validation failed:", e.issues);
-          } else {
-            console.warn("API response validation failed:", e);
+          const rawUpdatedEtf = await res.json();
+          let updatedEtf: ETF;
+          try {
+            updatedEtf = ETFSchema.parse(rawUpdatedEtf);
+          } catch (e) {
+            if (e instanceof z.ZodError) {
+              console.warn("API response validation failed:", e.issues);
+            } else {
+              console.warn("API response validation failed:", e);
+            }
+            updatedEtf = rawUpdatedEtf as ETF;
           }
-          updatedEtf = rawUpdatedEtf as ETF;
-        }
 
-        // Update local state
-        setEtfs((prev) =>
-          prev.map((e) => (e.ticker === updatedEtf.ticker ? updatedEtf : e)),
-        );
-        setSelectedETF(updatedEtf);
-      } catch (err: any) {
-        console.error("Failed to sync ETF details", err);
-        // If network error or other sync error, we could show a message too
-      } finally {
-        setSyncingTicker(null);
-      }
+          setEtfs((prev) =>
+            prev.map((e) => (e.ticker === updatedEtf.ticker ? updatedEtf : e)),
+          );
+        })
+        .catch((err) => {
+          console.error("Failed to sync ETF details", err);
+        });
     },
     [addToRecent],
   ); // addToRecent is stable (useCallback)
@@ -697,7 +693,7 @@ export default function ComparisonEngine({
       return (
         <div className="col-span-full text-center text-neutral-400 py-12 flex flex-col items-center">
           <Search className="h-12 w-12 text-emerald-400 mb-4" />
-          <p className="text-lg text-white mb-2">
+          <p className="text-lg text-ink mb-2">
             Found matches in {otherSection}
           </p>
           <p className="text-neutral-400">
@@ -757,7 +753,7 @@ export default function ComparisonEngine({
       >
         <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-12 gap-6">
           <div className="w-full md:w-auto">
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            <h2 className="text-2xl md:text-3xl font-bold text-ink mb-2">
               Market Engine
             </h2>
             <p className="text-sm md:text-base text-neutral-400">
@@ -780,7 +776,7 @@ export default function ComparisonEngine({
                 type="text"
                 aria-label="Search tickers"
                 placeholder="Search ticker or name..."
-                className="block w-full pl-12 pr-3 py-4 border border-white/10 rounded-xl bg-white/5 text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
+                className="block w-full pl-12 pr-3 py-4 border border-hairline rounded-xl bg-surface-card text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
                 value={search}
                 onChange={(e) => {
                   const value = e.target.value
@@ -804,19 +800,19 @@ export default function ComparisonEngine({
                   animate={{ opacity: 1, y: 0, height: "auto" }}
                   exit={{ opacity: 0, y: -10, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute z-50 w-full mt-2 bg-[#0a0a0a] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl"
+                  className="absolute z-50 w-full mt-2 bg-canvas border border-hairline rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl"
                 >
                   {suggestions.slice(0, 5).map((item) => (
                     <motion.li
                       key={item.ticker}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="cursor-pointer hover:bg-white/5 transition-colors"
+                      className="cursor-pointer hover:bg-surface-soft transition-colors"
                       onClick={() => handleSuggestionClick(item)}
                     >
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex flex-col">
-                          <span className="font-bold text-white text-sm">
+                          <span className="font-bold text-ink text-sm">
                             {item.ticker}
                           </span>
                           <span className="text-xs text-neutral-400 truncate max-w-[200px]">
@@ -847,7 +843,7 @@ export default function ComparisonEngine({
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-64 rounded-xl bg-white/5 animate-pulse"
+                className="h-64 rounded-xl bg-surface-card animate-pulse"
               />
             ))}
           </div>
@@ -872,7 +868,7 @@ export default function ComparisonEngine({
               <div className="col-span-full flex justify-center mt-8">
                 <button
                   onClick={handleLoadMore}
-                  className="flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-full transition-all border border-white/10 hover:border-emerald-500/50"
+                  className="flex items-center gap-2 px-6 py-3 bg-surface-card hover:bg-surface-soft text-ink rounded-full transition-all border border-hairline hover:border-emerald-500/50"
                 >
                   <ChevronDown className="w-4 h-4" />
                   Load More{" "}

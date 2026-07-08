@@ -34,7 +34,7 @@ export function PortfolioShareButton({
       // 1. Generate PNG
       const dataUrl = await toPng(element, {
         cacheBust: true,
-        backgroundColor: "#0a0a0a", // stone-950
+        backgroundColor: "#FAFAFA", // canvas
         pixelRatio: 2, // High res
       });
 

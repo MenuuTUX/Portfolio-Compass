@@ -75,7 +75,7 @@ export default function InstitutionalPortfolios({
   return (
     <div className="h-full flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <h3 className="text-white/90 font-bold text-lg">
+        <h3 className="text-ink/90 font-bold text-lg">
           Institutional Portfolios
         </h3>
       </div>
@@ -96,8 +96,8 @@ export default function InstitutionalPortfolios({
               {/* App Icon Shape */}
               <div
                 className={cn(
-                  "w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center border border-white/10 transition-all duration-300 group-hover:border-white/20",
-                  "bg-white/5 backdrop-blur-sm",
+                  "w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center border border-hairline transition-all duration-300 group-hover:border-hairline-strong",
+                  "bg-surface-card backdrop-blur-sm",
                 )}
               >
                 <div className="relative w-3/4 h-3/4 flex items-center justify-center">
@@ -147,7 +147,7 @@ export default function InstitutionalPortfolios({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedInstitution(null)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50"
             />
 
             {/* Modal Container */}
@@ -157,9 +157,9 @@ export default function InstitutionalPortfolios({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="bg-[#0a0a0a] border border-white/10 text-white rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto glass-panel">
+              <div className="bg-canvas border border-hairline text-ink rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto glass-panel">
                 {/* Modal Header */}
-                <div className="p-6 pb-2 flex items-start justify-between bg-white/5 border-b border-white/5 z-10 backdrop-blur-md">
+                <div className="p-6 pb-2 flex items-start justify-between bg-surface-card border-b border-hairline z-10 backdrop-blur-md">
                   <div className="flex-1 pr-4">
                     <div className="h-8 w-32 relative mb-2 flex items-center">
                       {failedImages.has(selectedInstitution.id) ||
@@ -195,15 +195,15 @@ export default function InstitutionalPortfolios({
                   </div>
                   <button
                     onClick={() => setSelectedInstitution(null)}
-                    className="p-2 hover:bg-white/10 text-neutral-400 hover:text-white rounded-full transition-colors shrink-0"
+                    className="p-2 hover:bg-surface-soft text-neutral-400 hover:text-ink rounded-full transition-colors shrink-0"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="px-6 py-2 bg-black/20 z-10 border-b border-white/5">
-                  <div className="flex p-1 bg-white/5 rounded-lg border border-white/5">
+                <div className="px-6 py-2 bg-black/5 z-10 border-b border-hairline">
+                  <div className="flex p-1 bg-surface-card rounded-lg border border-hairline">
                     {(["Growth", "Balanced", "Conservative"] as const).map(
                       (type) => (
                         <button
@@ -212,7 +212,7 @@ export default function InstitutionalPortfolios({
                           className={cn(
                             "flex-1 py-2 text-sm font-medium rounded-md transition-all",
                             selectedType === type
-                              ? "bg-white/10 text-white shadow-sm border border-white/10"
+                              ? "bg-surface-soft text-ink shadow-sm border border-hairline"
                               : "text-neutral-400 hover:text-neutral-200",
                           )}
                         >
@@ -238,12 +238,12 @@ export default function InstitutionalPortfolios({
                         <div
                           className={cn(
                             "flex items-start gap-3 mb-6 p-4 rounded-xl border",
-                            "bg-white/5 border-white/10",
+                            "bg-surface-card border-hairline",
                           )}
                         >
                           <div
                             className={cn(
-                              "p-2 rounded-full shrink-0 bg-black/40 shadow-sm border border-white/10",
+                              "p-2 rounded-full shrink-0 bg-ink/30 shadow-sm border border-hairline",
                               selectedInstitution.themeColor,
                             )}
                           >
@@ -261,7 +261,7 @@ export default function InstitutionalPortfolios({
 
                         {/* Holdings List */}
                         <table className="w-full text-sm text-left">
-                          <thead className="text-xs text-neutral-500 uppercase sticky top-0 bg-[#0a0a0a] backdrop-blur-md">
+                          <thead className="text-xs text-neutral-500 uppercase sticky top-0 bg-canvas backdrop-blur-md">
                             <tr>
                               <th className="pb-2 font-medium pl-2">Asset</th>
                               <th className="pb-2 font-medium text-right pr-2">
@@ -269,14 +269,14 @@ export default function InstitutionalPortfolios({
                               </th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white/5">
+                          <tbody className="divide-y divide-hairline">
                             {activePortfolio.holdings.map((h) => (
                               <tr
                                 key={h.ticker}
-                                className="group/row hover:bg-white/5 transition-colors"
+                                className="group/row hover:bg-surface-soft transition-colors"
                               >
                                 <td className="py-3 pl-2">
-                                  <div className="font-bold text-white">
+                                  <div className="font-bold text-ink">
                                     {h.ticker}
                                   </div>
                                   <div className="text-xs text-neutral-500 truncate max-w-[200px] group-hover/row:text-neutral-400 transition-colors">
@@ -296,7 +296,7 @@ export default function InstitutionalPortfolios({
                 </div>
 
                 {/* Footer Action */}
-                <div className="p-6 border-t border-white/10 bg-white/5 z-10 backdrop-blur-md">
+                <div className="p-6 border-t border-hairline bg-surface-card z-10 backdrop-blur-md">
                   <button
                     onClick={handleAdd}
                     disabled={isLoading || added}

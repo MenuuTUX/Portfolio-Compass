@@ -91,21 +91,21 @@ export default function SettingsDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+            className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-[60]"
           />
           <motion.div
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 h-full w-full sm:w-96 bg-neutral-900 border-l border-white/10 z-[70] p-6 shadow-2xl"
+            className="fixed right-0 top-0 h-full w-full sm:w-96 bg-neutral-900 border-l border-hairline z-[70] p-6 shadow-2xl"
           >
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-white">Settings</h2>
+              <h2 className="text-2xl font-bold text-ink">Settings</h2>
               <button
                 onClick={onClose}
                 aria-label="Close settings"
-                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                className="p-2 hover:bg-surface-soft rounded-full transition-colors"
               >
                 <X className="w-6 h-6 text-neutral-400" />
               </button>
@@ -119,10 +119,10 @@ export default function SettingsDrawer({
                   Data Management
                 </h3>
 
-                <div className="p-4 rounded-lg bg-neutral-800/50 border border-white/5 space-y-4">
+                <div className="p-4 rounded-lg bg-neutral-800/50 border border-hairline space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-white font-medium">
+                      <h4 className="text-ink font-medium">
                         Refresh All Data
                       </h4>
                       <p className="text-sm text-neutral-400">
@@ -159,7 +159,7 @@ export default function SettingsDrawer({
 
                 <div className="p-4 rounded-lg bg-red-900/10 border border-red-500/20 space-y-4">
                   <div>
-                    <h4 className="text-white font-medium">Clear Portfolio</h4>
+                    <h4 className="text-ink font-medium">Clear Portfolio</h4>
                     <p className="text-sm text-neutral-400">
                       Permanently remove all items from your portfolio
                     </p>

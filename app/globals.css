@@ -1,17 +1,87 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Wealthsimple-inspired design tokens
+   Warm-white canvas + Dune ink, Growth Green / Warm Gold / Trust Teal accents.
+   The stone & neutral scales are intentionally remapped so legacy dark-theme
+   utility classes resolve to their light-theme equivalents.
+--------------------------------------------------------------------------- */
+
 @theme {
-  --color-emerald-400: #34d399;
+  /* Surfaces */
+  --color-canvas: #fafafa;
+  --color-surface-card: #ffffff;
+  --color-surface-soft: #f1efec;
+  --color-hairline: #e5e3e0;
+  --color-hairline-strong: #d8d5d1;
+
+  /* Ink & text */
+  --color-ink: #32302f;
+  --color-body-strong: #3f3d3b;
+  --color-body: #5a5856;
+  --color-muted: #7a7875;
+  --color-muted-soft: #9a9895;
+
+  /* Accents */
+  --color-gold: #e8b94a;
+  --color-gold-deep: #b08a28;
+  --color-coral: #e05a4e;
+  --color-teal-accent: #0d9488;
+
+  /* Growth Green (kept from brand, darkened text shade for contrast) */
+  --color-emerald-400: #059669;
   --color-emerald-500: #10b981;
   --color-emerald-600: #059669;
   --color-emerald-900: #064e3b;
 
-  --color-stone-800: #292524;
-  --color-stone-900: #1c1917;
-  --color-stone-950: #0c0a09;
+  /* Legacy dark-theme scales remapped to light equivalents */
+  --color-stone-950: #fafafa;
+  --color-stone-900: #f8f7f5;
+  --color-stone-800: #eceae7;
+  --color-stone-700: #d8d5d1;
+  --color-stone-600: #9a9895;
+  --color-stone-500: #7a7875;
+  --color-stone-400: #5a5856;
+  --color-stone-300: #3f3d3b;
+  --color-stone-200: #383634;
+  --color-stone-100: #32302f;
+
+  --color-neutral-200: #32302f;
+  --color-neutral-300: #3f3d3b;
+  --color-neutral-400: #5a5856;
+  --color-neutral-500: #7a7875;
+  --color-neutral-600: #9a9895;
+  --color-neutral-700: #d8d5d1;
+  --color-neutral-800: #eceae7;
+  --color-neutral-900: #f8f7f5;
+
+  /* Cold blue remapped to Trust Teal (design: never corporate blue) */
+  --color-blue-300: #14b8a6;
+  --color-blue-400: #0d9488;
+  --color-blue-500: #0d9488;
+  --color-blue-600: #0f766e;
+  --color-blue-900: #134e4a;
+
+  /* Purple (ELITE moments) remapped to Warm Gold */
+  --color-purple-300: #b08a28;
+  --color-purple-400: #b08a28;
+  --color-purple-500: #e8b94a;
+  --color-purple-600: #d9a63a;
+  --color-purple-900: #78591a;
+
+  /* Negative states lean warm coral instead of neon rose */
+  --color-rose-400: #c74437;
+  --color-rose-500: #e05a4e;
+  --color-rose-600: #c74437;
+  --color-rose-900: #7c2d24;
+  --color-red-400: #c74437;
+  --color-red-500: #e05a4e;
+  --color-red-900: #7c2d24;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui;
-  --font-display: var(--font-space), ui-sans-serif, system-ui;
+  --font-display: var(--font-caslon), Georgia, "Times New Roman", serif;
+  /* Legacy alias: components referencing font-space fall back to the sans stack */
+  --font-space: var(--font-inter), ui-sans-serif, system-ui;
 
   --animate-float: float 6s ease-in-out infinite;
   --animate-breathe: breathe 4s ease-in-out infinite;
@@ -29,53 +99,53 @@
 }
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 12, 10, 9; /* Stone 950 */
-  --background-end-rgb: 0, 0, 0;
+  --foreground-rgb: 50, 48, 47;
+  --background-start-rgb: 250, 250, 250;
+  --background-end-rgb: 248, 247, 245;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: var(--color-stone-950);
+  color: var(--color-ink);
+  background: var(--color-canvas);
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-stone-900/40 border border-emerald-500/10 backdrop-blur-md shadow-lg shadow-black/20;
+    @apply bg-white/80 border border-hairline backdrop-blur-md shadow-lg shadow-ink/5;
   }
 
   .glass-card {
-    @apply bg-stone-900/60 border border-white/5 backdrop-blur-md;
+    @apply bg-white/70 border border-hairline backdrop-blur-md;
   }
 
   .text-balance {
     text-wrap: balance;
   }
 
-  /* Biopunk Textures */
+  /* Subtle warm grid texture */
   .bg-grid-pattern {
-    background-image: linear-gradient(to right, rgba(16, 185, 129, 0.05) 1px, transparent 1px),
-                      linear-gradient(to bottom, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
+    background-image: linear-gradient(to right, rgba(50, 48, 47, 0.04) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(50, 48, 47, 0.04) 1px, transparent 1px);
     background-size: 20px 20px;
   }
 
   .organic-glow {
-    box-shadow: 0 0 20px -5px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.25);
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar (light) */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0c0a09;
+  background: #f1efec;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #292524;
+  background: #d8d5d1;
   border-radius: 4px;
 }
 
@@ -99,7 +169,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.03),
+    rgba(50, 48, 47, 0.03),
     transparent
   );
   transition: left 0.6s ease;

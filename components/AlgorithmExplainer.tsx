@@ -126,15 +126,15 @@ export default function AlgorithmExplainer() {
       {/* Ambient Background */}
       <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
-      <div className="relative glass-panel border border-white/10 bg-black/40 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+      <div className="relative glass-panel border border-hairline bg-ink/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
-        <div className="p-8 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
                 <BrainCircuit className="w-6 h-6 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">
+              <h2 className="text-2xl font-bold text-ink tracking-tight">
                 Optimization Algorithm
               </h2>
             </div>
@@ -144,7 +144,7 @@ export default function AlgorithmExplainer() {
               risk-adjusted returns.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+          <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 bg-surface-card px-3 py-1.5 rounded-full border border-hairline">
             <Calculator className="w-3 h-3" />
             <span>v2.1.0</span>
           </div>
@@ -152,7 +152,7 @@ export default function AlgorithmExplainer() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 min-h-[600px]">
           {/* LEFT: Interactive Visualizer (7 Columns) */}
-          <div className="lg:col-span-7 bg-black/20 relative overflow-hidden flex flex-col border-r border-white/10">
+          <div className="lg:col-span-7 bg-black/5 relative overflow-hidden flex flex-col border-r border-hairline">
             {/* Background Grid */}
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none" />
 
@@ -172,13 +172,13 @@ export default function AlgorithmExplainer() {
                     {/* The Equation */}
                     <div className="relative group">
                       <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative bg-black/80 border border-white/10 px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
+                      <div className="relative bg-ink/50 border border-hairline px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
                             hoveredTerm === "U"
                               ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
-                              : "text-white",
+                              : "text-ink",
                           )}
                           onMouseEnter={() => setHoveredTerm("U")}
                           onMouseLeave={() => setHoveredTerm(null)}
@@ -240,10 +240,10 @@ export default function AlgorithmExplainer() {
                             initial={{ opacity: 0, y: 10, x: "-50%" }}
                             animate={{ opacity: 1, y: 0, x: "-50%" }}
                             exit={{ opacity: 0, y: 5, x: "-50%" }}
-                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-white/20 rounded-xl shadow-2xl whitespace-nowrap z-20 backdrop-blur-xl"
+                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-hairline-strong rounded-xl shadow-2xl whitespace-nowrap z-20 backdrop-blur-xl"
                           >
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-sm font-bold text-white tracking-wide uppercase">
+                              <span className="text-sm font-bold text-ink tracking-wide uppercase">
                                 {hoveredTerm === "U" && "Total Utility (Score)"}
                                 {hoveredTerm === "mu" &&
                                   "Expected Portfolio Return"}
@@ -264,14 +264,14 @@ export default function AlgorithmExplainer() {
                               </span>
                             </div>
                             {/* Triangle arrow */}
-                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-neutral-900/95 border-t border-l border-white/20 rotate-45" />
+                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-neutral-900/95 border-t border-l border-hairline-strong rotate-45" />
                           </motion.div>
                         )}
                       </AnimatePresence>
                     </div>
 
                     {/* Interactive Slider Demo */}
-                    <div className="w-full max-w-sm bg-white/5 border border-white/10 rounded-xl p-6 flex flex-col gap-6 backdrop-blur-sm">
+                    <div className="w-full max-w-sm bg-surface-card border border-hairline rounded-xl p-6 flex flex-col gap-6 backdrop-blur-sm">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-neutral-300 font-medium">
                           Risk Aversion (λ)
@@ -291,7 +291,7 @@ export default function AlgorithmExplainer() {
                       />
 
                       {/* Mini Graph Visual */}
-                      <div className="flex gap-2 h-32 items-end pt-4 border-b border-white/10 pb-0">
+                      <div className="flex gap-2 h-32 items-end pt-4 border-b border-hairline pb-0">
                         {/* Hypothetical Assets */}
                         {[
                           {
@@ -327,7 +327,7 @@ export default function AlgorithmExplainer() {
                               }}
                               transition={{ type: "spring", stiffness: 100 }}
                             >
-                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/10 z-10">
+                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-ink/50 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
                                 Score:{" "}
                                 {Math.max(
                                   0,
@@ -360,7 +360,7 @@ export default function AlgorithmExplainer() {
                     className="w-full max-w-lg flex flex-col items-center gap-8"
                   >
                     {/* The Formula */}
-                    <div className="bg-black/60 border border-white/10 px-6 py-4 rounded-xl flex items-center gap-3 text-lg font-serif text-neutral-300">
+                    <div className="bg-ink/40 border border-hairline px-6 py-4 rounded-xl flex items-center gap-3 text-lg font-serif text-neutral-300">
                       <span>Maximize</span>
                       <span className="text-emerald-400 font-bold">ΔU</span>
                       <span>=</span>
@@ -372,10 +372,10 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Simulation Stage */}
-                    <div className="w-full bg-white/5 rounded-2xl p-6 border border-white/10 min-h-[280px] flex flex-col justify-between">
+                    <div className="w-full bg-surface-card rounded-2xl p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
                       <div className="flex justify-between items-end gap-2 h-40 mb-6 relative">
                         {/* Baseline */}
-                        <div className="absolute inset-x-0 bottom-[40%] border-t border-dashed border-white/20 flex items-end justify-end px-2">
+                        <div className="absolute inset-x-0 bottom-[40%] border-t border-dashed border-hairline-strong flex items-end justify-end px-2">
                           <span className="text-[10px] text-neutral-500 mb-1">
                             Current U
                           </span>
@@ -395,7 +395,7 @@ export default function AlgorithmExplainer() {
                               {/* Bar Container */}
                               <div className="w-full max-w-[40px] flex flex-col justify-end h-full relative">
                                 {/* Base Utility (Existing) */}
-                                <div className="w-full bg-white/10 h-[40%] rounded-b-sm border-t border-white/5" />
+                                <div className="w-full bg-surface-soft h-[40%] rounded-b-sm border-t border-hairline" />
 
                                 {/* Marginal Utility (The Gain) */}
                                 <motion.div
@@ -404,7 +404,7 @@ export default function AlgorithmExplainer() {
                                     simulationState === "SELECTED" && isWinner
                                       ? "bg-emerald-500"
                                       : simulationState === "SELECTED"
-                                        ? "bg-white/5 opacity-20"
+                                        ? "bg-surface-card opacity-20"
                                         : "bg-blue-500",
                                   )}
                                   initial={{ height: 0, opacity: 0 }}
@@ -449,7 +449,7 @@ export default function AlgorithmExplainer() {
                                   "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all duration-500",
                                   simulationState === "SELECTED" && isWinner
                                     ? "bg-emerald-500 text-black border-emerald-400 scale-110 shadow-[0_0_15px_rgba(16,185,129,0.4)]"
-                                    : "bg-white/5 border-white/10 text-neutral-500",
+                                    : "bg-surface-card border-hairline text-neutral-500",
                                 )}
                               >
                                 {ticker}
@@ -510,7 +510,7 @@ export default function AlgorithmExplainer() {
                               </div>
                               <button
                                 onClick={resetSimulation}
-                                className="text-xs text-neutral-500 hover:text-white underline underline-offset-4"
+                                className="text-xs text-neutral-500 hover:text-ink underline underline-offset-4"
                               >
                                 Reset Simulation
                               </button>
@@ -533,11 +533,11 @@ export default function AlgorithmExplainer() {
                   >
                     {/* Constraints Formula Block */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl flex flex-col items-center justify-center gap-2">
+                      <div className="bg-surface-card border border-hairline p-4 rounded-xl flex flex-col items-center justify-center gap-2">
                         <div className="text-xs text-neutral-400 uppercase tracking-widest font-bold">
                           Integer Shares
                         </div>
-                        <div className="font-serif text-xl text-white">
+                        <div className="font-serif text-xl text-ink">
                           n<sub className="text-sm">i</sub> ∈ ℤ
                           <sup className="text-sm">≥0</sup>
                         </div>
@@ -546,11 +546,11 @@ export default function AlgorithmExplainer() {
                         </div>
                       </div>
 
-                      <div className="bg-white/5 border border-white/10 p-4 rounded-xl flex flex-col items-center justify-center gap-2">
+                      <div className="bg-surface-card border border-hairline p-4 rounded-xl flex flex-col items-center justify-center gap-2">
                         <div className="text-xs text-neutral-400 uppercase tracking-widest font-bold">
                           Budget Constraint
                         </div>
-                        <div className="font-serif text-xl text-white flex items-center gap-2">
+                        <div className="font-serif text-xl text-ink flex items-center gap-2">
                           <span>Σ</span>
                           <span className="text-base">
                             (n<sub className="text-xs">i</sub> × p
@@ -566,7 +566,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Visual Metaphor */}
-                    <div className="relative w-full max-w-sm aspect-video bg-black/40 border border-white/10 rounded-xl overflow-hidden p-6 flex items-center justify-center">
+                    <div className="relative w-full max-w-sm aspect-video bg-ink/30 border border-hairline rounded-xl overflow-hidden p-6 flex items-center justify-center">
                       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
 
                       <div className="flex items-end gap-1 h-32 w-full justify-center">
@@ -593,7 +593,7 @@ export default function AlgorithmExplainer() {
                         </div>
 
                         {/* Divider */}
-                        <div className="w-px h-24 bg-white/10 mx-4" />
+                        <div className="w-px h-24 bg-surface-soft mx-4" />
 
                         {/* Incorrect Stack */}
                         <div className="flex flex-col items-center gap-2 opacity-50 grayscale">
@@ -601,7 +601,7 @@ export default function AlgorithmExplainer() {
                             {[1, 2, 3].map((i) => (
                               <div
                                 key={i}
-                                className="w-12 h-8 bg-white/10 border border-white/20 rounded flex items-center justify-center"
+                                className="w-12 h-8 bg-surface-soft border border-hairline-strong rounded flex items-center justify-center"
                               />
                             ))}
                             {/* Fractional Part */}
@@ -629,7 +629,7 @@ export default function AlgorithmExplainer() {
                   key={i}
                   className={cn(
                     "w-2 h-2 rounded-full transition-colors",
-                    i === activeStep ? "bg-emerald-500" : "bg-white/20",
+                    i === activeStep ? "bg-emerald-500" : "bg-surface-soft",
                   )}
                 />
               ))}
@@ -637,7 +637,7 @@ export default function AlgorithmExplainer() {
           </div>
 
           {/* RIGHT: Navigation & Details (5 Columns) */}
-          <div className="lg:col-span-5 bg-white/[0.02] border-l border-white/10 flex flex-col h-full overflow-y-auto custom-scrollbar">
+          <div className="lg:col-span-5 bg-white/[0.02] border-l border-hairline flex flex-col h-full overflow-y-auto custom-scrollbar">
             <div className="flex flex-col gap-0">
               {steps.map((step, index) => {
                 const Icon = step.icon;
@@ -651,9 +651,9 @@ export default function AlgorithmExplainer() {
                       setSimulationState("IDLE"); // Reset simulation state
                     }}
                     className={cn(
-                      "group text-left p-6 md:p-8 transition-all duration-300 border-b border-white/5 relative",
+                      "group text-left p-6 md:p-8 transition-all duration-300 border-b border-hairline relative",
                       isActive
-                        ? "bg-white/5"
+                        ? "bg-surface-card"
                         : "hover:bg-white/[0.02] opacity-60 hover:opacity-100",
                     )}
                   >
@@ -675,7 +675,7 @@ export default function AlgorithmExplainer() {
                           "mt-1 p-2.5 rounded-xl h-fit transition-colors border",
                           isActive
                             ? `bg-${step.color}-500/10 text-${step.color}-400 border-${step.color}-500/30`
-                            : "bg-white/5 text-neutral-500 border-white/5 group-hover:border-white/10",
+                            : "bg-surface-card text-neutral-500 border-hairline group-hover:border-hairline-strong",
                         )}
                       >
                         <Icon className="w-5 h-5" />
@@ -686,7 +686,7 @@ export default function AlgorithmExplainer() {
                           <h3
                             className={cn(
                               "font-semibold text-lg",
-                              isActive ? "text-white" : "text-neutral-300",
+                              isActive ? "text-ink" : "text-neutral-300",
                             )}
                           >
                             {step.title}
@@ -714,7 +714,7 @@ export default function AlgorithmExplainer() {
                                 {step.details.map((detail, i) => (
                                   <div
                                     key={i}
-                                    className="flex items-start gap-3 p-3 rounded-lg bg-black/20 border border-white/5"
+                                    className="flex items-start gap-3 p-3 rounded-lg bg-black/5 border border-hairline"
                                   >
                                     <detail.icon className="w-4 h-4 text-neutral-500 mt-0.5" />
                                     <div>

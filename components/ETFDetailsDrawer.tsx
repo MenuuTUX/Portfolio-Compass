@@ -34,7 +34,7 @@ import SectorPieChart, { COLORS } from "./SectorPieChart";
 import AssetProfileCard from "./AssetProfileCard";
 import EtfVerdictCard from "./EtfVerdictCard";
 import ComparisonModal from "./ComparisonModal";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { getRedditCommunities } from "@/config/tickers";
 
 interface ETFDetailsDrawerProps {
@@ -102,14 +102,14 @@ function MetricCard({
   highlight?: boolean;
 }) {
   return (
-    <div className="bg-white/5 rounded-xl p-3 border border-white/5 hover:bg-white/10 transition-colors group">
+    <div className="bg-surface-card rounded-xl p-3 border border-hairline hover:bg-surface-soft transition-colors group">
       <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider mb-1 truncate group-hover:text-neutral-300 transition-colors">
         {label}
       </div>
       <div
         className={cn(
           "text-sm font-bold truncate font-mono",
-          highlight ? "text-emerald-400" : "text-white",
+          highlight ? "text-emerald-400" : "text-ink",
         )}
       >
         {value}
@@ -159,6 +159,55 @@ function MetricSection({
   );
 }
 
+// Tickers that already ran a background deep-sync this session; avoids
+// re-hitting the slow scrape pipeline every time a drawer re-opens
+const deepSyncedThisSession = new Set<string>();
+
+type FastPoint = { date: string; price: number };
+
+// Merge fresh data into an asset without letting empty placeholder fields
+// (empty arrays/objects, zeroed metrics) clobber real values we already have
+function mergeAssetData(base: ETF, incoming: Partial<ETF>): ETF {
+  const merged: any = { ...base };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    if (
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.keys(value).length === 0
+    )
+      continue;
+    merged[key] = value;
+  }
+  if (
+    incoming.metrics &&
+    !incoming.metrics.yield &&
+    !incoming.metrics.mer &&
+    (base.metrics?.yield || base.metrics?.mer)
+  ) {
+    merged.metrics = base.metrics;
+  }
+  if (
+    incoming.allocation &&
+    !incoming.allocation.equities &&
+    !incoming.allocation.bonds &&
+    !incoming.allocation.cash &&
+    base.allocation
+  ) {
+    merged.allocation = base.allocation;
+  }
+  // Keep the longer history so the comparison modal has data to work with
+  if (
+    incoming.history &&
+    base.history &&
+    base.history.length > incoming.history.length
+  ) {
+    merged.history = base.history;
+  }
+  return merged as ETF;
+}
+
 export default function ETFDetailsDrawer({
   etf,
   onClose,
@@ -167,280 +216,142 @@ export default function ETFDetailsDrawer({
   const [timeRange, setTimeRange] = useState("1M");
   const [showComparison, setShowComparison] = useState(false);
   const [showFullComparison, setShowFullComparison] = useState(false);
-  const [spyData, setSpyData] = useState<ETF | null>(null);
   const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [showAllHoldings, setShowAllHoldings] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSpyLoading, setIsSpyLoading] = useState(false);
-  const [refreshNonce, setRefreshNonce] = useState(0);
-  const lastFetchTime = useRef<number>(0);
+  const [chartSeries, setChartSeries] = useState<{
+    main: FastPoint[];
+    spy: FastPoint[];
+  }>({ main: [], spy: [] });
+  const [chartNonce, setChartNonce] = useState(0);
+  const [loadedChartKey, setLoadedChartKey] = useState("");
+  const [prevEtf, setPrevEtf] = useState<ETF | null>(etf);
 
   // Use fresh data if available, otherwise fall back to prop
   const displayEtf = freshEtf || etf;
 
-  // Reset freshEtf when etf prop changes
-  useEffect(() => {
+  // Reset state when the etf prop changes (adjust-during-render pattern,
+  // avoids a cascading setState-in-effect)
+  if (etf !== prevEtf) {
+    setPrevEtf(etf);
     setFreshEtf(null);
     setShowLegend(false);
     setShowAllHoldings(false);
-    setIsLoading(true);
-  }, [etf]);
+    setChartSeries({ main: [], spy: [] });
+  }
 
-  // Fetch fresh data for the current ETF to ensure it's up to date
+  // Loading state is derived: the chart is loading until the fetch for the
+  // current (ticker, range, comparison) key has settled
+  const chartKey = etf
+    ? `${etf.ticker.toUpperCase()}|${timeRange}|${showComparison}|${chartNonce}`
+    : "";
+  const isChartLoading = !!etf && loadedChartKey !== chartKey;
+
+  // Chart data comes straight from the fast, DB-free market endpoint —
+  // one round trip per (ticker, range), served from cache on repeats.
+  useEffect(() => {
+    if (!etf) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    const tickerKey = etf.ticker.toUpperCase();
+    const tickers = showComparison ? `${tickerKey},SPY` : tickerKey;
+    const key = `${tickerKey}|${timeRange}|${showComparison}|${chartNonce}`;
+
+    fetch(
+      `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=${timeRange}`,
+      { signal: controller.signal },
+    )
+      .then((res) =>
+        res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
+      )
+      .then((data) => {
+        if (cancelled) return;
+        setChartSeries({
+          main: data.series?.[tickerKey] || [],
+          spy: data.series?.SPY || [],
+        });
+      })
+      .catch((err) => {
+        if (!cancelled && err?.name !== "AbortError") {
+          console.error("Chart fetch failed:", err);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedChartKey(key);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [etf, timeRange, showComparison, chartNonce]);
+
+  // Metrics: instant quote snapshot first, deep data (sectors, holdings,
+  // fundamentals) hydrates quietly in the background without blocking the UI
   useEffect(() => {
     if (!etf) return;
     let cancelled = false;
 
-    const fetchFreshData = async () => {
-      // The backend sync can fail transiently (upstream rate limits), which
-      // used to leave seeded-but-shallow rows stuck on an empty chart.
-      // Retry with backoff until the row comes back hydrated.
-      const maxAttempts = 3;
-      for (let attempt = 1; attempt <= maxAttempts && !cancelled; attempt++) {
-        try {
-          // This call triggers a blocking backend sync when data is missing
-          // or stale; request full history for the detailed chart
-          const res = await fetch(
-            `/api/etfs/search?query=${etf.ticker}&full=true`,
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data) && data.length > 0) {
-              // Find the exact match
-              const match = data.find((item) => item.ticker === etf.ticker);
-              if (match && !cancelled) {
-                setFreshEtf(match);
-                if (match.history && match.history.length > 0) break;
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Failed to fetch fresh ETF data:", err);
-        }
-        if (attempt < maxAttempts && !cancelled) {
-          await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
-        }
-      }
-      if (!cancelled) setIsLoading(false);
-    };
+    fetch(`/api/market/snapshot?tickers=${etf.ticker}&history=false`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data) || data.length === 0) return;
+        const snap = data.find(
+          (item) => item.ticker === etf.ticker.toUpperCase(),
+        );
+        if (snap) setFreshEtf((prev) => mergeAssetData(prev || etf, snap));
+      })
+      .catch(() => {});
 
-    fetchFreshData();
+    // Whatever the DB already knows (sectors, holdings from a past sync)
+    fetch(`/api/etfs/search?query=${etf.ticker}&includeHoldings=true`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data)) return;
+        const match = data.find((item) => item.ticker === etf.ticker);
+        if (match) setFreshEtf((prev) => mergeAssetData(prev || etf, match));
+      })
+      .catch(() => {});
+
+    // Fire-and-forget deep sync to enrich the DB; merge whenever it lands
+    if (!deepSyncedThisSession.has(etf.ticker)) {
+      deepSyncedThisSession.add(etf.ticker);
+      fetch("/api/etfs/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker: etf.ticker }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((deep) => {
+          if (cancelled || !deep?.ticker) return;
+          setFreshEtf((prev) => mergeAssetData(prev || etf, deep));
+        })
+        .catch(() => {
+          deepSyncedThisSession.delete(etf.ticker);
+        });
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [etf, refreshNonce]);
+  }, [etf]);
 
-  // Fetch SPY data when toggle is enabled
-  useEffect(() => {
-    if (!showComparison || !displayEtf) return;
-
-    const checkAndFetchSpy = async () => {
-      // Prevent rapid re-fetching
-      const nowTime = Date.now();
-      if (nowTime - lastFetchTime.current < 60000 && spyData) {
-        return;
-      }
-
-      // Check if we already have valid data
-      if (spyData && spyData.history && spyData.history.length > 0) {
-        const lastSpyDate = new Date(
-          spyData.history[spyData.history.length - 1].date,
-        );
-        const now = new Date();
-        const isStale = now.getTime() - lastSpyDate.getTime() > 60 * 60 * 1000; // > 1 hour
-
-        // Also check if SPY is behind the current ETF
-        let isBehind = false;
-        if (displayEtf.history && displayEtf.history.length > 0) {
-          const lastEtfDate = new Date(
-            displayEtf.history[displayEtf.history.length - 1].date,
-          );
-          // If ETF is more than 30 mins ahead of SPY
-          if (lastEtfDate.getTime() - lastSpyDate.getTime() > 30 * 60 * 1000) {
-            isBehind = true;
-          }
-        }
-
-        if (!isStale && !isBehind) {
-          return; // Data is good
-        }
-        console.log(
-          `SPY data stale (${isStale}) or behind (${isBehind}). Forcing sync...`,
-        );
-      }
-
-      setIsSpyLoading(true);
-      lastFetchTime.current = Date.now();
-
-      try {
-        // 1. Try search first if we don't have data
-        let foundSpy = null;
-        if (!spyData) {
-          const searchRes = await fetch("/api/etfs/search?query=SPY", {
-            cache: "no-store",
-          });
-          const searchData = await searchRes.json();
-
-          if (Array.isArray(searchData) && searchData.length > 0) {
-            const spy = searchData[0];
-            if (spy.history && spy.history.length > 0) {
-              const lastDate = new Date(
-                spy.history[spy.history.length - 1].date,
-              );
-              const now = new Date();
-              const isStale =
-                now.getTime() - lastDate.getTime() > 60 * 60 * 1000;
-
-              let isBehind = false;
-              if (displayEtf.history && displayEtf.history.length > 0) {
-                const lastEtfDate = new Date(
-                  displayEtf.history[displayEtf.history.length - 1].date,
-                );
-                if (
-                  lastEtfDate.getTime() - lastDate.getTime() >
-                  30 * 60 * 1000
-                ) {
-                  isBehind = true;
-                }
-              }
-
-              if (!isStale && !isBehind) {
-                foundSpy = spy;
-              }
-            }
-          }
-        }
-
-        if (foundSpy) {
-          setSpyData(foundSpy);
-        } else {
-          // 2. Fallback to sync
-          console.log("Fetching full SPY data via sync...");
-          const syncRes = await fetch("/api/etfs/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ticker: "SPY" }),
-          });
-
-          if (syncRes.ok) {
-            const syncData = await syncRes.json();
-            setSpyData(syncData);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch SPY data:", err);
-      } finally {
-        setIsSpyLoading(false);
-      }
-    };
-
-    checkAndFetchSpy();
-  }, [showComparison, spyData, displayEtf]);
-
-  const filteredEtfHistory = useMemo(() => {
-    if (!displayEtf || !displayEtf.history) return [];
-
-    let targetInterval = "1wk"; // Default fallback
-    const now = new Date();
-    const cutoffDate = new Date();
-
-    // Map time range to required interval and cutoff date
-    switch (timeRange) {
-      case "1D":
-        targetInterval = "1h";
-        cutoffDate.setDate(now.getDate() - 2);
-        break;
-      case "1W":
-        targetInterval = "1d";
-        cutoffDate.setDate(now.getDate() - 7);
-        break;
-      case "1M":
-        targetInterval = "1wk";
-        cutoffDate.setMonth(now.getMonth() - 1);
-        break;
-      case "1Y":
-        targetInterval = "1wk";
-        cutoffDate.setFullYear(now.getFullYear() - 1);
-        break;
-      case "5Y":
-        targetInterval = "1mo";
-        cutoffDate.setFullYear(now.getFullYear() - 5);
-        break;
-      default:
-        targetInterval = "1wk";
-        cutoffDate.setMonth(now.getMonth() - 1);
-    }
-
-    const filterAndSort = (history: any[]) => {
-      return history
-        .filter((h) => {
-          const itemInterval = h.interval || "1d";
-          if (itemInterval !== targetInterval) return false;
-          return new Date(h.date) >= cutoffDate;
-        })
-        .sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-        );
-    };
-
-    return filterAndSort(displayEtf.history);
-  }, [displayEtf, timeRange]);
+  const filteredEtfHistory = chartSeries.main;
 
   const historyData = useMemo(() => {
     if (filteredEtfHistory.length === 0) return [];
 
-    if (showComparison && spyData && spyData.history) {
-      // Re-implement filter logic for SPY to match ETF
-      let targetInterval = "1wk";
-      const now = new Date();
-      const cutoffDate = new Date();
-      switch (timeRange) {
-        case "1D":
-          targetInterval = "1h";
-          cutoffDate.setDate(now.getDate() - 2);
-          break;
-        case "1W":
-          targetInterval = "1d";
-          cutoffDate.setDate(now.getDate() - 7);
-          break;
-        case "1M":
-          targetInterval = "1wk";
-          cutoffDate.setMonth(now.getMonth() - 1);
-          break;
-        case "1Y":
-          targetInterval = "1wk";
-          cutoffDate.setFullYear(now.getFullYear() - 1);
-          break;
-        case "5Y":
-          targetInterval = "1mo";
-          cutoffDate.setFullYear(now.getFullYear() - 5);
-          break;
-        default:
-          targetInterval = "1wk";
-          cutoffDate.setMonth(now.getMonth() - 1);
-      }
+    if (showComparison && chartSeries.spy.length > 0) {
+      const spyHistory = chartSeries.spy;
 
-      const spyHistory = spyData.history
-        .filter((h: any) => {
-          const itemInterval = h.interval || "1d";
-          if (itemInterval !== targetInterval) return false;
-          return new Date(h.date) >= cutoffDate;
-        })
-        .sort(
-          (a: any, b: any) =>
-            new Date(a.date).getTime() - new Date(b.date).getTime(),
-        );
-
-      // Helper to find closest SPY price within tolerance
+      // Both series share the same range/interval, so align by nearest
+      // timestamp with a small tolerance
       const getSpyPriceAt = (targetDate: Date) => {
-        if (spyHistory.length === 0) return null;
-
         const targetTime = targetDate.getTime();
         const tolerance =
           timeRange === "1D" || timeRange === "1W"
             ? 30 * 60 * 1000
-            : 24 * 60 * 60 * 1000;
+            : 3 * 24 * 60 * 60 * 1000;
 
         let closest = spyHistory[0];
         let minDiff = Math.abs(new Date(closest.date).getTime() - targetTime);
@@ -454,50 +365,42 @@ export default function ETFDetailsDrawer({
           }
         }
 
-        if (minDiff <= tolerance) {
-          return closest.price;
-        }
-        return null;
+        return minDiff <= tolerance ? closest.price : null;
       };
 
-      if (filteredEtfHistory.length > 0) {
-        const etfStart = filteredEtfHistory[0].price;
-        const spyStartPrice = getSpyPriceAt(
-          new Date(filteredEtfHistory[0].date),
-        );
-        const spyStart =
-          spyStartPrice || (spyHistory.length > 0 ? spyHistory[0].price : 1);
+      const etfStart = filteredEtfHistory[0].price;
+      const spyStartPrice = getSpyPriceAt(new Date(filteredEtfHistory[0].date));
+      const spyStart = spyStartPrice || spyHistory[0].price;
 
-        let lastValidSpyPrice = spyStart;
+      let lastValidSpyPrice = spyStart;
 
-        return filteredEtfHistory.map((h) => {
-          let rawSpyPrice = getSpyPriceAt(new Date(h.date));
+      return filteredEtfHistory.map((h) => {
+        let rawSpyPrice = getSpyPriceAt(new Date(h.date));
 
-          // Forward fill logic: if missing data (e.g. at the end), use last known price
-          if (rawSpyPrice !== null) {
-            lastValidSpyPrice = rawSpyPrice;
-          } else if (lastValidSpyPrice !== null) {
-            rawSpyPrice = lastValidSpyPrice;
-          }
+        // Forward fill: if missing data (e.g. at the end), use last known price
+        if (rawSpyPrice !== null) {
+          lastValidSpyPrice = rawSpyPrice;
+        } else if (lastValidSpyPrice !== null) {
+          rawSpyPrice = lastValidSpyPrice;
+        }
 
-          const spyPct = rawSpyPrice
-            ? ((rawSpyPrice - spyStart) / spyStart) * 100
-            : null;
-          const etfPct = ((h.price - etfStart) / etfStart) * 100;
+        const spyPct = rawSpyPrice
+          ? ((rawSpyPrice - spyStart) / spyStart) * 100
+          : null;
+        const etfPct = ((h.price - etfStart) / etfStart) * 100;
 
-          return {
-            date: h.date,
-            price: etfPct,
-            originalPrice: h.price,
-            spyPrice: spyPct,
-            originalSpyPrice: rawSpyPrice,
-          };
-        });
-      }
+        return {
+          date: h.date,
+          price: etfPct,
+          originalPrice: h.price,
+          spyPrice: spyPct,
+          originalSpyPrice: rawSpyPrice,
+        };
+      });
     }
 
     return filteredEtfHistory;
-  }, [filteredEtfHistory, showComparison, spyData, timeRange]);
+  }, [filteredEtfHistory, showComparison, chartSeries.spy, timeRange]);
 
   const { percentageChange, isPositive } = useMemo(() => {
     if (filteredEtfHistory.length < 2) {
@@ -747,7 +650,7 @@ export default function ETFDetailsDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-40"
           />
           <motion.div
             key="drawer"
@@ -755,10 +658,10 @@ export default function ETFDetailsDrawer({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 h-[85vh] bg-[#0a0a0a] border-t border-white/10 rounded-t-3xl z-50 overflow-hidden shadow-2xl glass-panel"
+            className="fixed bottom-0 left-0 right-0 h-[85vh] bg-canvas border-t border-hairline rounded-t-3xl z-50 overflow-hidden shadow-2xl glass-panel"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5 backdrop-blur-md">
+            <div className="flex items-center justify-between p-6 border-b border-hairline bg-surface-card backdrop-blur-md">
               <div className="flex items-center gap-4">
                 {/* Provider Logo */}
                 {getAssetIconUrl(
@@ -787,14 +690,14 @@ export default function ETFDetailsDrawer({
                   </div>
                 )}
                 <div>
-                  <h2 className="text-3xl font-bold text-white tracking-tight">
+                  <h2 className="text-3xl font-bold text-ink tracking-tight">
                     {displayEtf.ticker}
                   </h2>
                   <p className="text-neutral-400 text-sm">{displayEtf.name}</p>
                 </div>
-                <div className="h-8 w-[1px] bg-white/10 mx-2" />
+                <div className="h-8 w-[1px] bg-surface-soft mx-2" />
                 <div>
-                  <div className="text-2xl font-light text-white">
+                  <div className="text-2xl font-light text-ink">
                     {formatCurrency(displayEtf.price)}
                   </div>
                   <div
@@ -826,7 +729,7 @@ export default function ETFDetailsDrawer({
                 )}
                 <button
                   onClick={onClose}
-                  className="z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-white border border-white/10 shadow-lg"
+                  className="z-50 p-2 rounded-full bg-surface-soft hover:bg-surface-soft transition-colors text-ink border border-hairline shadow-lg"
                   aria-label="Close details"
                 >
                   <X className="w-6 h-6" />
@@ -837,11 +740,11 @@ export default function ETFDetailsDrawer({
             <div className="p-6 h-[calc(85vh-88px)] overflow-y-auto lg:overflow-hidden">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
                 {/* Left Col: Chart */}
-                <div className="lg:col-span-2 bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col h-full min-h-[400px]">
+                <div className="lg:col-span-2 bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col h-full min-h-[400px]">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-5 h-5 text-emerald-400" />
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-ink">
                         Price History
                       </h3>
                     </div>
@@ -858,11 +761,11 @@ export default function ETFDetailsDrawer({
                       </button>
 
                       {/* Comparison Toggle */}
-                      <div className="flex items-center gap-2 bg-black/20 rounded-lg p-1 px-2">
+                      <div className="flex items-center gap-2 bg-black/5 rounded-lg p-1 px-2">
                         <span
                           className={cn(
                             "text-xs font-medium transition-colors",
-                            showComparison ? "text-white" : "text-neutral-400",
+                            showComparison ? "text-ink" : "text-neutral-400",
                           )}
                         >
                           vs SPY
@@ -892,7 +795,7 @@ export default function ETFDetailsDrawer({
                         </button>
                       </div>
 
-                      <div className="flex bg-black/20 rounded-lg p-1 gap-1">
+                      <div className="flex bg-black/5 rounded-lg p-1 gap-1">
                         {TIME_RANGES.map((range) => (
                           <button
                             key={range}
@@ -900,7 +803,7 @@ export default function ETFDetailsDrawer({
                             className={cn(
                               "px-3 py-1 rounded-md text-xs font-medium transition-colors",
                               timeRange === range
-                                ? "bg-white/10 text-white"
+                                ? "bg-surface-soft text-ink"
                                 : "text-neutral-400 hover:text-neutral-300",
                             )}
                           >
@@ -911,11 +814,11 @@ export default function ETFDetailsDrawer({
                     </div>
                   </div>
                   {historyData.length === 0 ? (
-                    isLoading || isSpyLoading ? (
+                    isChartLoading ? (
                       <div className="flex-1 flex flex-col items-center justify-center gap-3">
                         <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
                         <p className="text-neutral-400 text-sm">
-                          Syncing price history…
+                          Loading chart…
                         </p>
                       </div>
                     ) : (
@@ -930,14 +833,11 @@ export default function ETFDetailsDrawer({
                           sync failed.
                         </p>
                         <button
-                          onClick={() => {
-                            setIsLoading(true);
-                            setRefreshNonce((n) => n + 1);
-                          }}
+                          onClick={() => setChartNonce((n) => n + 1)}
                           className="mt-2 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30 transition-colors text-sm font-medium"
                         >
                           <RefreshCw className="w-4 h-4" />
-                          Retry sync
+                          Retry
                         </button>
                       </div>
                     )
@@ -945,7 +845,7 @@ export default function ETFDetailsDrawer({
                     <div
                       className={cn(
                         "flex-1 w-full h-full min-h-0 transition-all duration-500",
-                        isLoading || isSpyLoading
+                        isChartLoading
                           ? "blur-sm opacity-50"
                           : "blur-0 opacity-100",
                       )}
@@ -1010,7 +910,7 @@ export default function ETFDetailsDrawer({
                         </defs>
                         <CartesianGrid
                           strokeDasharray="3 3"
-                          stroke="rgba(255,255,255,0.05)"
+                          stroke="rgba(50,48,47,0.08)"
                           vertical={false}
                         />
                         <XAxis dataKey="date" hide />
@@ -1028,11 +928,11 @@ export default function ETFDetailsDrawer({
                         />
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "#171717",
-                            border: "1px solid rgba(255,255,255,0.1)",
+                            backgroundColor: "#FFFFFF",
+                            border: "1px solid #E5E3E0",
                             borderRadius: "8px",
                           }}
-                          itemStyle={{ color: "#fff" }}
+                          itemStyle={{ color: "#32302F" }}
                           formatter={(value: any, name: any, item: any) => {
                             // Ensure value is treated as a number safely
                             const numValue = Number(value);
@@ -1102,7 +1002,7 @@ export default function ETFDetailsDrawer({
                         </tr>
                       </thead>
                       <tbody>
-                        {historyData.map((item, index) => (
+                        {historyData.map((item: any, index) => (
                           <tr key={index}>
                             <td>{new Date(item.date).toLocaleDateString()}</td>
                             <td>
@@ -1130,7 +1030,7 @@ export default function ETFDetailsDrawer({
                   <EtfVerdictCard etf={displayEtf} />
 
                   {/* Profile / Description Section */}
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex flex-col">
+                  <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col">
                     <AssetProfileCard
                       ticker={displayEtf.ticker}
                       assetType={
@@ -1167,7 +1067,7 @@ export default function ETFDetailsDrawer({
                             <Activity className="w-5 h-5 text-[#FF5700]" />
                           </div>
                           <div>
-                            <h3 className="text-lg font-bold text-white">
+                            <h3 className="text-lg font-bold text-ink">
                               Reddit Communities
                             </h3>
                             <p className="text-xs text-neutral-400">
@@ -1195,19 +1095,19 @@ export default function ETFDetailsDrawer({
 
                   {/* Sector & Holdings (ETFs Only) */}
                   {displayEtf.assetType !== "STOCK" && (
-                    <div className="bg-white/5 rounded-2xl p-6 border border-white/5 min-h-[200px] flex flex-col">
+                    <div className="bg-surface-card rounded-2xl p-6 border border-hairline min-h-[200px] flex flex-col">
                       <div className="flex items-center gap-2 mb-4 justify-between">
                         <div
                           className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => setShowLegend(!showLegend)}
                         >
                           <PieIcon className="w-5 h-5 text-blue-400" />
-                          <h3 className="text-lg font-bold text-white">
+                          <h3 className="text-lg font-bold text-ink">
                             Allocation
                           </h3>
                           <div
                             className={cn(
-                              "text-xs bg-white/10 px-2 py-0.5 rounded text-neutral-400 transition-colors",
+                              "text-xs bg-surface-soft px-2 py-0.5 rounded text-neutral-400 transition-colors",
                               showLegend && "bg-blue-500/20 text-blue-300",
                             )}
                           >
@@ -1243,7 +1143,7 @@ export default function ETFDetailsDrawer({
 
                       {showAllHoldings ? (
                         <div className="flex-1 flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
-                          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-white/5">
+                          <div className="flex items-center gap-2 mb-4 pb-2 border-b border-hairline">
                             <button
                               onClick={() => setShowAllHoldings(false)}
                               className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
@@ -1251,7 +1151,7 @@ export default function ETFDetailsDrawer({
                               <ChevronLeft className="w-4 h-4" />
                               Back
                             </button>
-                            <span className="text-sm font-medium text-white ml-auto">
+                            <span className="text-sm font-medium text-ink ml-auto">
                               All Holdings ({allHoldings.length})
                             </span>
                           </div>
@@ -1263,7 +1163,7 @@ export default function ETFDetailsDrawer({
                                   <div
                                     key={i}
                                     className={cn(
-                                      "flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-all",
+                                      "flex items-center justify-between p-2 rounded-lg bg-surface-card border border-hairline hover:bg-surface-soft transition-all",
                                       onTickerSelect &&
                                         "cursor-pointer hover:border-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] group/item",
                                     )}
@@ -1301,7 +1201,7 @@ export default function ETFDetailsDrawer({
                                       )}
                                       <div
                                         className={cn(
-                                          "font-bold text-white text-sm",
+                                          "font-bold text-ink text-sm",
                                           onTickerSelect &&
                                             "group-hover/item:text-emerald-400 transition-colors",
                                         )}
@@ -1313,7 +1213,7 @@ export default function ETFDetailsDrawer({
                                       </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                      <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden hidden sm:block">
+                                      <div className="w-16 h-1.5 bg-surface-soft rounded-full overflow-hidden hidden sm:block">
                                         <div
                                           className="h-full bg-emerald-500 rounded-full"
                                           style={{
@@ -1358,7 +1258,7 @@ export default function ETFDetailsDrawer({
                                 <div
                                   key={i}
                                   className={cn(
-                                    "flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors group/row",
+                                    "flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-surface-soft transition-colors group/row",
                                     onTickerSelect && "cursor-pointer",
                                   )}
                                   onClick={() =>
@@ -1395,7 +1295,7 @@ export default function ETFDetailsDrawer({
                                     )}
                                     <div
                                       className={cn(
-                                        "font-medium text-white text-sm truncate",
+                                        "font-medium text-ink text-sm truncate",
                                         onTickerSelect &&
                                           "group-hover/row:text-emerald-400 transition-colors",
                                       )}
@@ -1404,7 +1304,7 @@ export default function ETFDetailsDrawer({
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-2 shrink-0">
-                                    <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
+                                    <div className="w-12 h-1 bg-surface-soft rounded-full overflow-hidden">
                                       <div
                                         className="h-full bg-emerald-500 rounded-full opacity-80"
                                         style={{
@@ -1427,9 +1327,9 @@ export default function ETFDetailsDrawer({
                           </div>
 
                           {/* Right: Pie Chart */}
-                          <div className="w-1/2 relative bg-white/5 rounded-xl border border-white/5 p-2 flex items-center justify-center">
+                          <div className="w-1/2 relative bg-surface-card rounded-xl border border-hairline p-2 flex items-center justify-center">
                             <div className="absolute top-2 left-2 z-10">
-                              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                              <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-ink/30 px-1.5 py-0.5 rounded backdrop-blur-sm">
                                 Sectors
                               </div>
                             </div>
@@ -1443,7 +1343,7 @@ export default function ETFDetailsDrawer({
                             />
                             {sectorData.length === 0 && (
                               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-xs text-neutral-500 bg-black/80 px-2 py-1 rounded">
+                                <span className="text-xs text-neutral-500 bg-ink/50 px-2 py-1 rounded">
                                   No Sector Data
                                 </span>
                               </div>
@@ -1455,8 +1355,8 @@ export default function ETFDetailsDrawer({
                   )}
 
                   {/* Metrics Grid */}
-                  <div className="bg-white/5 rounded-2xl p-6 border border-white/5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                    <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
+                  <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+                    <h3 className="text-lg font-bold text-ink mb-6 flex items-center gap-2">
                       Key Metrics
                     </h3>
 

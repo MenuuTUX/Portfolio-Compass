@@ -32,7 +32,7 @@ const PortfolioItemRow = memo(
         key={item.ticker}
         data-index={virtualRow.index}
         ref={measureElement}
-        className="group bg-white/5 border-b border-white/5 hover:bg-white/10 transition-colors"
+        className="group bg-surface-card border-b border-hairline hover:bg-surface-soft transition-colors"
         // Removed transform and fixed height to allow dynamic sizing and correct positioning via spacer rows
       >
         <td className="p-4 align-top">
@@ -50,7 +50,7 @@ const PortfolioItemRow = memo(
               </div>
             )}
             <div className="flex flex-col">
-              <span className="font-bold text-white text-lg">
+              <span className="font-bold text-ink text-lg">
                 {item.ticker}
               </span>
               <span
@@ -92,13 +92,13 @@ const PortfolioItemRow = memo(
                 onChange={(e) =>
                   onUpdateShares(item.ticker, parseFloat(e.target.value))
                 }
-                className="w-24 bg-black/50 border border-white/10 rounded px-2 py-1 text-white text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark] text-sm"
+                className="w-24 bg-black/50 border border-hairline rounded px-2 py-1 text-ink text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark] text-sm"
                 aria-label={`Shares for ${item.ticker}`}
               />
             </div>
             <div className="flex items-center gap-2 md:hidden">
               <span className="text-xs text-neutral-400 w-12">Weight</span>
-              <span className="text-xs text-white">
+              <span className="text-xs text-ink">
                 {item.weight?.toFixed(2)}%
               </span>
             </div>
@@ -124,7 +124,7 @@ const PortfolioItemRow = memo(
               onChange={(e) =>
                 onUpdateWeight(item.ticker, parseFloat(e.target.value))
               }
-              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              className="w-full h-1.5 bg-surface-soft rounded-lg appearance-none cursor-pointer accent-emerald-500"
               aria-label={`Weight for ${item.ticker}`}
             />
           </div>

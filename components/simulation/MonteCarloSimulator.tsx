@@ -405,14 +405,14 @@ export default function MonteCarloSimulator({
           {onBack && (
             <button
               onClick={onBack}
-              className="p-2 rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
+              className="p-2 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-ink transition-colors"
               title="Back to Portfolio"
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
           )}
           <div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-ink flex items-center gap-2">
               Monte Carlo Simulation{" "}
               <span className="text-xs px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">
                 BETA
@@ -484,7 +484,7 @@ export default function MonteCarloSimulator({
 
       {/* Parameters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-panel p-4 rounded-xl bg-white/5 border border-white/5">
+        <div className="glass-panel p-4 rounded-xl bg-surface-card border border-hairline">
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold block">
               Investment
@@ -507,11 +507,11 @@ export default function MonteCarloSimulator({
               type="number"
               value={initialInvestment}
               onChange={(e) => setInitialInvestment(Number(e.target.value))}
-              className="bg-transparent text-xl font-mono text-white focus:outline-none w-full"
+              className="bg-transparent text-xl font-mono text-ink focus:outline-none w-full"
             />
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-xl bg-white/5 border border-white/5">
+        <div className="glass-panel p-4 rounded-xl bg-surface-card border border-hairline">
           <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold mb-2 block">
             Time Horizon
           </label>
@@ -524,19 +524,19 @@ export default function MonteCarloSimulator({
               onChange={(e) => setTimeHorizonYears(Number(e.target.value))}
               className="flex-1 accent-emerald-500"
             />
-            <span className="text-xl font-mono text-white w-12 text-right">
+            <span className="text-xl font-mono text-ink w-12 text-right">
               {timeHorizonYears}y
             </span>
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-xl bg-white/5 border border-white/5">
+        <div className="glass-panel p-4 rounded-xl bg-surface-card border border-hairline">
           <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold mb-2 block">
             Simulations
           </label>
           <select
             value={numSimulations}
             onChange={(e) => setNumSimulations(Number(e.target.value))}
-            className="bg-black/50 border border-white/10 text-white rounded px-2 py-1 w-full focus:outline-none"
+            className="bg-black/50 border border-hairline text-ink rounded px-2 py-1 w-full focus:outline-none"
           >
             <option value={20}>20 Paths (Fast)</option>
             <option value={50}>50 Paths (Balanced)</option>
@@ -554,7 +554,7 @@ export default function MonteCarloSimulator({
       )}
 
       {/* Chart */}
-      <div className="flex-1 min-h-[400px] glass-panel p-6 rounded-xl bg-black/40 border border-white/5 relative overflow-hidden">
+      <div className="flex-1 min-h-[400px] glass-panel p-6 rounded-xl bg-ink/30 border border-hairline relative overflow-hidden">
         {!isSimulating &&
           !simulationComplete &&
           !error &&
@@ -638,7 +638,7 @@ export default function MonteCarloSimulator({
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#000",
+                    backgroundColor: "#FFFFFF",
                     borderColor: "#333",
                   }}
                   formatter={(val: any) => formatCurrency(Number(val))}
@@ -697,33 +697,33 @@ export default function MonteCarloSimulator({
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"
           >
-            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-surface-card">
               <div className="text-xs text-neutral-400">Median Outcome</div>
-              <div className="text-xl font-bold text-white">
+              <div className="text-xl font-bold text-ink">
                 {formatCurrency(riskMetrics.medianOutcome)}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-surface-card">
               <div className="text-xs text-neutral-400">Best Case (95th)</div>
               <div className="text-lg font-bold text-emerald-300">
                 {formatCurrency(riskMetrics.best5Outcome)}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-rose-500 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-rose-500 bg-surface-card">
               <div className="text-xs text-neutral-400">Worst Case (5th)</div>
               <div className="text-lg font-bold text-rose-400">
                 {formatCurrency(riskMetrics.worst5Outcome)}
               </div>
             </div>
             {/* New Dividends Card */}
-            <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-surface-card">
               <div className="text-xs text-neutral-400">Est. Dividends</div>
               <div className="text-lg font-bold text-blue-400">
                 {formatCurrency(riskMetrics.totalDividends)}
               </div>
             </div>
             {/* Combined VaR and Sharpe into one if needed, or expand grid */}
-            <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-white/5">
+            <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-surface-card">
               <div className="text-xs text-neutral-400">Value at Risk</div>
               <div className="text-lg font-bold text-yellow-400">
                 {formatCurrency(riskMetrics.vaR > 0 ? riskMetrics.vaR : 0)}

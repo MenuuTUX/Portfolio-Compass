@@ -183,7 +183,7 @@ const PurposeSection = () => {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none" />
 
           <div className="relative z-10 max-w-2xl mx-auto space-y-8">
-            <h3 className="text-3xl font-display font-bold text-white">
+            <h3 className="text-3xl font-display font-bold text-ink">
               Support the <span className="text-emerald-400">Project</span>
             </h3>
             <p className="text-stone-400">
@@ -217,7 +217,7 @@ const PurposeSection = () => {
                     alert("Link copied to clipboard!");
                   }
                 }}
-                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-800 text-white font-medium border border-stone-700 hover:border-emerald-500/50 hover:bg-stone-800/80 flex items-center justify-center gap-2 transition-all"
+                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-800 text-ink font-medium border border-stone-700 hover:border-emerald-500/50 hover:bg-stone-800/80 flex items-center justify-center gap-2 transition-all"
               >
                 <Share2 className="w-5 h-5 text-emerald-400" />
                 <span>Share Project</span>

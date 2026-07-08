@@ -100,7 +100,7 @@ export default function EtfVerdictCard({
               </div>
             </motion.div>
 
-            <motion.div layout className="font-bold text-white text-lg">
+            <motion.div layout className="font-bold text-ink text-lg">
               {data.label}
             </motion.div>
 
@@ -117,15 +117,15 @@ export default function EtfVerdictCard({
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="pt-3 mt-1 border-t border-white/10 text-xs"
+                  className="pt-3 mt-1 border-t border-hairline text-xs"
                 >
-                  <div className="font-semibold text-white mb-1">
+                  <div className="font-semibold text-ink mb-1">
                     {explanation.title}
                   </div>
                   <p className="text-neutral-400 mb-2 leading-relaxed">
                     {explanation.meaning}
                   </p>
-                  <div className="text-[10px] font-mono text-neutral-500 bg-black/20 p-1.5 rounded">
+                  <div className="text-[10px] font-mono text-neutral-500 bg-black/5 p-1.5 rounded">
                     {explanation.thresholds}
                   </div>
                 </motion.div>

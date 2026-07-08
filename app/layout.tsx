@@ -1,7 +1,7 @@
 import "./globals.css";
 import React from "react";
 import Providers from "@/components/Providers";
-import { Inter, Space_Grotesk } from 'next/font/google';
+import { Inter, Libre_Caslon_Text } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 
@@ -11,9 +11,11 @@ const inter = Inter({
   display: 'swap',
 });
 
-const spaceGrotesk = Space_Grotesk({
+// Caslon-inspired serif for headlines (Wealthsimple-style display face)
+const libreCaslon = Libre_Caslon_Text({
   subsets: ['latin'],
-  variable: '--font-space',
+  weight: ['400', '700'],
+  variable: '--font-caslon',
   display: 'swap',
 });
 
@@ -24,8 +26,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`} suppressHydrationWarning>
-      <body className="font-sans antialiased bg-stone-950 text-stone-100" suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${libreCaslon.variable}`} suppressHydrationWarning>
+      <body className="font-sans antialiased bg-canvas text-ink" suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
