@@ -44,6 +44,17 @@ describe('analyzeEtf', () => {
     expect(analyzeEtf(marketBetaEtf).volatility.status).toBe('neutral');
   });
 
+  it('estimates volatility from price history when beta is missing', () => {
+    const history = Array.from({ length: 40 }, (_, i) => ({
+      date: `2024-01-${i + 1}`,
+      price: 100 + Math.sin(i * 0.8) * 8,
+    }));
+    const etf = { metrics: {}, history: [] } as unknown as ETF;
+    const verdict = analyzeEtf(etf, { history });
+    expect(verdict.volatility.label).not.toBe('Volatility Unknown');
+    expect(verdict.volatility.description).toContain('Realized');
+  });
+
   it('treats missing data as unknown, not as a judgement', () => {
     // Regression: a seeded row without volume/beta used to claim
     // "Low Liquidity" and "Low Cost 0% fee" for blue chips like MSFT

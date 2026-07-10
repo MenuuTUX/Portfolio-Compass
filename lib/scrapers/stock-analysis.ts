@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import { z } from 'zod';
+import { stockAnalysisPathForTicker } from '@/lib/asset-class';
 
 // Strict validation for ticker symbol
 const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
@@ -89,6 +90,16 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
     return tickers;
 }
 
+/**
+ * Resolve a stockanalysis holdings URL for US + Canadian listings only.
+ * Unknown international suffixes return null (no open-ended SSRF chasing).
+ */
+function holdingsUrlForTicker(ticker: string): string | null {
+    const mapped = stockAnalysisPathForTicker(ticker);
+    if (!mapped) return null;
+    return `https://stockanalysis.com/${mapped.path}/holdings/`;
+}
+
 export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
     // Strict validation
     const validation = tickerSchema.safeParse(ticker);
@@ -97,14 +108,12 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
         return [];
     }
 
-    // StockAnalysis mostly supports US tickers.
-    // If it's a Canadian ticker (e.g. .TO), it likely won't have holdings data on this site.
-    // We skip explicitly to avoid 404 noise.
-    if (ticker.includes('.')) {
+    const url = holdingsUrlForTicker(ticker);
+    if (!url) {
+        // Unsupported venue (e.g. .MU, .HK) — skip quietly
         return [];
     }
 
-    const url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/holdings/`;
     const response = await fetch(url, {
         redirect: 'error',
         headers: {
@@ -114,7 +123,6 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
     if (!response.ok) {
         if (response.status === 404) {
-            // It's common for some ETFs not to be on StockAnalysis, warn instead of error
             console.warn(`[StockAnalysis] Holdings not found for ${ticker} (404).`);
         } else {
             console.error(`Failed to fetch holdings for ${ticker}: ${response.status}`);
@@ -131,7 +139,9 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
         const symbolIndex = headers.indexOf('Symbol');
         const nameIndex = headers.indexOf('Name');
-        const weightIndex = headers.indexOf('% Weight');
+        const weightIndex = headers.findIndex(
+            (h) => h === '% Weight' || h === 'Weight' || h.includes('Weight'),
+        );
         const sharesIndex = headers.indexOf('Shares');
 
         if (symbolIndex > -1 && weightIndex > -1) {
@@ -145,6 +155,9 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
                 let weight = 0;
                 if (weightText.endsWith('%')) {
                     weight = parseFloat(weightText.replace('%', '')) / 100;
+                } else {
+                    const n = parseFloat(weightText.replace(/,/g, ''));
+                    if (!isNaN(n)) weight = n > 1.5 ? n / 100 : n;
                 }
 
                 let shares: number | null = null;
@@ -209,6 +222,30 @@ const fetchWithUserAgent = async (u: string) => fetch(u, {
   }
 });
 
+/**
+ * Ordered stockanalysis.com profile URLs for a ticker.
+ * US: stocks → etf. CA: quote/tsx|tsxv|cse only (allowlisted).
+ */
+function profileUrlsForTicker(ticker: string): string[] {
+  const upper = ticker.toUpperCase();
+  const mapped = stockAnalysisPathForTicker(upper);
+  const urls: string[] = [];
+
+  if (mapped?.kind === "quote") {
+    urls.push(`https://stockanalysis.com/${mapped.path}/`);
+    return urls;
+  }
+
+  // US / plain symbols
+  const base = upper.includes(".") ? upper.split(".")[0] : upper;
+  urls.push(`https://stockanalysis.com/stocks/${base.toLowerCase()}/`);
+  urls.push(`https://stockanalysis.com/etf/${base.toLowerCase()}/`);
+  if (mapped?.kind === "etf") {
+    // already covered
+  }
+  return urls;
+}
+
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
   // Strict validation
   const validation = tickerSchema.safeParse(ticker);
@@ -218,22 +255,26 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   }
 
   let upperTicker = ticker.toUpperCase();
-  let url = `https://stockanalysis.com/stocks/${ticker.toLowerCase()}/`;
   let isEtf = false;
 
-  let response = await fetchWithUserAgent(url);
-
-  if (response.status === 404) {
-    // Try ETF URL
-    url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
-    response = await fetchWithUserAgent(url);
-    if (response.ok) isEtf = true;
+  const urls = profileUrlsForTicker(ticker);
+  if (urls.length === 0) {
+    return null;
   }
 
-  // REMOVED: Fallback recursive logic for suffixes (.TO, .NE) to prevent DoS/SSRF amplification
+  let response: Response | null = null;
+  let usedUrl = urls[0];
+  for (const url of urls) {
+    usedUrl = url;
+    response = await fetchWithUserAgent(url);
+    if (response.ok) {
+      if (url.includes("/etf/") || url.includes("/quote/")) isEtf = true;
+      break;
+    }
+  }
 
-  if (!response.ok) {
-    console.error(`Failed to fetch profile for ${ticker}: ${response.status}`);
+  if (!response || !response.ok) {
+    console.error(`Failed to fetch profile for ${ticker}: ${response?.status ?? "no response"}`);
     return null;
   }
 

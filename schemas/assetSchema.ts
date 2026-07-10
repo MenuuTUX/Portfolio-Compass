@@ -78,6 +78,10 @@ export const ETFSchema = z.object({
   holdingsCount: z.number().optional(),
   bondMaturity: z.number().optional(),
   bondDuration: z.number().optional(),
+  fundClass: z.string().optional(),
+  category: z.string().optional(),
+  family: z.string().optional(),
+  creditQuality: z.record(z.string(), z.number()).optional(),
   redditCommunities: z
     .array(
       z.object({

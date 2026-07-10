@@ -29,21 +29,25 @@ const EXPLANATIONS: Record<
     thresholds: "Rating Criteria: High > 1M | Moderate 100k-1M | Low < 100k",
   },
   volatility: {
-    title: "Beta (Market Sensitivity)",
+    title: "Beta / Realized Volatility",
     meaning:
-      "Beta measures how much this asset moves compared to the S&P 500. High beta (>1.0) means it exaggerates market moves; low beta (<1.0) means it's more stable.",
-    thresholds: "Rating Criteria: Low < 0.85 | Market ~1.0 | High > 1.25",
+      "When beta is available we use market sensitivity vs the broad market. Otherwise we estimate annualized volatility from recent price history.",
+    thresholds:
+      "Beta: Low < 0.85 | Market ~1.0 | High > 1.25 · Realized: Low < 10% | Moderate 10–35% | High > 35%",
   },
 };
 
 export default function EtfVerdictCard({
   etf,
+  history,
   className,
 }: {
   etf: ETF;
+  /** Chart series — used to estimate vol when beta is missing */
+  history?: { price: number }[];
   className?: string;
 }) {
-  const verdict = analyzeEtf(etf);
+  const verdict = analyzeEtf(etf, { history });
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const getIcon = (status: string) => {
