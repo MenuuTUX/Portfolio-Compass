@@ -34,6 +34,7 @@ import SectorPieChart, { COLORS } from "./SectorPieChart";
 import AssetProfileCard from "./AssetProfileCard";
 import EtfVerdictCard from "./EtfVerdictCard";
 import ComparisonModal from "./ComparisonModal";
+import { HelpTip } from "./ui/HelpTip";
 import { useMemo, useState, useEffect } from "react";
 import { getRedditCommunities } from "@/config/tickers";
 
@@ -89,7 +90,7 @@ function volumeOrNull(num: number | undefined | null): string | null {
   return num > 1e6 ? (num / 1e6).toFixed(1) + "M" : num.toLocaleString();
 }
 
-// Compact card for the Metrics grid
+// Compact card for the Metrics grid — label is hoverable for beginners
 function MetricCard({
   label,
   value,
@@ -103,8 +104,8 @@ function MetricCard({
 }) {
   return (
     <div className="bg-surface-card rounded-xl p-3 border border-hairline hover:bg-surface-soft transition-colors group">
-      <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider mb-1 truncate group-hover:text-neutral-300 transition-colors">
-        {label}
+      <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider mb-1 group-hover:text-neutral-300 transition-colors">
+        <HelpTip term={label} className="text-[10px] uppercase tracking-wider" />
       </div>
       <div
         className={cn(
@@ -1383,9 +1384,14 @@ export default function ETFDetailsDrawer({
 
                   {/* Metrics Grid */}
                   <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                    <h3 className="text-lg font-bold text-ink mb-6 flex items-center gap-2">
-                      Key Metrics
-                    </h3>
+                    <div className="mb-6">
+                      <h3 className="text-lg font-bold text-ink flex items-center gap-2">
+                        Key Metrics
+                      </h3>
+                      <p className="text-[11px] text-neutral-500 mt-1">
+                        Hover any dotted label for a plain-English explanation.
+                      </p>
+                    </div>
 
                     {hasAnyMetric ? (
                       <div className="space-y-8">

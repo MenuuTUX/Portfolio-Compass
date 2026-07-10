@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { isMarketOpen } from "@/lib/market-hours";
 import { cn } from "@/lib/utils";
+import { HelpTip } from "./ui/HelpTip";
 
 interface FearGreedData {
   score: number;
@@ -13,6 +14,62 @@ interface FearGreedData {
 
 interface FearGreedGaugeProps {
   className?: string;
+}
+
+/** Map a 0–100 score onto a semicircle angle in degrees.
+ *  0   → 180° (left, extreme fear)
+ *  50  →  90° (top, neutral)
+ *  100 →   0° (right, extreme greed)
+ *  SVG polar: 0° = east, increases counterclockwise.
+ */
+function scoreToAngle(score: number): number {
+  const clamped = Math.max(0, Math.min(100, score));
+  return 180 - (clamped / 100) * 180;
+}
+
+function polarToCartesian(
+  cx: number,
+  cy: number,
+  r: number,
+  angleDeg: number,
+): { x: number; y: number } {
+  const rad = (angleDeg * Math.PI) / 180;
+  return {
+    x: cx + r * Math.cos(rad),
+    y: cy - r * Math.sin(rad), // SVG y grows downward
+  };
+}
+
+/** SVG arc path from startAngle → endAngle (degrees, both on semicircle). */
+function describeArc(
+  cx: number,
+  cy: number,
+  r: number,
+  startAngle: number,
+  endAngle: number,
+): string {
+  const start = polarToCartesian(cx, cy, r, startAngle);
+  const end = polarToCartesian(cx, cy, r, endAngle);
+  // Sweep flag 1 = clockwise in SVG when angles decrease left→right on our semicircle
+  // Our angles go 180→0 left to right; we draw decreasing angle = clockwise
+  const largeArc = Math.abs(startAngle - endAngle) > 180 ? 1 : 0;
+  const sweep = startAngle > endAngle ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
+}
+
+const ZONES = [
+  { label: "Extreme Fear", min: 0, max: 25, color: "#f43f5e" },
+  { label: "Fear", min: 25, max: 45, color: "#f97316" },
+  { label: "Neutral", min: 45, max: 55, color: "#eab308" },
+  { label: "Greed", min: 55, max: 75, color: "#84cc16" },
+  { label: "Extreme Greed", min: 75, max: 100, color: "#10b981" },
+] as const;
+
+function zoneForScore(score: number) {
+  return (
+    ZONES.find((z) => score >= z.min && score < z.max) ??
+    ZONES[ZONES.length - 1]
+  );
 }
 
 export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
@@ -39,6 +96,37 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
     }
     fetchData();
   }, []);
+
+  // Geometry
+  const cx = 100;
+  const cy = 100;
+  const radius = 78;
+  const strokeWidth = 14;
+  const trackRadius = radius;
+
+  const score = data?.score ?? 50;
+  const indicator = polarToCartesian(cx, cy, trackRadius, scoreToAngle(score));
+  // Rest position (neutral / top of arc) for entrance animation
+  const rest = polarToCartesian(cx, cy, trackRadius, 90);
+  const zone = zoneForScore(score);
+  const activeColor = zone.color;
+
+  // Continuous colored segments with a tiny overlap so butt caps don't show hairlines
+  const segments = useMemo(() => {
+    const overlapDeg = 0.4;
+    return ZONES.map((z, i) => {
+      const startAngle = scoreToAngle(z.min) + (i === 0 ? 0 : overlapDeg);
+      const endAngle =
+        scoreToAngle(z.max) - (i === ZONES.length - 1 ? 0 : overlapDeg);
+      return {
+        ...z,
+        path: describeArc(cx, cy, trackRadius, startAngle, endAngle),
+      };
+    });
+  }, [trackRadius]);
+
+  // Background full arc (track)
+  const trackPath = describeArc(cx, cy, trackRadius, 180, 0);
 
   if (loading) {
     return (
@@ -71,62 +159,6 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
       </div>
     );
   }
-
-  // Visualization Constants
-  const score = data.score;
-  const radius = 80;
-  const strokeWidth = 12;
-  const center = { x: 100, y: 100 };
-
-  // Calculate indicator position
-  // Score 0 -> -180 degrees (Left)
-  // Score 50 -> -90 degrees (Top)
-  // Score 100 -> 0 degrees (Right)
-  const angleDeg = -180 + (score / 100) * 180;
-  const angleRad = (angleDeg * Math.PI) / 180;
-
-  const indicatorX = center.x + radius * Math.cos(angleRad);
-  const indicatorY = center.y + radius * Math.sin(angleRad);
-
-  // Position for 50% (Top Center) for initial animation
-  const topX = center.x; // 100
-  const topY = center.y - radius; // 20
-
-  // Generate Segment Paths
-  const totalSpan = 180;
-  const gap = 4;
-  const segmentCount = 5;
-  const segmentSpan = (totalSpan - (segmentCount - 1) * gap) / segmentCount;
-
-  const colors = [
-    "#f43f5e", // Red (Extreme Fear)
-    "#f97316", // Orange (Fear)
-    "#eab308", // Yellow (Neutral)
-    "#84cc16", // Lime (Greed)
-    "#10b981", // Green (Extreme Greed)
-  ];
-
-  // Determine active color for text and gradient based on score
-  let activeColor = colors[2]; // Default Neutral
-  if (score < 25) activeColor = colors[0];
-  else if (score < 45) activeColor = colors[1];
-  else if (score < 55) activeColor = colors[2];
-  else if (score < 75) activeColor = colors[3];
-  else activeColor = colors[4];
-
-  const createSegmentPath = (index: number) => {
-    const startAngleDeg = -180 + index * (segmentSpan + gap);
-    const endAngleDeg = startAngleDeg + segmentSpan;
-    const startRad = (startAngleDeg * Math.PI) / 180;
-    const endRad = (endAngleDeg * Math.PI) / 180;
-
-    const x1 = center.x + radius * Math.cos(startRad);
-    const y1 = center.y + radius * Math.sin(startRad);
-    const x2 = center.x + radius * Math.cos(endRad);
-    const y2 = center.y + radius * Math.sin(endRad);
-
-    return `M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2}`;
-  };
 
   return (
     <div
@@ -166,58 +198,146 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-4 z-10 w-full justify-center mt-2">
-        <h3 className="text-ink/90 font-bold text-lg">Fear & Greed</h3>
+      <div className="flex items-center gap-2 mb-2 z-10 w-full justify-center mt-2">
+        <h3 className="text-ink/90 font-bold text-lg">
+          <HelpTip term="Fear & Greed" showIcon className="text-ink/90 text-lg font-bold">
+            Fear & Greed
+          </HelpTip>
+        </h3>
       </div>
 
       {/* Gauge Container */}
-      <div className="relative w-80 h-40 z-10 flex justify-center mb-6 scale-110 origin-bottom">
-        <svg viewBox="0 0 200 110" className="w-full h-full overflow-visible">
-          {/* Segments */}
-          {colors.map((color, i) => (
+      <div className="relative w-full max-w-[280px] aspect-[2/1.1] z-10 flex justify-center mb-2">
+        <svg
+          viewBox="0 0 200 118"
+          className="w-full h-full overflow-visible"
+          aria-label={`Fear and Greed Index: ${score}, ${data.rating}`}
+        >
+          {/* Muted track underlay */}
+          <path
+            d={trackPath}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            className="text-stone-800"
+          />
+
+          {/* Colored zone segments — butt caps so they meet flush */}
+          {segments.map((seg) => (
             <path
-              key={i}
-              d={createSegmentPath(i)}
+              key={seg.label}
+              d={seg.path}
               fill="none"
-              stroke={color}
+              stroke={seg.color}
               strokeWidth={strokeWidth}
-              strokeLinecap="round"
-              className="opacity-90 transition-opacity hover:opacity-100"
+              strokeLinecap="butt"
+              className="opacity-90"
             />
           ))}
 
-          {/* Indicator Circle (Outline) */}
+          {/* Rounded end-caps so the arc tips stay pill-shaped */}
+          <path
+            d={describeArc(cx, cy, trackRadius, 180, 178)}
+            fill="none"
+            stroke={ZONES[0].color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+          <path
+            d={describeArc(cx, cy, trackRadius, 2, 0)}
+            fill="none"
+            stroke={ZONES[ZONES.length - 1].color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+
+          {/* Tick marks at zone boundaries */}
+          {ZONES.slice(1).map((z) => {
+            const a = scoreToAngle(z.min);
+            const outer = polarToCartesian(
+              cx,
+              cy,
+              trackRadius + strokeWidth / 2 + 2,
+              a,
+            );
+            const inner = polarToCartesian(
+              cx,
+              cy,
+              trackRadius - strokeWidth / 2 - 2,
+              a,
+            );
+            return (
+              <line
+                key={`tick-${z.min}`}
+                x1={inner.x}
+                y1={inner.y}
+                x2={outer.x}
+                y2={outer.y}
+                stroke="#1c1917"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+            );
+          })}
+
+          {/* Indicator knob on the arc (no center needle — keeps score readable) */}
           <motion.circle
-            cx={0}
-            cy={0}
-            r="8"
+            r={7}
             fill="#FFFFFF"
-            stroke="#32302F"
-            strokeWidth="3"
-            initial={{ x: topX, y: topY, opacity: 0 }} // Start at 50% (Top), fade in
-            animate={{ x: indicatorX, y: indicatorY, opacity: 1 }}
+            stroke={activeColor}
+            strokeWidth={2.5}
+            initial={{ cx: rest.x, cy: rest.y, opacity: 0 }}
+            animate={{ cx: indicator.x, cy: indicator.y, opacity: 1 }}
             transition={{
               type: "spring",
-              stiffness: 40,
-              damping: 20,
+              stiffness: 45,
+              damping: 16,
               delay: 0.2,
             }}
-            className="drop-shadow-[0_0_10px_rgba(50,48,47,0.25)]"
+            style={{
+              filter: `drop-shadow(0 0 6px ${activeColor}88)`,
+            }}
           />
+
+          {/* Fear / Greed end labels */}
+          <text
+            x={20}
+            y={114}
+            textAnchor="middle"
+            className="fill-stone-500 text-[8px] font-medium uppercase tracking-wide"
+          >
+            Fear
+          </text>
+          <text
+            x={180}
+            y={114}
+            textAnchor="middle"
+            className="fill-stone-500 text-[8px] font-medium uppercase tracking-wide"
+          >
+            Greed
+          </text>
         </svg>
 
-        {/* Score & Rating Text */}
-        <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center justify-end h-full pb-2 pointer-events-none">
-          <div className="text-5xl font-bold font-space text-ink tracking-tight leading-none drop-shadow-xl">
+        {/* Score & rating sit inside the semicircle */}
+        <div className="absolute left-0 right-0 top-[42%] flex flex-col items-center pointer-events-none">
+          <motion.div
+            className="text-5xl font-bold font-space text-ink tracking-tight leading-none drop-shadow-xl"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.35 }}
+          >
             {score}
-          </div>
-          {/* Rating text follows active color */}
-          <div
-            className="text-base font-medium capitalize mt-2 transition-colors duration-300"
+          </motion.div>
+          <motion.div
+            className="text-sm font-semibold capitalize mt-1.5 transition-colors duration-300"
             style={{ color: activeColor }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.35 }}
           >
             {data.rating}
-          </div>
+          </motion.div>
         </div>
       </div>
 

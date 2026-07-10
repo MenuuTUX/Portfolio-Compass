@@ -18,6 +18,7 @@ import {
   Check,
   Trash2,
   ChevronDown,
+  Filter,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
@@ -28,6 +29,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
 import MessageDrawer from "./MessageDrawer";
 import Sparkline from "./Sparkline";
+import { HelpTip } from "./ui/HelpTip";
+import MarketFilters, {
+  DEFAULT_MARKET_FILTERS,
+  MarketFilterState,
+  applyMarketFilters,
+} from "./MarketFilters";
 
 interface ETFCardProps {
   etf: ETF;
@@ -195,7 +202,9 @@ const ETFCard = memo(
               <div className="text-3xl font-light text-ink">
                 {formatCurrency(etf.price)}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">Closing Price</div>
+              <div className="text-xs text-neutral-400 mt-1">
+                <HelpTip term="Closing Price" showIcon={false} />
+              </div>
             </div>
             {displayHistory.length > 0 && (
               <Sparkline
@@ -208,15 +217,19 @@ const ETFCard = memo(
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline">
             <div>
-              <div className="text-xs text-neutral-400 mb-1">Yield</div>
+              <div className="text-xs text-neutral-400 mb-1">
+                <HelpTip term="Yield" showIcon={false} />
+              </div>
               <div className="text-sm font-medium text-emerald-400">
-                {etf.metrics?.yield?.toFixed(2)}%
+                {(etf.metrics?.yield ?? etf.dividendYield ?? 0).toFixed(2)}%
               </div>
             </div>
             <div>
-              <div className="text-xs text-neutral-400 mb-1">MER</div>
+              <div className="text-xs text-neutral-400 mb-1">
+                <HelpTip term="MER" showIcon={false} />
+              </div>
               <div className="text-sm font-medium text-neutral-300">
-                {etf.metrics?.mer?.toFixed(2)}%
+                {(etf.metrics?.mer ?? 0).toFixed(2)}%
               </div>
             </div>
           </div>
@@ -349,6 +362,9 @@ export default function ComparisonEngine({
   const [visibleCount, setVisibleCount] = useState(24);
   const [hasMoreServer, setHasMoreServer] = useState(true);
   const [recentTickers, setRecentTickers] = useState<string[]>([]);
+  const [filters, setFilters] = useState<MarketFilterState>({
+    ...DEFAULT_MARKET_FILTERS,
+  });
 
   // Load recent tickers on mount
   useEffect(() => {
@@ -729,20 +745,25 @@ export default function ComparisonEngine({
     }
   };
 
-  // Sort ETFs: Recent first, then original order
+  // Recent first (relevance), then user sort/filter
   const sortedEtfs = useMemo(() => {
-    if (recentTickers.length === 0) return etfs;
-    return [...etfs].sort((a, b) => {
-      const indexA = recentTickers.indexOf(a.ticker);
-      const indexB = recentTickers.indexOf(b.ticker);
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      return 0;
-    });
-  }, [etfs, recentTickers]);
+    let base = etfs;
+    if (recentTickers.length > 0 && filters.sort === "relevance") {
+      base = [...etfs].sort((a, b) => {
+        const indexA = recentTickers.indexOf(a.ticker);
+        const indexB = recentTickers.indexOf(b.ticker);
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        return 0;
+      });
+    }
+    return applyMarketFilters(base, filters);
+  }, [etfs, recentTickers, filters]);
 
   const displayedEtfs = sortedEtfs.slice(0, visibleCount);
+  const resolvedAssetType: "STOCK" | "ETF" =
+    assetType === "STOCK" ? "STOCK" : "ETF";
 
   return (
     <section className="py-12 md:py-24 px-4 max-w-7xl mx-auto min-h-full">
@@ -751,15 +772,15 @@ export default function ComparisonEngine({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-12 gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-10 gap-6">
           <div className="w-full md:w-auto">
             <h2 className="text-2xl md:text-3xl font-bold text-ink mb-2">
               Market Engine
             </h2>
             <p className="text-sm md:text-base text-neutral-400">
               Real-time analysis of leading{" "}
-              {assetType === "STOCK" ? "Stocks" : "ETFs"}. Click to add to
-              builder.
+              {resolvedAssetType === "STOCK" ? "Stocks" : "ETFs"}. Use filters
+              on the left, then click a card to learn more.
             </p>
           </div>
 
@@ -838,47 +859,82 @@ export default function ComparisonEngine({
           </div>
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-64 rounded-xl bg-surface-card animate-pulse"
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
-            {displayedEtfs.map((etf) => (
-              <ETFCard
-                key={etf.ticker}
-                etf={etf}
-                inPortfolio={isInPortfolio(etf.ticker)}
-                flashState={flashStates[etf.ticker]}
-                syncingTicker={syncingTicker}
-                onAdd={handleAdd}
-                onRemove={handleRemove}
-                onView={handleAdvancedView}
-              />
-            ))}
-            {renderNoResults()}
+        {/* Left filters + right grid */}
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start pb-20">
+          <MarketFilters
+            assetType={resolvedAssetType}
+            value={filters}
+            onChange={(next) => {
+              setFilters(next);
+              setVisibleCount(24);
+            }}
+            resultCount={loading ? undefined : sortedEtfs.length}
+          />
 
-            {/* Load More Button */}
-            {(displayedEtfs.length < etfs.length || hasMoreServer) && (
-              <div className="col-span-full flex justify-center mt-8">
-                <button
-                  onClick={handleLoadMore}
-                  className="flex items-center gap-2 px-6 py-3 bg-surface-card hover:bg-surface-soft text-ink rounded-full transition-all border border-hairline hover:border-emerald-500/50"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                  Load More{" "}
-                  {displayedEtfs.length < etfs.length &&
-                    `(${etfs.length - displayedEtfs.length} cached)`}
-                </button>
+          <div className="flex-1 min-w-0 w-full">
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-64 rounded-xl bg-surface-card animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {displayedEtfs.map((etf) => (
+                  <ETFCard
+                    key={etf.ticker}
+                    etf={etf}
+                    inPortfolio={isInPortfolio(etf.ticker)}
+                    flashState={flashStates[etf.ticker]}
+                    syncingTicker={syncingTicker}
+                    onAdd={handleAdd}
+                    onRemove={handleRemove}
+                    onView={handleAdvancedView}
+                  />
+                ))}
+                {renderNoResults()}
+
+                {!loading && sortedEtfs.length === 0 && etfs.length > 0 && (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center gap-3">
+                    <Filter className="w-10 h-10 text-neutral-600" />
+                    <p className="text-ink font-medium">No matches</p>
+                    <p className="text-sm text-neutral-500 max-w-sm">
+                      Nothing fits these filters. Try clearing a filter or
+                      resetting on the left.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setFilters({ ...DEFAULT_MARKET_FILTERS })}
+                      className="mt-2 text-sm text-emerald-400 hover:text-emerald-300 underline"
+                    >
+                      Reset filters
+                    </button>
+                  </div>
+                )}
+
+                {/* Load More Button */}
+                {(displayedEtfs.length < sortedEtfs.length ||
+                  (hasMoreServer && filters.sort === "relevance")) &&
+                  sortedEtfs.length > 0 && (
+                    <div className="col-span-full flex justify-center mt-8">
+                      <button
+                        onClick={handleLoadMore}
+                        className="flex items-center gap-2 px-6 py-3 bg-surface-card hover:bg-surface-soft text-ink rounded-full transition-all border border-hairline hover:border-emerald-500/50"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                        Load More{" "}
+                        {displayedEtfs.length < sortedEtfs.length &&
+                          `(${sortedEtfs.length - displayedEtfs.length} more)`}
+                      </button>
+                    </div>
+                  )}
               </div>
             )}
           </div>
-        )}
+        </div>
       </motion.div>
       <ETFDetailsDrawer
         etf={selectedETF}

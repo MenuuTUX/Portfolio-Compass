@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -9,15 +9,20 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Line,
 } from "recharts";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Portfolio } from "@/types";
 import { motion } from "framer-motion";
 import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
 import MonteCarloSimulator from "./simulation/MonteCarloSimulator";
 import SimulatorExplainer from "./simulation/SimulatorExplainer";
 import { calculatePortfolioHistoricalStats } from "@/lib/math/portfolio-stats";
+import {
+  getPortfolioMarketValue,
+  getPortfolioDividendYield,
+  getEffectiveWeights,
+  estimateAssetTotalReturn,
+} from "@/lib/math/portfolio-returns";
 import { PortfolioShareButton } from "./PortfolioShareButton";
 
 interface WealthProjectorProps {
@@ -31,10 +36,11 @@ export default function WealthProjector({
 }: WealthProjectorProps) {
   const [mode, setMode] = useState<"SIMPLE" | "MONTE_CARLO">("SIMPLE");
 
-  // Calculate current portfolio value
-  const currentPortfolioValue = portfolio.reduce((sum, item) => {
-    return sum + item.price * (item.shares || 0);
-  }, 0);
+  // Market value from *all* holdings (shares × price)
+  const currentPortfolioValue = useMemo(
+    () => getPortfolioMarketValue(portfolio),
+    [portfolio],
+  );
 
   // Simple Projection Logic
   // Initialize with portfolio value if > 0, else 10000
@@ -57,91 +63,78 @@ export default function WealthProjector({
     }
   }
 
-  // Historical stats are derived from the portfolio prop, not state
-  const historicalReturn = useMemo<number | null>(() => {
+  // Weighted dividend yield across ALL assets (value weights preferred)
+  const weightedYield = useMemo(
+    () => getPortfolioDividendYield(portfolio),
+    [portfolio],
+  );
+
+  // Total expected annual return (price appreciation + reinvested dividends)
+  // calculatePortfolioHistoricalStats already folds yield into total return.
+  const weightedReturn = useMemo(() => {
+    if (portfolio.length === 0) return 0.07;
+
     const hasHistory = portfolio.some(
       (p) => p.history && p.history.length > 30,
     );
-    if (!hasHistory) return null;
-    try {
-      const stats = calculatePortfolioHistoricalStats(portfolio);
-      return stats.annualizedReturn !== 0 ? stats.annualizedReturn : null;
-    } catch (e) {
-      console.warn("Failed to calc historical stats for simple projection", e);
-      return null;
-    }
-  }, [portfolio]);
-
-  // Calculate Weighted Average Return & Yield
-  let weightedReturn = historicalReturn !== null ? historicalReturn : 0.07;
-  let weightedYield = 0;
-
-  if (portfolio.length > 0) {
-    const totalWeight = portfolio.reduce((acc, item) => acc + item.weight, 0);
-    if (totalWeight > 0) {
-      // Calculate Yield specifically
-      weightedYield = portfolio.reduce((acc, item) => {
-        // item.metrics.yield is typically a percentage (e.g. 1.5 for 1.5%)
-        // Check if yield exists, default to 0
-        const yieldVal = item.metrics?.yield || 0;
-        return acc + (yieldVal / 100) * (item.weight / totalWeight);
-      }, 0);
-
-      // If no historical return, calculate heuristic total return
-      if (historicalReturn === null) {
-        weightedReturn = portfolio.reduce((acc, item) => {
-          let growthRate = 0.06;
-          if (item.ticker.includes("ZAG")) growthRate = 0.01;
-          const estimatedTotalReturn =
-            (item.metrics?.yield || 0) / 100 + growthRate;
-          return acc + estimatedTotalReturn * (item.weight / totalWeight);
-        }, 0);
+    if (hasHistory) {
+      try {
+        const stats = calculatePortfolioHistoricalStats(portfolio);
+        if (stats.annualizedReturn !== 0) return stats.annualizedReturn;
+      } catch (e) {
+        console.warn("Failed to calc historical stats for simple projection", e);
       }
     }
-  }
 
-  let balance = initialInvestment;
-  let spyBalance = initialInvestment; // For SPY Comparison
-  let accumulatedDividends = 0;
-  const data = [];
-  const spyData = [];
+    // Heuristic: every asset contributes (yield + growth) by effective weight
+    const weights = getEffectiveWeights(portfolio);
+    return portfolio.reduce((acc, item, i) => {
+      return acc + estimateAssetTotalReturn(item) * weights[i];
+    }, 0);
+  }, [portfolio]);
 
-  const monthlyRate = weightedReturn / 12;
-  const monthlyYieldRate = weightedYield / 12;
+  // Deterministic monthly compound projection.
+  // Balance grows at *total* return (includes reinvested dividends).
+  // "Accumulated Dividends" is the income component for display only —
+  // it is already embedded in the ending balance, not added on top.
+  const projectionData = useMemo(() => {
+    let balance = initialInvestment;
+    let accumulatedDividends = 0;
+    const data: {
+      year: string;
+      balance: number;
+      invested: number;
+      dividends: number;
+      value: number;
+      dividendValue: number;
+    }[] = [];
 
-  // SPY Assumptions: 10% Annual Return
-  const spyAnnualReturn = 0.1;
-  const spyMonthlyRate = spyAnnualReturn / 12;
+    const monthlyRate = weightedReturn / 12;
+    const monthlyYieldRate = weightedYield / 12;
 
-  for (let i = 0; i <= years * 12; i++) {
-    if (i % 12 === 0) {
-      data.push({
-        year: `Y${i / 12}`,
-        balance: Math.round(balance),
-        invested: initialInvestment + monthlyContribution * i,
-        dividends: Math.round(accumulatedDividends),
-        // For chart data in share card
-        value: Math.round(balance),
-        dividendValue: Math.round(accumulatedDividends),
-      });
+    for (let i = 0; i <= years * 12; i++) {
+      if (i % 12 === 0) {
+        data.push({
+          year: `Y${i / 12}`,
+          balance: Math.round(balance),
+          invested: initialInvestment + monthlyContribution * i,
+          dividends: Math.round(accumulatedDividends),
+          value: Math.round(balance),
+          dividendValue: Math.round(accumulatedDividends),
+        });
+      }
 
-      spyData.push({
-        value: Math.round(spyBalance),
-      });
+      // Dividend income this month (reinvested → already in total return)
+      const monthlyDividend = balance * monthlyYieldRate;
+      accumulatedDividends += monthlyDividend;
+
+      // Compound at total return (price + yield)
+      balance = (balance + monthlyContribution) * (1 + monthlyRate);
     }
 
-    // Calculate dividend for this month based on current balance
-    const monthlyDividend = balance * monthlyYieldRate;
-    accumulatedDividends += monthlyDividend;
+    return data;
+  }, [initialInvestment, monthlyContribution, years, weightedReturn, weightedYield]);
 
-    // Compound balance
-    balance = (balance + monthlyContribution) * (1 + monthlyRate);
-
-    // Compound SPY balance
-    spyBalance = (spyBalance + monthlyContribution) * (1 + spyMonthlyRate);
-  }
-
-  const projectionData = data;
   const finalAmount =
     projectionData.length > 0
       ? projectionData[projectionData.length - 1].balance
@@ -350,10 +343,13 @@ export default function WealthProjector({
               </div>
               <div>
                 <div className="text-sm text-neutral-400">
-                  Est. Dividends Gained
+                  Est. Dividends (reinvested)
                 </div>
                 <div className="text-3xl font-bold text-blue-400">
                   {formatCurrency(totalDividends)}
+                </div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">
+                  Included in projected wealth
                 </div>
               </div>
               <div className="text-left sm:text-right">

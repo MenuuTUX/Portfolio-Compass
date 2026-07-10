@@ -32,13 +32,13 @@ const steps = [
       "The Simple Projection uses a deterministic mathematical model based on the standard compound interest formula. It assumes a constant rate of return year over year, making it ideal for baseline expectations but unrealistic for volatility.",
     details: [
       {
-        label: "Constant Return",
-        text: "Uses weighted historical average or 6-7%",
+        label: "Total Return",
+        text: "Price appreciation + reinvested dividends for every holding",
         icon: Calculator,
       },
       {
-        label: "Regular Contributions",
-        text: "Assumes monthly deposits invested immediately",
+        label: "All Assets",
+        text: "Value-weighted (shares × price) across the full portfolio",
         icon: ArrowRight,
       },
       {
@@ -55,11 +55,11 @@ const steps = [
     icon: GitBranch,
     color: "emerald",
     description:
-      'Monte Carlo simulations model thousands of possible futures by introducing randomness (Brownian Motion) into the price path. It accounts for volatility and correlation between assets to generate a probabilistic "Cone of Uncertainty".',
+      'Monte Carlo simulations model many possible futures by introducing randomness (Brownian Motion) into each asset\'s path. Every holding participates (value-weighted), dividends boost the drift so income is reinvested, and correlations shape the cone of uncertainty.',
     details: [
       {
         label: "Drift (μ)",
-        text: "Expected return driving the trend",
+        text: "Price return + dividend yield (total return)",
         icon: ArrowRight,
       },
       {
@@ -68,8 +68,8 @@ const steps = [
         icon: Shuffle,
       },
       {
-        label: "Correlations",
-        text: "Assets move together (Cholesky Matrix)",
+        label: "All Assets",
+        text: "Full portfolio with correlations (Cholesky)",
         icon: Binary,
       },
     ],
