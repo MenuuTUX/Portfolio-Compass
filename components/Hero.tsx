@@ -285,7 +285,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg sm:text-xl font-display font-bold text-ink">
-                  Shib&apos;s Portfolio Growth
+                  Jim Cramer&apos;s Portfolio Growth
                 </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
