@@ -165,7 +165,7 @@ const PurposeSection = () => {
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-stone-800" />
               <span className="text-stone-500 text-sm font-mono uppercase tracking-widest">
-                Shib
+                Jim Cramer
               </span>
             </div>
           </div>
