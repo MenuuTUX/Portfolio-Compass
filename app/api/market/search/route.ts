@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
     const pageTickers = query ? tickers : tickers;
 
     const [quotes, histories] = await Promise.all([
-      getFastQuotes(pageTickers),
+      // Profiles (sector/industry) needed for market filters sort-by-industry
+      getFastQuotes(pageTickers, { includeProfiles: true }),
       getFastHistory(pageTickers, "1M"),
     ]);
 
@@ -64,6 +65,8 @@ export async function GET(request: NextRequest) {
         },
         allocation: { equities: 0, bonds: 0, cash: 0 },
         sectors: {},
+        sector: q.sector,
+        industry: q.industry,
         marketCap: q.marketCap,
         volume: q.volume,
         peRatio: q.peRatio,

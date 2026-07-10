@@ -61,21 +61,48 @@ export default function SettingsDrawer({
     setStatus(null);
 
     try {
-      const res = await fetch("/api/etfs/sync/all", { method: "POST" });
-      const data = await res.json();
+      // Pull tickers from the local portfolio so we refresh what the user sees
+      // without needing CRON_SECRET (that protects the admin bulk deep-sync).
+      const portfolio =
+        (queryClient.getQueryData(["portfolio"]) as
+          | { ticker?: string }[]
+          | undefined) || [];
+      const tickers = Array.from(
+        new Set(
+          portfolio
+            .map((p) => p.ticker)
+            .filter((t): t is string => typeof t === "string" && t.length > 0),
+        ),
+      );
 
-      if (!res.ok) throw new Error(data.error || "Failed to refresh data");
+      const res = await fetch("/api/market/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tickers }),
+      });
+      const data = await res.json().catch(() => ({}));
 
-      await queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to refresh market data");
+      }
+
+      // Drop client caches so portfolio + market tabs re-fetch live quotes
+      await queryClient.invalidateQueries();
+
       setStatus({
         type: "success",
-        message: data.message || "Data refreshed successfully",
+        message:
+          data.message ||
+          (tickers.length
+            ? `Refreshed ${tickers.length} portfolio ticker${tickers.length === 1 ? "" : "s"}.`
+            : "Market cache cleared. Browse a tab to load fresh quotes."),
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       setStatus({
         type: "error",
-        message: error.message || "Failed to refresh data",
+        message:
+          error instanceof Error ? error.message : "Failed to refresh data",
       });
     } finally {
       setIsRefreshing(false);
@@ -123,10 +150,11 @@ export default function SettingsDrawer({
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-ink font-medium">
-                        Refresh All Data
+                        Refresh market data
                       </h4>
                       <p className="text-sm text-neutral-400">
-                        Update prices and details for all ETFs
+                        Pull latest prices for your portfolio and clear cached
+                        quotes so market tabs reload fresh
                       </p>
                     </div>
                   </div>

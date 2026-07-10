@@ -81,6 +81,8 @@ export const ETFSchema = z.object({
   fundClass: z.string().optional(),
   category: z.string().optional(),
   family: z.string().optional(),
+  sector: z.string().optional(),
+  industry: z.string().optional(),
   creditQuality: z.record(z.string(), z.number()).optional(),
   redditCommunities: z
     .array(
