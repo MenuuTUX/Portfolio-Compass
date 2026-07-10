@@ -21,6 +21,10 @@ export interface ETF {
   sectors?: {
     [key: string]: number;
   };
+  /** Bond credit-quality weights (0-1), keyed by rating label */
+  creditQuality?: {
+    [key: string]: number;
+  };
   holdings?: {
     ticker: string;
     name: string;
@@ -28,6 +32,10 @@ export interface ETF {
     sector?: string;
     shares?: number;
   }[];
+  /** equity | bond | mixed | commodity | leveraged | cash | unknown */
+  fundClass?: string;
+  category?: string;
+  family?: string;
   // Extended Metrics (Optional, for Stocks primarily)
   marketCap?: number;
   revenue?: number;

@@ -304,28 +304,49 @@ export default function ETFDetailsDrawer({
       })
       .catch(() => {});
 
-    // Fund technicals (expense ratio, sectors, holdings)
-    // one Yahoo request, usually resolves in under a second
-    fetch(`/api/market/etf-details?ticker=${etf.ticker}`)
+    // Fund technicals: Yahoo + gap-fill (US/CA MER, holdings, credit quality)
+    fetch(`/api/market/etf-details?ticker=${encodeURIComponent(etf.ticker)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((fund) => {
         if (cancelled || !fund) return;
         setFreshEtf((prev) => {
           const base = prev || etf;
-          return mergeAssetData(base, {
-            sectors: fund.sectors,
-            holdings: fund.holdings.map((h: any) => ({
-              ticker: h.ticker,
-              name: h.name,
-              weight: h.weight,
-            })),
+          const patch: Partial<ETF> = {
             holdingsCount: fund.holdingsCount,
             beta: fund.beta,
+            fundClass: fund.fundClass,
+            category: fund.category,
+            family: fund.family,
+            bondMaturity: fund.bondMaturity,
+            bondDuration: fund.bondDuration,
+            creditQuality: fund.creditQuality,
             metrics: {
               yield: base.metrics?.yield ?? 0,
               mer: fund.expenseRatio ?? base.metrics?.mer ?? 0,
             },
-          });
+          };
+          if (fund.volume) patch.volume = fund.volume;
+          if (fund.sectors && Object.keys(fund.sectors).length > 0) {
+            patch.sectors = fund.sectors;
+          }
+          if (fund.holdings?.length) {
+            patch.holdings = fund.holdings.map((h: any) => ({
+              ticker: h.ticker,
+              name: h.name,
+              weight: h.weight,
+            }));
+          }
+          if (fund.allocation) {
+            patch.allocation = {
+              equities: fund.allocation.equities ?? 0,
+              bonds: fund.allocation.bonds ?? 0,
+              cash: fund.allocation.cash ?? 0,
+            };
+          }
+          if (fund.description) {
+            // description lives on the profile card via stock/info; keep name cues
+          }
+          return mergeAssetData(base, patch);
         });
       })
       .catch(() => {});
@@ -448,26 +469,54 @@ export default function ETFDetailsDrawer({
     return calculateRiskMetric(filteredEtfHistory);
   }, [displayEtf, filteredEtfHistory]);
 
+  // Pie data: equity sectors → bond credit quality → top holdings weights
+  const breakdownKind = useMemo<"sectors" | "credit" | "holdings" | "none">(
+    () => {
+      if (!displayEtf) return "none";
+      if (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0) {
+        return "sectors";
+      }
+      if (
+        displayEtf.creditQuality &&
+        Object.keys(displayEtf.creditQuality).length > 0
+      ) {
+        return "credit";
+      }
+      if (displayEtf.holdings && displayEtf.holdings.length > 0) {
+        return "holdings";
+      }
+      return "none";
+    },
+    [displayEtf],
+  );
+
   const sectorData = useMemo(() => {
     if (!displayEtf) return [];
 
-    if (displayEtf.sectors && Object.keys(displayEtf.sectors).length > 0) {
+    if (breakdownKind === "sectors" && displayEtf.sectors) {
       const raw = Object.entries(displayEtf.sectors).map(([name, value]) => ({
         name: formatSectorName(name),
         value,
       }));
-
-      // Sectors are consistently stored as decimals (e.g. 0.15 for 15%) from Yahoo.
-      // Even for leveraged ETFs where sum > 1.0 (e.g. 2.0), we should scale.
+      // Yahoo sectors are 0-1 fractions; scale to percent
       return raw
         .map((item) => ({
           ...item,
-          value: item.value * 100,
+          value: item.value <= 1.5 ? item.value * 100 : item.value,
         }))
         .sort((a, b) => b.value - a.value);
     }
 
-    if (displayEtf.holdings && displayEtf.holdings.length > 0) {
+    if (breakdownKind === "credit" && displayEtf.creditQuality) {
+      return Object.entries(displayEtf.creditQuality)
+        .map(([name, value]) => ({
+          name,
+          value: value <= 1.5 ? value * 100 : value,
+        }))
+        .sort((a, b) => b.value - a.value);
+    }
+
+    if (breakdownKind === "holdings" && displayEtf.holdings) {
       const sampleSum = displayEtf.holdings.reduce(
         (acc, h) => acc + h.weight,
         0,
@@ -484,7 +533,7 @@ export default function ETFDetailsDrawer({
     }
 
     return [];
-  }, [displayEtf]);
+  }, [displayEtf, breakdownKind]);
 
   const allHoldings = useMemo(() => {
     if (!displayEtf?.holdings) return [];
@@ -577,6 +626,10 @@ export default function ETFDetailsDrawer({
       ];
     }
 
+    const isBond =
+      displayEtf.fundClass === "bond" ||
+      (displayEtf.allocation?.bonds ?? 0) > 50;
+
     return [
       {
         title: "Overview",
@@ -588,7 +641,25 @@ export default function ETFDetailsDrawer({
               ? `${displayEtf.metrics.mer.toFixed(2)}%`
               : null,
           },
-          { label: "PE Ratio", value: numberOrNull(displayEtf.peRatio) },
+          // PE is equity-only noise for bond funds
+          {
+            label: "PE Ratio",
+            value: isBond ? null : numberOrNull(displayEtf.peRatio),
+          },
+          {
+            label: "Avg Maturity",
+            value:
+              displayEtf.bondMaturity != null
+                ? `${displayEtf.bondMaturity.toFixed(1)} yrs`
+                : null,
+          },
+          {
+            label: "Duration",
+            value:
+              displayEtf.bondDuration != null
+                ? `${displayEtf.bondDuration.toFixed(1)} yrs`
+                : null,
+          },
           {
             label: "Shares Out",
             value: largeNumberOrNull(displayEtf.sharesOutstanding),
@@ -1055,7 +1126,10 @@ export default function ETFDetailsDrawer({
 
                 {/* Right Col Wrapper */}
                 <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto space-y-6 pr-2 custom-scrollbar">
-                  <EtfVerdictCard etf={displayEtf} />
+                  <EtfVerdictCard
+                    etf={displayEtf}
+                    history={filteredEtfHistory}
+                  />
 
                   {/* Profile / Description Section */}
                   <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col">
@@ -1270,7 +1344,9 @@ export default function ETFDetailsDrawer({
                           <div className="w-1/2 flex flex-col">
                             <div className="flex items-center justify-between mb-3">
                               <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-                                Top Holdings
+                                {displayEtf.fundClass === "bond"
+                                  ? "Bond Profile"
+                                  : "Top Holdings"}
                               </div>
                               {allHoldings.length > 5 && (
                                 <button
@@ -1282,6 +1358,91 @@ export default function ETFDetailsDrawer({
                               )}
                             </div>
                             <div className="flex-1 overflow-y-hidden space-y-2">
+                              {topHoldings.length === 0 &&
+                                (displayEtf.fundClass === "bond" ||
+                                  displayEtf.bondMaturity ||
+                                  displayEtf.bondDuration) && (
+                                  <div className="space-y-2 text-sm">
+                                    {displayEtf.bondMaturity != null && (
+                                      <div className="flex justify-between py-1.5 px-2 rounded-lg bg-surface-soft/50">
+                                        <span className="text-neutral-400">
+                                          Avg Maturity
+                                        </span>
+                                        <span className="text-ink font-medium">
+                                          {displayEtf.bondMaturity.toFixed(1)}{" "}
+                                          yrs
+                                        </span>
+                                      </div>
+                                    )}
+                                    {displayEtf.bondDuration != null && (
+                                      <div className="flex justify-between py-1.5 px-2 rounded-lg bg-surface-soft/50">
+                                        <span className="text-neutral-400">
+                                          Duration
+                                        </span>
+                                        <span className="text-ink font-medium">
+                                          {displayEtf.bondDuration.toFixed(1)}{" "}
+                                          yrs
+                                        </span>
+                                      </div>
+                                    )}
+                                    {displayEtf.allocation && (
+                                      <>
+                                        {displayEtf.allocation.bonds > 0 && (
+                                          <div className="flex justify-between py-1.5 px-2 rounded-lg bg-surface-soft/50">
+                                            <span className="text-neutral-400">
+                                              Bonds
+                                            </span>
+                                            <span className="text-ink font-medium">
+                                              {displayEtf.allocation.bonds.toFixed(
+                                                1,
+                                              )}
+                                              %
+                                            </span>
+                                          </div>
+                                        )}
+                                        {displayEtf.allocation.cash > 0 && (
+                                          <div className="flex justify-between py-1.5 px-2 rounded-lg bg-surface-soft/50">
+                                            <span className="text-neutral-400">
+                                              Cash
+                                            </span>
+                                            <span className="text-ink font-medium">
+                                              {displayEtf.allocation.cash.toFixed(
+                                                1,
+                                              )}
+                                              %
+                                            </span>
+                                          </div>
+                                        )}
+                                      </>
+                                    )}
+                                    {displayEtf.category && (
+                                      <p className="text-xs text-neutral-500 px-2 pt-1">
+                                        {displayEtf.category}
+                                        {displayEtf.family
+                                          ? ` · ${displayEtf.family}`
+                                          : ""}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              {topHoldings.length === 0 &&
+                                displayEtf.fundClass === "leveraged" && (
+                                  <p className="text-xs text-neutral-500 px-2 leading-relaxed">
+                                    Leveraged / futures-based products often
+                                    hold cash collateral rather than a stock
+                                    basket. Exposure is via swaps or futures, so
+                                    no traditional holdings list is published.
+                                  </p>
+                                )}
+                              {topHoldings.length === 0 &&
+                                !displayEtf.bondMaturity &&
+                                !displayEtf.bondDuration &&
+                                displayEtf.fundClass !== "leveraged" &&
+                                displayEtf.fundClass !== "bond" && (
+                                  <p className="text-xs text-neutral-500 px-2">
+                                    No holdings data available
+                                  </p>
+                                )}
                               {topHoldings.map((h, i) => (
                                 <div
                                   key={i}
@@ -1346,33 +1507,33 @@ export default function ETFDetailsDrawer({
                                   </div>
                                 </div>
                               ))}
-                              {topHoldings.length === 0 && (
-                                <div className="text-neutral-500 text-xs italic p-2">
-                                  No holdings data available
-                                </div>
-                              )}
                             </div>
                           </div>
 
-                          {/* Right: Pie Chart */}
+                          {/* Right: pie — equity sectors, credit quality, or holdings */}
                           <div className="w-1/2 relative bg-surface-card rounded-xl border border-hairline p-2 flex items-center justify-center">
                             <div className="absolute top-2 left-2 z-10">
                               <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-dune/30 px-1.5 py-0.5 rounded backdrop-blur-sm">
-                                Sectors
+                                {breakdownKind === "credit"
+                                  ? "Credit"
+                                  : breakdownKind === "holdings"
+                                    ? "Weights"
+                                    : "Sectors"}
                               </div>
                             </div>
                             <SectorPieChart
                               data={sectorData}
                               isLoading={false}
-                              onSectorClick={(sector) => {
-                                // Optional: Filter holdings by sector?
-                                // For now just visual
-                              }}
+                              onSectorClick={() => {}}
                             />
                             {sectorData.length === 0 && (
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <span className="text-xs text-neutral-500 bg-dune/50 px-2 py-1 rounded">
-                                  No Sector Data
+                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-3">
+                                <span className="text-xs text-neutral-500 bg-dune/50 px-2 py-1 rounded text-center leading-snug">
+                                  {displayEtf.fundClass === "bond"
+                                    ? "No credit-quality breakdown"
+                                    : displayEtf.fundClass === "leveraged"
+                                      ? "No sector map for this product"
+                                      : "No sector data"}
                                 </span>
                               </div>
                             )}

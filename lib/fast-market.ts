@@ -117,7 +117,7 @@ function mapQuote(q: any): FastQuote {
       q.dividendYield < 1 ? q.dividendYield * 100 : q.dividendYield;
   }
 
-  // netExpenseRatio is already percent (e.g. 0.0945 for SPY).
+  // netExpenseRatio is already percent (e.g. 0.0945 for SPY). 0 = missing.
   let expenseRatio: number | undefined;
   if (typeof q.netExpenseRatio === "number" && q.netExpenseRatio > 0) {
     expenseRatio = q.netExpenseRatio;
@@ -415,10 +415,9 @@ export async function searchFastSymbols(
   return Array.from(new Set(filtered.map((r) => r.symbol))).slice(0, limit);
 }
 
-// ETF/fund technicals: expense ratio, sector weights, holdings, description.
-// One quoteSummary call per ticker (not batchable like quote()/spark()), but
-// still a single fast request — no scraping, no DB. Called on-demand when a
-// drawer opens, not blocking the initial chart/price paint.
+// Fund technicals from Yahoo quoteSummary. Bond funds expose credit ratings
+// and duration rather than equity holdings — we surface both so the UI can
+// pick the right breakdown by fund class.
 
 const ETF_DETAILS_TTL_MS = 10 * 60_000;
 
@@ -428,8 +427,30 @@ export interface FastEtfDetails {
   expenseRatio?: number; // percent, e.g. 0.09 for 0.09%
   beta?: number;
   holdingsCount?: number;
-  sectors: Record<string, number>; // fraction 0-1, keyed by raw sector slug
+  /** Equity sector weights as 0-1 fractions, keyed by Yahoo slug or label */
+  sectors: Record<string, number>;
+  /** Credit-quality weights as 0-1 fractions (bond funds) */
+  creditQuality: Record<string, number>;
   holdings: { ticker: string; name: string; weight: number }[]; // weight as %
+  allocation?: {
+    equities: number;
+    bonds: number;
+    cash: number;
+    other?: number;
+  };
+  fundClass?:
+    | "equity"
+    | "bond"
+    | "mixed"
+    | "commodity"
+    | "leveraged"
+    | "cash"
+    | "unknown";
+  category?: string;
+  family?: string;
+  bondMaturity?: number;
+  bondDuration?: number;
+  volume?: number;
 }
 
 export async function getFastEtfDetails(
@@ -439,53 +460,208 @@ export async function getFastEtfDetails(
 
   try {
     return await cached(key, ETF_DETAILS_TTL_MS, async () => {
-      const data = await yf.quoteSummary(ticker, {
-        modules: [
-          "summaryProfile",
-          "fundProfile",
-          "topHoldings",
-          "defaultKeyStatistics",
-        ],
-      });
+      // Lazy import to keep the hot quote path free of this module's deps graph
+      const {
+        detectFundClass,
+        positionsToAllocation,
+        parseBondRatings,
+        normalizeExpenseRatio,
+        pickBeta,
+      } = await import("@/lib/asset-class");
 
+      const [data, quote] = await Promise.all([
+        yf.quoteSummary(ticker, {
+          modules: [
+            "summaryProfile",
+            "fundProfile",
+            "topHoldings",
+            "defaultKeyStatistics",
+            "price",
+          ],
+        }),
+        yf.quote(ticker).catch(() => null),
+      ]);
+
+      const th = data.topHoldings as any;
       const sectors: Record<string, number> = {};
-      data.topHoldings?.sectorWeightings?.forEach((w: any) => {
+      th?.sectorWeightings?.forEach((w: any) => {
         const [sectorKey] = Object.keys(w);
-        if (sectorKey && typeof w[sectorKey] === "number") {
+        if (sectorKey && typeof w[sectorKey] === "number" && w[sectorKey] > 0) {
           sectors[sectorKey] = w[sectorKey];
         }
       });
 
-      const holdings = (data.topHoldings?.holdings || [])
-        .filter((h: any) => h.symbol)
+      const creditQuality = parseBondRatings(th?.bondRatings);
+
+      const holdings = (th?.holdings || [])
+        .filter((h: any) => h.symbol || h.holdingName)
         .map((h: any) => ({
-          ticker: h.symbol as string,
+          ticker: (h.symbol as string) || (h.holdingName as string),
           name: (h.holdingName as string) || h.symbol,
           weight: (h.holdingPercent || 0) * 100,
         }));
 
-      let expenseRatio =
+      const feeFromProfile =
         data.fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
-      if (typeof expenseRatio === "number" && expenseRatio > 0 && expenseRatio < 1) {
-        expenseRatio *= 100;
-      }
+      const feeFromQuote =
+        typeof (quote as any)?.netExpenseRatio === "number"
+          ? (quote as any).netExpenseRatio
+          : undefined;
+      const expenseRatio =
+        normalizeExpenseRatio(feeFromQuote, "quote") ??
+        normalizeExpenseRatio(feeFromProfile, "profile");
+
+      const stockPosition = th?.stockPosition;
+      const bondPosition = th?.bondPosition;
+      const cashPosition = th?.cashPosition;
+      const otherPosition = th?.otherPosition;
+
+      const name =
+        (quote as any)?.shortName ||
+        (quote as any)?.longName ||
+        data.price?.shortName ||
+        data.price?.longName ||
+        ticker;
+      const description =
+        data.summaryProfile?.longBusinessSummary || undefined;
+      const category = data.fundProfile?.categoryName || undefined;
+      const family = data.fundProfile?.family || undefined;
+
+      const fundClass = detectFundClass({
+        name,
+        category,
+        description,
+        stockPosition,
+        bondPosition,
+        cashPosition,
+        otherPosition,
+      });
+
+      const allocation = positionsToAllocation({
+        stockPosition,
+        bondPosition,
+        cashPosition,
+        otherPosition,
+      });
+
+      const bondMaturity =
+        typeof th?.bondHoldings?.maturity === "number"
+          ? th.bondHoldings.maturity
+          : undefined;
+      const bondDuration =
+        typeof th?.bondHoldings?.duration === "number"
+          ? th.bondHoldings.duration
+          : undefined;
+
+      const beta = pickBeta(
+        data.defaultKeyStatistics?.beta as number | undefined,
+        data.defaultKeyStatistics?.beta3Year as number | undefined,
+      );
+
+      const volume =
+        typeof (quote as any)?.regularMarketVolume === "number"
+          ? (quote as any).regularMarketVolume
+          : undefined;
 
       return {
         ticker: ticker.toUpperCase(),
-        description:
-          data.summaryProfile?.longBusinessSummary || undefined,
-        expenseRatio:
-          typeof expenseRatio === "number" && expenseRatio > 0
-            ? expenseRatio
-            : undefined,
-        beta: data.defaultKeyStatistics?.beta,
+        description,
+        expenseRatio,
+        beta,
         holdingsCount: holdings.length || undefined,
         sectors,
+        creditQuality,
         holdings,
+        allocation: allocation ?? undefined,
+        fundClass,
+        category,
+        family,
+        bondMaturity,
+        bondDuration,
+        volume,
       } satisfies FastEtfDetails;
     });
   } catch (e) {
     console.warn(`[FastMarket] ETF details fetch failed for ${ticker}:`, e);
     return null;
+  }
+}
+
+/**
+ * Fill gaps Yahoo leaves on Canadian / sparse funds via stockanalysis.com.
+ * Only called when the fast path is incomplete — allowlisted venues only.
+ */
+export async function enrichEtfDetailsGaps(
+  base: FastEtfDetails,
+): Promise<FastEtfDetails> {
+  const needsMer = !base.expenseRatio;
+  const needsHoldings = base.holdings.length === 0;
+  const needsDesc = !base.description;
+  const needsBeta = base.beta === undefined;
+
+  if (!needsMer && !needsHoldings && !needsDesc && !needsBeta) {
+    return base;
+  }
+
+  try {
+    const { getStockProfile, getEtfHoldings } = await import(
+      "@/lib/scrapers/stock-analysis"
+    );
+    const { normalizeExpenseRatio, pickBeta } = await import(
+      "@/lib/asset-class"
+    );
+
+    const [profile, scrapedHoldings] = await Promise.all([
+      needsMer || needsDesc || needsBeta
+        ? getStockProfile(base.ticker)
+        : Promise.resolve(null),
+      needsHoldings ? getEtfHoldings(base.ticker) : Promise.resolve([]),
+    ]);
+
+    const next: FastEtfDetails = { ...base };
+
+    if (profile) {
+      if (needsMer) {
+        const mer = normalizeExpenseRatio(profile.expenseRatio, "scraper");
+        if (mer !== undefined) next.expenseRatio = mer;
+      }
+      if (needsDesc && profile.description) {
+        next.description = profile.description;
+      }
+      if (needsBeta) {
+        const b = pickBeta(profile.beta, undefined);
+        if (b !== undefined) next.beta = b;
+      }
+      if (
+        profile.bondMaturity !== undefined &&
+        next.bondMaturity === undefined
+      ) {
+        next.bondMaturity = profile.bondMaturity;
+      }
+      if (
+        profile.bondDuration !== undefined &&
+        next.bondDuration === undefined
+      ) {
+        next.bondDuration = profile.bondDuration;
+      }
+      if (profile.holdingsCount && !next.holdingsCount) {
+        next.holdingsCount = profile.holdingsCount;
+      }
+    }
+
+    if (needsHoldings && scrapedHoldings.length > 0) {
+      next.holdings = scrapedHoldings.map((h) => ({
+        ticker: h.symbol,
+        name: h.name || h.symbol,
+        // scraper stores fraction 0-1; UI expects percent
+        weight: h.weight <= 1.5 ? h.weight * 100 : h.weight,
+      }));
+      next.holdingsCount = next.holdings.length;
+    }
+
+    return next;
+  } catch (e) {
+    console.warn(`[FastMarket] Gap enrichment failed for ${base.ticker}:`, e);
+    return base;
   }
 }

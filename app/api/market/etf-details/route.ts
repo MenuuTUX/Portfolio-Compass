@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFastEtfDetails } from "@/lib/fast-market";
+import {
+  getFastEtfDetails,
+  enrichEtfDetailsGaps,
+} from "@/lib/fast-market";
 
 export const maxDuration = 30;
 
+/**
+ * Fund technicals for the details drawer.
+ * 1) Yahoo quoteSummary (fast; bonds → credit ratings / allocation)
+ * 2) Gap-fill via stockanalysis for US + CA when MER/holdings/desc missing
+ */
 export async function GET(request: NextRequest) {
   const ticker = (request.nextUrl.searchParams.get("ticker") || "").trim();
 
@@ -11,13 +19,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const details = await getFastEtfDetails(ticker);
-    if (!details) {
+    const yahoo = await getFastEtfDetails(ticker);
+    if (!yahoo) {
       return NextResponse.json(
         { error: "No details available" },
         { status: 404 },
       );
     }
+
+    const details = await enrichEtfDetailsGaps(yahoo);
+
     return NextResponse.json(details, {
       headers: {
         "Cache-Control": "public, max-age=60, stale-while-revalidate=600",
