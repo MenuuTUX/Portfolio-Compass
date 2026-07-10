@@ -1,5 +1,14 @@
-import prisma from "@/lib/db";
-import { Decimal } from "@/lib/decimal";
+/**
+ * Holdings overlap math — pure, no database.
+ * Pass holdings already loaded on the client (or from live ETF details).
+ */
+
+export interface HoldingWeight {
+  ticker: string;
+  name: string;
+  /** Weight as a percentage (e.g. 10 = 10%) or fraction — must match between A and B */
+  weight: number;
+}
 
 interface OverlapResult {
   overlapScore: number;
@@ -13,26 +22,24 @@ interface CommonHolding {
   weightInB: number;
 }
 
-export async function calculateOverlap(
-  etfA: string,
-  etfB: string,
-): Promise<OverlapResult> {
-  const [holdingsA, holdingsB] = await Promise.all([
-    prisma.holding.findMany({
-      where: { etfId: etfA },
-      select: { ticker: true, name: true, weight: true },
-    }),
-    prisma.holding.findMany({
-      where: { etfId: etfB },
-      select: { ticker: true, name: true, weight: true },
-    }),
-  ]);
+function toNumber(weight: number | { toNumber: () => number }): number {
+  if (typeof weight === "number") return weight;
+  if (weight && typeof weight.toNumber === "function") return weight.toNumber();
+  return Number(weight) || 0;
+}
 
+/**
+ * Calculate portfolio overlap between two holdings lists.
+ */
+export function calculateOverlapFromHoldings(
+  holdingsA: HoldingWeight[],
+  holdingsB: HoldingWeight[],
+): OverlapResult {
   const mapA = new Map<string, { name: string; weight: number }>();
   holdingsA.forEach((h) => {
     mapA.set(h.ticker, {
       name: h.name,
-      weight: h.weight.toNumber(),
+      weight: toNumber(h.weight),
     });
   });
 
@@ -42,7 +49,7 @@ export async function calculateOverlap(
   holdingsB.forEach((hB) => {
     const dataA = mapA.get(hB.ticker);
     if (dataA) {
-      const weightB = hB.weight.toNumber();
+      const weightB = toNumber(hB.weight);
       const weightA = dataA.weight;
       const minWeight = Math.min(weightA, weightB);
 
@@ -50,15 +57,14 @@ export async function calculateOverlap(
 
       commonHoldings.push({
         ticker: hB.ticker,
-        name: hB.name, // Using name from B, usually same as A
+        name: hB.name,
         weightInA: weightA,
         weightInB: weightB,
       });
     }
   });
 
-  // Sort by the minimum overlap weight (intersection), as this represents the actual shared
-  // exposure contributing to the overlap score. This highlights the holdings that matter most for overlap.
+  // Sort by the minimum overlap weight (intersection)
   commonHoldings.sort(
     (a, b) =>
       Math.min(b.weightInA, b.weightInB) - Math.min(a.weightInA, a.weightInB),
@@ -68,4 +74,23 @@ export async function calculateOverlap(
     overlapScore,
     commonHoldings,
   };
+}
+
+/**
+ * @deprecated Prefer calculateOverlapFromHoldings with client/live data.
+ * Kept as an alias that accepts two holdings arrays (not tickers + DB).
+ */
+export async function calculateOverlap(
+  holdingsA: HoldingWeight[] | string,
+  holdingsB?: HoldingWeight[] | string,
+): Promise<OverlapResult> {
+  // Legacy tests passed ticker strings + mocked DB — those no longer work.
+  // New signature: two holdings arrays.
+  if (typeof holdingsA === "string" || typeof holdingsB === "string") {
+    return { overlapScore: 0, commonHoldings: [] };
+  }
+  return calculateOverlapFromHoldings(
+    holdingsA as HoldingWeight[],
+    (holdingsB || []) as HoldingWeight[],
+  );
 }

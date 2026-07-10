@@ -58,7 +58,8 @@ export default function Home() {
   };
 
   const handleAddToPortfolio = async (etf: ETF) => {
-    await addStockMutation.mutateAsync({ ticker: etf.ticker });
+    // Pass the already-loaded asset so add works even if DB-backed search is down
+    await addStockMutation.mutateAsync({ ticker: etf.ticker, etf });
   };
 
   const handleRemoveFromPortfolio = (ticker: string) => {

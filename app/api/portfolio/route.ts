@@ -1,93 +1,25 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/db";
-import { safeDecimal } from "@/lib/utils";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Portfolio API placeholder.
+ *
+ * Portfolio Compass is local-first: the browser stores holdings in
+ * LocalStorage (`portfolio_compass_v1`) via hooks in `/hooks`.
+ * There is no server-side user session or cloud portfolio sync yet.
+ *
+ * This endpoint exists so clients probing `/api/portfolio` get a clear
+ * response instead of a half-wired auth gate with no login providers.
+ */
 export async function GET() {
-  try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || !session.user || !session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const portfolioItems = await prisma.portfolioItem.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        etf: {
-          include: {
-            sectors: true,
-            allocation: true,
-            holdings: true,
-            redditCommunities: true,
-            history: {
-              orderBy: { date: "asc" },
-              take: 1, // Minimal history for basic check, or remove if not needed
-            },
-          },
-        },
-      },
-    });
-
-    const formatted = portfolioItems.map((item) => {
-      const etf = item.etf;
-      return {
-        ticker: etf.ticker,
-        name: etf.name,
-        portfolioWeight: safeDecimal(item.weight),
-        shares: safeDecimal(item.shares),
-        price: safeDecimal(etf.price),
-        changePercent: safeDecimal(etf.daily_change),
-        assetType: etf.assetType,
-
-        // Optimized sector reduction
-        sectors: (() => {
-          const result: Record<string, number> = {};
-          if (etf.sectors) {
-            for (const s of etf.sectors) {
-              result[s.sector_name] = safeDecimal(s.weight);
-            }
-          }
-          return result;
-        })(),
-
-        allocation: {
-          equities: etf.allocation?.stocks_weight
-            ? safeDecimal(etf.allocation.stocks_weight)
-            : 0,
-          bonds: etf.allocation?.bonds_weight
-            ? safeDecimal(etf.allocation.bonds_weight)
-            : 0,
-          cash: etf.allocation?.cash_weight
-            ? safeDecimal(etf.allocation.cash_weight)
-            : 0,
-        },
-        holdings: (etf.holdings || []).map((h) => ({
-          ticker: h.ticker,
-          name: h.name,
-          weight: safeDecimal(h.weight),
-          sector: h.sector,
-          shares: h.shares ? safeDecimal(h.shares) : undefined,
-        })),
-        redditCommunities: (etf.redditCommunities || []).map((rc: any) => ({
-          subreddit: rc.subreddit,
-          url: rc.url || `https://reddit.com/r/${rc.subreddit}`,
-        })),
-      };
-    });
-
-    return NextResponse.json(formatted);
-  } catch (error) {
-    console.error("[API] Portfolio fetch error:", error);
-
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    {
+      error: "Portfolio is local-first",
+      message:
+        "Holdings are stored in the browser. Cloud sync and login are not enabled.",
+      localFirst: true,
+    },
+    { status: 501 },
+  );
 }

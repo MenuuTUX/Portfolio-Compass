@@ -1,22 +1,15 @@
-import { NextAuthOptions } from "next-auth";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/lib/db";
+/**
+ * Auth is not used.
+ *
+ * Portfolio Compass is local-first: holdings live in browser LocalStorage.
+ * There is no login, OAuth, or cloud portfolio sync.
+ */
 
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
-  providers: [
-    // Placeholder for actual providers (e.g., Google, GitHub)
-    // Users must configure this based on their needs.
-  ],
-  session: {
-    strategy: "jwt",
-  },
-  callbacks: {
-    session: ({ session, token }) => {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-      }
-      return session;
-    },
-  },
+export const AUTH_ENABLED = false;
+
+export const AUTH_STATUS = {
+  enabled: false,
+  strategy: "local-first" as const,
+  message:
+    "No authentication. Portfolios persist in LocalStorage on this device only.",
 };

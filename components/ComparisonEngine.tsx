@@ -423,10 +423,14 @@ export default function ComparisonEngine({
       } catch (error) {
         console.error("Failed to add to portfolio", error);
         triggerFlash(etf.ticker, "error");
+        const detail =
+          error instanceof Error && error.message
+            ? error.message
+            : "Could not add asset to portfolio. Please try again.";
         setMessageDrawer({
           isOpen: true,
           title: "Add Failed",
-          message: "Could not add asset to portfolio. Please try again.",
+          message: detail,
           type: "error",
         });
       }
@@ -443,7 +447,9 @@ export default function ComparisonEngine({
   );
 
   const isInPortfolio = (ticker: string) =>
-    portfolio.some((item) => item.ticker === ticker);
+    portfolio.some(
+      (item) => item.ticker.toUpperCase() === ticker.toUpperCase(),
+    );
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 

@@ -90,7 +90,9 @@ export default function TrendingSection({
   };
 
   const isItemInPortfolio = (ticker: string) => {
-    return portfolio.some((item) => item.ticker === ticker);
+    return portfolio.some(
+      (item) => item.ticker.toUpperCase() === ticker.toUpperCase(),
+    );
   };
 
   const getThemeStyles = (t: typeof theme) => {

@@ -1,131 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/db";
-import { syncEtfDetails } from "@/lib/etf-sync";
-import { isMarketOpen } from "@/lib/market-hours";
-import pLimit from "p-limit";
-import crypto from "crypto";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TICKERS = [
-  "SPY",
-  "QQQ",
-  "IWM",
-  "AAPL",
-  "MSFT",
-  "NVDA",
-  "GOOGL",
-  "AMZN",
-  "META",
-  "TSLA",
-];
+/**
+ * Cron DB sync is disabled — no server-side ETF cache.
+ */
+export async function GET() {
+  return NextResponse.json(
+    {
+      ok: true,
+      skipped: true,
+      message:
+        "No server database to sync. Market data is live; portfolios are client-local.",
+      localFirst: true,
+    },
+    { status: 200 },
+  );
+}
 
-export async function GET(req: NextRequest) {
-  try {
-    const cronSecret = process.env.CRON_SECRET;
-    const authHeader = req.headers.get("authorization");
-
-    if (!cronSecret) {
-      console.error(
-        "[Cron] CRITICAL: CRON_SECRET is not set. Access denied.",
-      );
-      return NextResponse.json(
-        { error: "Server Configuration Error" },
-        { status: 500 },
-      );
-    }
-
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const secretBuffer = Buffer.from(cronSecret);
-    const tokenBuffer = Buffer.from(token);
-
-    if (
-      secretBuffer.length !== tokenBuffer.length ||
-      !crypto.timingSafeEqual(secretBuffer, tokenBuffer)
-    ) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Check if market is open
-    if (!isMarketOpen()) {
-      console.log("[Cron] Market is closed. Skipping sync.");
-      return NextResponse.json({ message: "Market Closed", synced: [] });
-    }
-
-    // 1. Check Default Tickers for Staleness
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-    const staleDefaultTickers = await prisma.etf.findMany({
-      where: {
-        ticker: { in: DEFAULT_TICKERS },
-        updatedAt: { lt: oneHourAgo },
-      },
-      select: { ticker: true },
-      take: 3, // Limit to prevent timeout
-    });
-
-    let tickersToSync = staleDefaultTickers.map(
-      (t: { ticker: string }) => t.ticker,
-    );
-
-    // 2. If no default tickers are stale, check for other stale ETFs (Oldest Updated)
-    if (tickersToSync.length === 0) {
-      const staleOthers = await prisma.etf.findMany({
-        where: {
-          updatedAt: { lt: oneHourAgo },
-          ticker: { notIn: DEFAULT_TICKERS }, // Exclude default ones as we already checked
-        },
-        orderBy: { updatedAt: "asc" }, // Oldest first
-        select: { ticker: true },
-        take: 5, // Sync up to 5 others
-      });
-      tickersToSync = staleOthers.map((t: { ticker: string }) => t.ticker);
-    }
-
-    if (tickersToSync.length === 0) {
-      return NextResponse.json({ message: "No stale ETFs found", synced: [] });
-    }
-
-    console.log(`[Cron] Syncing stale ETFs: ${tickersToSync.join(", ")}`);
-
-    // Use p-limit to strictly sequence these syncs
-    // Even though we only take 3-5, running them in parallel can trigger 429s
-    const limit = pLimit(1);
-
-    const results = await Promise.allSettled(
-      tickersToSync.map((ticker: string) =>
-        limit(() => {
-          console.log(`Incremental sync: ${ticker}`);
-          return syncEtfDetails(ticker, ["1h", "1d"]);
-        }),
-      ),
-    );
-
-    const successCount = results.filter(
-      (r: PromiseSettledResult<any>) =>
-        r.status === "fulfilled" && (r as PromiseFulfilledResult<any>).value,
-    ).length;
-    const failedCount = results.filter(
-      (r: PromiseSettledResult<any>) =>
-        r.status === "rejected" ||
-        (r.status === "fulfilled" && !(r as PromiseFulfilledResult<any>).value),
-    ).length;
-
-    return NextResponse.json({
-      message: "Sync complete",
-      synced: tickersToSync,
-      successCount,
-      failedCount,
-    });
-  } catch (error: any) {
-    console.error("[Cron] Error syncing stale ETFs:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
-  }
+export async function POST() {
+  return GET();
 }

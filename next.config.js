@@ -12,14 +12,9 @@ const nextConfig = {
             },
         ],
     },
-    // yahoo-finance2 and @prisma/client must be bundled, not external: the
-    // bun runtime cannot resolve Turbopack's hashed external module aliases,
-    // which 500s every route importing them. Next.js hardcodes @prisma/client
-    // into its own default external list (server-external-packages.jsonc)
-    // regardless of serverExternalPackages, so transpilePackages is the only
-    // way to force it back into the bundle.
+    // Keep yahoo-finance2 in the server bundle (Bun + Turbopack external
+    // aliases can 500 if left as a bare external).
     serverExternalPackages: [],
-    transpilePackages: ['@prisma/client', 'pg'],
 };
 
 export default nextConfig;
