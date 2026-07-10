@@ -1,41 +1,17 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
-import { Decimal } from '@/lib/decimal';
 import { mockModule } from '@/tests/helpers/mock-module';
 
-// Mocks (loosely typed so tests can freely stub Prisma-shaped results)
 type AsyncMockFn = (...args: any[]) => Promise<any>;
 
-const mockPrismaFindMany = mock<AsyncMockFn>(async () => []);
-const mockPrismaCreate = mock<AsyncMockFn>(async () => ({}));
-const mockPrismaUpsert = mock<AsyncMockFn>(async () => ({}));
-const mockFetchMarketSnapshot = mock<AsyncMockFn>(async () => []);
-const mockSyncEtfDetails = mock<AsyncMockFn>(async () => null);
+const mockGetFastQuotes = mock<AsyncMockFn>(async () => new Map());
+const mockGetFastHistory = mock<AsyncMockFn>(async () => new Map());
+const mockSearchFastSymbols = mock<AsyncMockFn>(async () => []);
 
-await mockModule('@/lib/db', () => {
-  return {
-    default: {
-      etf: {
-        findMany: mockPrismaFindMany,
-        create: mockPrismaCreate,
-        upsert: mockPrismaUpsert,
-        findUnique: mock(() => Promise.resolve(null))
-      }
-    }
-  };
-});
-
-await mockModule('@/lib/market-service', () => {
-  return {
-    fetchMarketSnapshot: mockFetchMarketSnapshot,
-    fetchEtfDetails: mock(() => Promise.resolve({}))
-  };
-});
-
-await mockModule('@/lib/etf-sync', () => {
-    return {
-        syncEtfDetails: mockSyncEtfDetails
-    };
-});
+await mockModule('@/lib/fast-market', () => ({
+  getFastQuotes: mockGetFastQuotes,
+  getFastHistory: mockGetFastHistory,
+  searchFastSymbols: mockSearchFastSymbols,
+}));
 
 await mockModule('next/server', () => {
   return {
@@ -49,223 +25,109 @@ await mockModule('next/server', () => {
       json: (data: any, init?: any) => ({
         _data: data,
         status: init?.status || 200,
-        headers: new Headers(init?.headers)
-      })
-    }
+        headers: new Headers(init?.headers),
+      }),
+    },
   };
 });
 
-// Dynamic import
 const { GET } = await import('../../../app/api/etfs/search/route');
 const { NextRequest } = await import('next/server');
 const { ETFSchema } = await import('../../../schemas/assetSchema');
 
-describe('API: /api/etfs/search', () => {
-  beforeEach(() => {
-    mockPrismaFindMany.mockClear();
-    mockPrismaCreate.mockClear();
-    mockPrismaUpsert.mockClear();
-    mockFetchMarketSnapshot.mockClear();
-    mockSyncEtfDetails.mockClear();
+function quote(
+  ticker: string,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    ticker,
+    name: `${ticker} Name`,
+    price: 100,
+    changePercent: 1,
+    change: 1,
+    assetType: 'STOCK' as const,
+    dividendYield: 0.5,
+    expenseRatio: 0,
+    ...overrides,
+  };
+}
 
-    // Default behaviors
-    mockPrismaFindMany.mockResolvedValue([]);
-    mockSyncEtfDetails.mockResolvedValue(null);
+describe('API: /api/etfs/search (live, no DB)', () => {
+  beforeEach(() => {
+    mockGetFastQuotes.mockClear();
+    mockGetFastHistory.mockClear();
+    mockSearchFastSymbols.mockClear();
+    mockGetFastQuotes.mockResolvedValue(new Map());
+    mockGetFastHistory.mockResolvedValue(new Map());
+    mockSearchFastSymbols.mockResolvedValue([]);
   });
 
-  it('should seed default tickers if no query and no local data', async () => {
-    mockPrismaFindMany.mockResolvedValue([]);
-    const defaultTickersMock = [{
-        ticker: 'SPY',
-        name: 'SPDR S&P 500',
-        price: 500,
-        dailyChangePercent: 0.5,
-        assetType: 'ETF'
-    }];
-    mockFetchMarketSnapshot.mockResolvedValue(defaultTickersMock);
+  it('returns live quotes for tickers param', async () => {
+    mockGetFastQuotes.mockResolvedValue(
+      new Map([['AAPL', quote('AAPL', { price: 190, name: 'Apple Inc.' })]]),
+    );
+    mockGetFastHistory.mockResolvedValue(
+      new Map([['AAPL', [{ date: '2024-01-01', price: 180 }]]]),
+    );
 
-    // Mock upsert
-    mockPrismaUpsert.mockImplementation((args: any) => {
-        const result: any = {
-            ...args.create,
-            price: Number(args.create.price),
-            daily_change: Number(args.create.daily_change),
-            updatedAt: new Date(),
-        };
-
-        if (args.include) {
-            if (args.include.history) result.history = [];
-            if (args.include.sectors) result.sectors = [];
-            if (args.include.allocation) result.allocation = null;
-        }
-
-        return Promise.resolve(result);
-    });
-
-    const request = new NextRequest('http://localhost/api/etfs/search?limit=100');
+    const request = new NextRequest(
+      'http://localhost/api/etfs/search?tickers=AAPL&includeHistory=true',
+    );
     const response: any = await GET(request);
 
-    expect(mockFetchMarketSnapshot).toHaveBeenCalled();
-    expect(mockPrismaUpsert).toHaveBeenCalled();
+    expect(response.status).toBe(200);
     expect(response._data).toHaveLength(1);
-    expect(response._data[0].ticker).toBe('SPY');
+    expect(response._data[0].ticker).toBe('AAPL');
+    expect(response._data[0].price).toBe(190);
+    expect(response._data[0].history).toHaveLength(1);
 
-    // Schema Validation
     const parseResult = ETFSchema.safeParse(response._data[0]);
     if (!parseResult.success) console.error(parseResult.error);
     expect(parseResult.success).toBe(true);
   });
 
-  it('should return local data if found', async () => {
-    const mockEtf = {
-      ticker: 'VTI',
-      name: 'Vanguard Total Stock Market',
-      price: 200,
-      daily_change: 1.5,
-      assetType: 'ETF',
-      isDeepAnalysisLoaded: true,
-      updatedAt: new Date(),
-      history: [{ date: new Date(), close: 200, interval: 'daily' }],
-      sectors: [{ sector_name: 'Tech', weight: 20 }],
-      allocation: { stocks_weight: 99, bonds_weight: 1, cash_weight: 0 },
-      yield: new Decimal(1.5),
-    };
+  it('returns 404 when exact tickers resolve to nothing', async () => {
+    mockGetFastQuotes.mockResolvedValue(new Map());
 
-    mockPrismaFindMany.mockResolvedValue([mockEtf]);
-
-    const request = new NextRequest('http://localhost/api/etfs/search?query=VTI');
+    const request = new NextRequest(
+      'http://localhost/api/etfs/search?tickers=NOPE123',
+    );
     const response: any = await GET(request);
 
-    expect(response._data).toHaveLength(1);
-    expect(response._data[0].ticker).toBe('VTI');
-    expect(response._data[0].metrics.yield).toBe(1.5);
-    expect(response._data[0].dividendYield).toBe(1.5);
-
-    // Schema Validation
-    const parseResult = ETFSchema.safeParse(response._data[0]);
-    expect(parseResult.success).toBe(true);
+    expect(response.status).toBe(404);
+    expect(response._data.error).toBe('Ticker(s) not found');
   });
 
-  it('should attempt deep sync on local miss', async () => {
-    mockPrismaFindMany.mockResolvedValue([]); // Local miss
+  it('resolves free-text query via Yahoo search + live quotes', async () => {
+    mockSearchFastSymbols.mockResolvedValue(['MSFT']);
+    mockGetFastQuotes.mockResolvedValue(
+      new Map([['MSFT', quote('MSFT', { name: 'Microsoft', price: 400 })]]),
+    );
 
-    // Mock successful sync
-    const syncedEtf = {
-      ticker: 'HQU.TO',
-      name: 'BetaPro',
-      price: 25,
-      daily_change: 0,
-      assetType: 'ETF',
-      isDeepAnalysisLoaded: true,
-      updatedAt: new Date(),
-      history: [],
-      sectors: [],
-      allocation: null
-    };
-    mockSyncEtfDetails.mockResolvedValue(syncedEtf);
-
-    const request = new NextRequest('http://localhost/api/etfs/search?query=HQU.TO');
+    const request = new NextRequest(
+      'http://localhost/api/etfs/search?query=microsoft',
+    );
     const response: any = await GET(request);
 
-    expect(mockSyncEtfDetails).toHaveBeenCalledWith('HQU.TO');
-    expect(mockFetchMarketSnapshot).not.toHaveBeenCalledWith(['HQU.TO']);
-
-    expect(response._data).toHaveLength(1);
-    expect(response._data[0].ticker).toBe('HQU.TO');
-
-    // Schema Validation
-    const parseResult = ETFSchema.safeParse(response._data[0]);
-    expect(parseResult.success).toBe(true);
+    expect(mockSearchFastSymbols).toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(response._data[0].ticker).toBe('MSFT');
   });
 
-  it('should fallback to snapshot if deep sync fails', async () => {
-    mockPrismaFindMany.mockResolvedValue([]); // Local miss
-    mockSyncEtfDetails.mockResolvedValue(null); // Sync fails
-
-    const liveData = [{
-      ticker: 'NEW',
-      name: 'New Asset',
-      price: 100,
-      dailyChangePercent: 2.0,
-      assetType: 'STOCK'
-    }];
-    mockFetchMarketSnapshot.mockResolvedValue(liveData);
-
-    // Mock upsert
-    const createdEtf = {
-      ticker: 'NEW',
-      name: 'New Asset',
-      price: 100,
-      daily_change: 2.0,
-      assetType: 'STOCK',
-      isDeepAnalysisLoaded: false,
-      updatedAt: new Date(),
-      history: [],
-      sectors: [],
-      allocation: null
-    };
-    mockPrismaUpsert.mockResolvedValue(createdEtf);
-
-    const request = new NextRequest('http://localhost/api/etfs/search?query=NEW');
-    const response: any = await GET(request);
-
-    expect(mockSyncEtfDetails).toHaveBeenCalledWith('NEW');
-    expect(mockFetchMarketSnapshot).toHaveBeenCalledWith(['NEW']);
-    expect(mockPrismaUpsert).toHaveBeenCalled();
-
-    // Check if 'include' was passed to upsert
-    const upsertCall = mockPrismaUpsert.mock.calls[0][0];
-    expect(upsertCall.include).toBeDefined();
-
-    expect(response._data).toHaveLength(1);
-    expect(response._data[0].ticker).toBe('NEW');
-
-    // Schema Validation
-    const parseResult = ETFSchema.safeParse(response._data[0]);
-    expect(parseResult.success).toBe(true);
-  });
-
-  it('should handle potentially null fields by converting to undefined', async () => {
-      // Setup specific mock that returns nulls for optional fields
-      const nullFieldEtf = {
-        ticker: 'NULLY',
-        name: 'Null Fields ETF',
-        price: 100,
-        daily_change: 0,
-        assetType: 'ETF',
-        isDeepAnalysisLoaded: true,
-        updatedAt: new Date(),
-        // Prisma typically returns null for optional fields if they are missing
-        history: [{ date: new Date(), close: 100, interval: 'daily' }], // interval 'daily' should be undefined in API
-        sectors: [],
-        allocation: null, // Should handle null allocation
-        holdings: [
-            { ticker: 'SUB', name: 'Sub', weight: 10, sector: 'Tech', shares: null } // shares: null should be undefined
-        ],
-        // Extended metrics as nulls
-        marketCap: null,
-        dividend: null
-      };
-
-      mockPrismaFindMany.mockResolvedValue([nullFieldEtf]);
-
-      const request = new NextRequest('http://localhost/api/etfs/search?query=NULLY');
-      const response: any = await GET(request);
-
-      expect(response._data).toHaveLength(1);
-      const item = response._data[0];
-
-      // Assertions for undefined transformation
-      expect(item.history[0].interval).toBeUndefined();
-      expect(item.holdings[0].shares).toBeUndefined();
-      expect(item.marketCap).toBeUndefined();
-      expect(item.dividend).toBeUndefined();
-
-      // Schema Validation
-      const parseResult = ETFSchema.safeParse(item);
-      if (!parseResult.success) {
-          console.error("Schema validation failed for null-field test:", parseResult.error);
+  it('seeds browse defaults without any database', async () => {
+    mockGetFastQuotes.mockImplementation(async (tickers: string[]) => {
+      const m = new Map();
+      for (const t of tickers.slice(0, 3)) {
+        m.set(t.toUpperCase(), quote(t.toUpperCase(), { assetType: 'ETF' }));
       }
-      expect(parseResult.success).toBe(true);
+      return m;
+    });
+
+    const request = new NextRequest('http://localhost/api/etfs/search?limit=3');
+    const response: any = await GET(request);
+
+    expect(response.status).toBe(200);
+    expect(response._data.length).toBeGreaterThan(0);
+    expect(mockGetFastQuotes).toHaveBeenCalled();
   });
 });

@@ -98,17 +98,18 @@ export async function GET(request: Request) {
       }
     }
 
-    // Even if profile is empty/partial, return it so the UI can render what it has (e.g. just Sector/Industry)
-    // instead of a 404 which causes a red error box.
+    // No profile sources resolved — use 404 so clients don't treat empty data as success
     if (!profile) {
-      // Return a minimal valid object
-      return NextResponse.json({
-        sector: "Unknown",
-        industry: "Unknown",
-        description: null,
-      });
+      return NextResponse.json(
+        {
+          error: "Stock profile not found",
+          ticker: validation.data.toUpperCase(),
+        },
+        { status: 404 },
+      );
     }
 
+    // Partial profile is still useful (sector/industry without description)
     return NextResponse.json(profile);
   } catch (error) {
     console.error("Error fetching stock profile:", error);

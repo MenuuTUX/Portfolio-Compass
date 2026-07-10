@@ -1,15 +1,34 @@
 import { NextResponse } from "next/server";
-import { getMarketRiskState } from "@/lib/sentiment";
+import {
+  getMarketRiskState,
+  NEUTRAL_MARKET_RISK,
+} from "@/lib/sentiment";
 
+export const dynamic = "force-dynamic";
+
+/**
+ * Market risk / sentiment for the optimizer.
+ * Always returns 200 with usable defaults if the DB is down —
+ * never 500 for connectivity (production Neon tenant can disappear).
+ */
 export async function GET() {
   try {
     const riskState = await getMarketRiskState();
-    return NextResponse.json(riskState);
+    return NextResponse.json(riskState, {
+      headers: {
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      },
+    });
   } catch (error) {
     console.error("Error fetching market sentiment:", error);
     return NextResponse.json(
-      { error: "Failed to fetch market sentiment" },
-      { status: 500 },
+      { ...NEUTRAL_MARKET_RISK, degraded: true },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
+        },
+      },
     );
   }
 }

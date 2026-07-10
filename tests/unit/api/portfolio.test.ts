@@ -1,52 +1,5 @@
-
 import { describe, it, expect, mock } from 'bun:test';
 import { mockModule } from '@/tests/helpers/mock-module';
-import { Decimal } from '@/lib/decimal';
-
-// Define mocks before importing the module under test
-
-// Mock next-auth
-const mockGetServerSession = mock(() => Promise.resolve({
-    user: { id: 'test-user-id', name: 'Test User' }
-}));
-
-await mockModule('next-auth', () => ({
-    getServerSession: mockGetServerSession
-}));
-
-// Mock prisma
-const mockFindMany = mock(() => Promise.resolve([
-    {
-        weight: new Decimal(0.5),
-        shares: new Decimal(10),
-        etf: {
-            ticker: 'SPY',
-            name: 'SPDR S&P 500 ETF Trust',
-            price: new Decimal(450.00),
-            daily_change: new Decimal(0.01),
-            assetType: 'ETF',
-            sectors: [
-                { sector_name: 'Technology', weight: new Decimal(0.30) },
-                { sector_name: 'Financials', weight: new Decimal(0.15) }
-            ],
-            allocation: {
-                stocks_weight: new Decimal(0.99),
-                bonds_weight: new Decimal(0.00),
-                cash_weight: new Decimal(0.01)
-            },
-            holdings: [],
-            history: []
-        }
-    }
-]));
-
-await mockModule('@/lib/db', () => ({
-    default: {
-        portfolioItem: {
-            findMany: mockFindMany
-        }
-    }
-}));
 
 // Mock NextResponse
 await mockModule('next/server', () => ({
@@ -55,41 +8,16 @@ await mockModule('next/server', () => ({
     }
 }));
 
-// Mock lib/auth
-await mockModule('@/lib/auth', () => ({
-    authOptions: {}
-}));
-
 // Import after mocks
 const { GET } = await import('@/app/api/portfolio/route');
 
 describe('Portfolio API', () => {
-    it('returns formatted portfolio items with optimized sector reduction for authenticated user', async () => {
-        // The mocked NextResponse returns a plain { body, status } object
+    it('returns 501 local-first response (no login / cloud portfolio)', async () => {
         const response = (await GET()) as any;
 
-        // If unauthorized, it returns { error: 'Unauthorized' }
-        if (response.status === 401) {
-            console.error('Test returned 401 Unauthorized. Mock session might not be working.');
-        }
-
-        const data = response.body;
-
-        expect(data).toHaveLength(1);
-        const item = data[0];
-
-        expect(item.ticker).toBe('SPY');
-        expect(item.sectors).toEqual({
-            'Technology': 0.30,
-            'Financials': 0.15
-        });
-        expect(item.allocation.equities).toBe(0.99);
-
-        // Verify that findMany was called with the user ID
-        expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({
-            where: {
-                userId: 'test-user-id'
-            }
-        }));
+        expect(response.status).toBe(501);
+        expect(response.body.localFirst).toBe(true);
+        expect(response.body.error).toBe('Portfolio is local-first');
+        expect(typeof response.body.message).toBe('string');
     });
 });

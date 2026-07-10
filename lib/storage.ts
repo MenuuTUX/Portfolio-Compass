@@ -1,8 +1,11 @@
 import { z } from "zod";
 
 /**
- * Local Storage Management for Portfolio
- * Implements Local-First architecture.
+ * Portfolio storage — browser LocalStorage only.
+ * Nothing is written to a server database.
+ *
+ * Key: portfolio_compass_v1
+ * Shape: [{ ticker, weight, shares }, ...]
  */
 
 export const LocalPortfolioItemSchema = z.object({

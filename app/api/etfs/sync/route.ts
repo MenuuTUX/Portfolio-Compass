@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncEtfDetails } from "@/lib/etf-sync";
-import { EtfHistory } from "@prisma/client";
-import { Decimal } from "decimal.js";
+import {
+  getFastQuotes,
+  getFastHistory,
+  getFastEtfDetails,
+  enrichEtfDetailsGaps,
+} from "@/lib/fast-market";
+import { getRedditCommunities } from "@/config/tickers";
 import { z } from "zod";
+
+/**
+ * "Sync" a ticker = refresh live market + fund details.
+ * No database write — response is for the client to cache if it wants.
+ */
 
 const tickerSchema = z.string().min(1).max(12).regex(/^[A-Z0-9.-]+$/i);
 
 const syncRequestSchema = z.object({
   ticker: tickerSchema,
 });
+
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,70 +41,75 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { ticker } = validation.data;
-    const normalizedTicker = ticker.toUpperCase();
+    const normalizedTicker = validation.data.ticker.toUpperCase();
 
-    const fullEtf = await syncEtfDetails(normalizedTicker);
-
-    if (!fullEtf) {
-      return NextResponse.json(
-        { error: "Failed to sync ETF" },
-        { status: 404 },
-      );
-    }
-
-    const formattedEtf = {
-      ticker: fullEtf.ticker,
-      name: fullEtf.name,
-      price: Number(fullEtf.price),
-      changePercent: Number(fullEtf.daily_change),
-      isDeepAnalysisLoaded: fullEtf.isDeepAnalysisLoaded,
-      history: fullEtf.history.map((h: EtfHistory) => ({
-        date: h.date.toISOString(),
-        price: Number(h.close),
-        interval:
-          h.interval === "daily" || !h.interval ? undefined : h.interval,
-      })),
-      metrics: {
-        yield: fullEtf.yield ? Number(fullEtf.yield) : 0,
-        mer: fullEtf.mer ? Number(fullEtf.mer) : 0,
-      },
-      dividend: fullEtf.dividend ? Number(fullEtf.dividend) : undefined,
-      dividendYield: fullEtf.yield ? Number(fullEtf.yield) : undefined,
-      allocation: {
-        equities: fullEtf.allocation?.stocks_weight
-          ? Number(fullEtf.allocation.stocks_weight)
-          : 0,
-        bonds: fullEtf.allocation?.bonds_weight
-          ? Number(fullEtf.allocation.bonds_weight)
-          : 0,
-        cash: fullEtf.allocation?.cash_weight
-          ? Number(fullEtf.allocation.cash_weight)
-          : 0,
-      },
-      sectors: fullEtf.sectors.reduce(
-        (acc: { [key: string]: number }, sector) => {
-          acc[sector.sector_name] = Number(sector.weight);
-          return acc;
-        },
-        {} as { [key: string]: number },
+    const [quotes, histories, details] = await Promise.all([
+      getFastQuotes([normalizedTicker], { includeProfiles: true }),
+      getFastHistory([normalizedTicker], "1Y"),
+      getFastEtfDetails(normalizedTicker).then((d) =>
+        d ? enrichEtfDetailsGaps(d) : null,
       ),
-      assetType: fullEtf.assetType,
-      redditCommunities: (fullEtf.redditCommunities || []).map((rc: any) => ({
-        subreddit: rc.subreddit,
-        url: rc.url || `https://reddit.com/r/${rc.subreddit}`,
-      })),
-    };
+    ]);
 
-    return NextResponse.json(formattedEtf);
-  } catch (error: any) {
-    console.error("Error syncing ETF:", error);
-    if (error.message === "Ticker not found") {
+    const q = quotes.get(normalizedTicker);
+    if (!q) {
       return NextResponse.json(
         { error: "Ticker not found", deleted: true },
         { status: 404 },
       );
     }
+
+    const history = histories.get(normalizedTicker) || [];
+    const communities = getRedditCommunities(
+      normalizedTicker,
+      q.assetType,
+    ).map((c) => ({
+      subreddit: c.name,
+      url: c.url,
+    }));
+
+    const formattedEtf = {
+      ticker: q.ticker,
+      name: q.name,
+      price: q.price,
+      changePercent: q.changePercent,
+      isDeepAnalysisLoaded: Boolean(details),
+      history,
+      metrics: {
+        yield: q.dividendYield ?? details?.expenseRatio ?? 0,
+        mer: q.expenseRatio ?? details?.expenseRatio ?? 0,
+      },
+      dividend: q.dividend,
+      dividendYield: q.dividendYield,
+      allocation: details?.allocation || { equities: 0, bonds: 0, cash: 0 },
+      sectors: details?.sectors || {},
+      holdings: (details?.holdings || []).map((h) => ({
+        ticker: h.ticker,
+        name: h.name,
+        weight: h.weight,
+      })),
+      assetType: q.assetType,
+      redditCommunities: communities,
+      fundClass: details?.fundClass,
+      category: details?.category,
+      family: details?.family,
+      bondMaturity: details?.bondMaturity,
+      bondDuration: details?.bondDuration,
+      creditQuality: details?.creditQuality,
+      marketCap: q.marketCap,
+      volume: q.volume,
+      peRatio: q.peRatio,
+      sector: q.sector,
+      industry: q.industry,
+    };
+
+    return NextResponse.json(formattedEtf, {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error: any) {
+    console.error("Error syncing ETF (live):", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
