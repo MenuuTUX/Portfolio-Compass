@@ -42,8 +42,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Map to frontend ETF interface
-    // Convert all Decimals to numbers for frontend (Option A)
     const formattedEtf = {
       ticker: fullEtf.ticker,
       name: fullEtf.name,

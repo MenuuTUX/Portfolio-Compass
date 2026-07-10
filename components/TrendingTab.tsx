@@ -56,8 +56,6 @@ export default function TrendingTab({
   useEffect(() => {
     let cancelled = false;
 
-    // Fast, DB-free batch snapshot: one round trip covers quotes + sparklines
-    // for every ticker requested
     const fetchSnapshot = async (tickers: string[]): Promise<ETF[]> => {
       if (tickers.length === 0) return [];
       const res = await fetch(

@@ -48,7 +48,7 @@ const steps = [
   {
     id: "process",
     title: "Iterative Selection",
-    subtitle: "Greedy marginal decision making",
+    subtitle: "Buy the best next share batch",
     icon: BrainCircuit,
     color: "blue",
     description:

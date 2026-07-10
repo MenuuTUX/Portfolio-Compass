@@ -28,7 +28,6 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  // Use React Query hooks
   const { data: portfolio = [] } = usePortfolio();
   const addStockMutation = useAddStock();
   const removeStockMutation = useRemoveStock();
@@ -45,19 +44,13 @@ export default function Home() {
   };
 
   const handleQuizComplete = async (result: QuizResult) => {
-    // If skipped or no portfolio suggested, do NOT build a portfolio
     if (result.isSkipped || !result.suggestedPortfolio || result.suggestedPortfolio.length === 0) {
       setViewMode('APP');
       return;
     }
 
-    // Otherwise, populate the portfolio
-    if (result.suggestedPortfolio && result.suggestedPortfolio.length > 0) {
-      // Cast the simplified items to a type compatible with savePortfolio
-      // LocalPortfolioItem has { ticker, weight, shares }, which TemplateItem matches
+    if (result.suggestedPortfolio.length > 0) {
       savePortfolio(result.suggestedPortfolio);
-
-      // Invalidate to fetch full details (price, name, etc.)
       await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
       setActiveTab('PORTFOLIO');
     }
@@ -90,11 +83,8 @@ export default function Home() {
   };
 
   const handleImportPortfolio = (items: PortfolioItem[]) => {
-    // 1. Save to local storage
     savePortfolio(items);
-    // 2. Update React Query cache immediately
     queryClient.setQueryData(['portfolio'], items);
-    // 3. Navigate to Portfolio tab to show result
     startTransition(() => setActiveTab('PORTFOLIO'));
   };
 
@@ -117,7 +107,7 @@ export default function Home() {
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
             <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
-              <p>&copy; {new Date().getFullYear()} PortfolioCompass. Advanced Market Intelligence. Disclaimer: This is not financial advice.</p>
+              <p>&copy; {new Date().getFullYear()} PortfolioCompass. Not financial advice.</p>
             </footer>
           </motion.div>
         ) : viewMode === 'INTRO_QUIZ' ? (

@@ -10,10 +10,7 @@ export const maxDuration = 30;
 
 const MAX_RESULTS = 100;
 
-// Fast, DB-free browse + search for the ETFs/Stocks tab and the comparison
-// modal's "search to compare" box. Typed queries resolve via Yahoo's public
-// symbol search; an empty query falls back to a curated list of liquid
-// tickers so the grid always has something to show on first load.
+// Browse/search for the market grid and comparison modal.
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = (searchParams.get("query") || "").trim();
@@ -63,7 +60,7 @@ export async function GET(request: NextRequest) {
         history: histories.get(ticker) || [],
         metrics: {
           yield: q.dividendYield ?? 0,
-          mer: 0,
+          mer: q.expenseRatio ?? 0,
         },
         allocation: { equities: 0, bonds: 0, cash: 0 },
         sectors: {},

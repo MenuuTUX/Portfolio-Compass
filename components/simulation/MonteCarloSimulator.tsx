@@ -103,9 +103,6 @@ export default function MonteCarloSimulator({
 
     try {
       const tickers = portfolio.map((p) => p.ticker).join(",");
-      // Fast, DB-free daily history (~1Y, ~250 points per ticker) — one
-      // batched Yahoo request instead of the old per-ticker DB sync, which
-      // could time out or leave several assets thin within one request.
       const res = await fetch(
         `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`,
       );
@@ -113,7 +110,6 @@ export default function MonteCarloSimulator({
 
       const { series } = await res.json();
 
-      // Merge rich data into portfolio
       const newPortfolio = portfolio.map((item) => {
         const points = series?.[item.ticker.toUpperCase()];
         if (points && points.length > 0) {

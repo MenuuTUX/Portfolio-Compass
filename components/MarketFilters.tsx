@@ -380,9 +380,7 @@ export default function MarketFilters({
   );
 }
 
-// ---------------------------------------------------------------------------
 // Pure helpers used by ComparisonEngine to filter/sort lists
-// ---------------------------------------------------------------------------
 
 function assetYield(etf: {
   metrics?: { yield?: number };

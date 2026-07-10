@@ -3,9 +3,6 @@ import { getFastEtfDetails } from "@/lib/fast-market";
 
 export const maxDuration = 30;
 
-// Fast, DB-free ETF/fund technicals (expense ratio, sectors, holdings,
-// description) for a single ticker. Not batchable like quote()/spark(), but
-// still one Yahoo request — no scraping, no sync pipeline, no SQL.
 export async function GET(request: NextRequest) {
   const ticker = (request.nextUrl.searchParams.get("ticker") || "").trim();
 

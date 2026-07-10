@@ -20,7 +20,6 @@ import {
 import { cn } from "@/lib/utils";
 import { LocalPortfolioItem } from "@/lib/storage";
 
-// --- Types ---
 
 export type RiskProfile = "Conservative" | "Balanced" | "Growth";
 
@@ -49,7 +48,6 @@ interface IntroQuizProps {
   onComplete: (result: QuizResult) => void;
 }
 
-// --- Constants ---
 
 const QUESTIONS: Question[] = [
   {
@@ -136,7 +134,6 @@ const PORTFOLIO_TEMPLATES: Record<RiskProfile | "Aggressive", LocalPortfolioItem
     ],
   };
 
-// --- Component ---
 
 export default function IntroQuiz({ onComplete }: IntroQuizProps) {
   const [step, setStep] = useState<

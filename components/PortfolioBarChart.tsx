@@ -23,7 +23,7 @@ interface PortfolioBarChartProps {
   portfolio: Portfolio;
 }
 
-// Biopunk / Neon Aesthetic Palette (Lighter/Brighter)
+// Chart series colors
 const PALETTE = {
   emerald: { main: "#34d399", dark: "#059669" }, // Lighter Emerald
   blue: { main: "#60a5fa", dark: "#2563eb" }, // Lighter Blue

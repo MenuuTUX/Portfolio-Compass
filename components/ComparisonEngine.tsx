@@ -46,8 +46,7 @@ interface ETFCardProps {
   onView: (etf: ETF) => void;
 }
 
-// Deterministic noise seeded by ticker + index so the fake sparkline keeps
-// the same shape across renders instead of reshuffling
+// Stable pseudo-random for placeholder sparklines when history is missing.
 const seededNoise = (seed: string, i: number): number => {
   let h = 2166136261;
   const s = `${seed}:${i}`;
@@ -71,18 +70,15 @@ const ETFCard = memo(
   }: ETFCardProps) => {
     const isPositive = etf.changePercent >= 0;
 
-    // Generate fake history if missing
     const displayHistory = useMemo(() => {
       if (etf.history && etf.history.length > 0) return etf.history;
 
-      // Fake data generator (sine wave + random noise to look "market-like")
       const fakeData = [];
       const now = new Date();
       const basePrice = etf.price || 100;
       for (let i = 30; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
-        // Create a gentle trend matching the changePercent sign
         const trend = isPositive ? (30 - i) * 0.002 : (30 - i) * -0.002;
         const noise = seededNoise(etf.ticker, i) * 0.02;
         fakeData.push({
@@ -474,8 +470,6 @@ export default function ComparisonEngine({
     async (query: string, skip = 0) => {
       if (skip === 0) setLoading(true);
       try {
-        // Fast, DB-free browse/search: curated tickers when query is empty,
-        // Yahoo symbol search otherwise. Never blocks on the database.
         let url = `/api/market/search?query=${encodeURIComponent(query)}&skip=${skip}&limit=24`;
         if (assetType) {
           url += `&type=${encodeURIComponent(assetType)}`;
@@ -623,13 +617,10 @@ export default function ComparisonEngine({
   const handleAdvancedView = useCallback(
     (etf: ETF) => {
       addToRecent(etf.ticker);
-      // Open immediately — the drawer streams its chart and metrics from the
-      // fast market endpoints and hydrates deep data in the background
       setSelectedETF(etf);
 
       if (etf.isDeepAnalysisLoaded) return;
 
-      // Refresh this row in the background; never blocks the drawer
       fetch("/api/etfs/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch main profile from StockAnalysis (robust source for metrics/sector)
+    // Primary profile source
     let profile: any = await getStockProfile(ticker);
 
     // 2. Try to get specialized ETF description from ETF.com (User requested source)

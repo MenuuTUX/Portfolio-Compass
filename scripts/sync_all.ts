@@ -1,12 +1,5 @@
-// Bulk warm-up: deep-syncs every ticker in the database so the UI serves
-// charts, metrics, sectors, and holdings instantly instead of syncing
-// on-demand when a drawer opens. Uses the same free sources as the app
-// (Yahoo public endpoints + stockanalysis.com) with rate-limit-aware
-// concurrency and skip-if-fresh so re-runs are cheap.
-//
-// Usage:
-//   bun run db:sync-all            # hydrate stale/shallow rows only
-//   bun run db:sync-all -- --force # re-sync everything
+// Deep-sync every ticker in the DB (skip fresh rows unless --force).
+// Usage: bun run db:sync-all  |  bun run db:sync-all -- --force
 import prisma from "../lib/db";
 import { syncEtfDetails } from "../lib/etf-sync";
 import pLimit from "p-limit";
@@ -41,7 +34,7 @@ async function main() {
     `[SyncAll] ${rows.length} tickers in DB — ${targets.length} need hydration${force ? " (forced)" : ""}`,
   );
   if (targets.length === 0) {
-    console.log("[SyncAll] Everything is already fresh. ✅");
+    console.log("[SyncAll] Everything is already fresh.");
     await prisma.$disconnect();
     return;
   }

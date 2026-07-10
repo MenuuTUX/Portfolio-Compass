@@ -43,9 +43,7 @@ interface ComparisonModalProps {
   onClose: () => void;
 }
 
-// ----------------------------------------------------------------------
 // Helper Components
-// ----------------------------------------------------------------------
 
 function MetricRow({
   label,
@@ -110,9 +108,7 @@ function MetricRow({
   );
 }
 
-// ----------------------------------------------------------------------
 // Main Component
-// ----------------------------------------------------------------------
 
 export default function ComparisonModal({
   baseAsset,
@@ -237,9 +233,7 @@ export default function ComparisonModal({
     setSearchResults([]);
   };
 
-  // ----------------------------------------------------------------------
   // Comparison Logic: Winners & Metrics
-  // ----------------------------------------------------------------------
 
   const metrics = useMemo(() => {
     if (!compareAsset) return [];
@@ -332,9 +326,7 @@ export default function ComparisonModal({
     return list;
   }, [baseAsset, compareAsset]);
 
-  // ----------------------------------------------------------------------
   // Chart Data Preparation
-  // ----------------------------------------------------------------------
 
   const chartData = useMemo(() => {
     if (!compareAsset) return [];
@@ -395,9 +387,7 @@ export default function ComparisonModal({
     return dataPoints;
   }, [baseAsset, compareAsset, comparisonSeries]);
 
-  // ----------------------------------------------------------------------
   // Render
-  // ----------------------------------------------------------------------
 
   if (!isOpen) return null;
 

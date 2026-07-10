@@ -41,6 +41,51 @@ export const ETFSchema = z.object({
   metrics: MetricsSchema,
   allocation: AllocationSchema,
   sectors: SectorsSchema.optional(),
+  holdings: z
+    .array(
+      z.object({
+        ticker: z.string(),
+        name: z.string(),
+        weight: z.number(),
+        sector: z.string().optional(),
+        shares: z.number().optional(),
+      }),
+    )
+    .optional(),
+  marketCap: z.number().optional(),
+  revenue: z.number().optional(),
+  netIncome: z.number().optional(),
+  eps: z.number().optional(),
+  sharesOutstanding: z.number().optional(),
+  volume: z.number().optional(),
+  open: z.number().optional(),
+  previousClose: z.number().optional(),
+  daysRange: z.string().optional(),
+  fiftyTwoWeekRange: z.string().optional(),
+  beta: z.number().optional(),
+  peRatio: z.number().optional(),
+  forwardPe: z.number().optional(),
+  earningsDate: z.string().optional(),
+  dividend: z.number().optional(),
+  exDividendDate: z.string().optional(),
+  dividendYield: z.number().optional(),
+  fiftyTwoWeekLow: z.number().optional(),
+  fiftyTwoWeekHigh: z.number().optional(),
+  dividendGrowth5Y: z.number().optional(),
+  inceptionDate: z.string().optional(),
+  payoutFrequency: z.string().optional(),
+  payoutRatio: z.number().optional(),
+  holdingsCount: z.number().optional(),
+  bondMaturity: z.number().optional(),
+  bondDuration: z.number().optional(),
+  redditCommunities: z
+    .array(
+      z.object({
+        subreddit: z.string(),
+        url: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const PortfolioItemSchema = ETFSchema.extend({

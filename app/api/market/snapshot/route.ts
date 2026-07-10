@@ -5,9 +5,7 @@ export const maxDuration = 30;
 
 const MAX_TICKERS = 120;
 
-// Fast, DB-free asset snapshots: one batched quote request + one batched
-// spark request cover every card on screen. Shapes match the frontend ETF
-// interface so this is a drop-in replacement for /api/etfs/search reads.
+// Batched quotes (+ optional history) for portfolio/trending cards.
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const tickersParam = searchParams.get("tickers") || "";
@@ -46,7 +44,7 @@ export async function GET(request: NextRequest) {
         history: histories.get(ticker) || [],
         metrics: {
           yield: q.dividendYield ?? 0,
-          mer: 0,
+          mer: q.expenseRatio ?? 0,
         },
         allocation: { equities: 0, bonds: 0, cash: 0 },
         sectors: {},

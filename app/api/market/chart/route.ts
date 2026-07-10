@@ -3,9 +3,6 @@ import { getFastHistory, isChartRange } from "@/lib/fast-market";
 
 export const maxDuration = 30;
 
-// Fast, DB-free price history. One upstream request for any number of
-// tickers via Yahoo's spark endpoint; responses are memory-cached so
-// repeated chart opens are effectively instant.
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const tickersParam = searchParams.get("tickers") || "";

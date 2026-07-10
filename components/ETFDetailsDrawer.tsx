@@ -304,7 +304,7 @@ export default function ETFDetailsDrawer({
       })
       .catch(() => {});
 
-    // Fast, DB-free fund technicals (expense ratio, sectors, holdings) —
+    // Fund technicals (expense ratio, sectors, holdings)
     // one Yahoo request, usually resolves in under a second
     fetch(`/api/market/etf-details?ticker=${etf.ticker}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -340,7 +340,7 @@ export default function ETFDetailsDrawer({
       })
       .catch(() => {});
 
-    // Fire-and-forget deep sync to enrich the DB; merge whenever it lands
+    // Background deep sync; merge when it lands
     if (!deepSyncedThisSession.has(etf.ticker)) {
       deepSyncedThisSession.add(etf.ticker);
       fetch("/api/etfs/sync", {
