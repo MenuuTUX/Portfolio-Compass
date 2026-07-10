@@ -81,6 +81,38 @@ describe("applyMarketFilters", () => {
     expect(out[out.length - 1].ticker).toBe("TSLA");
   });
 
+  it("sorts by industry A–Z (missing industry last)", () => {
+    const withIndustry = [
+      {
+        ticker: "XOM",
+        name: "Exxon",
+        price: 100,
+        changePercent: 0,
+        industry: "Oil & Gas Integrated",
+        sector: "Energy",
+      },
+      {
+        ticker: "AAPL",
+        name: "Apple",
+        price: 200,
+        changePercent: 0,
+        industry: "Consumer Electronics",
+        sector: "Technology",
+      },
+      {
+        ticker: "ZZZ",
+        name: "Unknown Co",
+        price: 10,
+        changePercent: 0,
+      },
+    ];
+    const out = applyMarketFilters(withIndustry, {
+      ...DEFAULT_MARKET_FILTERS,
+      sort: "industry_asc",
+    });
+    expect(out.map((x) => x.ticker)).toEqual(["AAPL", "XOM", "ZZZ"]);
+  });
+
   it("filters value PE", () => {
     const out = applyMarketFilters(sample, {
       ...DEFAULT_MARKET_FILTERS,

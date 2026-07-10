@@ -26,7 +26,9 @@ export type SortKey =
   | "yield_desc"
   | "mcap_desc"
   | "pe_asc"
-  | "mer_asc";
+  | "mer_asc"
+  | "industry_asc"
+  | "sector_asc";
 
 export type PerformanceFilter = "all" | "gainers" | "losers" | "flat";
 export type YieldFilter = "all" | "any" | "high" | "none";
@@ -139,11 +141,15 @@ export default function MarketFilters({
       base.push(
         { key: "mcap_desc", label: "Largest companies" },
         { key: "pe_asc", label: "Lowest P/E" },
+        { key: "industry_asc", label: "Industry A–Z" },
+        { key: "sector_asc", label: "Sector A–Z" },
       );
     } else {
       base.push(
         { key: "mcap_desc", label: "Largest funds" },
         { key: "mer_asc", label: "Lowest fees" },
+        // ETF sector/industry fields map to Yahoo fund category
+        { key: "industry_asc", label: "Category A–Z" },
       );
     }
     return base;
@@ -414,6 +420,8 @@ export function applyMarketFilters<
     peRatio?: number;
     metrics?: { yield?: number; mer?: number };
     dividendYield?: number;
+    industry?: string;
+    sector?: string;
   },
 >(items: T[], filters: MarketFilterState): T[] {
   let list = items.filter((item) => {
@@ -503,6 +511,22 @@ export function applyMarketFilters<
         const ma = assetMer(a) ?? Infinity;
         const mb = assetMer(b) ?? Infinity;
         return ma - mb;
+      });
+      break;
+    case "industry_asc":
+      sorted.sort((a, b) => {
+        const ia = (a.industry || "").trim() || "\uffff";
+        const ib = (b.industry || "").trim() || "\uffff";
+        const c = ia.localeCompare(ib, undefined, { sensitivity: "base" });
+        return c !== 0 ? c : a.ticker.localeCompare(b.ticker);
+      });
+      break;
+    case "sector_asc":
+      sorted.sort((a, b) => {
+        const sa = (a.sector || a.industry || "").trim() || "\uffff";
+        const sb = (b.sector || b.industry || "").trim() || "\uffff";
+        const c = sa.localeCompare(sb, undefined, { sensitivity: "base" });
+        return c !== 0 ? c : a.ticker.localeCompare(b.ticker);
       });
       break;
     case "relevance":

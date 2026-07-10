@@ -28,6 +28,8 @@ export interface FastQuote {
   dividendYield?: number;
   /** Expense ratio in percent (e.g. 0.09 for 0.09%). ETFs only. */
   expenseRatio?: number;
+  sector?: string;
+  industry?: string;
   open?: number;
   previousClose?: number;
   daysRange?: string;
@@ -153,6 +155,7 @@ function mapQuote(q: any): FastQuote {
 
 export async function getFastQuotes(
   tickers: string[],
+  options: { bypassCache?: boolean; includeProfiles?: boolean } = {},
 ): Promise<Map<string, FastQuote>> {
   const clean = normalizeTickers(tickers);
   const result = new Map<string, FastQuote>();
@@ -160,6 +163,10 @@ export async function getFastQuotes(
 
   const misses: string[] = [];
   for (const t of clean) {
+    if (options.bypassCache) {
+      misses.push(t);
+      continue;
+    }
     const hit = cache.get(`q:${t}`);
     if (hit && hit.expires > Date.now()) {
       result.set(t, hit.value as FastQuote);
@@ -185,6 +192,106 @@ export async function getFastQuotes(
       console.warn("[FastMarket] Batch quote failed:", e);
     }
   }
+
+  if (options.includeProfiles) {
+    const profiles = await getFastProfiles(clean);
+    for (const [ticker, quote] of result) {
+      const p = profiles.get(ticker);
+      if (p) {
+        quote.sector = p.sector;
+        quote.industry = p.industry;
+      }
+    }
+  }
+
+  return result;
+}
+
+/** Drop in-memory cache so the next read is live. */
+export function invalidateMarketCache(tickers?: string[]): void {
+  if (!tickers || tickers.length === 0) {
+    cache.clear();
+    return;
+  }
+  const clean = new Set(normalizeTickers(tickers));
+  for (const key of [...cache.keys()]) {
+    // Keys look like q:AAPL, profile:AAPL, etfdetail:AAPL, hist:1M:AAPL,spark:…
+    const parts = key.split(/[:|,]/);
+    if (parts.some((p) => clean.has(p.toUpperCase()))) {
+      cache.delete(key);
+    }
+  }
+}
+
+const PROFILE_TTL_MS = 6 * 60 * 60_000; // sectors/industries rarely change
+
+export interface FastProfile {
+  ticker: string;
+  sector?: string;
+  industry?: string;
+}
+
+/**
+ * Sector / industry from Yahoo summaryProfile (stocks) or fund category (ETFs).
+ * Long TTL — these fields are stable compared to prices.
+ */
+export async function getFastProfiles(
+  tickers: string[],
+): Promise<Map<string, FastProfile>> {
+  const clean = normalizeTickers(tickers);
+  const result = new Map<string, FastProfile>();
+  if (clean.length === 0) return result;
+
+  const misses: string[] = [];
+  for (const t of clean) {
+    const hit = cache.get(`profile:${t}`);
+    if (hit && hit.expires > Date.now()) {
+      result.set(t, hit.value as FastProfile);
+    } else {
+      misses.push(t);
+    }
+  }
+
+  if (misses.length === 0) return result;
+
+  const limit = pLimit(6);
+  await Promise.all(
+    misses.map((ticker) =>
+      limit(async () => {
+        try {
+          const data = await yf.quoteSummary(ticker, {
+            modules: ["summaryProfile", "fundProfile"],
+          });
+          const sector =
+            data.summaryProfile?.sector ||
+            data.fundProfile?.categoryName ||
+            undefined;
+          const industry =
+            data.summaryProfile?.industry ||
+            data.fundProfile?.categoryName ||
+            undefined;
+          const profile: FastProfile = {
+            ticker,
+            sector: sector || undefined,
+            industry: industry || undefined,
+          };
+          cache.set(`profile:${ticker}`, {
+            value: profile,
+            expires: Date.now() + PROFILE_TTL_MS,
+          });
+          result.set(ticker, profile);
+        } catch {
+          // Sparse listings often lack profile modules — leave empty
+          const empty: FastProfile = { ticker };
+          cache.set(`profile:${ticker}`, {
+            value: empty,
+            expires: Date.now() + 30 * 60_000,
+          });
+          result.set(ticker, empty);
+        }
+      }),
+    ),
+  );
 
   return result;
 }

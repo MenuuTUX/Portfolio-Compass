@@ -36,6 +36,10 @@ export interface ETF {
   fundClass?: string;
   category?: string;
   family?: string;
+  /** GICS-style sector (stocks) or fund category (ETFs) */
+  sector?: string;
+  /** Industry within sector (stocks) or fund category (ETFs) */
+  industry?: string;
   // Extended Metrics (Optional, for Stocks primarily)
   marketCap?: number;
   revenue?: number;

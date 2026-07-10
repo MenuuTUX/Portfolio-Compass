@@ -48,6 +48,8 @@ export async function GET(request: NextRequest) {
         },
         allocation: { equities: 0, bonds: 0, cash: 0 },
         sectors: {},
+        sector: q.sector,
+        industry: q.industry,
         marketCap: q.marketCap,
         volume: q.volume,
         peRatio: q.peRatio,
