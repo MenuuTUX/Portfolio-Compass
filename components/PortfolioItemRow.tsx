@@ -5,6 +5,7 @@ import { PortfolioItem } from "@/types";
 import { motion } from "framer-motion";
 import { VirtualItem } from "@tanstack/react-virtual";
 import Image from "next/image";
+import { HelpTip } from "./ui/HelpTip";
 
 interface PortfolioItemRowProps {
   item: PortfolioItem;
@@ -65,13 +66,21 @@ const PortfolioItemRow = memo(
 
         <td className="p-4 align-top hidden md:table-cell">
           <div className="flex flex-col gap-1 text-xs text-neutral-400">
-            <div className="flex justify-between w-24">
-              <span>MER:</span>
-              <span className="text-neutral-300">{item.metrics.mer}%</span>
+            <div className="flex justify-between w-28 gap-2">
+              <HelpTip term="MER" showIcon={false} className="text-neutral-400">
+                MER:
+              </HelpTip>
+              <span className="text-neutral-300">
+                {(item.metrics?.mer ?? 0).toFixed(2)}%
+              </span>
             </div>
-            <div className="flex justify-between w-24">
-              <span>Yield:</span>
-              <span className="text-emerald-400">{item.metrics.yield}%</span>
+            <div className="flex justify-between w-28 gap-2">
+              <HelpTip term="Yield" showIcon={false} className="text-neutral-400">
+                Yield:
+              </HelpTip>
+              <span className="text-emerald-400">
+                {(item.metrics?.yield ?? item.dividendYield ?? 0).toFixed(2)}%
+              </span>
             </div>
           </div>
         </td>

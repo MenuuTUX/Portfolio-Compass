@@ -2,8 +2,10 @@ import { describe, it, expect } from 'bun:test';
 import {
   calculateLogReturns,
   calculateCovarianceMatrix,
-  getCholeskyDecomposition
+  getCholeskyDecomposition,
+  generateMonteCarloPaths,
 } from '@/lib/monte-carlo';
+import { annualYieldToDailyLogDrift } from '@/lib/math/portfolio-returns';
 
 describe('Monte Carlo Math Library', () => {
 
@@ -68,6 +70,53 @@ describe('Monte Carlo Math Library', () => {
       // Matrix [[1, 2], [2, 1]] -> Determinant = 1-4 = -3 < 0. Not PD.
       const badCov = [[1, 2], [2, 1]];
       expect(() => getCholeskyDecomposition(badCov)).toThrow();
+  });
+
+  it('generateMonteCarloPaths compounds dividend yield in the drift', () => {
+    // Zero-vol path: final value is deterministic from drift only
+    const cholesky = [[0]]; // zero shocks
+    const prices = [100];
+    const weights = [1];
+    const numDays = 252;
+    const initial = 10_000;
+
+    const noDiv = generateMonteCarloPaths(
+      prices, weights, [0], cholesky, 1, numDays, initial,
+    );
+    const withDiv = generateMonteCarloPaths(
+      prices,
+      weights,
+      [annualYieldToDailyLogDrift(0.05)],
+      cholesky,
+      1,
+      numDays,
+      initial,
+    );
+
+    const finalNoDiv = noDiv[0][noDiv[0].length - 1];
+    const finalWithDiv = withDiv[0][withDiv[0].length - 1];
+
+    // Zero drift → ~flat; 5% yield drift → ~+5%
+    expect(finalNoDiv).toBeCloseTo(initial, 0);
+    expect(finalWithDiv / initial).toBeCloseTo(1.05, 2);
+    expect(finalWithDiv).toBeGreaterThan(finalNoDiv);
+  });
+
+  it('generateMonteCarloPaths includes every asset by weight', () => {
+    // Two assets, zero vol, different drifts — blended outcome
+    const L = [[0, 0], [0, 0]];
+    const paths = generateMonteCarloPaths(
+      [100, 50],
+      [0.5, 0.5],
+      [annualYieldToDailyLogDrift(0.10), annualYieldToDailyLogDrift(0)],
+      L,
+      1,
+      252,
+      10_000,
+    );
+    const final = paths[0][paths[0].length - 1];
+    // 50/50 of +10% and +0% ≈ +5%
+    expect(final / 10_000).toBeCloseTo(1.05, 1);
   });
 
 });

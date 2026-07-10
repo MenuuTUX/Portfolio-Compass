@@ -23,6 +23,7 @@ import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import Sparkline from "./Sparkline";
+import { HelpTip } from "./ui/HelpTip";
 
 interface TrendingSectionProps {
   title: string;
@@ -371,7 +372,10 @@ export default function TrendingSection({
                     {etf.assetType || "ETF"}
                   </span>
                   <span className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 rounded-lg py-1.5">
-                    {etf.metrics?.yield?.toFixed(2)}% yield
+                    {(etf.metrics?.yield ?? etf.dividendYield ?? 0).toFixed(2)}%{" "}
+                    <HelpTip term="Yield" showIcon={false} className="text-emerald-400/80">
+                      yield
+                    </HelpTip>
                   </span>
                 </div>
 

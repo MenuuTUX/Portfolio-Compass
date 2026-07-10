@@ -30,7 +30,14 @@ import {
   generateMonteCarloPaths,
   calculateCone,
 } from "@/lib/monte-carlo";
-import { Decimal } from "@/lib/decimal";
+import {
+  getEffectiveWeights,
+  getAssetYieldFraction,
+  getPortfolioMarketValue,
+  getPortfolioDividendYield,
+  annualYieldToDailyLogDrift,
+  estimateAssetTotalReturn,
+} from "@/lib/math/portfolio-returns";
 import { PortfolioShareButton } from "../PortfolioShareButton";
 import SimulatorExplainer from "./SimulatorExplainer";
 
@@ -43,12 +50,11 @@ export default function MonteCarloSimulator({
   portfolio,
   onBack,
 }: MonteCarloSimulatorProps) {
-  // Calculate current portfolio value
-  const currentPortfolioValue = useMemo(() => {
-    return portfolio.reduce((sum, item) => {
-      return sum + item.price * (item.shares || 0);
-    }, 0);
-  }, [portfolio]);
+  // Market value across *all* holdings
+  const currentPortfolioValue = useMemo(
+    () => getPortfolioMarketValue(portfolio),
+    [portfolio],
+  );
 
   // State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -126,7 +132,7 @@ export default function MonteCarloSimulator({
     }
   }, [portfolio]);
 
-  // 1. Prepare Data
+  // 1. Prepare Data — every portfolio asset participates
   const prepareSimulation = useCallback(async () => {
     if (portfolio.length === 0) {
       setError("Portfolio is empty.");
@@ -141,115 +147,172 @@ export default function MonteCarloSimulator({
     setCurrentDayIndex(0);
 
     const activePortfolio = fetchedPortfolio;
+    const n = activePortfolio.length;
+    // Value-based weights preferred; falls back to explicit weights / equal
+    const weights = getEffectiveWeights(activePortfolio);
 
-    // Now proceed with `activePortfolio`
-    // Filter invalid items but allow proceeding if we have enough valid ones
-    const invalidItems = activePortfolio.filter(
-      (item) => !item.history || item.history.length < 30,
+    // Assets with enough price history for empirical returns
+    const HISTORY_MIN = 30;
+    const hasHistory = activePortfolio.map(
+      (item) => !!(item.history && item.history.length >= HISTORY_MIN),
     );
-    const validItems = activePortfolio.filter(
-      (item) => item.history && item.history.length >= 30,
+    const historyIndices = hasHistory
+      .map((ok, i) => (ok ? i : -1))
+      .filter((i) => i >= 0);
+    const noHistoryIndices = hasHistory
+      .map((ok, i) => (!ok ? i : -1))
+      .filter((i) => i >= 0);
+
+    if (noHistoryIndices.length > 0) {
+      const names = noHistoryIndices
+        .map((i) => activePortfolio[i].ticker)
+        .join(", ");
+      // Informational — we still include these assets via yield + heuristic drift
+      setError(
+        `Note: ${names} lack price history; using yield + heuristic drift so they still count.`,
+      );
+    }
+
+    // Align overlapping history among assets that have it
+    let meanPriceLog: number[] = new Array(n).fill(0);
+    let covMatrix: number[][] = Array.from({ length: n }, () =>
+      Array(n).fill(0),
     );
 
-    // If we have invalid items, we'll show a warning but try to proceed if we have at least one valid item
-    if (invalidItems.length > 0) {
-      const names = invalidItems.map((i) => i.ticker).join(", ");
-      if (validItems.length === 0) {
+    if (historyIndices.length > 0) {
+      const histItems = historyIndices.map((i) => activePortfolio[i]);
+      const startDates = histItems.map((item) =>
+        new Date(item.history[0].date).getTime(),
+      );
+      const latestStartDate = Math.max(...startDates);
+
+      const alignedPrices: number[][] = [];
+      histItems.forEach((item) => {
+        const filtered = item.history.filter(
+          (h) => new Date(h.date).getTime() >= latestStartDate,
+        );
+        alignedPrices.push(filtered.map((h) => h.price));
+      });
+
+      const minLen = Math.min(...alignedPrices.map((arr) => arr.length));
+      if (minLen < HISTORY_MIN && historyIndices.length === n) {
+        // Every asset has history but overlap is too short
+        const limitingItem = histItems.reduce((a, b) =>
+          new Date(a.history[0].date) > new Date(b.history[0].date) ? a : b,
+        );
+        const startDate = new Date(
+          limitingItem.history[0].date,
+        ).toLocaleDateString();
         setError(
-          `Insufficient historical data for all assets: ${names}. (Minimum 30 days required)`,
+          `Portfolio overlap is too short (${minLen} days). Limited by ${limitingItem.ticker} (Starts ${startDate}).`,
         );
         return;
       }
-      // Non-blocking warning (Note: simple setError might be overridden if we clear it, so we might need a separate warning state or just set it and continue)
-      // For now, we set it, and since we don't return, it acts as a warning if the UI displays it.
-      // Ideally, we'd have a separate `warning` state, but `error` is rendered prominently.
-      setError(
-        `Warning: Excluding ${names} due to insufficient history (< 30 days).`,
-      );
+
+      if (minLen >= 2) {
+        const finalPrices = alignedPrices.map((arr) =>
+          arr.slice(arr.length - minLen),
+        );
+        const returnsMatrix = finalPrices.map((prices) =>
+          calculateLogReturns(prices),
+        );
+
+        // Empirical price log-means for history assets
+        historyIndices.forEach((pi, localIdx) => {
+          const rets = returnsMatrix[localIdx];
+          meanPriceLog[pi] =
+            rets.reduce((a, b) => a + b, 0) / Math.max(1, rets.length);
+        });
+
+        // Empirical covariance among history assets
+        try {
+          const histCov = calculateCovarianceMatrix(returnsMatrix);
+          for (let i = 0; i < historyIndices.length; i++) {
+            for (let j = 0; j < historyIndices.length; j++) {
+              covMatrix[historyIndices[i]][historyIndices[j]] = histCov[i][j];
+            }
+          }
+        } catch (e: any) {
+          setError("Math Error: " + e.message);
+          return;
+        }
+      }
     }
 
-    // Align Dates
-    const startDates = validItems.map((item) =>
-      new Date(item.history[0].date).getTime(),
-    );
-    const latestStartDate = Math.max(...startDates);
+    // Median daily variance of history assets — used as fallback vol
+    const histVars = historyIndices
+      .map((i) => covMatrix[i][i])
+      .filter((v) => v > 0);
+    const medianVar =
+      histVars.length > 0
+        ? histVars.sort((a, b) => a - b)[Math.floor(histVars.length / 2)]
+        : (0.15 * 0.15) / 252; // ~15% ann. vol default
 
-    const alignedPrices: number[][] = [];
-    validItems.forEach((item) => {
-      const filtered = item.history.filter(
-        (h) => new Date(h.date).getTime() >= latestStartDate,
-      );
-      alignedPrices.push(filtered.map((h) => h.price));
+    // Assets without history: heuristic total return → price log-mean
+    // (yield is added separately below for every asset)
+    noHistoryIndices.forEach((i) => {
+      const totalAnn = estimateAssetTotalReturn(activePortfolio[i]);
+      const yieldAnn = getAssetYieldFraction(activePortfolio[i]);
+      // Price component of heuristic (avoid double-counting yield later)
+      const priceAnn = Math.max(0, totalAnn - yieldAnn);
+      meanPriceLog[i] = Math.log(1 + priceAnn) / 252;
+      covMatrix[i][i] = medianVar; // uncorrelated with others
     });
 
-    if (alignedPrices.length === 0) {
-      setError("No valid price history found.");
-      return;
+    // Ensure every diagonal is positive (needed for Cholesky)
+    for (let i = 0; i < n; i++) {
+      if (!(covMatrix[i][i] > 1e-12)) {
+        covMatrix[i][i] = medianVar;
+      }
     }
 
-    const minLen = Math.min(...alignedPrices.map((arr) => arr.length));
-    if (minLen < 30) {
-      // Find limiting asset (latest start date)
-      const limitingItem = validItems.reduce((a, b) =>
-        new Date(a.history[0].date) > new Date(b.history[0].date) ? a : b,
-      );
-      const startDate = new Date(
-        limitingItem.history[0].date,
-      ).toLocaleDateString();
-      setError(
-        `Portfolio overlap is too short (${minLen} days). Limited by ${limitingItem.ticker} (Starts ${startDate}).`,
-      );
-      return;
-    }
-    const finalPrices = alignedPrices.map((arr) =>
-      arr.slice(arr.length - minLen),
-    );
-
-    const returnsMatrix = finalPrices.map((prices) =>
-      calculateLogReturns(prices),
-    );
-    const meanReturns = returnsMatrix.map((returns) => {
-      const sum = returns.reduce((a, b) => a + b, 0);
-      return sum / returns.length;
+    // Total-return daily drift = price log-mean + dividend log-drift
+    // (history uses unadjusted closes, so yield must be added explicitly)
+    const meanReturns = activePortfolio.map((item, i) => {
+      const divDrift = annualYieldToDailyLogDrift(getAssetYieldFraction(item));
+      return meanPriceLog[i] + divDrift;
     });
 
-    let covMatrix: number[][];
     let cholesky: number[][];
-
     try {
-      covMatrix = calculateCovarianceMatrix(returnsMatrix);
       cholesky = getCholeskyDecomposition(covMatrix);
-    } catch (e: any) {
-      setError("Math Error: " + e.message);
-      return;
+    } catch {
+      // If cross-correlations make the matrix non-PD (e.g. after padding),
+      // fall back to a diagonal Cholesky so the sim still runs for all assets.
+      cholesky = Array.from({ length: n }, (_, i) => {
+        const row = Array(n).fill(0);
+        row[i] = Math.sqrt(Math.max(covMatrix[i][i], 1e-12));
+        return row;
+      });
+      setError(
+        "Note: correlations regularized (non-PD covariance); all assets still included.",
+      );
     }
 
-    const currentPrices = validItems.map((item) => item.price);
-    const totalWeight = validItems.reduce((sum, item) => sum + item.weight, 0);
-    const weights = validItems.map((item) => item.weight / (totalWeight || 1));
+    // Guard: prices must be positive
+    const currentPrices = activePortfolio.map((item) => {
+      const p = Number(item.price);
+      return p > 0 ? p : 1;
+    });
 
-    // Calculate Analytic Sharpe Ratio & Weighted Yield
+    // Analytic Sharpe on total-return moments
     let expDailyRet = 0;
-    for (let i = 0; i < weights.length; i++)
-      expDailyRet += weights[i] * meanReturns[i];
+    for (let i = 0; i < n; i++) expDailyRet += weights[i] * meanReturns[i];
 
     let expDailyVar = 0;
-    for (let i = 0; i < weights.length; i++) {
-      for (let j = 0; j < weights.length; j++) {
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
         expDailyVar += weights[i] * weights[j] * covMatrix[i][j];
       }
     }
 
-    const annRet = expDailyRet * 252;
-    const annVol = Math.sqrt(expDailyVar) * Math.sqrt(252);
+    const annRet = Math.exp(expDailyRet * 252) - 1;
+    const annVol = Math.sqrt(Math.max(0, expDailyVar)) * Math.sqrt(252);
     const riskFree = 0.04;
-
     setAnalyticSharpe(annVol > 0 ? (annRet - riskFree) / annVol : 0);
 
-    const calculatedYield = validItems.reduce((acc, item) => {
-      const yieldVal = item.metrics?.yield || 0;
-      return acc + (yieldVal / 100) * (item.weight / totalWeight);
-    }, 0);
+    // Dividend yield across ALL assets (for display / income chart)
+    const calculatedYield = getPortfolioDividendYield(activePortfolio);
     setWeightedYield(calculatedYield);
 
     const numDays = timeHorizonYears * 252;
@@ -721,9 +784,11 @@ export default function MonteCarloSimulator({
                 {formatCurrency(riskMetrics.worst5Outcome)}
               </div>
             </div>
-            {/* New Dividends Card */}
+            {/* Dividends are reinvested into path drift; this is the income component */}
             <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">Est. Dividends</div>
+              <div className="text-xs text-neutral-400">
+                Est. Dividends (reinvested)
+              </div>
               <div className="text-lg font-bold text-blue-400">
                 {formatCurrency(riskMetrics.totalDividends)}
               </div>

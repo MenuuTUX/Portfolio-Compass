@@ -118,7 +118,21 @@ function multiplyMatrixVector(matrix: number[][], vector: number[]): number[] {
 }
 
 /**
- * Generates Monte Carlo simulation paths.
+ * Generates Monte Carlo simulation paths for a multi-asset portfolio.
+ *
+ * Price dynamics use geometric Brownian motion with correlated shocks
+ * (via Cholesky). `meanReturns` must be *total-return* daily log-drifts
+ * (historical price drift + dividend yield contribution) so paths compound
+ * as if dividends are reinvested. Do not also reinvest cash dividends on
+ * top of a yield-boosted drift — that would double-count income.
+ *
+ * @param currentPrices         Spot prices per asset
+ * @param weights               Portfolio weights (sum ≈ 1)
+ * @param meanReturns           Daily log-return drifts (total return)
+ * @param choleskyMatrix        L such that L Lᵀ = covariance of daily log returns
+ * @param numSimulations        Number of independent paths
+ * @param numDays               Trading days to simulate
+ * @param initialPortfolioValue Starting wealth
  */
 export function generateMonteCarloPaths(
   currentPrices: number[],
@@ -134,27 +148,25 @@ export function generateMonteCarloPaths(
 
   for (let sim = 0; sim < numSimulations; sim++) {
     const path: number[] = [initialPortfolioValue];
-    // "Buy and Hold" strategy: Shares are fixed at t=0.
+    // Buy-and-hold: share counts fixed at t=0 (dividends already in drift)
+    const shares = weights.map((w, i) => {
+      const px = currentPrices[i];
+      if (!px || px <= 0) return 0;
+      return (initialPortfolioValue * w) / px;
+    });
 
-    // Initial Shares
-    const shares = weights.map(
-      (w, i) => (initialPortfolioValue * w) / currentPrices[i],
-    );
-
-    // Current Sim Asset Prices
     const simAssetPrices = [...currentPrices];
 
     for (let day = 0; day < numDays; day++) {
-      // 1. Generate uncorrelated random normals
+      // 1. Uncorrelated standard normals
       const Z = Array.from({ length: numAssets }, () => boxMullerTransform());
 
-      // 2. Correlate them: R_shock = L * Z
+      // 2. Correlate: shock = L · Z
       const R_shock = multiplyMatrixVector(choleskyMatrix, Z);
 
-      // 3. Update Prices
+      // 3. Evolve total-return prices and mark portfolio
       let totalValue = 0;
       for (let i = 0; i < numAssets; i++) {
-        // r = mean + shock
         const logRet = meanReturns[i] + R_shock[i];
         simAssetPrices[i] = simAssetPrices[i] * Math.exp(logRet);
         totalValue += simAssetPrices[i] * shares[i];
