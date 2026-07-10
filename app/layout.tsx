@@ -12,7 +12,6 @@ const inter = Inter({
   display: 'swap',
 });
 
-// Caslon-inspired serif for headlines (Wealthsimple-style display face)
 const libreCaslon = Libre_Caslon_Text({
   subsets: ['latin'],
   weight: ['400', '700'],
@@ -22,7 +21,7 @@ const libreCaslon = Libre_Caslon_Text({
 
 export const metadata = {
   title: "PortfolioCompass",
-  description: "Institutional Grade Portfolio Intelligence",
+  description: "ETF comparison, portfolio optimization, and market tools",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

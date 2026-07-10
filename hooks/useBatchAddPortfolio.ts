@@ -108,7 +108,7 @@ export const useBatchAddPortfolio = () => {
           return {
             ...(richData || {}),
             ...item,
-          } as any; // Cast to avoid strict type issues with partial data during transition
+          } as any;
         });
       });
 

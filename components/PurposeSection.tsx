@@ -30,25 +30,25 @@ const PurposeSection = () => {
     {
       title: "Institutional Portfolios",
       description:
-        "Analyze the portfolios of major financial institutions. Benchmark your strategy against established market leaders.",
+        "Browse model allocations from major managers and compare them to your own mix.",
       image:
         "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
       icon: <Building2 className="w-5 h-5 text-emerald-400" />,
       tag: "INSIGHTS",
     },
     {
-      title: "Mathematical Optimization",
+      title: "Portfolio Optimization",
       description:
-        "Our algorithms analyze volatility, correlation, and returns to optimize your asset allocation for the highest possible Sharpe ratio.",
+        "Rebalance toward a better risk/return trade-off using historical returns, volatility, and correlations.",
       image:
         "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
       icon: <TrendingUp className="w-5 h-5 text-rose-400" />,
-      tag: "ALGORITHM",
+      tag: "OPTIMIZER",
     },
     {
-      title: "Future Simulation",
+      title: "Monte Carlo Simulation",
       description:
-        "Test your portfolio against thousands of potential market scenarios with Monte Carlo simulations to understand your range of outcomes.",
+        "Run thousands of market paths to see a range of possible portfolio outcomes over time.",
       image:
         "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
       icon: <LineChart className="w-5 h-5 text-cyan-400" />,
@@ -71,7 +71,7 @@ const PurposeSection = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            ADVANCED ANALYTICS
+            WHAT YOU GET
           </motion.div>
 
           <motion.h2
@@ -81,9 +81,9 @@ const PurposeSection = () => {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-5xl font-display font-bold text-stone-100 mb-6"
           >
-            Intelligent{" "}
+            Tools for{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-              Portfolio Management
+              serious portfolio work
             </span>
           </motion.h2>
 
@@ -94,13 +94,11 @@ const PurposeSection = () => {
             transition={{ delay: 0.2 }}
             className="text-lg text-stone-400 leading-relaxed"
           >
-            PortfolioCompass simplifies the complex world of investing. We
-            provide professional-grade tools to help you build, optimize, and
-            simulate your wealth strategy.
+            Search the market, construct a portfolio, optimize allocations, and
+            project results — without leaving the browser.
           </motion.p>
         </div>
 
-        {/* Feature Cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-32">
           {cards.map((card, i) => (
             <motion.div
@@ -145,7 +143,6 @@ const PurposeSection = () => {
           ))}
         </div>
 
-        {/* Our Mission Section */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -157,11 +154,13 @@ const PurposeSection = () => {
             <div className="flex items-center gap-3 mb-6">
               <HeartHandshake className="text-emerald-400 w-6 h-6" />
               <h3 className="text-2xl font-display font-bold text-stone-100">
-                Our Mission
+                Why this exists
               </h3>
             </div>
             <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-              &ldquo;We built PortfolioCompass to bridge the gap between institutional tools and retail investors. Our goal is to provide a clear, data-driven platform that empowers you to make informed investment decisions without the noise.&rdquo;
+              &ldquo;I wanted the same portfolio math I use in spreadsheets —
+              optimizer, correlations, Monte Carlo — without the setup tax. So
+              I put it in a single app with live market data.&rdquo;
             </p>
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-stone-800" />
@@ -172,7 +171,6 @@ const PurposeSection = () => {
           </div>
         </motion.div>
 
-        {/* Support Section */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -192,7 +190,7 @@ const PurposeSection = () => {
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <a
-                href="https://github.com/Shib-Das/Portfolio-Compass"
+                href="https://github.com/MenuuTUX/Portfolio-Compass"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-100 text-stone-950 font-bold flex items-center justify-center gap-2 hover:bg-emerald-400 transition-colors group"
@@ -208,7 +206,7 @@ const PurposeSection = () => {
                     navigator
                       .share({
                         title: "PortfolioCompass",
-                        text: "Navigate the market with PortfolioCompass.",
+                        text: "PortfolioCompass — ETF comparison and portfolio tools",
                         url: window.location.href,
                       })
                       .catch(console.error);
@@ -220,7 +218,7 @@ const PurposeSection = () => {
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-800 text-ink font-medium border border-stone-700 hover:border-emerald-500/50 hover:bg-stone-800/80 flex items-center justify-center gap-2 transition-all"
               >
                 <Share2 className="w-5 h-5 text-emerald-400" />
-                <span>Share Project</span>
+                <span>Share</span>
               </button>
             </div>
           </div>

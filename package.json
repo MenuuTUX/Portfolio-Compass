@@ -1,9 +1,9 @@
 {
-  "name": "app",
+  "name": "portfolio-compass",
   "version": "1.0.0",
-  "description": "Interactive ETF comparison and portfolio optimization platform helping retail investors make smarter diversification decisions",
+  "description": "ETF comparison, portfolio optimization, and Monte Carlo projection",
   "packageManager": "bun@1.2.4",
-  "main": "index.js",
+  "private": true,
   "scripts": {
     "dev": "bun --bun next dev",
     "build": "bun --bun next build",
@@ -20,16 +20,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Shib-Das/Portfolio-Compass.git"
+    "url": "git+https://github.com/MenuuTUX/Portfolio-Compass.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "etf",
+    "portfolio",
+    "nextjs",
+    "finance"
+  ],
+  "author": "Shib",
   "license": "MIT",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/Shib-Das/Portfolio-Compass/issues"
+    "url": "https://github.com/MenuuTUX/Portfolio-Compass/issues"
   },
-  "homepage": "https://github.com/Shib-Das/Portfolio-Compass#readme",
+  "homepage": "https://github.com/MenuuTUX/Portfolio-Compass#readme",
   "trustedDependencies": [
     "sharp",
     "esbuild",
@@ -47,7 +52,6 @@
     "@vercel/speed-insights": "^1.3.1",
     "cheerio": "^1.1.2",
     "clsx": "^2.1.1",
-    "csv-parse": "^6.1.0",
     "decimal.js": "^10.6.0",
     "dotenv": "^17.4.2",
     "framer-motion": "^12.23.26",
@@ -61,15 +65,12 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-is": "^19.2.1",
-    "react-virtualized-auto-sizer": "^1.0.26",
-    "react-window": "^2.2.3",
     "recharts": "^3.5.1",
     "tailwind-merge": "^3.4.0",
     "yahoo-finance2": "3.11.2",
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -80,9 +81,6 @@
     "@types/pg": "^8.15.6",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@types/react-virtualized-auto-sizer": "^1.0.8",
-    "@types/react-window": "^2.0.0",
-    "baseline-browser-mapping": "^2.9.0",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.7",
     "happy-dom": "^20.0.11",

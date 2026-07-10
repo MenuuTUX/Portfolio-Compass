@@ -105,7 +105,8 @@ describe('ETFDetailsDrawer sparse-data handling', () => {
             expect(screen.getByText('Market Cap')).toBeInTheDocument();
         });
         expect(screen.getByText('3.00T')).toBeInTheDocument();
-        expect(screen.getByText('PE Ratio')).toBeInTheDocument();
+        // HelpTip rewrites known terms to glossary labels (PE Ratio → P/E Ratio)
+        expect(screen.getByText('P/E Ratio')).toBeInTheDocument();
         // Missing fundamentals should not render as n/a cards
         expect(screen.queryByText('Revenue')).not.toBeInTheDocument();
         expect(screen.queryByText('n/a')).not.toBeInTheDocument();

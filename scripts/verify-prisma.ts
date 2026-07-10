@@ -1,5 +1,4 @@
-// Connectivity check: one read against the configured database.
-// Run with: bun run scripts/verify-prisma.ts
+// Run: bun run scripts/verify-prisma.ts
 import prisma from "../lib/db";
 
 async function main() {
@@ -9,20 +8,20 @@ async function main() {
     orderBy: { updatedAt: "desc" },
   });
 
-  console.log("✅ Connected");
-  console.log(`   Etf rows: ${etfCount}`);
+  console.log("Connected");
+  console.log(`  Etf rows: ${etfCount}`);
   if (sample) {
     console.log(
-      `   Latest: ${sample.ticker} (${sample.name}) @ ${sample.price}`,
+      `  Latest: ${sample.ticker} (${sample.name}) @ ${sample.price}`,
     );
   } else {
-    console.log("   Table is empty — run `bunx prisma db seed` to populate.");
+    console.log("  Table is empty — run `bun run db:seed` to populate.");
   }
 }
 
 main()
   .catch((err) => {
-    console.error("❌ Connection failed:", err);
+    console.error("Connection failed:", err);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

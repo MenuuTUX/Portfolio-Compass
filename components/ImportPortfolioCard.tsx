@@ -26,14 +26,13 @@ export default function ImportPortfolioCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Feature temporarily disabled as steganography lib was removed.
-    // In a real app, we might just parse a JSON file or similar.
+    // Image steganography import was removed; keep the control disabled for now.
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessing(true);
     setStatus("error");
-    setErrorMessage("Import feature is currently disabled.");
+    setErrorMessage("Portfolio import from image is not available yet.");
     setTimeout(() => {
         setStatus("idle");
         setIsProcessing(false);

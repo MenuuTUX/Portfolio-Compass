@@ -1,14 +1,7 @@
 import YahooFinance from "yahoo-finance2";
 import pLimit from "p-limit";
 
-// ---------------------------------------------------------------------------
-// Fast, DB-free market data.
-//
-// Everything in this module talks straight to Yahoo's free public endpoints
-// and caches in memory. No SQL, no scraping, no retries with multi-second
-// backoffs — the goal is that any UI read path resolves in one round trip
-// (~100-400ms) regardless of database state.
-// ---------------------------------------------------------------------------
+// Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -33,6 +26,8 @@ export interface FastQuote {
   eps?: number;
   dividend?: number;
   dividendYield?: number;
+  /** Expense ratio in percent (e.g. 0.09 for 0.09%). ETFs only. */
+  expenseRatio?: number;
   open?: number;
   previousClose?: number;
   daysRange?: string;
@@ -59,11 +54,6 @@ const QUOTE_TTL_MS = 30_000;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-// ---------------------------------------------------------------------------
-// Tiny in-memory TTL cache with in-flight request coalescing so a burst of
-// identical requests (e.g. every card on the trending page) shares one fetch.
-// ---------------------------------------------------------------------------
-
 interface CacheEntry<T> {
   value: T;
   expires: number;
@@ -86,7 +76,6 @@ async function cached<T>(
   const promise = fn()
     .then((value) => {
       cache.set(key, { value, expires: Date.now() + ttlMs });
-      // Opportunistic sweep so the map doesn't grow unbounded
       if (cache.size > 2000) {
         const now = Date.now();
         for (const [k, v] of cache) if (v.expires < now) cache.delete(k);
@@ -109,10 +98,6 @@ function normalizeTickers(tickers: string[]): string[] {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Quotes: one batched request for any number of tickers.
-// ---------------------------------------------------------------------------
-
 function mapQuote(q: any): FastQuote {
   const low = q.regularMarketDayLow;
   const high = q.regularMarketDayHigh;
@@ -132,6 +117,12 @@ function mapQuote(q: any): FastQuote {
       q.dividendYield < 1 ? q.dividendYield * 100 : q.dividendYield;
   }
 
+  // netExpenseRatio is already percent (e.g. 0.0945 for SPY).
+  let expenseRatio: number | undefined;
+  if (typeof q.netExpenseRatio === "number" && q.netExpenseRatio > 0) {
+    expenseRatio = q.netExpenseRatio;
+  }
+
   return {
     ticker: q.symbol,
     name: q.shortName || q.longName || q.symbol,
@@ -146,6 +137,7 @@ function mapQuote(q: any): FastQuote {
     eps: q.epsTrailingTwelveMonths,
     dividend: q.trailingAnnualDividendRate,
     dividendYield,
+    expenseRatio,
     open: q.regularMarketOpen,
     previousClose: q.regularMarketPreviousClose,
     daysRange: fmtRange(low, high),
@@ -197,10 +189,8 @@ export async function getFastQuotes(
   return result;
 }
 
-// ---------------------------------------------------------------------------
 // History: the spark endpoint returns close series for many symbols in a
 // single request. Falls back to per-ticker chart() calls if spark misbehaves.
-// ---------------------------------------------------------------------------
 
 function parseSparkPayload(
   json: any,
@@ -388,10 +378,8 @@ export function isChartRange(value: string): value is ChartRange {
   return value in RANGE_CONFIG;
 }
 
-// ---------------------------------------------------------------------------
 // Symbol search: Yahoo's public autocomplete endpoint resolves free-text
 // queries ("meta", "apple") to tickers without touching our database.
-// ---------------------------------------------------------------------------
 
 const SEARCH_TTL_MS = 60_000;
 
@@ -427,12 +415,10 @@ export async function searchFastSymbols(
   return Array.from(new Set(filtered.map((r) => r.symbol))).slice(0, limit);
 }
 
-// ---------------------------------------------------------------------------
 // ETF/fund technicals: expense ratio, sector weights, holdings, description.
 // One quoteSummary call per ticker (not batchable like quote()/spark()), but
 // still a single fast request — no scraping, no DB. Called on-demand when a
 // drawer opens, not blocking the initial chart/price paint.
-// ---------------------------------------------------------------------------
 
 const ETF_DETAILS_TTL_MS = 10 * 60_000;
 

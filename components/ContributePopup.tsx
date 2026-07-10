@@ -62,7 +62,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
 
           <div className="flex flex-col gap-3 w-full">
             <a
-              href="https://github.com/Shib-Das/Portfolio-Compass"
+              href="https://github.com/MenuuTUX/Portfolio-Compass"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] group"

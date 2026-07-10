@@ -46,8 +46,7 @@ interface Spore {
   size: number;
 }
 
-// Generated once on mount: re-rolling Math.random() during render would
-// resize and restart every particle whenever the title rotation re-renders.
+// Spore positions are fixed on mount so title re-renders do not reshuffle them.
 const generateSpores = (): Spore[] =>
   Array.from({ length: 15 }, () => ({
     x: Math.random() * window.innerWidth,
@@ -107,7 +106,6 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-canvas text-ink font-sans selection:bg-emerald-500/30"
       onMouseMove={handleMouseMove}
     >
-      {/* 1. Animated ASCII field background, faded behind the content */}
       <div
         className="absolute inset-0 overflow-hidden pointer-events-none z-0"
         style={{
@@ -120,10 +118,8 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         <AsciiBackground className="absolute inset-0" opacity={0.34} />
       </div>
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        {/* Soft warm wash so text panels stay readable over the glyphs */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(var(--background-start-rgb),0.72)_0%,_rgba(var(--background-start-rgb),0.28)_60%,_transparent_100%)]" />
 
-        {/* Floating Spores/Particles */}
         {spores.map((spore, i) => (
           <motion.div
             key={i}
@@ -151,9 +147,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         ))}
       </div>
 
-      {/* 2. Main Content Wrapper */}
       <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 lg:gap-12 items-center pt-24 pb-12 lg:pt-20 lg:pb-0">
-        {/* Left Column: Text & CTA */}
         <div className="text-left space-y-6 lg:space-y-8 pointer-events-none">
           <div className="pointer-events-auto">
             <motion.div
@@ -205,13 +199,11 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               variants={textVariants}
               className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
             >
-              Experience professional portfolio management tools.
-              PortfolioCompass merges algorithmic precision with sustainable
-              growth strategies. Watch your wealth evolve with data-driven
-              clarity.
+              Compare ETFs and stocks, build a portfolio, and stress-test it
+              with optimization and Monte Carlo tools — all in one place.
               <br />
               <span className="text-xs text-stone-500 mt-2 block italic">
-                Disclaimer: This is not financial advice.
+                Not financial advice.
               </span>
             </motion.p>
 
@@ -245,16 +237,15 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               </motion.button>
             </motion.div>
 
-            {/* Metrics / Trust Indicators */}
             <motion.div
               custom={4}
               variants={textVariants}
               className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50 mt-12"
             >
               {[
-                { label: "Data Updates", val: "Daily", icon: Zap },
-                { label: "Asset Types", val: "Hybrid", icon: Sprout },
-                { label: "Privacy", val: "Local-First", icon: Activity },
+                { label: "Quotes", val: "Live", icon: Zap },
+                { label: "Coverage", val: "ETFs + Stocks", icon: Sprout },
+                { label: "Storage", val: "Local-first", icon: Activity },
               ].map((item, i) => (
                 <div key={i} className="space-y-1">
                   <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
@@ -270,15 +261,12 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
           </div>
         </div>
 
-        {/* Right Column: Interactive Visuals */}
         <div className="relative h-[400px] lg:h-[600px] flex items-center justify-center perspective-[1000px] w-full pointer-events-none">
-          {/* Background Glow */}
           <motion.div
             style={{ y: y2 }}
             className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent rounded-full blur-3xl"
           />
 
-          {/* The "Artifact" - Glassmorphism Card + Interactive Slider */}
           <motion.div
             style={{
               y: y1,
