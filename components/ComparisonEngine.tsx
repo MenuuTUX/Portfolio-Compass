@@ -224,14 +224,30 @@ const ETFCard = memo(
                 {(etf.metrics?.yield ?? etf.dividendYield ?? 0).toFixed(2)}%
               </div>
             </div>
-            <div>
-              <div className="text-xs text-neutral-400 mb-1">
-                <HelpTip term="MER" showIcon={false} />
+            {/* MER is a fund fee — only meaningful for ETFs, not individual stocks */}
+            {etf.assetType === "STOCK" ? (
+              <div>
+                <div className="text-xs text-neutral-400 mb-1">
+                  <HelpTip term="PE Ratio" showIcon={false} />
+                </div>
+                <div className="text-sm font-medium text-neutral-300">
+                  {etf.peRatio != null && etf.peRatio > 0
+                    ? etf.peRatio.toFixed(1)
+                    : "—"}
+                </div>
               </div>
-              <div className="text-sm font-medium text-neutral-300">
-                {(etf.metrics?.mer ?? 0).toFixed(2)}%
+            ) : (
+              <div>
+                <div className="text-xs text-neutral-400 mb-1">
+                  <HelpTip term="MER" showIcon={false} />
+                </div>
+                <div className="text-sm font-medium text-neutral-300">
+                  {etf.metrics?.mer != null && etf.metrics.mer > 0
+                    ? `${etf.metrics.mer.toFixed(2)}%`
+                    : "—"}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

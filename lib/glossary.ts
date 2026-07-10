@@ -135,8 +135,8 @@ const entries: Record<string, GlossaryEntry> = {
   },
   mer: {
     label: "MER / Expense Ratio",
-    what: "Management Expense Ratio — the fund's annual fee.",
-    means: "Taken automatically from returns. Over decades, high fees meaningfully reduce growth.",
+    what: "Management Expense Ratio — the yearly fee charged by an ETF or mutual fund.",
+    means: "Only applies to funds, not individual stocks. Stocks have no MER (you already own the company directly). Lower is better — 0.03–0.20% is cheap.",
   },
   holdings: {
     label: "Holdings",
