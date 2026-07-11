@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowRight, Leaf, Zap, Cpu, Activity, Sprout, ChevronDown } from "lucide-react";
+import { ArrowRight, Zap, Activity, Sprout, ChevronDown } from "lucide-react";
 import {
   motion,
   useMotionValue,
@@ -212,29 +212,20 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               variants={textVariants}
               className="flex flex-col sm:flex-row gap-4 mt-8"
             >
-              <motion.button
+              <button
                 onClick={onStart}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="group px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-semibold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-shadow flex items-center justify-center gap-2 cursor-pointer relative overflow-hidden w-full sm:w-auto"
+                className="px-6 py-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
               >
-                <span className="relative z-10">Start Analysis</span>
-                <Leaf className="w-4 h-4 relative z-10 group-hover:rotate-45 transition-transform" />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-              </motion.button>
+                Get started
+                <ArrowRight className="w-4 h-4" />
+              </button>
 
-              <motion.button
+              <button
                 onClick={onViewMarket}
-                whileHover={{
-                  scale: 1.05,
-                  borderColor: "rgba(50,48,47,0.35)",
-                }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 rounded-xl bg-surface-card/80 border border-hairline-strong text-ink font-semibold transition-colors backdrop-blur-md cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto hover:bg-surface-card"
+                className="px-6 py-3.5 rounded-lg bg-surface-card border border-hairline-strong text-ink font-medium transition-colors cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto hover:bg-surface-soft"
               >
-                <Activity className="w-4 h-4" />
-                View the Market
-              </motion.button>
+                Browse market
+              </button>
             </motion.div>
 
             <motion.div
