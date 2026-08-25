@@ -21,7 +21,8 @@ const libreCaslon = Libre_Caslon_Text({
 
 export const metadata = {
   title: "PortfolioCompass",
-  description: "ETF comparison, portfolio optimization, and market tools",
+  description:
+    "Compare ETFs and stocks, test portfolio allocations, and run assumption-based projections.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

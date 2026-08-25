@@ -9,6 +9,11 @@ import {
   estimateAssetTotalReturn,
 } from "@/lib/math/portfolio-returns";
 
+export interface PortfolioHistoricalStats {
+  annualizedReturn: number;
+  annualizedVolatility: number;
+}
+
 /**
  * Calculates historical portfolio statistics (Annualized Return, Annualized Volatility)
  * based on the provided portfolio items' history.
@@ -20,13 +25,13 @@ import {
  * drift) so every holding still affects the portfolio expected return.
  *
  * @param portfolio The portfolio with `history` property populated.
- * @param riskFreeRate The risk free rate (default 0.04) — reserved for callers
+ * @param riskFreeRate The risk-free rate (default 0.04), reserved for callers
  * @returns Object with annualizedReturn and annualizedVolatility
  */
 export function calculatePortfolioHistoricalStats(
   portfolio: Portfolio,
   _riskFreeRate: number = 0.04,
-): { annualizedReturn: number; annualizedVolatility: number } {
+): PortfolioHistoricalStats {
   if (!portfolio || portfolio.length === 0) {
     return { annualizedReturn: 0, annualizedVolatility: 0 };
   }
@@ -95,7 +100,7 @@ export function calculatePortfolioHistoricalStats(
   const timeSpanYears =
     (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
 
-  // Short windows produce absurd annualizations — use heuristics instead
+  // Short windows produce unstable annualizations, so use heuristics instead.
   if (timeSpanYears < 0.5) {
     let annRet = 0;
     for (let i = 0; i < portfolio.length; i++) {

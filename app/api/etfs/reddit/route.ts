@@ -4,7 +4,7 @@ import { getRedditCommunities } from "@/config/tickers";
 export const dynamic = "force-dynamic";
 
 /**
- * Reddit communities for a ticker — from static config only.
+ * Reddit communities for a ticker, sourced only from static configuration.
  * No server DB; nothing is persisted server-side.
  */
 export async function GET(request: NextRequest) {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-/** Mutations are client-local only — no server write */
+/** Mutations are client-local and do not write to a server. */
 export async function POST() {
   return NextResponse.json(
     {

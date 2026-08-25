@@ -108,7 +108,10 @@ export default function Home() {
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
             <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
-              <p>&copy; {new Date().getFullYear()} PortfolioCompass. Not financial advice.</p>
+              <p>
+                &copy; {new Date().getFullYear()} PortfolioCompass. For research
+                and education, not financial advice.
+              </p>
             </footer>
           </motion.div>
         ) : viewMode === 'INTRO_QUIZ' ? (

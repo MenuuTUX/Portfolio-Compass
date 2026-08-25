@@ -34,13 +34,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-yellow-500",
     themeGradient: "from-yellow-400/20 to-transparent",
     description:
-      "Canada's leading robo-advisor uses a passive, index-based approach with a tilt towards low volatility.",
+      "Built-in examples labeled Wealthsimple. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth",
         risk: "Risk 8-10",
-        description:
-          "Maximize long-term growth with a higher allocation to equities.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           { ticker: "VTI", name: "Vanguard Total Stock Market", weight: 25 },
@@ -63,7 +62,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced",
         risk: "Risk 4-6",
-        description: "A mix of safety and growth for moderate risk tolerance.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           { ticker: "VTI", name: "Vanguard Total Stock Market", weight: 15 },
@@ -86,8 +85,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative",
         risk: "Risk 1-3",
-        description:
-          "Preserve capital with a focus on bonds and low volatility.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           { ticker: "VTI", name: "Vanguard Total Stock Market", weight: 10 },
@@ -116,13 +114,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-blue-800",
     themeGradient: "from-blue-800/20 to-transparent",
     description:
-      "A strategic alliance between RBC Global Asset Management and BlackRock Canada, offering the popular 'X-Series' portfolios.",
+      "Built-in examples labeled RBC iShares. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (XGRO)",
         risk: "Risk 7-9",
-        description:
-          "RBC iShares Core Growth ETF Portfolio. 80% Equity / 20% Fixed Income.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           {
@@ -160,8 +157,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (XBAL)",
         risk: "Risk 4-6",
-        description:
-          "RBC iShares Core Balanced ETF Portfolio. 60% Equity / 40% Fixed Income.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           {
@@ -199,8 +195,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (XCNS)",
         risk: "Risk 2-4",
-        description:
-          "RBC iShares Core Conservative Balanced ETF Portfolio. 40% Equity / 60% Fixed Income.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           {
@@ -240,13 +235,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-emerald-600",
     themeGradient: "from-emerald-600/20 to-transparent",
     description:
-      "TD's One-Click ETF portfolios provide a simple way to access TD's passive investing strategies.",
+      "Built-in examples labeled TD Asset Management. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (TGRO)",
         risk: "Risk 7-9",
-        description:
-          "TD One-Click Aggressive ETF Portfolio. 90% Equity / 10% Fixed Income.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           { ticker: "TPU.TO", name: "TD US Equity Index ETF", weight: 42.0 },
@@ -270,8 +264,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (TBAL)",
         risk: "Risk 4-6",
-        description:
-          "TD One-Click Balanced ETF Portfolio. 60% Equity / 40% Fixed Income.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           { ticker: "TPU.TO", name: "TD US Equity Index ETF", weight: 28.0 },
@@ -295,8 +288,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (TCON)",
         risk: "Risk 2-4",
-        description:
-          "TD One-Click Conservative ETF Portfolio. 40% Equity / 60% Fixed Income.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           { ticker: "TPU.TO", name: "TD US Equity Index ETF", weight: 18.0 },
@@ -326,12 +318,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-blue-600",
     themeGradient: "from-blue-600/20 to-transparent",
     description:
-      "BMO's ETF portfolios use their popular Z-series ETFs, known for tax efficiency and reliability.",
+      "Built-in examples labeled BMO. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (ZGRO)",
         risk: "Risk 7-9",
-        description: "Growth focused asset allocation using BMO ETFs.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           { ticker: "ZSP.TO", name: "BMO S&P 500 Index ETF", weight: 36.5 },
@@ -361,7 +353,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (ZBAL)",
         risk: "Risk 4-6",
-        description: "Balanced asset allocation using BMO ETFs.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           { ticker: "ZSP.TO", name: "BMO S&P 500 Index ETF", weight: 27.5 },
@@ -391,7 +383,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (ZCON)",
         risk: "Risk 2-4",
-        description: "Income focused asset allocation using BMO ETFs.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           { ticker: "ZSP.TO", name: "BMO S&P 500 Index ETF", weight: 18.5 },
@@ -427,13 +419,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-red-800",
     themeGradient: "from-red-800/20 to-transparent",
     description:
-      "CIBC's Asset Allocation ETFs offer diversified portfolios with a focus on Canadian and Global markets.",
+      "Built-in examples labeled CIBC. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (CGRW)",
         risk: "Risk 7-9",
-        description:
-          "CIBC Balanced Growth ETF Portfolio. Focus on long-term capital growth.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           {
@@ -466,8 +457,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (CBLN)",
         risk: "Risk 4-6",
-        description:
-          "CIBC Balanced ETF Portfolio. A moderate mix for balanced growth and income.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           {
@@ -495,8 +485,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (CCON)",
         risk: "Risk 2-4",
-        description:
-          "CIBC Conservative ETF Portfolio. Prioritizes income and capital preservation.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           {
@@ -530,13 +519,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-red-600",
     themeGradient: "from-red-600/20 to-transparent",
     description:
-      "Scotia Index Tracker ETFs offer low-cost exposure to major market indices, combinable for custom portfolios.",
+      "Built-in examples labeled Scotiabank. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (Simulated)",
         risk: "Risk 7-9",
-        description:
-          "Simulated 80/20 portfolio using Scotia Index Tracker ETFs.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           {
@@ -564,8 +552,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (Simulated)",
         risk: "Risk 4-6",
-        description:
-          "Simulated 60/40 portfolio using Scotia Index Tracker ETFs.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           {
@@ -593,8 +580,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (Simulated)",
         risk: "Risk 2-4",
-        description:
-          "Simulated 40/60 portfolio using Scotia Index Tracker ETFs.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           {
@@ -628,13 +614,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-red-700",
     themeGradient: "from-red-600/20 to-transparent",
     description:
-      "The pioneer of low-cost investing. Their Asset Allocation ETFs are the gold standard for passive investing.",
+      "Built-in examples labeled Vanguard. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (VGRO)",
         risk: "Risk 7-9",
-        description:
-          "Standard 80/20 split. Uses broad-market index ETFs to capture global growth.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           { ticker: "VUN.TO", name: "Vanguard US Total Market", weight: 35.8 },
@@ -669,8 +654,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (VBAL)",
         risk: "Risk 4-6",
-        description:
-          "Classic 60/40 portfolio. The benchmark for balanced investing.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           { ticker: "VUN.TO", name: "Vanguard US Total Market", weight: 26.8 },
@@ -705,8 +689,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (VCNS)",
         risk: "Risk 2-4",
-        description:
-          "40/60 split prioritizing income and stability over aggressive growth.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           { ticker: "VUN.TO", name: "Vanguard US Total Market", weight: 17.9 },
@@ -751,13 +734,12 @@ export const INSTITUTIONAL_DATA: Institution[] = [
     themeColor: "text-stone-900",
     themeGradient: "from-stone-800/20 to-transparent",
     description:
-      "The world's largest asset manager. These 'Core' portfolios use market-cap weighted indexing.",
+      "Built-in examples labeled BlackRock iShares. Verify current allocations with the issuer.",
     portfolios: {
       Growth: {
         name: "Growth (XGRO)",
         risk: "Risk 7-9",
-        description:
-          "80% Equity / 20% Fixed Income. Broad diversification at a low cost.",
+        description: "Built-in growth example from this app's dataset.",
         iconName: "TrendingUp",
         holdings: [
           {
@@ -795,8 +777,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Balanced: {
         name: "Balanced (XBAL)",
         risk: "Risk 4-6",
-        description:
-          "60% Equity / 40% Fixed Income. A simple one-ticket balanced solution.",
+        description: "Built-in balanced example from this app's dataset.",
         iconName: "Scale",
         holdings: [
           {
@@ -834,8 +815,7 @@ export const INSTITUTIONAL_DATA: Institution[] = [
       Conservative: {
         name: "Conservative (XCNS)",
         risk: "Risk 2-4",
-        description:
-          "40% Equity / 60% Fixed Income. Designed for capital preservation.",
+        description: "Built-in conservative example from this app's dataset.",
         iconName: "Shield",
         holdings: [
           {

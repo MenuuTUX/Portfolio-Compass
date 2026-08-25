@@ -11,8 +11,6 @@ import {
   DollarSign,
   Activity,
   Scale,
-  Trophy,
-  Minus,
   Layers,
 } from "lucide-react";
 import {
@@ -43,6 +41,13 @@ interface ComparisonModalProps {
   onClose: () => void;
 }
 
+interface ComparisonMetric {
+  label: string;
+  valueA: number | undefined;
+  valueB: number | undefined;
+  formatter: (value: number) => string;
+}
+
 // Helper Components
 
 function MetricRow({
@@ -50,58 +55,26 @@ function MetricRow({
   valueA,
   valueB,
   formatter,
-  better,
 }: {
   label: string;
   valueA: number | undefined;
   valueB: number | undefined;
   formatter: (v: number) => string;
-  better: "A" | "B" | "Equal" | null;
 }) {
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 border-b border-hairline last:border-0 hover:bg-surface-soft transition-colors px-4 rounded-lg">
       {/* Asset A Value */}
-      <div
-        className={cn(
-          "text-sm font-mono text-right",
-          better === "A" ? "text-emerald-400 font-bold" : "text-neutral-400",
-        )}
-      >
+      <div className="text-sm font-mono text-right text-neutral-400">
         {valueA !== undefined ? formatter(valueA) : "--"}
       </div>
 
-      {/* Label / Winner Indicator */}
       <div className="flex flex-col items-center justify-center min-w-[100px]">
         <span className="text-xs text-neutral-500 uppercase font-semibold tracking-wider text-center">
           {label}
         </span>
-        {better && better !== "Equal" && (
-          <div
-            className={cn(
-              "mt-1 flex items-center justify-center w-5 h-5 rounded-full",
-              better === "A" ? "bg-emerald-500/10" : "bg-blue-500/10",
-            )}
-          >
-            <Trophy
-              className={cn(
-                "w-3 h-3",
-                better === "A" ? "text-emerald-500" : "text-blue-500",
-              )}
-            />
-          </div>
-        )}
-        {better === "Equal" && (
-          <Minus className="w-3 h-3 mt-1 text-neutral-600" />
-        )}
       </div>
 
-      {/* Asset B Value */}
-      <div
-        className={cn(
-          "text-sm font-mono text-left",
-          better === "B" ? "text-blue-400 font-bold" : "text-neutral-400",
-        )}
-      >
+      <div className="text-sm font-mono text-left text-neutral-400">
         {valueB !== undefined ? formatter(valueB) : "--"}
       </div>
     </div>
@@ -233,94 +206,70 @@ export default function ComparisonModal({
     setSearchResults([]);
   };
 
-  // Comparison Logic: Winners & Metrics
-
   const metrics = useMemo(() => {
     if (!compareAsset) return [];
 
     const isStock = baseAsset.assetType === "STOCK";
-    const list: any[] = [];
+    const list: ComparisonMetric[] = [];
 
-    // Helper to determine winner
-    // rule: 'high' (higher wins), 'low' (lower wins), 'none' (just display)
     const addMetric = (
       label: string,
-      key: keyof ETF | string,
-      rule: "high" | "low" | "none",
+      getValue: (asset: ETF) => number | undefined,
       formatter: (v: number) => string,
-      deepKey?: string,
     ) => {
-      // Access nested properties if needed (e.g. metrics.yield)
-      let valA: any = baseAsset;
-      let valB: any = compareAsset;
-
-      if (deepKey) {
-        valA = valA[key]?.[deepKey];
-        valB = valB[key]?.[deepKey];
-      } else {
-        valA = valA[key];
-        valB = valB[key];
-      }
-
-      // normalize to number or undefined
-      const numA = typeof valA === "number" ? valA : undefined;
-      const numB = typeof valB === "number" ? valB : undefined;
-
-      let better: "A" | "B" | "Equal" | null = null;
-      if (rule !== "none" && numA !== undefined && numB !== undefined) {
-        if (numA === numB) better = "Equal";
-        else if (rule === "high") better = numA > numB ? "A" : "B";
-        else if (rule === "low") better = numA < numB ? "A" : "B";
-      }
-
-      list.push({ label, valueA: numA, valueB: numB, formatter, better });
+      list.push({
+        label,
+        valueA: getValue(baseAsset),
+        valueB: getValue(compareAsset),
+        formatter,
+      });
     };
 
-    // Common Metrics
-    addMetric("Price", "price", "none", (v) => formatCurrency(v));
+    addMetric("Price", (asset) => asset.price, (v) => formatCurrency(v));
     addMetric(
       "Change",
-      "changePercent",
-      "high",
+      (asset) => asset.changePercent,
       (v) => `${v > 0 ? "+" : ""}${v.toFixed(2)}%`,
     );
     addMetric(
       "Market Cap",
-      "marketCap",
-      "high",
+      (asset) => asset.marketCap,
       (v) => (v / 1e9).toFixed(2) + "B",
     );
-    addMetric("Volume", "volume", "high", (v) => (v / 1e6).toFixed(2) + "M");
+    addMetric(
+      "Volume",
+      (asset) => asset.volume,
+      (v) => (v / 1e6).toFixed(2) + "M",
+    );
 
     if (isStock) {
-      addMetric("PE Ratio", "peRatio", "low", (v) => v.toFixed(2));
-      addMetric("Beta", "beta", "low", (v) => v.toFixed(2)); // Generally lower beta = less risk = "better" for stability
-      addMetric("EPS", "eps", "high", (v) => formatCurrency(v));
+      addMetric("PE Ratio", (asset) => asset.peRatio, (v) => v.toFixed(2));
+      addMetric("Beta", (asset) => asset.beta, (v) => v.toFixed(2));
+      addMetric("EPS", (asset) => asset.eps, (v) => formatCurrency(v));
       addMetric(
         "Revenue",
-        "revenue",
-        "high",
+        (asset) => asset.revenue,
         (v) => (v / 1e9).toFixed(2) + "B",
       );
       addMetric(
         "Div Yield",
-        "dividendYield",
-        "high",
+        (asset) => asset.dividendYield,
         (v) => `${v.toFixed(2)}%`,
       );
     } else {
-      // ETF Specific
       addMetric(
         "Expense Ratio",
-        "metrics",
-        "low",
+        (asset) => asset.metrics?.mer,
         (v) => `${v.toFixed(2)}%`,
-        "mer",
       );
-      addMetric("Yield", "metrics", "high", (v) => `${v.toFixed(2)}%`, "yield");
-      addMetric("Holdings", "holdingsCount", "high", (v) =>
+      addMetric(
+        "Yield",
+        (asset) => asset.metrics?.yield,
+        (v) => `${v.toFixed(2)}%`,
+      );
+      addMetric("Holdings", (asset) => asset.holdingsCount, (v) =>
         Math.round(v).toLocaleString(),
-      ); // More holdings = more diversification? Subjective but let's say high wins
+      );
     }
 
     return list;
@@ -688,12 +637,12 @@ export default function ComparisonModal({
                 </div>
               </div>
 
-              {/* 2. Key Metrics Head-to-Head */}
+              {/* 2. Key metrics */}
               <div className="bg-surface-card rounded-2xl p-6 border border-hairline">
                 <div className="flex items-center gap-2 mb-6">
                   <Activity className="w-5 h-5 text-emerald-400" />
                   <h3 className="text-lg font-bold text-ink">
-                    Head-to-Head Metrics
+                    Side-by-Side Metrics
                   </h3>
                 </div>
                 <div className="space-y-1">

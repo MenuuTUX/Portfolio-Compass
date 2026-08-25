@@ -57,7 +57,7 @@ export function optimizePortfolioGreedy(
   const numAssets = candidates.length;
   // If no assets or no budget, just return current state
   if (numAssets === 0 || budget <= 0) {
-    const shares: Record<string, number> = { ...initialShares };
+  const shares = { ...initialShares };
     return {
       shares,
       addedShares: {},

@@ -1,12 +1,12 @@
 /**
- * Holdings overlap math — pure, no database.
+ * Holdings overlap math with no database dependency.
  * Pass holdings already loaded on the client (or from live ETF details).
  */
 
 export interface HoldingWeight {
   ticker: string;
   name: string;
-  /** Weight as a percentage (e.g. 10 = 10%) or fraction — must match between A and B */
+  /** Weight as a percentage or fraction. Both inputs must use the same unit. */
   weight: number;
 }
 
@@ -22,12 +22,6 @@ interface CommonHolding {
   weightInB: number;
 }
 
-function toNumber(weight: number | { toNumber: () => number }): number {
-  if (typeof weight === "number") return weight;
-  if (weight && typeof weight.toNumber === "function") return weight.toNumber();
-  return Number(weight) || 0;
-}
-
 /**
  * Calculate portfolio overlap between two holdings lists.
  */
@@ -39,7 +33,7 @@ export function calculateOverlapFromHoldings(
   holdingsA.forEach((h) => {
     mapA.set(h.ticker, {
       name: h.name,
-      weight: toNumber(h.weight),
+      weight: h.weight,
     });
   });
 
@@ -49,7 +43,7 @@ export function calculateOverlapFromHoldings(
   holdingsB.forEach((hB) => {
     const dataA = mapA.get(hB.ticker);
     if (dataA) {
-      const weightB = toNumber(hB.weight);
+      const weightB = hB.weight;
       const weightA = dataA.weight;
       const minWeight = Math.min(weightA, weightB);
 
@@ -84,13 +78,10 @@ export async function calculateOverlap(
   holdingsA: HoldingWeight[] | string,
   holdingsB?: HoldingWeight[] | string,
 ): Promise<OverlapResult> {
-  // Legacy tests passed ticker strings + mocked DB — those no longer work.
+  // Legacy ticker-string calls have no holdings data and return an empty result.
   // New signature: two holdings arrays.
-  if (typeof holdingsA === "string" || typeof holdingsB === "string") {
+  if (!Array.isArray(holdingsA) || !Array.isArray(holdingsB)) {
     return { overlapScore: 0, commonHoldings: [] };
   }
-  return calculateOverlapFromHoldings(
-    holdingsA as HoldingWeight[],
-    (holdingsB || []) as HoldingWeight[],
-  );
+  return calculateOverlapFromHoldings(holdingsA, holdingsB);
 }

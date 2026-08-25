@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Portfolio storage — browser LocalStorage only.
+ * Portfolio storage uses browser LocalStorage only.
  * Nothing is written to a server database.
  *
  * Key: portfolio_compass_v1
@@ -21,7 +21,7 @@ export const LocalPortfolioSchema = z.array(LocalPortfolioItemSchema);
 const STORAGE_KEY = "portfolio_compass_v1";
 
 export function savePortfolio(items: LocalPortfolioItem[]) {
-  if (typeof window === "undefined") return;
+  if (!globalThis.window) return;
 
   // Validate schema - will throw ZodError if invalid
   const validItems = LocalPortfolioSchema.parse(items);
@@ -31,7 +31,7 @@ export function savePortfolio(items: LocalPortfolioItem[]) {
 }
 
 export function loadPortfolio(): LocalPortfolioItem[] {
-  if (typeof window === "undefined") return [];
+  if (!globalThis.window) return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];

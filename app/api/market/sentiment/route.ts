@@ -7,8 +7,8 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Market risk / sentiment for the optimizer.
- * Always returns 200 with usable defaults if the DB is down —
+ * Legacy market sentiment endpoint.
+ * Always returns 200 with usable defaults if the data source is unavailable.
  * never 500 for connectivity (production Neon tenant can disappear).
  */
 export async function GET() {

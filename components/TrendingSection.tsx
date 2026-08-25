@@ -83,7 +83,7 @@ export default function TrendingSection({
     }
   };
 
-  // Open the drawer immediately — it streams its own chart and metrics from
+  // Open the drawer immediately. It streams its own chart and metrics from
   // the fast market endpoints and hydrates deep data in the background.
   const handleView = (etf: ETF) => {
     onSelectItem(etf);

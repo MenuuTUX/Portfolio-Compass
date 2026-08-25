@@ -7,7 +7,6 @@ import {
   useMotionValue,
   useSpring,
   useTransform,
-  AnimatePresence,
 } from "framer-motion";
 import InteractiveSlider from "./InteractiveSlider";
 import AsciiBackground from "./AsciiBackground";
@@ -24,12 +23,6 @@ const textVariants = {
     },
   }),
 };
-
-const titleWords = [
-  { text: "fun", font: "font-cursive", color: "text-emerald-400" },
-  { text: "stable", font: "font-sans", color: "text-blue-400" },
-  { text: "aggressive", font: "font-serif", color: "text-red-400" },
-];
 
 interface HeroProps {
   onStart?: () => void;
@@ -59,11 +52,9 @@ const generateSpores = (): Spore[] =>
   }));
 
 export default function Hero({ onStart, onViewMarket }: HeroProps) {
-  // Empty until mounted on the client, which also serves as the SSR gate
+  // Empty until mounted on the client, which also acts as the SSR gate.
   const [spores, setSpores] = useState<Spore[]>([]);
-  const [marketStatus, setMarketStatus] = useState("OPEN");
-  const [titleIndex, setTitleIndex] = useState(0);
-  const [riskValue, setRiskValue] = useState(65);
+  const [returnValue, setReturnValue] = useState(7);
   const [yearsValue, setYearsValue] = useState(10);
 
   const x = useMotionValue(0);
@@ -79,16 +70,9 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
   const y2 = useTransform(mouseY, [-0.5, 0.5], [20, -20]);
 
   useEffect(() => {
-    // Deferred to a frame callback so the effect body stays free of
-    // synchronous setState (react-hooks/set-state-in-effect)
+    // Defer the update so the effect body does not set state synchronously.
     const raf = requestAnimationFrame(() => setSpores(generateSpores()));
-    const interval = setInterval(() => {
-      setTitleIndex((prev) => (prev + 1) % titleWords.length);
-    }, 3000);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearInterval(interval);
-    };
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -155,21 +139,13 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               animate="visible"
               custom={0}
               variants={textVariants}
-              className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md ${
-                marketStatus === "OPEN"
-                  ? "bg-emerald-900/20 border-emerald-500/20 text-emerald-400"
-                  : "bg-red-900/20 border-red-500/20 text-red-400"
-              }`}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md bg-emerald-900/20 border-emerald-500/20 text-emerald-400"
             >
               <span className="relative flex h-2 w-2">
-                <span
-                  className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${marketStatus === "OPEN" ? "bg-emerald-400" : "bg-red-400"}`}
-                ></span>
-                <span
-                  className={`relative inline-flex rounded-full h-2 w-2 ${marketStatus === "OPEN" ? "bg-emerald-500" : "bg-red-500"}`}
-                ></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
-              MARKET: {marketStatus}
+              LOCAL PORTFOLIOS · LIVE MARKET DATA
             </motion.div>
 
             <motion.h1
@@ -177,21 +153,8 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               variants={textVariants}
               className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight mt-6"
             >
-              Make your <span className="text-stone-600">portfolio</span> <br />
-              <div className="h-[1.2em] relative overflow-hidden">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={titleIndex}
-                    initial={{ y: 40, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -40, opacity: 0 }}
-                    transition={{ duration: 0.5, ease: "backOut" }}
-                    className={`block ${titleWords[titleIndex].font} ${titleWords[titleIndex].color}`}
-                  >
-                    {titleWords[titleIndex].text}
-                  </motion.span>
-                </AnimatePresence>
-              </div>
+              Build a portfolio, then test the{" "}
+              <span className="text-emerald-400">assumptions behind it.</span>
             </motion.h1>
 
             <motion.p
@@ -199,8 +162,8 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               variants={textVariants}
               className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
             >
-              Compare ETFs and stocks, build a portfolio, and stress-test it
-              with optimization and Monte Carlo tools — all in one place.
+              Compare funds and stocks, then test an allocation with historical
+              data and simulated paths.
               <br />
               <span className="text-xs text-stone-500 mt-2 block italic">
                 Not financial advice.
@@ -276,7 +239,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg sm:text-xl font-display font-bold text-ink">
-                  Jim Cramer&apos;s Portfolio Growth
+                  Illustrative compound growth
                 </h3>
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               </div>
@@ -285,33 +248,18 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 className="h-32 sm:h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group"
                 style={{ transform: "translateZ(20px)" }}
               >
-                {/* Simulated Chart */}
+                {/* Illustrative chart */}
                 <div className="flex items-end justify-between h-full gap-2 px-2">
                   {[...Array(12)].map((_, i) => {
-                    // Logic:
-                    // Risk (0-100) -> Annual Return Rate (2% to 15%)
-                    // Years (1-50) -> Duration
-
-                    const rate = 0.02 + (riskValue / 100) * 0.13; // 2% to 15%
+                    const rate = returnValue / 100;
                     const maxYears = yearsValue;
                     const yearForBar = (i / 11) * maxYears;
-
-                    // Compound Interest: (1 + r)^t
                     const growth = Math.pow(1 + rate, yearForBar);
-
-                    // Use Logarithmic scale to handle the wide range of growth (1.02x to 1000x+)
-                    // Log10(1) = 0
-                    // Log10(1000) = 3
                     const logGrowth = Math.log10(growth);
-
-                    // Normalize against a "Reasonable Max" (e.g., ~316x growth = 2.5 log)
-                    // to ensure typical values (2x-20x) are visible.
-                    // Using 2.5 allows 100x return to be at 80% height, while 1000x clips at 100%.
                     const maxLogScale = 2.5;
 
                     const barHeight = 10 + (logGrowth / maxLogScale) * 90;
-                    // Subtle per-bar jitter, deterministic so re-renders
-                    // (title rotation, slider moves) don't make bars twitch
+                    // Deterministic jitter keeps the bars still between renders.
                     const jitter = ((i * 7919) % 100) / 50;
                     const finalHeight = Math.min(100, barHeight + jitter);
 
@@ -330,15 +278,10 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                     );
                   })}
                 </div>
-                {/* Overlay Text */}
                 <div className="absolute top-2 left-4 text-xs text-stone-500 font-mono">
-                  PROJECTION: +
+                  ILLUSTRATIVE GROWTH: +
                   {(
-                    (Math.pow(
-                      1 + (0.02 + (riskValue / 100) * 0.13),
-                      yearsValue,
-                    ) -
-                      1) *
+                    (Math.pow(1 + returnValue / 100, yearsValue) - 1) *
                     100
                   ).toFixed(0)}
                   %
@@ -359,12 +302,13 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 />
 
                 <InteractiveSlider
-                  label="Risk Tolerance ( volatility )"
-                  min={1}
-                  max={100}
-                  defaultValue={65}
+                  label="Illustrative Annual Return"
+                  min={2}
+                  max={15}
+                  defaultValue={7}
+                  unit="%"
                   className="pt-2"
-                  onChange={(v) => setRiskValue(v)}
+                  onChange={(v) => setReturnValue(v)}
                 />
               </div>
 
@@ -372,9 +316,8 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
                 className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap"
                 style={{ transform: "translateZ(10px)" }}
               >
-                <span>• Professional</span>
-                <span>• Algorithmic</span>
-                <span>• Sustainable</span>
+                <span>Constant return</span>
+                <span>No contributions</span>
               </div>
             </div>
 

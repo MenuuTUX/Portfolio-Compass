@@ -8,7 +8,7 @@ import {
 describe("glossary", () => {
   it("resolves common metric labels", () => {
     expect(getGlossaryEntry("Market Cap")?.label).toBe("Market Cap");
-    expect(getGlossaryEntry("PE Ratio")?.what).toMatch(/Price-to-Earnings/i);
+    expect(getGlossaryEntry("PE Ratio")?.what).toMatch(/price divided by earnings/i);
     expect(getGlossaryEntry("Div Yield")?.means.length).toBeGreaterThan(10);
     expect(getGlossaryEntry("Beta")?.what).toMatch(/market/i);
     expect(getGlossaryEntry("Expense Ratio")?.label).toMatch(/Expense/i);

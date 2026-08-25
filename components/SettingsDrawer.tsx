@@ -33,7 +33,7 @@ export default function SettingsDrawer({
   const handleClearPortfolio = async () => {
     if (
       !confirm(
-        "Are you sure you want to clear your entire portfolio? This action cannot be undone.",
+        "Clear every holding from this local portfolio? This cannot be undone.",
       )
     ) {
       return;
@@ -47,10 +47,10 @@ export default function SettingsDrawer({
       savePortfolio([]);
       await queryClient.setQueryData(["portfolio"], []);
 
-      setStatus({ type: "success", message: "Portfolio cleared successfully" });
+      setStatus({ type: "success", message: "Portfolio cleared." });
     } catch (error) {
       console.error(error);
-      setStatus({ type: "error", message: "Failed to clear portfolio" });
+      setStatus({ type: "error", message: "Could not clear the portfolio." });
     } finally {
       setIsClearing(false);
     }
@@ -64,9 +64,7 @@ export default function SettingsDrawer({
       // Pull tickers from the local portfolio so we refresh what the user sees
       // without needing CRON_SECRET (that protects the admin bulk deep-sync).
       const portfolio =
-        (queryClient.getQueryData(["portfolio"]) as
-          | { ticker?: string }[]
-          | undefined) || [];
+        queryClient.getQueryData<{ ticker?: string }[]>(["portfolio"]) ?? [];
       const tickers = Array.from(
         new Set(
           portfolio
@@ -83,7 +81,7 @@ export default function SettingsDrawer({
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to refresh market data");
+        throw new Error(data.error || "Could not refresh market data.");
       }
 
       // Drop client caches so portfolio + market tabs re-fetch live quotes
@@ -102,7 +100,7 @@ export default function SettingsDrawer({
       setStatus({
         type: "error",
         message:
-          error instanceof Error ? error.message : "Failed to refresh data",
+          error instanceof Error ? error.message : "Could not refresh data.",
       });
     } finally {
       setIsRefreshing(false);
@@ -143,7 +141,7 @@ export default function SettingsDrawer({
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-neutral-200 flex items-center gap-2">
                   <RefreshCw className="w-5 h-5 text-emerald-400" />
-                  Data Management
+                  Market Data
                 </h3>
 
                 <div className="p-4 rounded-lg bg-neutral-800/50 border border-hairline space-y-4">
@@ -153,8 +151,8 @@ export default function SettingsDrawer({
                         Refresh market data
                       </h4>
                       <p className="text-sm text-neutral-400">
-                        Pull latest prices for your portfolio and clear cached
-                        quotes so market tabs reload fresh
+                        Clear cached quotes and request current data for local
+                        portfolio tickers.
                       </p>
                     </div>
                   </div>
@@ -171,25 +169,24 @@ export default function SettingsDrawer({
                     ) : (
                       <>
                         <RefreshCw className="w-4 h-4" />
-                        Refresh Now
+                        Refresh data
                       </>
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Danger Zone */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-red-400 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5" />
-                  Danger Zone
+                  Delete Local Data
                 </h3>
 
                 <div className="p-4 rounded-lg bg-red-900/10 border border-red-500/20 space-y-4">
                   <div>
-                    <h4 className="text-ink font-medium">Clear Portfolio</h4>
+                    <h4 className="text-ink font-medium">Clear portfolio</h4>
                     <p className="text-sm text-neutral-400">
-                      Permanently remove all items from your portfolio
+                      Remove every holding saved in this browser.
                     </p>
                   </div>
                   <button
@@ -205,7 +202,7 @@ export default function SettingsDrawer({
                     ) : (
                       <>
                         <Trash2 className="w-4 h-4" />
-                        Clear Portfolio
+                        Clear portfolio
                       </>
                     )}
                   </button>

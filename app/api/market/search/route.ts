@@ -10,11 +10,15 @@ export const maxDuration = 30;
 
 const MAX_RESULTS = 100;
 
+function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
+  return value === "STOCK" || value === "ETF" ? value : undefined;
+}
+
 // Browse/search for the market grid and comparison modal.
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = (searchParams.get("query") || "").trim();
-  const assetType = searchParams.get("type") as "STOCK" | "ETF" | null;
+  const assetType = parseAssetType(searchParams.get("type"));
   const skip = Math.max(0, parseInt(searchParams.get("skip") || "0", 10) || 0);
   const limit = Math.min(
     MAX_RESULTS,
@@ -25,7 +29,7 @@ export async function GET(request: NextRequest) {
     let tickers: string[];
 
     if (query) {
-      tickers = await searchFastSymbols(query, assetType || undefined, 20);
+      tickers = await searchFastSymbols(query, assetType, 20);
     } else {
       const curated =
         assetType === "ETF"

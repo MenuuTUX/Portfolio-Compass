@@ -1,9 +1,19 @@
 
+import { z } from "zod";
+
 export interface FearAndGreedData {
   score: number;
   rating: string;
   updatedAt: string;
 }
+
+const FearAndGreedResponseSchema = z.object({
+  fear_and_greed: z.object({
+    score: z.coerce.number(),
+    rating: z.string().min(1),
+    timestamp: z.string().optional(),
+  }),
+});
 
 export async function fetchFearAndGreedIndex(): Promise<FearAndGreedData> {
   const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
@@ -20,7 +30,7 @@ export async function fetchFearAndGreedIndex(): Promise<FearAndGreedData> {
       throw new Error(`Failed to fetch Fear & Greed Index: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = FearAndGreedResponseSchema.parse(await response.json());
 
     // The API returns structure like:
     // {
@@ -32,10 +42,6 @@ export async function fetchFearAndGreedIndex(): Promise<FearAndGreedData> {
     // }
 
     const fg = data.fear_and_greed;
-
-    if (!fg || typeof fg.score === 'undefined' || !fg.rating) {
-      throw new Error('Invalid data structure received from CNN API');
-    }
 
     return {
       score: Math.round(fg.score),

@@ -26,11 +26,11 @@ interface InstitutionalPortfoliosProps {
 
 // Maps icon names to existing lucide components (module scope so render
 // only selects a component, never creates one)
-const PORTFOLIO_ICONS: Record<string, typeof Wallet> = {
+const PORTFOLIO_ICONS = {
   TrendingUp,
   Scale,
   Shield,
-};
+} satisfies Record<string, typeof Wallet>;
 
 export default function InstitutionalPortfolios({
   onBatchAdd,
@@ -76,9 +76,13 @@ export default function InstitutionalPortfolios({
     <div className="h-full flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <h3 className="text-ink/90 font-bold text-lg">
-          Institutional Portfolios
+          Built-in Allocation Examples
         </h3>
       </div>
+      <p className="text-xs text-neutral-500 leading-relaxed">
+        These saved examples may not match current issuer allocations. Verify
+        weights with the issuer before using them.
+      </p>
 
       {/* Gallery Grid */}
       <div className="grid grid-cols-4 gap-4 h-full">
@@ -190,7 +194,9 @@ export default function InstitutionalPortfolios({
                       )}
                     </div>
                     <p className="text-sm text-neutral-400 leading-snug">
-                      {selectedInstitution.description}
+                      Built-in examples associated with{" "}
+                      {selectedInstitution.name}. This app is not affiliated
+                      with or endorsed by the named firm.
                     </p>
                   </div>
                   <button
@@ -251,10 +257,11 @@ export default function InstitutionalPortfolios({
                           </div>
                           <div>
                             <div className="text-xs font-bold text-neutral-400 uppercase mb-1">
-                              {activePortfolio.risk} • {activePortfolio.name}
+                              {activePortfolio.name}
                             </div>
                             <div className="text-sm font-medium leading-relaxed text-neutral-300">
-                              {activePortfolio.description}
+                              Example {selectedType.toLowerCase()} allocation
+                              from the built-in dataset.
                             </div>
                           </div>
                         </div>
@@ -306,11 +313,11 @@ export default function InstitutionalPortfolios({
                         ? "bg-emerald-500 text-white"
                         : "bg-white text-black hover:bg-neutral-200 active:scale-95",
                     )}
-                    aria-label="Copy This Portfolio"
+                    aria-label="Load this allocation example"
                   >
                     {added ? (
                       <>
-                        <Check className="w-5 h-5" /> Added to Portfolio
+                        <Check className="w-5 h-5" /> Added to portfolio
                       </>
                     ) : (
                       <>
@@ -319,7 +326,7 @@ export default function InstitutionalPortfolios({
                         ) : (
                           <Plus className="w-5 h-5" />
                         )}
-                        Copy This Portfolio
+                        Load this example
                       </>
                     )}
                   </button>

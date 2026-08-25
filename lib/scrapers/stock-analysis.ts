@@ -110,7 +110,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
     const url = holdingsUrlForTicker(ticker);
     if (!url) {
-        // Unsupported venue (e.g. .MU, .HK) — skip quietly
+        // Skip unsupported venues such as .MU and .HK.
         return [];
     }
 
@@ -192,7 +192,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
 export function parseMarketNumber(val: string): number | undefined {
     if (!val) return undefined;
-    // Scraped cells often contain more than the value itself — trailing
+    // Scraped cells often contain more than the value itself, including trailing
     // whitespace ("1.12M ") or extra stats ("1.12M -92.3%", value plus the
     // 1-year change). Grab the first number+suffix token instead of
     // suffix-checking the whole string, which silently dropped multipliers.
@@ -203,13 +203,13 @@ export function parseMarketNumber(val: string): number | undefined {
     if (!match) return undefined;
 
     const token = match[0].replace(/\s+/g, '');
-    const multipliers: Record<string, number> = {
-        T: 1e12,
-        B: 1e9,
-        M: 1e6,
-        K: 1e3,
-    };
-    const multiplier = multipliers[token.slice(-1)] ?? 1;
+    const multipliers = new Map([
+        ['T', 1e12],
+        ['B', 1e9],
+        ['M', 1e6],
+        ['K', 1e3],
+    ]);
+    const multiplier = multipliers.get(token.slice(-1)) ?? 1;
     const num = parseFloat(multiplier === 1 ? token : token.slice(0, -1));
     if (isNaN(num)) return undefined;
     return num * multiplier;

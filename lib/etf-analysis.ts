@@ -24,24 +24,24 @@ function volatilityFromBeta(beta: number): VerdictEntry {
   if (beta > 1.25) {
     return {
       status: "warning",
-      label: "High Volatility",
-      description: `This asset is ${((beta - 1) * 100).toFixed(0)}% more volatile than the market (beta ${beta.toFixed(2)}).`,
+      label: "Beta Above 1.25",
+      description: `Beta ${beta.toFixed(2)} indicates greater historical sensitivity to the selected market benchmark.`,
     };
   }
   if (beta < 0.85) {
     return {
       status: "good",
-      label: "Low Volatility",
-      description: `Generally more stable than the market (beta ${beta.toFixed(2)}).`,
+      label: "Beta Below 0.85",
+      description: `Beta ${beta.toFixed(2)} indicates lower historical sensitivity to the selected market benchmark.`,
     };
   }
   return {
     status: "neutral",
-    label: "Market Risk",
+    label: "Beta Near 1",
     description:
       beta > 1
-        ? `Slightly more volatile than the market (beta ${beta.toFixed(2)}).`
-        : `Moves roughly in line with the market (beta ${beta.toFixed(2)}).`,
+        ? `Beta ${beta.toFixed(2)} indicates slightly greater historical sensitivity to the benchmark.`
+        : `Beta ${beta.toFixed(2)} indicates historical sensitivity near the benchmark.`,
   };
 }
 
@@ -51,21 +51,21 @@ function volatilityFromRealized(annVol: number): VerdictEntry {
   if (annVol > 0.35) {
     return {
       status: "warning",
-      label: "High Volatility",
-      description: `Realized annualized volatility ≈ ${pct}% (from price history).`,
+      label: "Volatility Above 35%",
+      description: `Annualized realized volatility is about ${pct}% for the available price history.`,
     };
   }
   if (annVol < 0.1) {
     return {
       status: "good",
-      label: "Low Volatility",
-      description: `Realized annualized volatility ≈ ${pct}% (from price history).`,
+      label: "Volatility Below 10%",
+      description: `Annualized realized volatility is about ${pct}% for the available price history.`,
     };
   }
   return {
     status: "neutral",
-    label: "Moderate Volatility",
-    description: `Realized annualized volatility ≈ ${pct}% (from price history).`,
+    label: "Volatility from 10% to 35%",
+    description: `Annualized realized volatility is about ${pct}% for the available price history.`,
   };
 }
 
@@ -74,64 +74,82 @@ export function analyzeEtf(
   etf: ETF,
   options: AnalyzeEtfOptions = {},
 ): EtfVerdict {
-  const verdict = {} as EtfVerdict;
+  const verdict: EtfVerdict = {
+    liquidity: {
+      status: "neutral",
+      label: "Volume Data Unavailable",
+      description: "The market data response did not include trading volume.",
+    },
+    volatility: {
+      status: "neutral",
+      label: "Volatility Data Unavailable",
+      description:
+        "The available data does not include beta or enough price history for this estimate.",
+    },
+  };
 
-  // 1. Cost — funds only
+  // Cost applies to funds only.
   if (etf.assetType !== "STOCK") {
     const mer = etf.metrics?.mer;
     if (!mer || mer <= 0) {
       verdict.cost = {
         status: "neutral",
-        label: "Fee Unknown",
-        description: "No expense ratio / MER available from market data yet.",
+        label: "Fee Data Unavailable",
+        description: "The market data response did not include an expense ratio or MER.",
       };
     } else {
-      // Canadian leveraged/commodity funds often run 1%+ MER — thresholds
-      // stay the same so high-fee products still flag clearly.
       const description = `Annual fee of ${mer.toFixed(2)}% (MER / expense ratio).`;
       if (mer > 0.75) {
-        verdict.cost = { status: "warning", label: "High Fee", description };
+        verdict.cost = {
+          status: "warning",
+          label: "MER Above 0.75%",
+          description,
+        };
       } else if (mer > 0.4) {
         verdict.cost = {
           status: "neutral",
-          label: "Moderate Fee",
+          label: "MER from 0.40% to 0.75%",
           description,
         };
       } else {
-        verdict.cost = { status: "good", label: "Low Cost", description };
+        verdict.cost = {
+          status: "good",
+          label: "MER Below 0.40%",
+          description,
+        };
       }
     }
   }
 
-  // 2. Liquidity
+  // Volume is a liquidity input, not a complete liquidity measure.
   const volume = etf.volume;
   if (!volume) {
     verdict.liquidity = {
       status: "neutral",
-      label: "Liquidity Unknown",
-      description: "No trading volume data available for this asset yet.",
+      label: "Volume Data Unavailable",
+      description: "The market data response did not include trading volume.",
     };
   } else if (volume > 1_000_000) {
     verdict.liquidity = {
       status: "good",
-      label: "Highly Liquid",
-      description: "High volume ensures easy entry and exit.",
+      label: "Volume Above 1M",
+      description: "Reported trading volume is above one million shares. Spread and order-book depth still matter.",
     };
   } else if (volume > 100_000) {
     verdict.liquidity = {
       status: "neutral",
-      label: "Moderate Liquidity",
-      description: "Moderate volume; very large orders may move the price.",
+      label: "Volume from 100K to 1M",
+      description: "Reported trading volume is between 100,000 and one million shares.",
     };
   } else {
     verdict.liquidity = {
       status: "warning",
-      label: "Low Liquidity",
-      description: "Low trading volume may lead to wider spreads (extra cost).",
+      label: "Volume Below 100K",
+      description: "Lower reported volume can coincide with wider spreads or more price impact.",
     };
   }
 
-  // 3. Volatility — beta first, then realized vol from history
+  // Use beta first, then realized volatility from price history.
   const beta = etf.beta;
   if (beta !== undefined && beta !== null && beta !== 0) {
     verdict.volatility = volatilityFromBeta(beta);
@@ -147,9 +165,9 @@ export function analyzeEtf(
     } else {
       verdict.volatility = {
         status: "neutral",
-        label: "Volatility Unknown",
+        label: "Volatility Data Unavailable",
         description:
-          "No beta or enough price history to estimate volatility yet.",
+          "The available data does not include beta or enough price history for this estimate.",
       };
     }
   }

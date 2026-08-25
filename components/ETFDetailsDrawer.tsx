@@ -90,7 +90,7 @@ function volumeOrNull(num: number | undefined | null): string | null {
   return num > 1e6 ? (num / 1e6).toFixed(1) + "M" : num.toLocaleString();
 }
 
-// Compact card for the Metrics grid — label is hoverable for beginners
+// Compact card for the metrics grid. The label is hoverable for beginners.
 function MetricCard({
   label,
   value,
@@ -169,18 +169,19 @@ type FastPoint = { date: string; price: number };
 // Merge fresh data into an asset without letting empty placeholder fields
 // (empty arrays/objects, zeroed metrics) clobber real values we already have
 function mergeAssetData(base: ETF, incoming: Partial<ETF>): ETF {
-  const merged: any = { ...base };
-  for (const [key, value] of Object.entries(incoming)) {
-    if (value === undefined || value === null) continue;
-    if (Array.isArray(value) && value.length === 0) continue;
+  const usableEntries = Object.entries(incoming).filter(([, value]) => {
+    if (value === undefined || value === null) return false;
+    if (Array.isArray(value) && value.length === 0) return false;
     if (
-      typeof value === "object" &&
+      Object(value) === value &&
       !Array.isArray(value) &&
-      Object.keys(value).length === 0
-    )
-      continue;
-    merged[key] = value;
-  }
+      Object.keys(Object(value)).length === 0
+    ) {
+      return false;
+    }
+    return true;
+  });
+  const merged: ETF = { ...base, ...Object.fromEntries(usableEntries) };
   if (
     incoming.metrics &&
     !incoming.metrics.yield &&
@@ -206,7 +207,7 @@ function mergeAssetData(base: ETF, incoming: Partial<ETF>): ETF {
   ) {
     merged.history = base.history;
   }
-  return merged as ETF;
+  return merged;
 }
 
 export default function ETFDetailsDrawer({
@@ -248,7 +249,7 @@ export default function ETFDetailsDrawer({
     : "";
   const isChartLoading = !!etf && loadedChartKey !== chartKey;
 
-  // Chart data comes straight from the fast, DB-free market endpoint —
+  // Chart data comes straight from the fast, database-free market endpoint.
   // one round trip per (ticker, range), served from cache on repeats.
   useEffect(() => {
     if (!etf) return;
@@ -1510,7 +1511,7 @@ export default function ETFDetailsDrawer({
                             </div>
                           </div>
 
-                          {/* Right: pie — equity sectors, credit quality, or holdings */}
+                          {/* Right: equity sectors, credit quality, or holdings */}
                           <div className="w-1/2 relative bg-surface-card rounded-xl border border-hairline p-2 flex items-center justify-center">
                             <div className="absolute top-2 left-2 z-10">
                               <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider bg-dune/30 px-1.5 py-0.5 rounded backdrop-blur-sm">

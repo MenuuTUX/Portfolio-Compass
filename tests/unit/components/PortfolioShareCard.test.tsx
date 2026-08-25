@@ -66,8 +66,7 @@ describe('PortfolioShareCard', () => {
         // Check Return
         expect(screen.getByText((content) => content.includes('+155%'))).toBeInTheDocument();
 
-        // Check "Professional Analysis" badge
-        expect(screen.getByText('Professional Analysis')).toBeInTheDocument();
+        expect(screen.getByText('Portfolio Snapshot')).toBeInTheDocument();
     });
 
     it('renders top holdings list', () => {

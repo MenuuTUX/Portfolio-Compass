@@ -22,26 +22,30 @@ export interface AllocationWeights {
   other?: number;
 }
 
-const CREDIT_LABELS: Record<string, string> = {
-  us_government: "US Government",
-  aaa: "AAA",
-  aa: "AA",
-  a: "A",
-  bbb: "BBB",
-  bb: "BB",
-  b: "B",
-  below_b: "Below B",
-  other: "Other",
-};
+const CREDIT_LABELS = new Map([
+  ["us_government", "US Government"],
+  ["aaa", "AAA"],
+  ["aa", "AA"],
+  ["a", "A"],
+  ["bbb", "BBB"],
+  ["bb", "BB"],
+  ["b", "B"],
+  ["below_b", "Below B"],
+  ["other", "Other"],
+]);
+
+interface BondRatingMap {
+  [rating: string]: number;
+}
 
 /** Human label for a Yahoo bond-rating key. */
 export function formatCreditRating(key: string): string {
   const k = key.toLowerCase().replace(/\s+/g, "_");
-  return CREDIT_LABELS[k] || key.replace(/_/g, " ").toUpperCase();
+  return CREDIT_LABELS.get(k) || key.replace(/_/g, " ").toUpperCase();
 }
 
 /**
- * Infer fund class from positions + metadata. Pure — no network.
+ * Infer fund class from positions and metadata without a network request.
  */
 export function detectFundClass(input: {
   name?: string;
@@ -122,12 +126,12 @@ export function positionsToAllocation(input: {
  */
 export function parseBondRatings(
   ratings: Array<Record<string, number>> | undefined | null,
-): Record<string, number> {
-  const out: Record<string, number> = {};
+): BondRatingMap {
+  const out: BondRatingMap = {};
   if (!Array.isArray(ratings)) return out;
   for (const row of ratings) {
     for (const [key, val] of Object.entries(row)) {
-      if (typeof val === "number" && val > 0.0005) {
+      if (val > 0.0005) {
         out[formatCreditRating(key)] = val;
       }
     }
@@ -175,11 +179,11 @@ export function pickBeta(
   beta?: number | null,
   beta3Year?: number | null,
 ): number | undefined {
-  if (typeof beta === "number" && Number.isFinite(beta) && beta !== 0) {
+  if (beta != null && Number.isFinite(beta) && beta !== 0) {
     return beta;
   }
   if (
-    typeof beta3Year === "number" &&
+    beta3Year != null &&
     Number.isFinite(beta3Year) &&
     beta3Year !== 0
   ) {
@@ -215,7 +219,7 @@ export function realizedAnnualVolatility(
 
 /**
  * Map a Yahoo exchange suffix to a stockanalysis.com quote path segment.
- * Only known, safe exchanges — no open-ended suffix chasing.
+ * Only returns paths for known exchanges.
  */
 export function stockAnalysisPathForTicker(
   ticker: string,
@@ -239,7 +243,7 @@ export function stockAnalysisPathForTicker(
     return { kind: "etf", path: `etf/${t.toLowerCase()}` };
   }
 
-  // Other international Yahoo suffixes (.MU, .L, .HK, .TW, …) —
+  // Other international Yahoo suffixes, such as .MU, .L, .HK, and .TW,
   // stockanalysis coverage is spotty; return null so we don't 404-spam.
   return null;
 }

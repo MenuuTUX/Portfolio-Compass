@@ -10,7 +10,7 @@ import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
 import { getRedditCommunities } from "@/config/tickers";
 
 /**
- * ETF/stock search — fully live, no database.
+ * Live ETF and stock search with no database.
  * Quotes + history come from Yahoo (via fast-market). Portfolio storage
  * stays in the browser (LocalStorage).
  */
@@ -20,6 +20,10 @@ const MAX_RESULTS = 50;
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
+
+function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
+  return value === "STOCK" || value === "ETF" ? value : undefined;
+}
 
 function formatAsset(
   q: FastQuote,
@@ -43,13 +47,8 @@ function formatAsset(
       mer: q.expenseRatio ?? 0,
     },
     allocation: { equities: 0, bonds: 0, cash: 0 },
-    sectors: {} as Record<string, number>,
-    holdings: [] as {
-      ticker: string;
-      name: string;
-      weight: number;
-      sector?: string;
-    }[],
+    sectors: {},
+    holdings: [],
     marketCap: q.marketCap,
     volume: q.volume,
     peRatio: q.peRatio,
@@ -74,7 +73,7 @@ function formatAsset(
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = (searchParams.get("query") || "").trim();
-  const assetType = searchParams.get("type") as "STOCK" | "ETF" | null;
+  const assetType = parseAssetType(searchParams.get("type"));
   const tickersParam = searchParams.get("tickers");
   const limitParam = searchParams.get("limit");
   const skipParam = searchParams.get("skip");
@@ -95,7 +94,7 @@ export async function GET(request: NextRequest) {
       // Free-text / exact ticker search via Yahoo autocomplete
       const symbols = await searchFastSymbols(
         query,
-        assetType || undefined,
+        assetType,
         20,
       );
       // Always try the raw query as a ticker (e.g. "AAPL")

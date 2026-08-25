@@ -2,12 +2,18 @@ import YahooFinance from "yahoo-finance2";
 import { Decimal } from "@/lib/decimal";
 import { getStockProfile } from "./scrapers/stock-analysis";
 import pLimit from "p-limit";
+import { z } from "zod";
 
 const yf = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
 });
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || "";
+const FinnhubQuoteSchema = z.object({
+  c: z.number(),
+  d: z.number().optional(),
+  dp: z.number().optional(),
+});
 
 export interface MarketSnapshot {
   ticker: string;
@@ -160,8 +166,9 @@ async function fetchFinnhubQuote(
       );
       return null;
     }
-    const data = await res.json();
-    if (data && typeof data.c === "number") {
+    const result = FinnhubQuoteSchema.safeParse(await res.json());
+    if (result.success) {
+      const data = result.data;
       return {
         ticker: ticker,
         price: new Decimal(data.c || 0),
@@ -332,11 +339,18 @@ export async function fetchEtfDetails(
   const d7d = new Date();
   d7d.setDate(now.getDate() - 7);
 
-  const historyResults = {
-    "1h": [] as any[],
-    "1d": [] as any[],
-    "1wk": [] as any[],
-    "1mo": [] as any[],
+  interface HistoryResults {
+    "1h": EtfDetails["history"];
+    "1d": EtfDetails["history"];
+    "1wk": EtfDetails["history"];
+    "1mo": EtfDetails["history"];
+  }
+
+  const historyResults: HistoryResults = {
+    "1h": [],
+    "1d": [],
+    "1wk": [],
+    "1mo": [],
   };
 
   if (intervals.includes("1d")) {
@@ -415,12 +429,10 @@ export async function fetchEtfDetails(
   let sectors: Record<string, Decimal> = {};
 
   if (assetType === "ETF" && topHoldings?.sectorWeightings) {
-    topHoldings.sectorWeightings.forEach((w: any) => {
-      const keys = Object.keys(w);
-      if (keys.length > 0) {
-        const sectorKey = keys[0];
-        const weight = w[sectorKey];
-        if (typeof weight === "number") {
+    topHoldings.sectorWeightings.forEach((weighting) => {
+      for (const [sectorKey, rawWeight] of Object.entries(weighting)) {
+        const weight = Number(rawWeight);
+        if (Number.isFinite(weight)) {
           sectors[sectorKey] = new Decimal(weight);
         }
       }

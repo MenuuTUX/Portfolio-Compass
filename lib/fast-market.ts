@@ -1,5 +1,6 @@
 import YahooFinance from "yahoo-finance2";
 import pLimit from "p-limit";
+import { z } from "zod";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -40,17 +41,27 @@ export interface FastQuote {
   sharesOutstanding?: number;
 }
 
-const RANGE_CONFIG: Record<
-  ChartRange,
-  { range: string; interval: string; ttlMs: number }
-> = {
+type ChartInterval =
+  | "5m"
+  | "30m"
+  | "1d"
+  | "1wk"
+  | "1mo";
+
+interface RangeConfiguration {
+  range: string;
+  interval: ChartInterval;
+  ttlMs: number;
+}
+
+const RANGE_CONFIG = {
   "1D": { range: "1d", interval: "5m", ttlMs: 60_000 },
   "1W": { range: "5d", interval: "30m", ttlMs: 5 * 60_000 },
   "1M": { range: "1mo", interval: "1d", ttlMs: 10 * 60_000 },
   "1Y": { range: "1y", interval: "1d", ttlMs: 30 * 60_000 },
   "5Y": { range: "5y", interval: "1wk", ttlMs: 60 * 60_000 },
   MAX: { range: "max", interval: "1mo", ttlMs: 60 * 60_000 },
-};
+} satisfies Record<ChartRange, RangeConfiguration>;
 
 const QUOTE_TTL_MS = 30_000;
 const USER_AGENT =
@@ -64,16 +75,26 @@ interface CacheEntry<T> {
 const cache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
 
+function isFiniteNumber(value: any): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 async function cached<T>(
   key: string,
   ttlMs: number,
   fn: () => Promise<T>,
 ): Promise<T> {
   const hit = cache.get(key);
-  if (hit && hit.expires > Date.now()) return hit.value as T;
+  if (hit && hit.expires > Date.now()) {
+    // SAFETY: Cache entries are written by this function under the caller's key and retain that caller's T.
+    return hit.value as T;
+  }
 
   const pending = inFlight.get(key);
-  if (pending) return pending as Promise<T>;
+  if (pending) {
+    // SAFETY: In-flight promises use the same caller-owned key and resolve to the same T as the cached operation.
+    return pending as Promise<T>;
+  }
 
   const promise = fn()
     .then((value) => {
@@ -111,9 +132,9 @@ function mapQuote(q: any): FastQuote {
       : undefined;
 
   let dividendYield: number | undefined;
-  if (typeof q.trailingAnnualDividendYield === "number") {
+  if (isFiniteNumber(q.trailingAnnualDividendYield)) {
     dividendYield = q.trailingAnnualDividendYield * 100;
-  } else if (typeof q.dividendYield === "number") {
+  } else if (isFiniteNumber(q.dividendYield)) {
     // Some payloads already express this as a percentage
     dividendYield =
       q.dividendYield < 1 ? q.dividendYield * 100 : q.dividendYield;
@@ -121,7 +142,7 @@ function mapQuote(q: any): FastQuote {
 
   // netExpenseRatio is already percent (e.g. 0.0945 for SPY). 0 = missing.
   let expenseRatio: number | undefined;
-  if (typeof q.netExpenseRatio === "number" && q.netExpenseRatio > 0) {
+  if (isFiniteNumber(q.netExpenseRatio) && q.netExpenseRatio > 0) {
     expenseRatio = q.netExpenseRatio;
   }
 
@@ -169,6 +190,7 @@ export async function getFastQuotes(
     }
     const hit = cache.get(`q:${t}`);
     if (hit && hit.expires > Date.now()) {
+      // SAFETY: The q: namespace is populated only with FastQuote values below.
       result.set(t, hit.value as FastQuote);
     } else {
       misses.push(t);
@@ -180,7 +202,7 @@ export async function getFastQuotes(
       const raw = await yf.quote(misses);
       const quotes = Array.isArray(raw) ? raw : [raw];
       for (const q of quotes) {
-        if (!q?.symbol || typeof q.regularMarketPrice !== "number") continue;
+        if (!q?.symbol || !isFiniteNumber(q.regularMarketPrice)) continue;
         const mapped = mapQuote(q);
         cache.set(`q:${mapped.ticker}`, {
           value: mapped,
@@ -233,7 +255,7 @@ export interface FastProfile {
 
 /**
  * Sector / industry from Yahoo summaryProfile (stocks) or fund category (ETFs).
- * Long TTL — these fields are stable compared to prices.
+ * These fields use a longer TTL than prices because they change less often.
  */
 export async function getFastProfiles(
   tickers: string[],
@@ -246,6 +268,7 @@ export async function getFastProfiles(
   for (const t of clean) {
     const hit = cache.get(`profile:${t}`);
     if (hit && hit.expires > Date.now()) {
+      // SAFETY: The profile: namespace is populated only with FastProfile values below.
       result.set(t, hit.value as FastProfile);
     } else {
       misses.push(t);
@@ -281,7 +304,7 @@ export async function getFastProfiles(
           });
           result.set(ticker, profile);
         } catch {
-          // Sparse listings often lack profile modules — leave empty
+          // Sparse listings often lack profile modules, so leave this empty.
           const empty: FastProfile = { ticker };
           cache.set(`profile:${ticker}`, {
             value: empty,
@@ -298,6 +321,29 @@ export async function getFastProfiles(
 
 // History: the spark endpoint returns close series for many symbols in a
 // single request. Falls back to per-ticker chart() calls if spark misbehaves.
+
+const SparkSeriesSchema = z.object({
+  timestamp: z.array(z.number()),
+  close: z.array(z.number().nullable()),
+});
+
+const SparkResponseSchema = z.object({
+  timestamp: z.array(z.number()),
+  indicators: z.object({
+    quote: z.array(z.object({ close: z.array(z.number().nullable()) })),
+  }),
+});
+
+const SparkEnvelopeSchema = z.object({
+  spark: z.object({
+    result: z.array(z.object({
+      symbol: z.string(),
+      response: z.array(SparkResponseSchema),
+    })),
+  }),
+});
+
+const SparkSymbolMapSchema = z.record(z.string(), SparkSeriesSchema);
 
 function parseSparkPayload(
   json: any,
@@ -317,25 +363,26 @@ function parseSparkPayload(
   };
 
   // Shape A: { spark: { result: [{ symbol, response: [{ timestamp, indicators }] }] } }
-  const results = json?.spark?.result;
-  if (Array.isArray(results)) {
-    for (const r of results) {
-      const resp = r?.response?.[0];
-      const ts = resp?.timestamp;
-      const closes = resp?.indicators?.quote?.[0]?.close;
-      if (r?.symbol && Array.isArray(ts) && Array.isArray(closes)) {
-        out.set(r.symbol.toUpperCase(), toPoints(ts, closes));
+  const envelope = SparkEnvelopeSchema.safeParse(json);
+  if (envelope.success) {
+    for (const result of envelope.data.spark.result) {
+      const response = result.response[0];
+      const closes = response?.indicators.quote[0]?.close;
+      if (response && closes) {
+        out.set(
+          result.symbol.toUpperCase(),
+          toPoints(response.timestamp, closes),
+        );
       }
     }
     return;
   }
 
   // Shape B: { AAPL: { timestamp: [...], close: [...] } }
-  if (json && typeof json === "object") {
-    for (const [symbol, data] of Object.entries<any>(json)) {
-      if (Array.isArray(data?.timestamp) && Array.isArray(data?.close)) {
-        out.set(symbol.toUpperCase(), toPoints(data.timestamp, data.close));
-      }
+  const symbolMap = SparkSymbolMapSchema.safeParse(json);
+  if (symbolMap.success) {
+    for (const [symbol, data] of Object.entries(symbolMap.data)) {
+      out.set(symbol.toUpperCase(), toPoints(data.timestamp, data.close));
     }
   }
 }
@@ -391,14 +438,14 @@ async function fetchChartFallback(
   const res = await yf.chart(ticker, {
     period1,
     period2: now,
-    interval: interval as any,
+    interval,
   });
 
   return (res?.quotes || [])
-    .filter((q: any) => q.close !== null && q.close !== undefined)
-    .map((q: any) => ({
+    .filter((q) => q.close !== null && q.close !== undefined)
+    .map((q) => ({
       date: new Date(q.date).toISOString(),
-      price: q.close as number,
+      price: q.close ?? 0,
     }));
 }
 
@@ -415,6 +462,7 @@ export async function getFastHistory(
   for (const t of clean) {
     const hit = cache.get(`h:${range}:${t}`);
     if (hit && hit.expires > Date.now()) {
+      // SAFETY: The h: namespace is populated only with HistoryPoint arrays below.
       result.set(t, hit.value as HistoryPoint[]);
     } else {
       misses.push(t);
@@ -489,6 +537,10 @@ export function isChartRange(value: string): value is ChartRange {
 // queries ("meta", "apple") to tickers without touching our database.
 
 const SEARCH_TTL_MS = 60_000;
+const SearchQuoteSchema = z.object({
+  symbol: z.string().min(1),
+  quoteType: z.string().min(1),
+});
 
 export async function searchFastSymbols(
   query: string,
@@ -507,12 +559,7 @@ export async function searchFastSymbols(
       quotesCount: 20,
       newsCount: 0,
     });
-    return (res.quotes || [])
-      .filter((q: any) => q.symbol && q.quoteType)
-      .map((q: any) => ({
-        symbol: q.symbol as string,
-        quoteType: q.quoteType as string,
-      }));
+    return z.array(SearchQuoteSchema).parse(res.quotes || []);
   });
 
   const filtered = quoteTypeFilter
@@ -523,7 +570,7 @@ export async function searchFastSymbols(
 }
 
 // Fund technicals from Yahoo quoteSummary. Bond funds expose credit ratings
-// and duration rather than equity holdings — we surface both so the UI can
+// and duration rather than equity holdings. The UI receives both and can
 // pick the right breakdown by fund class.
 
 const ETF_DETAILS_TTL_MS = 10 * 60_000;
@@ -560,6 +607,51 @@ export interface FastEtfDetails {
   volume?: number;
 }
 
+const EtfSummarySchema = z.object({
+  summaryProfile: z.object({
+    longBusinessSummary: z.string().nullish(),
+  }).nullish(),
+  fundProfile: z.object({
+    categoryName: z.string().nullish(),
+    family: z.string().nullish(),
+    feesExpensesInvestment: z.object({
+      annualReportExpenseRatio: z.number().nullish(),
+    }).nullish(),
+  }).nullish(),
+  topHoldings: z.object({
+    sectorWeightings: z.array(z.record(z.string(), z.number())).nullish(),
+    bondRatings: z.array(z.record(z.string(), z.number())).nullish(),
+    holdings: z.array(z.object({
+      symbol: z.string().nullish(),
+      holdingName: z.string().nullish(),
+      holdingPercent: z.number().nullish(),
+    })).nullish(),
+    stockPosition: z.number().nullish(),
+    bondPosition: z.number().nullish(),
+    cashPosition: z.number().nullish(),
+    otherPosition: z.number().nullish(),
+    bondHoldings: z.object({
+      maturity: z.number().nullish(),
+      duration: z.number().nullish(),
+    }).nullish(),
+  }).nullish(),
+  defaultKeyStatistics: z.object({
+    beta: z.number().nullish(),
+    beta3Year: z.number().nullish(),
+  }).nullish(),
+  price: z.object({
+    shortName: z.string().nullish(),
+    longName: z.string().nullish(),
+  }).nullish(),
+});
+
+const EtfQuoteSchema = z.object({
+  netExpenseRatio: z.number().nullish(),
+  shortName: z.string().nullish(),
+  longName: z.string().nullish(),
+  regularMarketVolume: z.number().nullish(),
+}).nullable();
+
 export async function getFastEtfDetails(
   ticker: string,
 ): Promise<FastEtfDetails | null> {
@@ -576,7 +668,7 @@ export async function getFastEtfDetails(
         pickBeta,
       } = await import("@/lib/asset-class");
 
-      const [data, quote] = await Promise.all([
+      const [rawData, rawQuote] = await Promise.all([
         yf.quoteSummary(ticker, {
           modules: [
             "summaryProfile",
@@ -589,50 +681,51 @@ export async function getFastEtfDetails(
         yf.quote(ticker).catch(() => null),
       ]);
 
-      const th = data.topHoldings as any;
+      const data = EtfSummarySchema.parse(rawData);
+      const quote = EtfQuoteSchema.parse(rawQuote);
+      const th = data.topHoldings;
       const sectors: Record<string, number> = {};
-      th?.sectorWeightings?.forEach((w: any) => {
-        const [sectorKey] = Object.keys(w);
-        if (sectorKey && typeof w[sectorKey] === "number" && w[sectorKey] > 0) {
-          sectors[sectorKey] = w[sectorKey];
+      th?.sectorWeightings?.forEach((weighting) => {
+        for (const [sectorKey, weight] of Object.entries(weighting)) {
+          if (weight > 0) sectors[sectorKey] = weight;
         }
       });
 
       const creditQuality = parseBondRatings(th?.bondRatings);
 
-      const holdings = (th?.holdings || [])
-        .filter((h: any) => h.symbol || h.holdingName)
-        .map((h: any) => ({
-          ticker: (h.symbol as string) || (h.holdingName as string),
-          name: (h.holdingName as string) || h.symbol,
-          weight: (h.holdingPercent || 0) * 100,
-        }));
+      const holdings = (th?.holdings || []).flatMap((holding) => {
+        const holdingTicker = holding.symbol ?? holding.holdingName;
+        if (!holdingTicker) return [];
+        return [{
+          ticker: holdingTicker,
+          name: holding.holdingName ?? holdingTicker,
+          weight: (holding.holdingPercent ?? 0) * 100,
+        }];
+      });
 
       const feeFromProfile =
-        data.fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio;
-      const feeFromQuote =
-        typeof (quote as any)?.netExpenseRatio === "number"
-          ? (quote as any).netExpenseRatio
-          : undefined;
+        data.fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio ??
+        undefined;
+      const feeFromQuote = quote?.netExpenseRatio ?? undefined;
       const expenseRatio =
         normalizeExpenseRatio(feeFromQuote, "quote") ??
         normalizeExpenseRatio(feeFromProfile, "profile");
 
-      const stockPosition = th?.stockPosition;
-      const bondPosition = th?.bondPosition;
-      const cashPosition = th?.cashPosition;
-      const otherPosition = th?.otherPosition;
+      const stockPosition = th?.stockPosition ?? undefined;
+      const bondPosition = th?.bondPosition ?? undefined;
+      const cashPosition = th?.cashPosition ?? undefined;
+      const otherPosition = th?.otherPosition ?? undefined;
 
       const name =
-        (quote as any)?.shortName ||
-        (quote as any)?.longName ||
+        quote?.shortName ||
+        quote?.longName ||
         data.price?.shortName ||
         data.price?.longName ||
         ticker;
       const description =
-        data.summaryProfile?.longBusinessSummary || undefined;
-      const category = data.fundProfile?.categoryName || undefined;
-      const family = data.fundProfile?.family || undefined;
+        data.summaryProfile?.longBusinessSummary ?? undefined;
+      const category = data.fundProfile?.categoryName ?? undefined;
+      const family = data.fundProfile?.family ?? undefined;
 
       const fundClass = detectFundClass({
         name,
@@ -651,24 +744,15 @@ export async function getFastEtfDetails(
         otherPosition,
       });
 
-      const bondMaturity =
-        typeof th?.bondHoldings?.maturity === "number"
-          ? th.bondHoldings.maturity
-          : undefined;
-      const bondDuration =
-        typeof th?.bondHoldings?.duration === "number"
-          ? th.bondHoldings.duration
-          : undefined;
+      const bondMaturity = th?.bondHoldings?.maturity ?? undefined;
+      const bondDuration = th?.bondHoldings?.duration ?? undefined;
 
       const beta = pickBeta(
-        data.defaultKeyStatistics?.beta as number | undefined,
-        data.defaultKeyStatistics?.beta3Year as number | undefined,
+        data.defaultKeyStatistics?.beta,
+        data.defaultKeyStatistics?.beta3Year,
       );
 
-      const volume =
-        typeof (quote as any)?.regularMarketVolume === "number"
-          ? (quote as any).regularMarketVolume
-          : undefined;
+      const volume = quote?.regularMarketVolume ?? undefined;
 
       return {
         ticker: ticker.toUpperCase(),
@@ -696,7 +780,7 @@ export async function getFastEtfDetails(
 
 /**
  * Fill gaps Yahoo leaves on Canadian / sparse funds via stockanalysis.com.
- * Only called when the fast path is incomplete — allowlisted venues only.
+ * Called only when the fast path is incomplete and limited to allowlisted venues.
  */
 export async function enrichEtfDetailsGaps(
   base: FastEtfDetails,

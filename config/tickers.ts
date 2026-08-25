@@ -100,7 +100,11 @@ const COMMUNITIES = {
   apple: createCommunity('apple'),
 };
 
-export const REDDIT_COMMUNITIES: Record<string, RedditCommunity[]> = {
+interface RedditCommunityDirectory {
+  [ticker: string]: RedditCommunity[];
+}
+
+export const REDDIT_COMMUNITIES: RedditCommunityDirectory = {
   // ====== Canadian ETFs ======
   'XEQT.TO': [COMMUNITIES.justbuy, COMMUNITIES.pfc, COMMUNITIES.canadianInvestor],
   'VEQT.TO': [COMMUNITIES.justbuy, COMMUNITIES.pfc, COMMUNITIES.canadianInvestor],
@@ -165,7 +169,7 @@ export const REDDIT_COMMUNITIES: Record<string, RedditCommunity[]> = {
 // registering an OAuth app. As a best-effort fallback for tickers we haven't
 // hand-curated, we generate the well-known "r/{TICKER}_Stock" convention
 // (e.g. r/GOOG_Stock) that a bot network maintains for most actively-traded
-// stocks. It's unverified — the link may 404 for thinly-traded tickers —
+// stocks. It is unverified, and the link may 404 for thinly traded tickers.
 // but it's a reasonable guess and Reddit renders a friendly "community
 // doesn't exist" page rather than a broken link.
 export function getRedditCommunities(
@@ -176,7 +180,7 @@ export function getRedditCommunities(
   const curated = REDDIT_COMMUNITIES[upperTicker];
   if (curated) return curated;
 
-  // Only guess for individual stocks — the "_Stock" convention doesn't
+  // Only guess for individual stocks. The "_Stock" convention does not
   // apply to ETFs/funds, and we can't tell for callers that omit assetType
   if (assetType !== "STOCK") return [];
 

@@ -25,21 +25,19 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
   const [showInfo, setShowInfo] = useState(false);
 
   const data = items.map((item) => {
-    // Determine risk (Beta). Default to 1 (Market) if missing.
+    // Use market beta when available. Missing values sit at the market baseline.
     const beta = item.beta ?? 1.0;
-
-    // Determine return (Yield + 5Y Dividend Growth).
     const yieldVal = item.metrics?.yield ?? 0;
     const growthVal = item.dividendGrowth5Y ?? 0;
-    const totalReturn = yieldVal + growthVal;
+    const dividendSignal = yieldVal + growthVal;
 
     return {
       ticker: item.ticker,
       name: item.name,
-      x: beta, // Risk
-      y: totalReturn, // Return
-      z: item.weight, // Weight (Bubble size)
-      fill: beta > 1.2 ? "#f43f5e" : beta < 0.8 ? "#10b981" : "#f59e0b", // Rose (High), Emerald (Low), Amber (Medium)
+      x: beta,
+      y: dividendSignal,
+      z: item.weight,
+      fill: beta > 1.2 ? "#f43f5e" : beta < 0.8 ? "#10b981" : "#f59e0b",
     };
   });
 
@@ -48,10 +46,10 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
       <div className="flex justify-between items-start mb-4 z-10">
         <div>
           <h3 className="text-sm font-medium text-neutral-200">
-            Portfolio Efficiency
+            Beta and dividend metrics
           </h3>
           <p className="text-xs text-neutral-500">
-            Risk (Beta) vs Expected Return
+            Market beta vs yield plus 5-year dividend growth
           </p>
         </div>
         <button
@@ -73,7 +71,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
           >
             <div className="flex justify-between items-start">
               <h4 className="text-sm font-bold text-emerald-400">
-                Understanding Risk vs Return
+                Reading this chart
               </h4>
               <button
                 onClick={() => setShowInfo(false)}
@@ -84,30 +82,27 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             </div>
             <div className="text-xs text-neutral-300 space-y-2 leading-relaxed overflow-y-auto">
               <p>
-                This chart helps you evaluate if you are being compensated
-                enough for the risk you are taking.
+                This is a screening view. It does not estimate future returns or
+                measure every form of investment risk.
               </p>
               <ul className="list-disc pl-4 space-y-1 text-neutral-400">
                 <li>
                   <strong className="text-ink">
-                    Vertical Axis (Return):
+                    Vertical axis:
                   </strong>{" "}
-                  Higher is better. It estimates total return (Yield + Growth).
+                  Dividend yield plus five-year dividend growth. Adding the two
+                  creates a simple dividend signal, not a total-return forecast.
                 </li>
                 <li>
                   <strong className="text-ink">
-                    Horizontal Axis (Risk/Beta):
+                    Horizontal axis:
                   </strong>{" "}
-                  Measures volatility relative to the market.
-                  <br />• Beta = 1.0: Same volatility as the market (S&P 500).
-                  <br />• Beta &lt; 1.0: Less volatile (Safer).
-                  <br />• Beta &gt; 1.0: More volatile (Riskier).
+                  Beta measures historical price sensitivity to a benchmark.
+                  <br />Beta = 1.0: moved roughly with the benchmark.
+                  <br />Beta &lt; 1.0: moved less than the benchmark.
+                  <br />Beta &gt; 1.0: moved more than the benchmark.
                 </li>
               </ul>
-              <p className="mt-2 text-emerald-300 italic border-l-2 border-emerald-500 pl-2">
-                Goal: Find assets in the <strong>Top-Left</strong> (High Return,
-                Low Risk). Avoid the Bottom-Right.
-              </p>
             </div>
           </motion.div>
         )}
@@ -119,14 +114,14 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             <XAxis
               type="number"
               dataKey="x"
-              name="Risk (Beta)"
+              name="Market Beta"
               tick={{ fill: "#737373", fontSize: 11 }}
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               domain={["dataMin - 0.2", "dataMax + 0.2"]}
             >
               <Label
-                value="Risk (Beta)"
+                value="Market Beta"
                 offset={0}
                 position="bottom"
                 fill="#525252"
@@ -136,14 +131,14 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             <YAxis
               type="number"
               dataKey="y"
-              name="Expected Return (%)"
+              name="Dividend Signal (%)"
               tick={{ fill: "#737373", fontSize: 11 }}
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               unit="%"
             >
               <Label
-                value="Return (%)"
+                value="Yield + 5Y Dividend Growth (%)"
                 angle={-90}
                 position="insideLeft"
                 fill="#525252"
@@ -163,7 +158,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                       </p>
                       <div className="text-xs space-y-1.5">
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">Risk (Beta):</span>
+                          <span className="text-neutral-400">Market Beta:</span>
                           <span
                             className={
                               d.x > 1.2
@@ -177,7 +172,9 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">Est. Return:</span>
+                          <span className="text-neutral-400">
+                            Dividend Signal:
+                          </span>
                           <span className="text-emerald-400">
                             {d.y.toFixed(2)}%
                           </span>
@@ -193,10 +190,10 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 return null;
               }}
             />
-            {/* Market Baseline */}
+            {/* Market beta baseline */}
             <ReferenceLine x={1} stroke="#525252" strokeDasharray="3 3">
               <Label
-                value="Market (1.0)"
+                value="Beta 1.0"
                 position="insideTopRight"
                 fill="#525252"
                 fontSize={10}
@@ -205,7 +202,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               />
             </ReferenceLine>
 
-            {/* Low Risk Zone Indicator (Arbitrary visual guide) */}
+            {/* Visual guide for lower beta values */}
             <ReferenceLine
               x={0.8}
               stroke="#10b981"
@@ -226,9 +223,8 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
           </ScatterChart>
         </ResponsiveContainer>
 
-        {/* Subtle Quadrant Labels */}
         <div className="absolute top-4 left-10 text-[10px] text-emerald-500/30 font-bold uppercase tracking-widest pointer-events-none hidden sm:block">
-          High Return / Low Risk
+          Higher dividend signal / lower beta
         </div>
       </div>
     </div>

@@ -49,19 +49,18 @@ const SOURCE_COLORS = [
   PALETTE.lime,
 ];
 
-// Risk Colors (Neon Pastel / Lighter)
-const RISK_COLORS = {
-  SAFE: "#6ee7b7", // Emerald-300
-  WARN: "#fcd34d", // Amber-300
-  HIGH: "#fdba74", // Orange-300
-  CRIT: "#fda4af", // Rose-300
+const CONCENTRATION_COLORS = {
+  UNDER_5: "#6ee7b7",
+  FIVE_TO_10: "#fcd34d",
+  TEN_TO_20: "#fdba74",
+  ABOVE_20: "#fda4af",
 };
 
-const getRiskColor = (totalWeight: number) => {
-  if (totalWeight > 20) return RISK_COLORS.CRIT;
-  if (totalWeight > 10) return RISK_COLORS.HIGH;
-  if (totalWeight > 5) return RISK_COLORS.WARN;
-  return RISK_COLORS.SAFE;
+const getConcentrationColor = (totalWeight: number) => {
+  if (totalWeight > 20) return CONCENTRATION_COLORS.ABOVE_20;
+  if (totalWeight > 10) return CONCENTRATION_COLORS.TEN_TO_20;
+  if (totalWeight > 5) return CONCENTRATION_COLORS.FIVE_TO_10;
+  return CONCENTRATION_COLORS.UNDER_5;
 };
 
 // Custom Y-Axis Tick Component
@@ -72,23 +71,23 @@ const CustomYAxisTick = (props: any) => {
   const assetType = props.assetTypeMap?.[ticker] || "STOCK";
 
   const totalWeight = riskMap?.[ticker] || 0;
-  const isHighRisk = totalWeight > 10;
-  const isCriticalRisk = totalWeight > 20;
+  const isAboveTenPercent = totalWeight > 10;
+  const isAboveTwentyPercent = totalWeight > 20;
 
   return (
     <g transform={`translate(${x},${y})`}>
       <TickIcon ticker={ticker} x={0} y={0} assetType={assetType} />
 
-      {isCriticalRisk && (
+      {isAboveTwentyPercent && (
         <g transform="translate(-115, -9)">
           <circle
             cx={7}
             cy={7}
             r={10}
-            fill={RISK_COLORS.CRIT}
+            fill={CONCENTRATION_COLORS.ABOVE_20}
             fillOpacity={0.2}
           />
-          <AlertTriangle size={14} color={RISK_COLORS.CRIT} />
+          <AlertTriangle size={14} color={CONCENTRATION_COLORS.ABOVE_20} />
         </g>
       )}
 
@@ -97,14 +96,14 @@ const CustomYAxisTick = (props: any) => {
         y={4}
         textAnchor="end"
         fill={
-          isCriticalRisk
-            ? RISK_COLORS.CRIT
-            : isHighRisk
-              ? RISK_COLORS.HIGH
+          isAboveTwentyPercent
+            ? CONCENTRATION_COLORS.ABOVE_20
+            : isAboveTenPercent
+              ? CONCENTRATION_COLORS.TEN_TO_20
               : "#e5e5e5"
         }
         fontSize={12}
-        fontWeight={isHighRisk ? "600" : "400"}
+        fontWeight={isAboveTenPercent ? "600" : "400"}
         className="font-mono tracking-tight"
       >
         {ticker}
@@ -290,36 +289,47 @@ export default function PortfolioBarChart({
               <span
                 className="w-2 h-2 rounded-full"
                 style={{
-                  background: RISK_COLORS.SAFE,
-                  boxShadow: `0 0 8px ${RISK_COLORS.SAFE}80`,
+                  background: CONCENTRATION_COLORS.UNDER_5,
+                  boxShadow: `0 0 8px ${CONCENTRATION_COLORS.UNDER_5}80`,
                 }}
               />
-              <span className="text-neutral-400">Safe</span>
+              <span className="text-neutral-400">Up to 5%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full"
                 style={{
-                  background: RISK_COLORS.WARN,
-                  boxShadow: `0 0 8px ${RISK_COLORS.WARN}80`,
+                  background: CONCENTRATION_COLORS.FIVE_TO_10,
+                  boxShadow: `0 0 8px ${CONCENTRATION_COLORS.FIVE_TO_10}80`,
                 }}
               />
-              <span className="text-neutral-400">Warning</span>
+              <span className="text-neutral-400">5% to 10%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full"
                 style={{
-                  background: RISK_COLORS.CRIT,
-                  boxShadow: `0 0 8px ${RISK_COLORS.CRIT}80`,
+                  background: CONCENTRATION_COLORS.TEN_TO_20,
+                  boxShadow: `0 0 8px ${CONCENTRATION_COLORS.TEN_TO_20}80`,
                 }}
               />
-              <span className="text-neutral-400">Critical</span>
+              <span className="text-neutral-400">10% to 20%</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{
+                  background: CONCENTRATION_COLORS.ABOVE_20,
+                  boxShadow: `0 0 8px ${CONCENTRATION_COLORS.ABOVE_20}80`,
+                }}
+              />
+              <span className="text-neutral-400">Above 20%</span>
             </div>
           </div>
         </div>
         <p className="text-sm text-neutral-500 font-light">
-          Breakdown of individual underlying holdings stacked by source.
+          Combines direct positions with disclosed fund holdings. Incomplete
+          fund data is grouped under the source ticker or Other.
         </p>
       </div>
 
@@ -334,51 +344,51 @@ export default function PortfolioBarChart({
             >
               <defs>
                 {/* Lighter Risk Gradients for Bars */}
-                <linearGradient id="gradDirectSafe" x1="0" y1="0" x2="1" y2="0">
+                <linearGradient id="gradDirectUnder5" x1="0" y1="0" x2="1" y2="0">
                   <stop
                     offset="0%"
-                    stopColor={RISK_COLORS.SAFE}
+                    stopColor={CONCENTRATION_COLORS.UNDER_5}
                     stopOpacity={0.6}
                   />
                   <stop
                     offset="100%"
-                    stopColor={RISK_COLORS.SAFE}
+                    stopColor={CONCENTRATION_COLORS.UNDER_5}
                     stopOpacity={0.9}
                   />
                 </linearGradient>
                 <linearGradient id="gradDirectWarn" x1="0" y1="0" x2="1" y2="0">
                   <stop
                     offset="0%"
-                    stopColor={RISK_COLORS.WARN}
+                    stopColor={CONCENTRATION_COLORS.FIVE_TO_10}
                     stopOpacity={0.6}
                   />
                   <stop
                     offset="100%"
-                    stopColor={RISK_COLORS.WARN}
+                    stopColor={CONCENTRATION_COLORS.FIVE_TO_10}
                     stopOpacity={0.9}
                   />
                 </linearGradient>
                 <linearGradient id="gradDirectHigh" x1="0" y1="0" x2="1" y2="0">
                   <stop
                     offset="0%"
-                    stopColor={RISK_COLORS.HIGH}
+                    stopColor={CONCENTRATION_COLORS.TEN_TO_20}
                     stopOpacity={0.6}
                   />
                   <stop
                     offset="100%"
-                    stopColor={RISK_COLORS.HIGH}
+                    stopColor={CONCENTRATION_COLORS.TEN_TO_20}
                     stopOpacity={0.9}
                   />
                 </linearGradient>
                 <linearGradient id="gradDirectCrit" x1="0" y1="0" x2="1" y2="0">
                   <stop
                     offset="0%"
-                    stopColor={RISK_COLORS.CRIT}
+                    stopColor={CONCENTRATION_COLORS.ABOVE_20}
                     stopOpacity={0.6}
                   />
                   <stop
                     offset="100%"
-                    stopColor={RISK_COLORS.CRIT}
+                    stopColor={CONCENTRATION_COLORS.ABOVE_20}
                     stopOpacity={0.9}
                   />
                 </linearGradient>
@@ -458,7 +468,7 @@ export default function PortfolioBarChart({
                           </span>
                           <span
                             className="font-mono font-bold text-base"
-                            style={{ color: getRiskColor(d.totalWeight) }}
+                            style={{ color: getConcentrationColor(d.totalWeight) }}
                           >
                             {d.totalWeight.toFixed(2)}%
                           </span>
@@ -468,8 +478,9 @@ export default function PortfolioBarChart({
                           <div className="flex items-start gap-2 mb-4 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg text-rose-200">
                             <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
                             <span className="leading-snug">
-                              Concentration exceeds recommended limit (
-                              {d.totalWeight > 20 ? "20%" : "10%"}).
+                              This holding represents more than{" "}
+                              {d.totalWeight > 20 ? "20%" : "10%"} of the
+                              portfolio.
                             </span>
                           </div>
                         )}
@@ -523,53 +534,53 @@ export default function PortfolioBarChart({
               />
 
               {/* Concentration Areas (Background Zones) */}
-              {/* Safe Zone: 0-5% */}
+              {/* Concentration band: 0% to 5% */}
               <ReferenceArea
                 x1={0}
                 x2={5}
-                fill={RISK_COLORS.SAFE}
+                fill={CONCENTRATION_COLORS.UNDER_5}
                 fillOpacity={0.03}
               />
 
-              {/* Warning Zone: 5-10% */}
+              {/* Concentration band: 5% to 10% */}
               <ReferenceArea
                 x1={5}
                 x2={10}
-                fill={RISK_COLORS.WARN}
+                fill={CONCENTRATION_COLORS.FIVE_TO_10}
                 fillOpacity={0.03}
               />
 
-              {/* High Risk Zone: 10-20% */}
+              {/* Concentration band: 10% to 20% */}
               <ReferenceArea
                 x1={10}
                 x2={20}
-                fill={RISK_COLORS.HIGH}
+                fill={CONCENTRATION_COLORS.TEN_TO_20}
                 fillOpacity={0.03}
               />
 
-              {/* Critical Zone: 20%+ */}
+              {/* Concentration band: above 20% */}
               <ReferenceArea
                 x1={20}
-                fill={RISK_COLORS.CRIT}
+                fill={CONCENTRATION_COLORS.ABOVE_20}
                 fillOpacity={0.03}
               />
 
               {/* Divider Lines (Optional, subtle) */}
               <ReferenceLine
                 x={5}
-                stroke={RISK_COLORS.WARN}
+                stroke={CONCENTRATION_COLORS.FIVE_TO_10}
                 strokeDasharray="2 4"
                 strokeOpacity={0.3}
               />
               <ReferenceLine
                 x={10}
-                stroke={RISK_COLORS.HIGH}
+                stroke={CONCENTRATION_COLORS.TEN_TO_20}
                 strokeDasharray="2 4"
                 strokeOpacity={0.4}
               />
               <ReferenceLine
                 x={20}
-                stroke={RISK_COLORS.CRIT}
+                stroke={CONCENTRATION_COLORS.ABOVE_20}
                 strokeDasharray="2 4"
                 strokeOpacity={0.5}
               />
@@ -590,7 +601,7 @@ export default function PortfolioBarChart({
                       radius={radius}
                     >
                       {chartData.map((entry, i) => {
-                        let fillId = "url(#gradDirectSafe)";
+                        let fillId = "url(#gradDirectUnder5)";
                         if (entry.totalWeight > 20)
                           fillId = "url(#gradDirectCrit)";
                         else if (entry.totalWeight > 10)

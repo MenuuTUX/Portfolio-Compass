@@ -128,7 +128,7 @@ export default function MonteCarloSimulator({
     }
   }, [portfolio]);
 
-  // 1. Prepare Data — every portfolio asset participates
+  // Prepare data for every portfolio asset.
   const prepareSimulation = useCallback(async () => {
     if (portfolio.length === 0) {
       setError("Portfolio is empty.");
@@ -163,7 +163,7 @@ export default function MonteCarloSimulator({
       const names = noHistoryIndices
         .map((i) => activePortfolio[i].ticker)
         .join(", ");
-      // Informational — we still include these assets via yield + heuristic drift
+      // These assets still enter the model through yield and heuristic drift.
       setError(
         `Note: ${names} lack price history; using yield + heuristic drift so they still count.`,
       );
@@ -235,7 +235,7 @@ export default function MonteCarloSimulator({
       }
     }
 
-    // Median daily variance of history assets — used as fallback vol
+    // Use the median daily variance of assets with history as fallback volatility.
     const histVars = historyIndices
       .map((i) => covMatrix[i][i])
       .filter((v) => v > 0);
@@ -432,15 +432,15 @@ export default function MonteCarloSimulator({
 
     return {
       medianOutcome: finalValues[Math.floor(finalValues.length * 0.5)],
-      worst5Outcome: finalValues[Math.floor(finalValues.length * 0.05)],
-      best5Outcome: finalValues[Math.floor(finalValues.length * 0.95)],
-      vaR:
+      p05Outcome: finalValues[Math.floor(finalValues.length * 0.05)],
+      p95Outcome: finalValues[Math.floor(finalValues.length * 0.95)],
+      modeledLossAtP05:
         initialInvestment - finalValues[Math.floor(finalValues.length * 0.05)],
       totalDividends,
     };
   }, [simulationComplete, initialInvestment, coneChartData]);
 
-  // Calculate CAGR from median outcome for accurate "Annual Return" display
+  // Calculate the annualized rate implied by the median modeled outcome.
   const medianCAGR = useMemo(() => {
     if (!riskMetrics || initialInvestment <= 0) return 0;
     return (
@@ -482,7 +482,8 @@ export default function MonteCarloSimulator({
               </span>
             </h2>
             <p className="text-sm text-neutral-400">
-              Simulate {numSimulations} potential market futures.
+              Generate {numSimulations} model paths from estimated return,
+              volatility, and covariance.
             </p>
           </div>
         </div>
@@ -493,7 +494,7 @@ export default function MonteCarloSimulator({
               portfolio={portfolio}
               metrics={{
                 totalValue: currentPortfolioValue,
-                annualReturn: medianCAGR, // Using accurate Median CAGR
+                annualReturn: medianCAGR,
                 yield: weightedYield,
                 projectedValue: riskMetrics.medianOutcome,
                 totalInvested: initialInvestment,
@@ -503,7 +504,6 @@ export default function MonteCarloSimulator({
                 growthType: "Monte Carlo",
                 percentageGrowth: percentageGrowth,
               }}
-              // PASSING RANGE DATA IMPLICITLY VIA MIN/MAX PROPS
               history={coneChartData.map(
                 (d: {
                   median: number;
@@ -514,9 +514,9 @@ export default function MonteCarloSimulator({
                 }) => ({
                   value: d.median,
                   dividendValue: d.dividends,
-                  min: d.p05, // Worst Case (5th percentile)
-                  max: d.p95, // Best Case (95th percentile)
-                  date: `Y${(d.day / 252).toFixed(1)}` // Add required date string
+                  min: d.p05,
+                  max: d.p95,
+                  date: `Y${(d.day / 252).toFixed(1)}`,
                 }),
               )}
             />
@@ -536,10 +536,10 @@ export default function MonteCarloSimulator({
                 <Play className="w-4 h-4" />
               )}
               {isLoadingHistory
-                ? "Loading Data..."
+                ? "Loading data..."
                 : simulationComplete
-                  ? "Re-Run"
-                  : "Run Simulation"}
+                  ? "Run again"
+                  : "Run simulation"}
             </button>
           )}
         </div>
@@ -601,12 +601,18 @@ export default function MonteCarloSimulator({
             onChange={(e) => setNumSimulations(Number(e.target.value))}
             className="bg-black/50 border border-hairline text-ink rounded px-2 py-1 w-full focus:outline-none"
           >
-            <option value={20}>20 Paths (Fast)</option>
-            <option value={50}>50 Paths (Balanced)</option>
-            <option value={100}>100 Paths (Detailed)</option>
+            <option value={20}>20 paths</option>
+            <option value={50}>50 paths</option>
+            <option value={100}>100 paths</option>
           </select>
         </div>
       </div>
+
+      <p className="text-xs text-neutral-500 leading-relaxed">
+        These are model scenarios, not forecasts. Results depend on historical
+        estimates and geometric Brownian motion, which may not capture sudden
+        market shifts or extreme events.
+      </p>
 
       {/* Error */}
       {error && (
@@ -624,7 +630,7 @@ export default function MonteCarloSimulator({
           !isLoadingHistory && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-500 z-10">
               <Info className="w-12 h-12 mb-4 opacity-50" />
-              <p>Click &ldquo;Run Simulation&rdquo; to generate future paths.</p>
+              <p>Run the simulation to generate model paths.</p>
             </div>
           )}
 
@@ -709,40 +715,40 @@ export default function MonteCarloSimulator({
                   formatter={(val: any) => formatCurrency(Number(val))}
                   labelFormatter={(d) => `Year ${(d / 252).toFixed(1)}`}
                 />
-                {/* 95th Percentile Area with explicit stroke for Best Case */}
+                {/* 95th percentile */}
                 <Area
                   type="monotone"
                   dataKey="p95"
-                  name="Best Case (95th)"
+                  name="95th Percentile"
                   stroke="#34d399"
                   strokeWidth={2}
                   fill="url(#coneGradient)"
                   fillOpacity={1}
                 />
-                {/* Median Line */}
+                {/* Median */}
                 <Area
                   type="monotone"
                   dataKey="median"
-                  name="Median Outcome"
+                  name="Median"
                   stroke="#10b981"
                   strokeWidth={3}
                   fill="none"
                 />
-                {/* 5th Percentile Line (Worst Case) */}
+                {/* 5th percentile */}
                 <Area
                   type="monotone"
                   dataKey="p05"
-                  name="Worst Case (5th)"
+                  name="5th Percentile"
                   stroke="#ef4444"
                   strokeWidth={2}
                   strokeDasharray="4 4"
                   fill="none"
                 />
-                {/* Accumulated Dividends Line */}
+                {/* Estimated accumulated dividends */}
                 <Area
                   type="monotone"
                   dataKey="dividends"
-                  name="Accumulated Dividends (Est)"
+                  name="Estimated Accumulated Dividends"
                   stroke="#60a5fa"
                   strokeWidth={2}
                   strokeDasharray="2 2"
@@ -763,37 +769,41 @@ export default function MonteCarloSimulator({
             className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"
           >
             <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">Median Outcome</div>
+              <div className="text-xs text-neutral-400">Median</div>
               <div className="text-xl font-bold text-ink">
                 {formatCurrency(riskMetrics.medianOutcome)}
               </div>
             </div>
             <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-surface-card">
-              <div className="text-xs text-neutral-400">Best Case (95th)</div>
+              <div className="text-xs text-neutral-400">95th Percentile</div>
               <div className="text-lg font-bold text-emerald-300">
-                {formatCurrency(riskMetrics.best5Outcome)}
+                {formatCurrency(riskMetrics.p95Outcome)}
               </div>
             </div>
             <div className="glass-card p-4 rounded-xl border-l-4 border-rose-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">Worst Case (5th)</div>
+              <div className="text-xs text-neutral-400">5th Percentile</div>
               <div className="text-lg font-bold text-rose-400">
-                {formatCurrency(riskMetrics.worst5Outcome)}
+                {formatCurrency(riskMetrics.p05Outcome)}
               </div>
             </div>
-            {/* Dividends are reinvested into path drift; this is the income component */}
             <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-surface-card">
               <div className="text-xs text-neutral-400">
-                Est. Dividends (reinvested)
+                Estimated Dividends
               </div>
               <div className="text-lg font-bold text-blue-400">
                 {formatCurrency(riskMetrics.totalDividends)}
               </div>
             </div>
-            {/* Combined VaR and Sharpe into one if needed, or expand grid */}
             <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">Value at Risk</div>
+              <div className="text-xs text-neutral-400">
+                Modeled Loss at 5th Percentile
+              </div>
               <div className="text-lg font-bold text-yellow-400">
-                {formatCurrency(riskMetrics.vaR > 0 ? riskMetrics.vaR : 0)}
+                {formatCurrency(
+                  riskMetrics.modeledLossAtP05 > 0
+                    ? riskMetrics.modeledLossAtP05
+                    : 0,
+                )}
               </div>
             </div>
           </motion.div>

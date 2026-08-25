@@ -12,56 +12,56 @@ export interface GlossaryEntry {
   means: string;
 }
 
-const entries: Record<string, GlossaryEntry> = {
+const entries = {
   "market cap": {
     label: "Market Cap",
-    what: "The total value of a company — share price × number of shares.",
-    means: "Larger = more established. Mega-caps (>$200B) tend to be steadier; small-caps can swing more.",
+    what: "The total market value of a company: share price multiplied by shares outstanding.",
+    means: "Useful for grouping companies by size. Market cap alone does not measure quality or risk.",
   },
   assets: {
     label: "Assets (AUM)",
     what: "For ETFs, how much money investors have put into the fund.",
-    means: "Higher assets usually means more liquidity and lower risk of the fund closing.",
+    means: "Shows the fund's scale. It does not tell you whether the fund is liquid, suitable, or likely to perform well.",
   },
   "pe ratio": {
     label: "P/E Ratio",
-    what: "Price-to-Earnings: how many years of current profits you're paying for the stock.",
-    means: "Lower can mean cheaper (or troubled). Higher can mean growth expectations. Compare within the same industry.",
+    what: "Share price divided by earnings per share.",
+    means: "Shows how much investors pay for each dollar of earnings. Compare it with similar companies and check what drives the difference.",
   },
   "forward pe": {
     label: "Forward P/E",
-    what: "P/E using next year's expected earnings instead of past earnings.",
-    means: "Useful when a company is growing fast — shows valuation on future profits, not last year.",
+    what: "P/E calculated with estimated future earnings instead of reported past earnings.",
+    means: "It depends on forecasts that can change or turn out to be wrong.",
   },
   "eps (ttm)": {
     label: "EPS (TTM)",
-    what: "Earnings Per Share over the Trailing Twelve Months — profit divided by shares.",
-    means: "Rising EPS often supports a higher stock price. Negative EPS means the company lost money.",
+    what: "Earnings per share over the trailing twelve months: profit divided by shares.",
+    means: "Use it to track per-share profitability. Negative EPS means the company reported a net loss for the period.",
   },
   eps: {
     label: "EPS",
-    what: "Earnings Per Share — the company's profit for each share of stock.",
-    means: "A basic measure of profitability. Growing EPS is usually a good sign.",
+    what: "The company's profit or loss allocated to each common share.",
+    means: "Use it to compare per-share profitability over time, while checking for one-time items and share-count changes.",
   },
   "div yield": {
     label: "Dividend Yield",
-    what: "Annual dividends as a % of the current share price.",
-    means: "Like interest on a savings account, but not guaranteed. 2–4% is common; very high yields can be a warning sign.",
+    what: "Annual dividends per share divided by the current share price.",
+    means: "Dividends are not guaranteed. A high yield can result from a falling share price or a payout that may not last.",
   },
   "dividend yield": {
     label: "Dividend Yield",
-    what: "Annual dividends as a % of the current share price.",
+    what: "Annual dividends per share as a percentage of the current share price.",
     means: "Cash income you may receive if you hold the shares. Yields change as price moves.",
   },
   yield: {
     label: "Yield",
-    what: "Income (dividends) returned each year as a percent of price.",
-    means: "Higher yield = more cash income relative to price. Check that the payout looks sustainable.",
+    what: "Annual income as a percentage of the investment's current price.",
+    means: "A higher yield means more current income relative to price, but says nothing by itself about payout stability or total return.",
   },
   dividend: {
     label: "Dividend",
     what: "Cash a company or fund pays to shareholders, usually quarterly.",
-    means: "Optional income — not all stocks pay dividends. Growth companies often reinvest instead.",
+    means: "Not every company or fund pays one, and a dividend can be reduced or stopped.",
   },
   "dividend (ttm)": {
     label: "Dividend (TTM)",
@@ -71,7 +71,7 @@ const entries: Record<string, GlossaryEntry> = {
   "ex-div date": {
     label: "Ex-Dividend Date",
     what: "The cutoff date to own the stock and still receive the next dividend.",
-    means: "Buy before this date to get the upcoming payment. On this day the price often drops by about the dividend amount.",
+    means: "Someone who buys on or after this date generally does not receive the next declared dividend. The market price may adjust for the payment.",
   },
   "ex-dividend date": {
     label: "Ex-Dividend Date",
@@ -81,27 +81,27 @@ const entries: Record<string, GlossaryEntry> = {
   "earnings date": {
     label: "Earnings Date",
     what: "When the company reports quarterly profits (and often guidance).",
-    means: "Prices can jump or drop a lot around this day — higher risk and opportunity.",
+    means: "New results or guidance can cause a sharp price move in either direction.",
   },
   beta: {
     label: "Beta",
     what: "How much the stock moves vs. the overall market.",
-    means: "≈1 moves with the market. >1 is more volatile. <1 is usually calmer. Negative moves opposite the market.",
+    means: "A beta near 1 means similar historical sensitivity to the benchmark. Beta above or below 1 means greater or lower sensitivity, not total risk.",
   },
   volume: {
     label: "Volume",
     what: "How many shares traded today (or recently).",
-    means: "Higher volume = easier to buy/sell without moving the price. Very low volume can mean wide spreads.",
+    means: "Higher volume often supports easier trading, but bid-ask spread and order-book depth also matter.",
   },
   "52w high": {
     label: "52-Week High",
     what: "The highest price over the past year.",
-    means: "Near the high can mean strength — or that the easy gains already happened.",
+    means: "Shows where today's price sits within its recent range. It does not predict the next move.",
   },
   "52w low": {
     label: "52-Week Low",
     what: "The lowest price over the past year.",
-    means: "Near the low can be a bargain or a value trap if the business is deteriorating.",
+    means: "Shows where today's price sits within its recent range. A low price alone does not establish value.",
   },
   "52 week high": {
     label: "52-Week High",
@@ -115,48 +115,48 @@ const entries: Record<string, GlossaryEntry> = {
   },
   revenue: {
     label: "Revenue",
-    what: "Total sales — money the company brought in before costs.",
-    means: "Growing revenue shows demand. Profit still depends on expenses.",
+    what: "Total sales before subtracting costs.",
+    means: "Revenue growth can show higher sales, but profit also depends on costs, margins, and accounting choices.",
   },
   "net income": {
     label: "Net Income",
-    what: "Profit left after all expenses and taxes (\"the bottom line\").",
-    means: "Positive and growing is healthy. Losses may be OK temporarily for high-growth firms.",
+    what: "Profit or loss after expenses, interest, and taxes.",
+    means: "Compare it across periods and read the underlying statements for one-time gains, charges, and accounting effects.",
   },
   "shares out": {
     label: "Shares Outstanding",
     what: "How many shares exist that investors own.",
-    means: "Used with price to get market cap. More shares can dilute each owner's slice.",
+    means: "Used with share price to calculate market cap. Issuing more shares can reduce an existing owner's percentage stake.",
   },
   "expense ratio": {
     label: "Expense Ratio (MER)",
-    what: "The yearly fee the ETF charges as a % of your investment.",
-    means: "Lower is better. 0.03–0.20% is cheap; above ~0.75% is pricey for plain index funds.",
+    what: "The fund's annual operating expenses as a percentage of assets.",
+    means: "Fees reduce returns. Compare funds with similar strategies, since cost is only one difference.",
   },
   mer: {
     label: "MER / Expense Ratio",
-    what: "Management Expense Ratio — the yearly fee charged by an ETF or mutual fund.",
-    means: "Only applies to funds, not individual stocks. Stocks have no MER (you already own the company directly). Lower is better — 0.03–0.20% is cheap.",
+    what: "Management Expense Ratio: annual fund expenses as a percentage of assets.",
+    means: "MER applies to funds rather than individual stocks. Compare costs among funds that follow similar strategies.",
   },
   holdings: {
     label: "Holdings",
     what: "How many different stocks/bonds the ETF owns.",
-    means: "More holdings usually means more diversification — less risk from any one company.",
+    means: "A larger count can reduce exposure to one security, but true diversification also depends on weights, sectors, regions, and how holdings move together.",
   },
   "inception date": {
     label: "Inception Date",
     what: "When the ETF first launched.",
-    means: "Older funds have longer track records; brand-new funds have less history to judge.",
+    means: "An older fund has a longer record to inspect, but that record does not predict future performance.",
   },
   "payout frequency": {
     label: "Payout Frequency",
     what: "How often dividends are paid (monthly, quarterly, etc.).",
-    means: "Monthly payers are popular for income; frequency doesn't change total yearly income much.",
+    means: "Frequency changes the timing of cash payments, not necessarily the total annual amount.",
   },
   "payout ratio": {
     label: "Payout Ratio",
     what: "Share of earnings paid out as dividends.",
-    means: "Under ~60% is often sustainable. Near 100% may leave little room if profits fall.",
+    means: "A high ratio may leave less room for a setback, but appropriate levels vary by industry and fund structure.",
   },
   open: {
     label: "Open",
@@ -181,36 +181,36 @@ const entries: Record<string, GlossaryEntry> = {
   "change percent": {
     label: "Daily Change %",
     what: "How much the price moved today vs. the previous close.",
-    means: "Green = up, red = down. Big single-day moves are normal for individual stocks.",
+    means: "It is a one-day move, not evidence of a longer trend.",
   },
   "fear & greed": {
     label: "Fear & Greed Index",
-    what: "A 0–100 score of overall market mood (fearful → greedy).",
-    means: "Extreme fear can mean bargains; extreme greed can mean overheating. Not a buy/sell signal alone.",
+    what: "A composite score intended to summarize market sentiment from 0 to 100.",
+    means: "It is a sentiment indicator, not a valuation measure or a stand-alone trading signal.",
   },
   "value at risk": {
     label: "Value at Risk (VaR)",
     what: "In simulations, roughly how much you could lose in a bad (5th percentile) outcome.",
-    means: "Higher VaR = more downside risk in the model. It's an estimate, not a guarantee.",
+    means: "A larger modeled loss indicates more downside within the stated assumptions. VaR does not describe losses beyond its chosen percentile.",
   },
   "monte carlo": {
     label: "Monte Carlo",
-    what: "A simulation that runs many random market futures based on history.",
-    means: "Shows a range of outcomes (best / median / worst) instead of one fixed projection.",
+    what: "A method that generates random paths from specified return, volatility, and correlation assumptions.",
+    means: "Shows a distribution of model outcomes. The result is not a forecast and depends on the assumptions.",
   },
   sharpe: {
     label: "Sharpe Ratio",
     what: "Return earned per unit of risk (volatility), after a risk-free rate.",
-    means: "Higher is better. Roughly >1 is solid; <0 means you weren't paid for the risk taken.",
+    means: "A higher historical value means more excess return per unit of measured volatility. The result changes with the period, data, and risk-free rate.",
   },
   volatility: {
     label: "Volatility",
-    what: "How bumpy returns are — size of typical price swings.",
-    means: "Higher volatility = bigger ups and downs. Not the same as \"will lose money,\" but riskier to stomach.",
+    what: "The measured variability of returns over a stated period.",
+    means: "Higher volatility means larger historical swings. It does not capture every type of investment risk.",
   },
   "annual return": {
     label: "Annual Return",
-    what: "Average yearly growth rate of the investment.",
+    what: "A yearly rate of gain or loss over a stated period.",
     means: "Past returns don't guarantee future ones. Use as a planning assumption, not a promise.",
   },
   weight: {
@@ -221,24 +221,26 @@ const entries: Record<string, GlossaryEntry> = {
   diversification: {
     label: "Diversification",
     what: "Spreading money across different assets so one failure hurts less.",
-    means: "A core idea of Portfolio Compass — mix assets that don't all move together.",
+    means: "Diversification can reduce concentration risk, but it cannot prevent losses in a broad market decline.",
   },
   etf: {
     label: "ETF",
-    what: "Exchange-Traded Fund — a basket of stocks/bonds you can buy like a single stock.",
-    means: "Easy diversification in one ticker. Check fees (MER) and what it holds.",
+    what: "Exchange-traded fund: a pooled investment that trades on an exchange.",
+    means: "An ETF may hold many securities, but it is not automatically diversified. Check its holdings, weights, strategy, and fees.",
   },
   stock: {
     label: "Stock",
     what: "A share of ownership in one company.",
-    means: "Higher potential return than broad funds, but more company-specific risk.",
+    means: "Its value depends heavily on one company, so it carries company-specific risk that a broad fund may spread across many holdings.",
   },
   bond: {
     label: "Bond",
     what: "A loan to a company or government that pays interest.",
-    means: "Usually steadier than stocks; can cushion a portfolio when equities fall.",
+    means: "Bonds can add income and diversification, but their prices still respond to interest rates, credit risk, and market conditions.",
   },
-};
+} satisfies Record<string, GlossaryEntry>;
+
+const entriesByKey = new Map<string, GlossaryEntry>(Object.entries(entries));
 
 /** Normalize a UI label into a glossary key. */
 function normalizeKey(label: string): string {
@@ -257,9 +259,10 @@ function normalizeKey(label: string): string {
 export function getGlossaryEntry(label: string): GlossaryEntry | null {
   if (!label) return null;
   const key = normalizeKey(label);
-  if (entries[key]) return entries[key];
+  const directEntry = entriesByKey.get(key);
+  if (directEntry) return directEntry;
 
-  // Aliases / partial matches (keys are already normalized: / → space)
+  // Aliases and partial matches. Keys are already normalized.
   const aliases: [RegExp, string][] = [
     [/^mkt\.?\s*cap/, "market cap"],
     [/^market\s*capitalization/, "market cap"],
@@ -280,11 +283,12 @@ export function getGlossaryEntry(label: string): GlossaryEntry | null {
   ];
 
   for (const [re, target] of aliases) {
-    if (re.test(key) && entries[target]) return entries[target];
+    const targetEntry = entriesByKey.get(target);
+    if (re.test(key) && targetEntry) return targetEntry;
   }
 
   // Soft contains match on known keys
-  for (const [k, entry] of Object.entries(entries)) {
+  for (const [k, entry] of entriesByKey) {
     if (key.includes(k) || k.includes(key)) return entry;
   }
 

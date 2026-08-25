@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { isMarketOpen } from "@/lib/market-hours";
 import { cn } from "@/lib/utils";
 import { HelpTip } from "./ui/HelpTip";
 
@@ -16,7 +15,12 @@ interface FearGreedGaugeProps {
   className?: string;
 }
 
-/** Map a 0–100 score onto a semicircle angle in degrees.
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Map a score from 0 to 100 onto a semicircle angle in degrees.
  *  0   → 180° (left, extreme fear)
  *  50  →  90° (top, neutral)
  *  100 →   0° (right, extreme greed)
@@ -32,7 +36,7 @@ function polarToCartesian(
   cy: number,
   r: number,
   angleDeg: number,
-): { x: number; y: number } {
+): Point {
   const rad = (angleDeg * Math.PI) / 180;
   return {
     x: cx + r * Math.cos(rad),
@@ -40,7 +44,7 @@ function polarToCartesian(
   };
 }
 
-/** SVG arc path from startAngle → endAngle (degrees, both on semicircle). */
+/** SVG arc path between two angles on the semicircle. */
 function describeArc(
   cx: number,
   cy: number,
@@ -75,12 +79,9 @@ function zoneForScore(score: number) {
 export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   const [data, setData] = useState<FearGreedData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [marketOpen, setMarketOpen] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    setMarketOpen(isMarketOpen());
-
     async function fetchData() {
       try {
         const res = await fetch("/api/market/fear-greed");
@@ -136,7 +137,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
           className,
         )}
       >
-        <span className="text-ink/20">Loading Market Sentiment...</span>
+        <span className="text-ink/20">Loading market sentiment...</span>
       </div>
     );
   }
@@ -149,7 +150,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
           className,
         )}
       >
-        <span className="text-ink/40">Sentiment Data Unavailable</span>
+        <span className="text-ink/40">Sentiment data unavailable</span>
         <button
           onClick={() => window.location.reload()}
           className="text-xs text-primary hover:underline"
@@ -185,19 +186,6 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
         }}
       />
 
-      {/* Market Status Indicator */}
-      <div className="absolute top-6 left-6 flex items-center gap-2 z-20">
-        <div
-          className={cn(
-            "w-2 h-2 rounded-full shadow-lg",
-            marketOpen ? "bg-emerald-500 animate-pulse" : "bg-stone-600",
-          )}
-        />
-        <span className="text-xs font-medium text-ink/40 tracking-wider uppercase">
-          Market {marketOpen ? "Open" : "Closed"}
-        </span>
-      </div>
-
       <div className="flex items-center gap-2 mb-2 z-10 w-full justify-center mt-2">
         <h3 className="text-ink/90 font-bold text-lg">
           <HelpTip term="Fear & Greed" showIcon className="text-ink/90 text-lg font-bold">
@@ -223,7 +211,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
             className="text-stone-800"
           />
 
-          {/* Colored zone segments — butt caps so they meet flush */}
+          {/* Colored zone segments use butt caps so they meet flush. */}
           {segments.map((seg) => (
             <path
               key={seg.label}
@@ -281,7 +269,7 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
             );
           })}
 
-          {/* Indicator knob on the arc (no center needle — keeps score readable) */}
+          {/* The arc knob leaves the score readable without a center needle. */}
           <motion.circle
             r={7}
             fill="#FFFFFF"

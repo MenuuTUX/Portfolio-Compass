@@ -113,8 +113,8 @@ describe('Visualization Components', () => {
             render(<PortfolioBarChart portfolio={portfolio} />);
 
             expect(screen.getByText('Portfolio Look-Through')).toBeTruthy();
-            expect(screen.getByText('Safe')).toBeTruthy();
-            expect(screen.getByText('Critical')).toBeTruthy();
+            expect(screen.getByText('Up to 5%')).toBeTruthy();
+            expect(screen.getByText('Above 20%')).toBeTruthy();
             expect(screen.getByTestId('bar-chart')).toBeTruthy();
 
             // Verify items with effective weights

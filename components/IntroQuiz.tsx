@@ -32,8 +32,8 @@ const QUESTIONS: Question[] = [
     description: "When do you expect to need this money?",
     options: [
       { label: "Under 2 years", value: 0 },
-      { label: "2–5 years", value: 40 },
-      { label: "5–10 years", value: 70 },
+      { label: "2 to 5 years", value: 40 },
+      { label: "5 to 10 years", value: 70 },
       { label: "10+ years", value: 100 },
     ],
   },
@@ -66,7 +66,7 @@ const QUESTIONS: Question[] = [
     options: [
       { label: "No", value: 0 },
       { label: "A little", value: 40 },
-      { label: "3–6 months of expenses", value: 80 },
+      { label: "3 to 6 months of expenses", value: 80 },
       { label: "Yes, fully covered", value: 100 },
     ],
   },
@@ -82,7 +82,7 @@ const QUESTIONS: Question[] = [
   },
 ];
 
-const PORTFOLIO_TEMPLATES: Record<RiskProfile, LocalPortfolioItem[]> = {
+const PORTFOLIO_TEMPLATES = {
   Conservative: [
     { ticker: "BND", weight: 60, shares: 0 },
     { ticker: "VTI", weight: 40, shares: 0 },
@@ -95,7 +95,7 @@ const PORTFOLIO_TEMPLATES: Record<RiskProfile, LocalPortfolioItem[]> = {
     { ticker: "VTI", weight: 80, shares: 0 },
     { ticker: "QQQ", weight: 20, shares: 0 },
   ],
-};
+} satisfies Record<RiskProfile, LocalPortfolioItem[]>;
 
 function buildResult(answers: Record<string, number>): QuizResult {
   const total = Object.values(answers).reduce((a, b) => a + b, 0);
@@ -163,8 +163,8 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               A few questions first
             </h2>
             <p className="text-body leading-relaxed">
-              Five short questions to suggest a starting allocation. You can
-              change everything later — or skip and start empty.
+              Five short questions to load an example allocation. It is not a
+              recommendation, and you can edit it or start empty.
             </p>
           </div>
 
@@ -247,14 +247,14 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 text-emerald-500 text-sm font-medium">
               <Check className="w-4 h-4" />
-              Suggested allocation
+              Example allocation
             </div>
             <h2 className="text-2xl font-display font-bold text-ink">
-              {result.profile} starting mix
+              {result.profile} example
             </h2>
             <p className="text-body text-sm leading-relaxed">
-              Based on your answers. Edit or replace holdings anytime in the
-              portfolio tab.
+              This example matches the risk and time-horizon answers you
+              selected. Edit or replace any holding in the portfolio tab.
             </p>
           </div>
 

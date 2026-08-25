@@ -124,7 +124,7 @@ function multiplyMatrixVector(matrix: number[][], vector: number[]): number[] {
  * (via Cholesky). `meanReturns` must be *total-return* daily log-drifts
  * (historical price drift + dividend yield contribution) so paths compound
  * as if dividends are reinvested. Do not also reinvest cash dividends on
- * top of a yield-boosted drift — that would double-count income.
+ * top of a yield-boosted drift because that would double-count income.
  *
  * @param currentPrices         Spot prices per asset
  * @param weights               Portfolio weights (sum ≈ 1)
@@ -193,12 +193,14 @@ function boxMullerTransform(): number {
 /**
  * Calculate percentiles (5th, 50th, 95th) for each day across all simulations.
  */
-export function calculateCone(paths: number[][]): {
+export interface MonteCarloCone {
   median: number[];
   p05: number[];
   p95: number[];
   dates: number[]; // Indices 0 to numDays
-} {
+}
+
+export function calculateCone(paths: number[][]): MonteCarloCone {
   const numDays = paths[0].length;
   const medianPath: number[] = [];
   const p05Path: number[] = [];

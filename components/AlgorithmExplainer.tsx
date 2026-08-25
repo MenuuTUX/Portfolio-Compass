@@ -22,25 +22,25 @@ const steps = [
   {
     id: "objective",
     title: "Objective Function",
-    subtitle: "Maximizing utility",
+    subtitle: "Scoring candidate allocations",
     icon: Target,
     color: "emerald",
     description:
-      'We calculate a "Utility Score" (U) for every possible portfolio configuration. The goal is to maximize this score, which represents the optimal trade-off between expected profit and potential loss.',
+      "The score subtracts a variance penalty from a return proxy. The optimizer searches for whole-share purchases that improve that score; it does not test every possible portfolio.",
     details: [
       {
-        label: "Returns (μ)",
-        text: "Historical mean returns projected forward",
+        label: "Return Proxy (μ)",
+        text: "Dividend yield plus beta multiplied by 6%",
         icon: TrendingUp,
       },
       {
-        label: "Risk (Σ)",
-        text: "Covariance matrix defining asset volatility",
+        label: "Variance Proxy (Σ)",
+        text: "Beta-based diagonal variance; cross-asset correlation is zero",
         icon: ShieldCheck,
       },
       {
-        label: "Aversion (λ)",
-        text: "User-defined risk tolerance parameter",
+        label: "Penalty (λ)",
+        text: "Selected by the Conservative, Balanced, or Growth setting",
         icon: Lock,
       },
     ],
@@ -48,7 +48,7 @@ const steps = [
   {
     id: "process",
     title: "Iterative Selection",
-    subtitle: "Buy the best next share batch",
+    subtitle: "Choose the next share batch",
     icon: BrainCircuit,
     color: "blue",
     description:
@@ -61,12 +61,12 @@ const steps = [
       },
       {
         label: "Marginal Utility",
-        text: "Calculate improvement in Portfolio U",
+        text: "Calculate the change in the utility score",
         icon: Scale,
       },
       {
         label: "Selection",
-        text: "Commit capital to the winner",
+        text: "Buy the candidate with the largest score increase",
         icon: ArrowRight,
       },
     ],
@@ -78,7 +78,7 @@ const steps = [
     icon: Lock,
     color: "rose",
     description:
-      "Unlike pure Modern Portfolio Theory (MPT) which assumes fractional shares and infinite capital, our algorithm respects market realities.",
+      "Continuous-weight portfolio models can assign fractional positions. This implementation works with whole shares, an explicit cash budget, and existing holdings.",
     details: [
       {
         label: "Integer Shares",
@@ -87,12 +87,12 @@ const steps = [
       },
       {
         label: "Budget",
-        text: "Strict adherence to available cash",
+        text: "Purchases cannot exceed available cash",
         icon: Scale,
       },
       {
         label: "Rebalancing",
-        text: "Optimizes new cash + existing holdings",
+        text: "Scores new purchases alongside existing holdings",
         icon: TrendingUp,
       },
     ],
@@ -135,18 +135,18 @@ export default function AlgorithmExplainer() {
                 <BrainCircuit className="w-6 h-6 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-ink tracking-tight">
-                Optimization Algorithm
+                Allocation Heuristic
               </h2>
             </div>
             <p className="text-neutral-400 max-w-2xl text-sm">
-              Our Discrete Mean-Variance optimizer uses a greedy look-ahead
-              strategy to build portfolios that mathematically maximize
-              risk-adjusted returns.
+              This whole-share allocator uses a greedy search to improve a
+              return-proxy-minus-variance score. It assumes zero cross-asset
+              correlation and does not guarantee the global optimum.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 bg-surface-card px-3 py-1.5 rounded-full border border-hairline">
             <Calculator className="w-3 h-3" />
-            <span>v2.1.0</span>
+            <span>GREEDY HEURISTIC</span>
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export default function AlgorithmExplainer() {
                               <span className="text-sm font-bold text-ink tracking-wide uppercase">
                                 {hoveredTerm === "U" && "Total Utility (Score)"}
                                 {hoveredTerm === "mu" &&
-                                  "Expected Portfolio Return"}
+                                  "Portfolio Return Proxy"}
                                 {hoveredTerm === "lambda" &&
                                   "Risk Aversion Parameter"}
                                 {hoveredTerm === "sigma" &&
@@ -254,13 +254,13 @@ export default function AlgorithmExplainer() {
                               </span>
                               <span className="text-xs text-neutral-400">
                                 {hoveredTerm === "U" &&
-                                  "Higher is better. Balancing greed vs. fear."}
+                                  "Estimated return minus a variance penalty."}
                                 {hoveredTerm === "mu" &&
-                                  "Weighted sum of asset returns."}
+                                  "Weighted sum of yield-and-beta proxies."}
                                 {hoveredTerm === "lambda" &&
                                   "Penalty multiplier for volatility."}
                                 {hoveredTerm === "sigma" &&
-                                  "Statistical measure of portfolio fluctuation."}
+                                  "Beta-based variance with zero cross-asset correlation."}
                               </span>
                             </div>
                             {/* Triangle arrow */}
@@ -470,7 +470,7 @@ export default function AlgorithmExplainer() {
                               onClick={runSimulation}
                               className="flex items-center gap-2 px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)]"
                             >
-                              <Zap className="w-4 h-4" /> Start Simulation
+                              <Zap className="w-4 h-4" /> Run Example
                             </motion.button>
                           )}
 
@@ -482,7 +482,7 @@ export default function AlgorithmExplainer() {
                               className="text-sm text-blue-400 font-mono flex items-center gap-2"
                             >
                               <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
-                              Simulating buy orders...
+                              Testing each candidate...
                             </motion.div>
                           )}
 
@@ -494,7 +494,7 @@ export default function AlgorithmExplainer() {
                               className="text-sm text-neutral-400 font-mono flex items-center gap-2"
                             >
                               <Calculator className="w-4 h-4" />
-                              Calculating Marginals...
+                              Comparing score changes...
                             </motion.div>
                           )}
 
@@ -506,13 +506,13 @@ export default function AlgorithmExplainer() {
                               className="flex flex-col items-center gap-3"
                             >
                               <div className="text-sm text-emerald-400 font-medium">
-                                Asset D maximizes Utility (+55)
+                                Asset D has the largest score increase (+55)
                               </div>
                               <button
                                 onClick={resetSimulation}
                                 className="text-xs text-neutral-500 hover:text-ink underline underline-offset-4"
                               >
-                                Reset Simulation
+                                Reset example
                               </button>
                             </motion.div>
                           )}

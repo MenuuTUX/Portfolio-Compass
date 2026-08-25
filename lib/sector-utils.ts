@@ -1,4 +1,5 @@
 import YahooFinance from "yahoo-finance2";
+import { z } from "zod";
 
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -7,31 +8,21 @@ export interface SectorWeighting {
   weight: number;
 }
 
-interface QuoteSummaryResponse {
-  fundProfile?: {
-    sectorWeightings?: Record<string, number>[];
-  };
-  topHoldings?: {
-    sectorWeightings?: Record<string, number>[];
-  };
-  summaryProfile?: {
-    sector?: string;
-  };
-}
+const SectorWeightingsSchema = z.array(z.record(z.string(), z.number()));
+const QuoteSummarySchema = z.object({
+  fundProfile: z.object({ sectorWeightings: SectorWeightingsSchema.optional() }).optional(),
+  topHoldings: z.object({ sectorWeightings: SectorWeightingsSchema.optional() }).optional(),
+  summaryProfile: z.object({ sector: z.string().optional() }).optional(),
+});
 
 export async function fetchSectorWeightings(
   ticker: string,
 ): Promise<SectorWeighting[]> {
   try {
-    // Cast modules to any to satisfy the strict union type requirement of yahoo-finance2
-    const queryOptions = {
-      modules: ["fundProfile", "topHoldings", "summaryProfile"] as any,
-    };
-
-    const quoteSummary = (await yahooFinance.quoteSummary(
-      ticker,
-      queryOptions,
-    )) as unknown as QuoteSummaryResponse;
+    const rawSummary = await yahooFinance.quoteSummary(ticker, {
+      modules: ["fundProfile", "topHoldings", "summaryProfile"],
+    });
+    const quoteSummary = QuoteSummarySchema.parse(rawSummary);
 
     let sectors: SectorWeighting[] = [];
 
