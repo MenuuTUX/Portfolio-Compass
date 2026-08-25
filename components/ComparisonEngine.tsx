@@ -220,7 +220,7 @@ const ETFCard = memo(
                 {(etf.metrics?.yield ?? etf.dividendYield ?? 0).toFixed(2)}%
               </div>
             </div>
-            {/* MER is a fund fee — only meaningful for ETFs, not individual stocks */}
+            {/* MER is a fund fee and does not apply to individual stocks. */}
             {etf.assetType === "STOCK" ? (
               <div>
                 <div className="text-xs text-neutral-400 mb-1">
@@ -229,7 +229,7 @@ const ETFCard = memo(
                 <div className="text-sm font-medium text-neutral-300">
                   {etf.peRatio != null && etf.peRatio > 0
                     ? etf.peRatio.toFixed(1)
-                    : "—"}
+                    : "N/A"}
                 </div>
               </div>
             ) : (
@@ -240,7 +240,7 @@ const ETFCard = memo(
                 <div className="text-sm font-medium text-neutral-300">
                   {etf.metrics?.mer != null && etf.metrics.mer > 0
                     ? `${etf.metrics.mer.toFixed(2)}%`
-                    : "—"}
+                    : "N/A"}
                 </div>
               </div>
             )}
@@ -458,9 +458,11 @@ export default function ComparisonEngine({
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target;
       if (
         searchContainerRef.current &&
-        !searchContainerRef.current.contains(event.target as Node)
+        target instanceof Node &&
+        !searchContainerRef.current.contains(target)
       ) {
         setShowSuggestions(false);
       }
@@ -493,7 +495,7 @@ export default function ComparisonEngine({
           } else {
             console.warn("API response validation failed:", e);
           }
-          data = rawData as ETF[];
+          data = [];
         }
 
         // Filter results on client side
@@ -599,8 +601,8 @@ export default function ComparisonEngine({
       // We'll trust that debouncedSearch changes infrequently.
       setMessageDrawer({
         isOpen: true,
-        title: "No Results Found",
-        message: `No ${assetType === "STOCK" ? "Stocks" : "ETFs"} found matching "${debouncedSearch}".`,
+        title: "No results",
+        message: `No ${assetType === "STOCK" ? "stocks" : "ETFs"} match "${debouncedSearch}".`,
         type: "info",
       });
     }
@@ -661,7 +663,7 @@ export default function ComparisonEngine({
             } else {
               console.warn("API response validation failed:", e);
             }
-            updatedEtf = rawUpdatedEtf as ETF;
+            return;
           }
 
           setEtfs((prev) =>
@@ -685,14 +687,17 @@ export default function ComparisonEngine({
       if (existing) {
         handleAdvancedView(existing);
       } else {
-        // Create partial ETF to trigger fetch
-        handleAdvancedView({
+        const placeholder: ETF = {
           ticker,
           name: ticker,
           price: 0,
           changePercent: 0,
           assetType: "STOCK",
-        } as ETF);
+          history: [],
+          metrics: { mer: 0, yield: 0 },
+          allocation: { equities: 0, bonds: 0, cash: 0 },
+        };
+        handleAdvancedView(placeholder);
       }
     },
     [etfs, otherTypeEtfs, selectedETF, handleAdvancedView],
@@ -788,12 +793,12 @@ export default function ComparisonEngine({
         <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-10 gap-6">
           <div className="w-full md:w-auto">
             <h2 className="text-2xl md:text-3xl font-bold text-ink mb-2">
-              Market Engine
+              Market Browser
             </h2>
             <p className="text-sm md:text-base text-neutral-400">
-              Real-time analysis of leading{" "}
-              {resolvedAssetType === "STOCK" ? "Stocks" : "ETFs"}. Use filters
-              on the left, then click a card to learn more.
+              Browse live quotes and available market data for{" "}
+              {resolvedAssetType === "STOCK" ? "stocks" : "ETFs"}. Filter the
+              list, then open a card for details.
             </p>
           </div>
 

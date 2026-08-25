@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { getStockProfile } from "@/lib/scrapers/stock-analysis";
+import {
+  getStockProfile,
+  type StockProfile,
+} from "@/lib/scrapers/stock-analysis";
 import { getEtfDescription } from "@/lib/scrapers/etf-dot-com";
 import YahooFinance from "yahoo-finance2";
 import { z } from "zod";
@@ -9,6 +12,17 @@ const yahooFinance = new YahooFinance({
 });
 
 const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
+const YahooProfileSchema = z.object({
+  summaryProfile: z.object({
+    longBusinessSummary: z.string().optional(),
+    sector: z.string().optional(),
+    industry: z.string().optional(),
+  }).optional(),
+  fundProfile: z.object({
+    categoryName: z.string().optional(),
+    family: z.string().optional(),
+  }).optional(),
+});
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -25,46 +39,32 @@ export async function GET(request: Request) {
 
   try {
     // Primary profile source
-    let profile: any = await getStockProfile(ticker);
+    let profile: Partial<StockProfile> | null = await getStockProfile(ticker);
 
     // 2. Try to get specialized ETF description from ETF.com (User requested source)
     // We do this if profile is missing, or even if present to see if we can get "Analysis & Insights"
     // However, to save time, we might only do it if we suspect it's an ETF or if description is missing.
     // Given the user request "scrap this website... for the description", we prioritize it.
-    if (!profile?.description || profile.sector === "Unknown") {
-      const etfDesc = await getEtfDescription(ticker);
-      if (etfDesc) {
-        if (!profile) profile = { sector: "Unknown", industry: "Unknown" };
-        profile.description = etfDesc;
-      }
-    } else {
-      // If we have a profile, we can still try to upgrade the description if it's an ETF
-      // But doing 2 scrapes per request is slow.
-      // Let's assume if StockAnalysis gave us a description, it's "good enough" unless the user
-      // explicitly wants ETF.com.
-      // But the user complained about "lazy/clunky" which was Yahoo.
-      // StockAnalysis description is actually quite good.
-      // But let's try ETF.com as an override if we can confirm it's an ETF?
-      // Simpler: Just try ETF.com if StockAnalysis failed to give a description.
-      // Wait, I want to use ETF.com as the *preferred* source for description per user request.
-      const etfDesc = await getEtfDescription(ticker);
-      if (etfDesc) {
-        profile.description = etfDesc;
-      }
+    const etfDesc = await getEtfDescription(ticker);
+    if (etfDesc) {
+      profile = profile
+        ? { ...profile, description: etfDesc }
+        : { sector: "Unknown", industry: "Unknown", description: etfDesc };
     }
 
     // 3. Fallback to Yahoo Finance if still missing description or basic info
     if (!profile || !profile.description) {
       try {
         // Fetch summaryProfile (stocks) and fundProfile (ETFs)
-        const summary = (await yahooFinance.quoteSummary(ticker, {
+        const rawSummary = await yahooFinance.quoteSummary(ticker, {
           modules: ["summaryProfile", "price", "fundProfile"],
-        } as any)) as any;
+        });
+        const summary = YahooProfileSchema.parse(rawSummary);
 
         const summaryProfile = summary.summaryProfile || {};
         const fundProfile = summary.fundProfile || {};
 
-        const description = summaryProfile.longBusinessSummary || null;
+        const description = summaryProfile.longBusinessSummary;
 
         // Determine sector/industry/family
         const sector =
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // No profile sources resolved — use 404 so clients don't treat empty data as success
+    // Use 404 when no profile source resolves so clients do not treat empty data as success.
     if (!profile) {
       return NextResponse.json(
         {

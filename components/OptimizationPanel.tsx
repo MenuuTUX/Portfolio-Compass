@@ -7,19 +7,14 @@ import {
   GreedyOptimizationResult,
 } from "@/lib/optimizer";
 import {
-  Check,
   ArrowRight,
   DollarSign,
   TrendingDown,
-  Layers,
   Activity,
   Minus,
   Plus,
-  ShieldAlert,
-  ShieldCheck,
-  Shield,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Decimal } from "@/lib/decimal";
 import OptimizationDiffChart from "./OptimizationDiffChart";
@@ -33,14 +28,13 @@ interface OptimizationPanelProps {
   onCalibrating?: (isCalibrating: boolean) => void;
 }
 
-interface RiskState {
-  sentimentEma: number;
-  riskRegime: "RISK_ON" | "NEUTRAL" | "RISK_OFF";
-  lambda: number;
-  latestScore: number;
-}
-
 type StrategyMode = "Conservative" | "Balanced" | "Growth";
+const STRATEGY_MODES = ["Conservative", "Balanced", "Growth"] as const;
+const RISK_PROFILE_BY_STRATEGY = {
+  Conservative: "conservative",
+  Balanced: "balanced",
+  Growth: "growth",
+} as const;
 
 export default function OptimizationPanel({
   portfolio,
@@ -53,24 +47,7 @@ export default function OptimizationPanel({
     {},
   );
   const [isApplying, setIsApplying] = useState(false);
-  const [riskState, setRiskState] = useState<RiskState | null>(null);
   const [strategyMode, setStrategyMode] = useState<StrategyMode>("Balanced");
-
-  // Fetch Risk State
-  useEffect(() => {
-    async function fetchRisk() {
-      try {
-        const res = await fetch("/api/market/sentiment");
-        if (res.ok) {
-          const data = await res.json();
-          setRiskState(data);
-        }
-      } catch (e) {
-        console.error("Failed to fetch risk state", e);
-      }
-    }
-    fetchRisk();
-  }, []);
 
   // Debounced calculation for initial recommendation
   useEffect(() => {
@@ -91,12 +68,13 @@ export default function OptimizationPanel({
         const candidates = portfolio.map((p) => ({
           ticker: p.ticker,
           price: p.price,
+          // Return proxy used by this allocator, not a forecast.
           expectedReturn:
-            (p.metrics?.yield || 0) / 100 + (p.beta || 1.0) * 0.06, // Simple CAPM-ish proxy
+            (p.metrics?.yield || 0) / 100 + (p.beta || 1.0) * 0.06,
         }));
 
         const n = portfolio.length;
-        // Simple diagonal covariance matrix based on Beta (volatility proxy)
+        // Beta-based diagonal variance proxy. Cross-asset covariance is zero.
         const covarianceMatrix = Array(n)
           .fill(0)
           .map(() => Array(n).fill(0));
@@ -108,7 +86,7 @@ export default function OptimizationPanel({
         const res = optimizePortfolioGreedy({
           candidates,
           covarianceMatrix,
-          riskProfile: strategyMode.toLowerCase() as any,
+          riskProfile: RISK_PROFILE_BY_STRATEGY[strategyMode],
           budget: effectiveBudget,
           initialShares: Object.fromEntries(
             portfolio.map((p) => [p.ticker, p.shares || 0]),
@@ -121,7 +99,7 @@ export default function OptimizationPanel({
       onCalibrating?.(false);
     }, 300); // 300ms debounce
     return () => clearTimeout(timer);
-  }, [investmentAmount, portfolio, onCalibrating, riskState, strategyMode]);
+  }, [investmentAmount, portfolio, onCalibrating, strategyMode]);
 
   // Ensure calibration state is reset on unmount
   useEffect(() => {
@@ -254,44 +232,8 @@ export default function OptimizationPanel({
 
   if (!result || !projectedMetrics)
     return (
-      <div className="p-6 text-neutral-400">Initializing Optimizer...</div>
+      <div className="p-6 text-neutral-400">Calculating allocation...</div>
     );
-
-  const utilityScore = Math.min(100, Math.max(0, result.utility * 1000));
-
-  // Risk Regime Display Logic
-  const getRegimeIcon = () => {
-    switch (riskState?.riskRegime) {
-      case "RISK_ON":
-        return <ShieldCheck className="w-4 h-4 text-emerald-400" />;
-      case "RISK_OFF":
-        return <ShieldAlert className="w-4 h-4 text-rose-400" />;
-      default:
-        return <Shield className="w-4 h-4 text-amber-400" />;
-    }
-  };
-
-  const getRegimeLabel = () => {
-    switch (riskState?.riskRegime) {
-      case "RISK_ON":
-        return "Aggressive Mode";
-      case "RISK_OFF":
-        return "Defensive Mode";
-      default:
-        return "Balanced Mode";
-    }
-  };
-
-  const getRegimeColor = () => {
-    switch (riskState?.riskRegime) {
-      case "RISK_ON":
-        return "text-emerald-400";
-      case "RISK_OFF":
-        return "text-rose-400";
-      default:
-        return "text-amber-400";
-    }
-  };
 
   // Construct proposed portfolio items for the Diff Chart
   const proposedPortfolioItems = portfolio.map((item) => ({
@@ -304,34 +246,23 @@ export default function OptimizationPanel({
       {/* Header */}
       <div className="p-6 border-b border-hairline bg-black/5">
         <div className="flex flex-col gap-4 mb-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2 text-emerald-400">
-              <Activity className="w-5 h-5" />
-              <h2 className="font-bold text-lg tracking-wide uppercase">
-                Greedy Optimizer
-              </h2>
-            </div>
-
-            {/* Market Regime Badge */}
-            {riskState && (
-              <div className="flex flex-col items-end">
-                <div
-                  className={cn(
-                    "flex items-center gap-1.5 text-xs font-bold uppercase px-2 py-1 rounded-full bg-surface-card border border-hairline",
-                    getRegimeColor(),
-                  )}
-                >
-                  {getRegimeIcon()}
-                  <span>{getRegimeLabel()}</span>
-                </div>
-              </div>
-            )}
+          <div className="flex items-center gap-2 text-emerald-400">
+            <Activity className="w-5 h-5" />
+            <h2 className="font-bold text-lg tracking-wide uppercase">
+              Heuristic Allocator
+            </h2>
           </div>
 
-          {/* Strategy Mode Selector */}
+          <p className="text-xs text-neutral-500 leading-relaxed">
+            Uses dividend yield and beta as return and variance proxies. It
+            assumes zero cross-asset correlation.
+          </p>
+
+          <div className="text-[10px] text-neutral-500 uppercase tracking-wider">
+            Variance penalty
+          </div>
           <div className="flex gap-2 bg-dune/30 p-1 rounded-lg border border-hairline">
-            {(["Conservative", "Balanced", "Growth"] as StrategyMode[]).map(
-              (mode) => (
+            {STRATEGY_MODES.map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setStrategyMode(mode)}
@@ -344,8 +275,7 @@ export default function OptimizationPanel({
                 >
                   {mode}
                 </button>
-              ),
-            )}
+              ))}
           </div>
         </div>
 
@@ -367,52 +297,47 @@ export default function OptimizationPanel({
           </span>
         </div>
         <div className="text-right text-[10px] text-neutral-500 mt-1 mr-1">
-          Target Total Portfolio Value
+          Target portfolio value
         </div>
 
         <div className="mt-2 flex justify-between text-xs text-neutral-500">
           <span>
-            Proposed New Value: $
+            Proposed value: $
             {projectedMetrics.futureTotalValue
               .toNumber()
               .toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
-          <span>Budget: ${investmentAmount.toLocaleString()}</span>
+          <span>Target: ${investmentAmount.toLocaleString()}</span>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-        {/* Utility Score */}
         <section>
           <div className="flex justify-between items-end mb-3">
             <h3 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
               <TrendingDown className="w-4 h-4 text-emerald-400" />
-              Utility Score
+              Model Score
             </h3>
           </div>
           <div className="space-y-3">
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-neutral-500">
-                <span>Projected Utility</span>
+                <span>Current proposal</span>
                 <span className="text-emerald-400 font-bold">
-                  {utilityScore.toFixed(1)}
+                  {result.utility.toFixed(4)}
                 </span>
               </div>
-              <div className="h-2 w-full bg-surface-card rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-emerald-500"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${utilityScore}%` }}
-                />
-              </div>
+              <p className="text-[10px] text-neutral-500">
+                This unitless score is only comparable with other allocations
+                under the same inputs and penalty setting.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Actionable Table */}
         <section>
           <h3 className="text-sm font-medium text-neutral-300 mb-3">
-            Allocations (Interactive)
+            Review share changes
           </h3>
           <div className="space-y-2">
             {portfolio.map((item) => {
@@ -503,10 +428,10 @@ export default function OptimizationPanel({
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)] transition-all flex items-center justify-center gap-2"
         >
           {isApplying ? (
-            <span className="animate-pulse">Applying...</span>
+            <span className="animate-pulse">Applying changes...</span>
           ) : (
             <>
-              Apply Allocation <ArrowRight className="w-5 h-5" />
+              Apply share changes <ArrowRight className="w-5 h-5" />
             </>
           )}
         </button>

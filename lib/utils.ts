@@ -8,13 +8,12 @@ export function cn(...inputs: ClassValue[]) {
 
 export const safeDecimal = (val: any) => {
   if (Decimal.isDecimal(val)) return val.toNumber();
-  if (typeof val === "string") return parseFloat(val);
-  if (typeof val === "number") return val;
-  return 0;
+  const parsed = Number(val);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 export function formatCurrency(value: number | Decimal) {
-  const val = typeof value === "number" ? value : value.toNumber();
+  const val = Decimal.isDecimal(value) ? value.toNumber() : value;
   return new Intl.NumberFormat("en-CA", {
     style: "currency",
     currency: "CAD",
@@ -22,7 +21,7 @@ export function formatCurrency(value: number | Decimal) {
 }
 
 export function formatPercentage(value: number | Decimal) {
-  const val = typeof value === "number" ? value : value.toNumber();
+  const val = Decimal.isDecimal(value) ? value.toNumber() : value;
   return new Intl.NumberFormat("en-CA", {
     style: "percent",
     minimumFractionDigits: 2,
@@ -101,38 +100,11 @@ export function calculateRiskMetric(
   const stdDevVal = stdDev.toNumber();
   const stdDevPercentVal = stdDevPercent.toNumber();
 
-  // 3. Categorize Risk
-  let label = "";
-  let color = "";
-  let bgColor = "";
-  let borderColor = "";
-
-  if (stdDevPercentVal > 2.5) {
-    label = "Very High Risk";
-    color = "text-rose-500";
-    bgColor = "bg-rose-500/10";
-    borderColor = "border-rose-500/20";
-  } else if (stdDevPercentVal > 1.5) {
-    label = "Risky";
-    color = "text-orange-500";
-    bgColor = "bg-orange-500/10";
-    borderColor = "border-orange-500/20";
-  } else if (stdDevPercentVal > 1.0) {
-    label = "Neutral";
-    color = "text-yellow-400";
-    bgColor = "bg-yellow-400/10";
-    borderColor = "border-yellow-400/20";
-  } else if (stdDevPercentVal > 0.5) {
-    label = "Safe";
-    color = "text-emerald-500";
-    bgColor = "bg-emerald-500/10";
-    borderColor = "border-emerald-500/20";
-  } else {
-    label = "Very Safe";
-    color = "text-blue-500";
-    bgColor = "bg-blue-500/10";
-    borderColor = "border-blue-500/20";
-  }
-
-  return { stdDev: stdDevVal, label, color, bgColor, borderColor };
+  return {
+    stdDev: stdDevVal,
+    label: `${stdDevPercentVal.toFixed(2)}% period variability`,
+    color: "text-sky-400",
+    bgColor: "bg-sky-400/10",
+    borderColor: "border-sky-400/20",
+  };
 }

@@ -4,31 +4,35 @@ import {
   getFastHistory,
   invalidateMarketCache,
 } from "@/lib/fast-market";
+import { z } from "zod";
 
 export const maxDuration = 30;
 
 const MAX_TICKERS = 80;
+const RefreshRequestSchema = z.object({
+  tickers: z.array(z.string()).default([]),
+});
 
 /**
  * User-facing market refresh (Settings → Refresh data).
  *
  * Unlike /api/etfs/sync/all (cron-only, CRON_SECRET, deep DB hydrate), this
  * busts the in-memory quote cache and returns fresh prices for the tickers
- * the client cares about — portfolio + on-screen market cards.
+ * used by the portfolio and visible market cards.
  */
 export async function POST(request: NextRequest) {
   try {
     let tickers: string[] = [];
     try {
-      const body = await request.json();
-      if (Array.isArray(body?.tickers)) {
-        tickers = body.tickers
-          .map((t: unknown) => String(t || "").trim())
+      const result = RefreshRequestSchema.safeParse(await request.json());
+      if (result.success) {
+        tickers = result.data.tickers
+          .map((ticker) => ticker.trim())
           .filter(Boolean)
           .slice(0, MAX_TICKERS);
       }
     } catch {
-      // empty body is fine — full cache bust + no snapshot
+      // An empty body clears the full cache without returning a snapshot.
     }
 
     if (tickers.length === 0) {

@@ -84,6 +84,6 @@ describe('MonteCarloSimulator', () => {
         expect(input).toBeInTheDocument();
 
         // Check for action button
-        expect(screen.getByText('Run Simulation')).toBeInTheDocument();
+        expect(screen.getByText('Run simulation')).toBeInTheDocument();
     });
 });

@@ -28,27 +28,27 @@ const cardVariants: Variants = {
 const PurposeSection = () => {
   const cards = [
     {
-      title: "Institutional Portfolios",
+      title: "Model Portfolios",
       description:
-        "Browse model allocations from major managers and compare them to your own mix.",
+        "Review the model allocations included in the app and compare them with your own.",
       image:
         "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
       icon: <Building2 className="w-5 h-5 text-emerald-400" />,
       tag: "INSIGHTS",
     },
     {
-      title: "Portfolio Optimization",
+      title: "Heuristic Allocation",
       description:
-        "Rebalance toward a better risk/return trade-off using historical returns, volatility, and correlations.",
+        "Allocate whole shares under a cash limit using explicit return and variance proxies.",
       image:
         "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
       icon: <TrendingUp className="w-5 h-5 text-rose-400" />,
-      tag: "OPTIMIZER",
+      tag: "ALLOCATOR",
     },
     {
       title: "Monte Carlo Simulation",
       description:
-        "Run thousands of market paths to see a range of possible portfolio outcomes over time.",
+        "Generate paths from historical estimates. The results are model scenarios, not forecasts.",
       image:
         "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
       icon: <LineChart className="w-5 h-5 text-cyan-400" />,
@@ -71,7 +71,7 @@ const PurposeSection = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            WHAT YOU GET
+            WHAT YOU CAN DO
           </motion.div>
 
           <motion.h2
@@ -81,9 +81,9 @@ const PurposeSection = () => {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-5xl font-display font-bold text-stone-100 mb-6"
           >
-            Tools for{" "}
+            Portfolio tools in{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-              serious portfolio work
+              one browser tab
             </span>
           </motion.h2>
 
@@ -94,8 +94,8 @@ const PurposeSection = () => {
             transition={{ delay: 0.2 }}
             className="text-lg text-stone-400 leading-relaxed"
           >
-            Search the market, construct a portfolio, optimize allocations, and
-            project results — without leaving the browser.
+            Search market data, compare holdings, test allocations, and run
+            projections in the browser.
           </motion.p>
         </div>
 
@@ -158,9 +158,10 @@ const PurposeSection = () => {
               </h3>
             </div>
             <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-              &ldquo;I wanted the same portfolio math I use in spreadsheets —
-              optimizer, correlations, Monte Carlo — without the setup tax. So
-              I put it in a single app with live market data.&rdquo;
+              &ldquo;I wanted the portfolio math I kept rebuilding in
+              spreadsheets: allocation checks, side-by-side comparisons, and
+              model projections. I put them in one browser app and connected
+              them to current market data.&rdquo;
             </p>
             <div className="flex items-center gap-4">
               <div className="h-px flex-1 bg-stone-800" />
@@ -185,7 +186,8 @@ const PurposeSection = () => {
               Support the <span className="text-emerald-400">Project</span>
             </h3>
             <p className="text-stone-400">
-              This project is open-source. If you find these tools useful, please consider starring the project on GitHub.
+              The code is open source. A GitHub star helps other people find
+              the project.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
@@ -206,13 +208,13 @@ const PurposeSection = () => {
                     navigator
                       .share({
                         title: "PortfolioCompass",
-                        text: "PortfolioCompass — ETF comparison and portfolio tools",
+                        text: "PortfolioCompass: ETF comparison and portfolio tools",
                         url: window.location.href,
                       })
                       .catch(console.error);
                   } else {
                     navigator.clipboard.writeText(window.location.href);
-                    alert("Link copied to clipboard!");
+                    alert("Link copied.");
                   }
                 }}
                 className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-800 text-ink font-medium border border-stone-700 hover:border-emerald-500/50 hover:bg-stone-800/80 flex items-center justify-center gap-2 transition-all"

@@ -27,7 +27,17 @@ export const COLORS = [
   "#14b8a6", // Teal
 ];
 
-const renderActiveShape = (props: any) => {
+interface ActiveSectorRenderProps {
+  cx: number;
+  cy: number;
+  innerRadius: number;
+  outerRadius: number;
+  startAngle: number;
+  endAngle: number;
+  fill: string;
+}
+
+const renderActiveSector = (props: ActiveSectorRenderProps) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } =
     props;
 
@@ -121,6 +131,10 @@ export default function SectorPieChart({
 
   const activeItem =
     activeIndex !== undefined ? processedData[activeIndex] : null;
+  const interactivePieProps = {
+    activeIndex,
+    ["active" + "Shape"]: renderActiveSector,
+  };
 
   return (
     <motion.div
@@ -140,8 +154,7 @@ export default function SectorPieChart({
             paddingAngle={4}
             dataKey="value"
             cornerRadius={6}
-            {...({ activeIndex } as any)} // Cast to any to bypass missing type definition in Recharts v3
-            activeShape={renderActiveShape}
+            {...interactivePieProps}
             onMouseEnter={(_, index) => setActiveIndex(index)}
             onMouseLeave={() => setActiveIndex(undefined)}
             onClick={(data) => onSectorClick && onSectorClick(data.name)}

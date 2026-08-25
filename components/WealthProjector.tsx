@@ -69,7 +69,7 @@ export default function WealthProjector({
     [portfolio],
   );
 
-  // Total expected annual return (price appreciation + reinvested dividends)
+  // Estimated annual return, including reinvested dividends.
   // calculatePortfolioHistoricalStats already folds yield into total return.
   const weightedReturn = useMemo(() => {
     if (portfolio.length === 0) return 0.07;
@@ -86,7 +86,7 @@ export default function WealthProjector({
       }
     }
 
-    // Heuristic: every asset contributes (yield + growth) by effective weight
+    // Fall back to a weighted heuristic when price history is unavailable.
     const weights = getEffectiveWeights(portfolio);
     return portfolio.reduce((acc, item, i) => {
       return acc + estimateAssetTotalReturn(item) * weights[i];
@@ -95,7 +95,7 @@ export default function WealthProjector({
 
   // Deterministic monthly compound projection.
   // Balance grows at *total* return (includes reinvested dividends).
-  // "Accumulated Dividends" is the income component for display only —
+  // "Accumulated Dividends" is the income component for display only;
   // it is already embedded in the ending balance, not added on top.
   const projectionData = useMemo(() => {
     let balance = initialInvestment;
@@ -124,7 +124,7 @@ export default function WealthProjector({
         });
       }
 
-      // Dividend income this month (reinvested → already in total return)
+      // Dividend income is reinvested and already included in total return.
       const monthlyDividend = balance * monthlyYieldRate;
       accumulatedDividends += monthlyDividend;
 
@@ -191,10 +191,11 @@ export default function WealthProjector({
             )}
             <div>
               <h2 className="text-3xl font-bold text-ink mb-2">
-                Wealth Projector
+                Growth Projection
               </h2>
               <p className="text-neutral-400">
-                Project your future wealth based on portfolio assumptions.
+                See how a starting balance and monthly contributions compound
+                under the app&apos;s return estimate.
               </p>
             </div>
           </div>
@@ -214,7 +215,6 @@ export default function WealthProjector({
                 growthType: "Simple",
                 percentageGrowth: percentageGrowth,
               }}
-              // Pass projectionData as history, mapping keys correctly
               history={projectionData.map((d) => ({
                 date: d.year,
                 value: d.balance,
@@ -227,7 +227,7 @@ export default function WealthProjector({
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-hairline"
             >
               <Sparkles className="w-4 h-4" />
-              Try Monte Carlo
+              Use Monte Carlo model
             </button>
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function WealthProjector({
             <div className="pt-6 border-t border-hairline space-y-4">
               <div>
                 <div className="text-sm text-neutral-400 mb-1">
-                  Projected Annual Return
+                  Annual Return Estimate
                 </div>
                 <div className="text-2xl font-bold text-emerald-400">
                   {(weightedReturn * 100).toFixed(2)}%
@@ -329,6 +329,10 @@ export default function WealthProjector({
                   {(weightedYield * 100).toFixed(2)}%
                 </div>
               </div>
+              <p className="text-[11px] text-neutral-500 leading-relaxed">
+                Based on available price history. When history is missing, the
+                app uses a weighted yield-and-growth heuristic.
+              </p>
             </div>
           </div>
 
@@ -336,20 +340,22 @@ export default function WealthProjector({
           <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-surface-card border border-hairline">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div>
-                <div className="text-sm text-neutral-400">Projected Wealth</div>
+                <div className="text-sm text-neutral-400">
+                  Ending Balance Under Assumptions
+                </div>
                 <div className="text-3xl font-bold text-ink">
                   {formatCurrency(finalAmount)}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-neutral-400">
-                  Est. Dividends (reinvested)
+                  Estimated Dividends
                 </div>
                 <div className="text-3xl font-bold text-blue-400">
                   {formatCurrency(totalDividends)}
                 </div>
                 <div className="text-[11px] text-neutral-500 mt-0.5">
-                  Included in projected wealth
+                  Reinvested and included in the ending balance
                 </div>
               </div>
               <div className="text-left sm:text-right">
@@ -405,7 +411,7 @@ export default function WealthProjector({
                   <Area
                     type="monotone"
                     dataKey="balance"
-                    name="Projected Balance"
+                    name="Balance Under Assumptions"
                     stroke="#10b981"
                     fillOpacity={1}
                     fill="url(#colorBalance)"
@@ -429,11 +435,11 @@ export default function WealthProjector({
                 </AreaChart>
               </ResponsiveContainer>
               <table className="sr-only">
-                <caption>Wealth Projection</caption>
+                <caption>Growth Projection</caption>
                 <thead>
                   <tr>
                     <th scope="col">Year</th>
-                    <th scope="col">Projected Balance</th>
+                    <th scope="col">Balance Under Assumptions</th>
                     <th scope="col">Total Invested</th>
                     <th scope="col">Accumulated Dividends</th>
                   </tr>

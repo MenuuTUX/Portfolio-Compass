@@ -130,7 +130,7 @@ export default function MarketFilters({
   const sortOptions = useMemo(() => {
     const base: { key: SortKey; label: string }[] = [
       { key: "relevance", label: "Default" },
-      { key: "name", label: "Name A–Z" },
+      { key: "name", label: "Name A to Z" },
       { key: "change_desc", label: "Top gainers" },
       { key: "change_asc", label: "Top losers" },
       { key: "price_desc", label: "Price: high" },
@@ -141,15 +141,15 @@ export default function MarketFilters({
       base.push(
         { key: "mcap_desc", label: "Largest companies" },
         { key: "pe_asc", label: "Lowest P/E" },
-        { key: "industry_asc", label: "Industry A–Z" },
-        { key: "sector_asc", label: "Sector A–Z" },
+        { key: "industry_asc", label: "Industry A to Z" },
+        { key: "sector_asc", label: "Sector A to Z" },
       );
     } else {
       base.push(
         { key: "mcap_desc", label: "Largest funds" },
         { key: "mer_asc", label: "Lowest fees" },
         // ETF sector/industry fields map to Yahoo fund category
-        { key: "industry_asc", label: "Category A–Z" },
+        { key: "industry_asc", label: "Category A to Z" },
       );
     }
     return base;
@@ -203,7 +203,7 @@ export default function MarketFilters({
         )}
       </div>
 
-      {typeof resultCount === "number" && (
+      {resultCount !== undefined && (
         <div className="text-[11px] text-neutral-400 bg-black/20 rounded-lg px-3 py-2 border border-hairline">
           Showing{" "}
           <span className="text-ink font-semibold font-mono">{resultCount}</span>{" "}
@@ -309,10 +309,10 @@ export default function MarketFilters({
           active={value.size === "large"}
           onClick={() => set("size", "large")}
         >
-          Large ($10–200B)
+          Large ($10B to $200B)
         </Chip>
         <Chip active={value.size === "mid"} onClick={() => set("size", "mid")}>
-          Mid ($2–10B)
+          Mid ($2B to $10B)
         </Chip>
         <Chip
           active={value.size === "small"}
@@ -322,7 +322,7 @@ export default function MarketFilters({
         </Chip>
       </Section>
 
-      {/* Valuation — stocks */}
+      {/* Stock valuation */}
       {isStock && (
         <Section icon={Percent} title="Valuation" tip="PE Ratio">
           <Chip active={value.pe === "all"} onClick={() => set("pe", "all")}>
@@ -346,7 +346,7 @@ export default function MarketFilters({
         </Section>
       )}
 
-      {/* Fees — ETFs */}
+      {/* ETF fees */}
       {!isStock && (
         <Section icon={CircleDollarSign} title="Fees" tip="Expense Ratio">
           <Chip active={value.mer === "all"} onClick={() => set("mer", "all")}>
@@ -460,7 +460,7 @@ export function applyMarketFilters<
       }
     }
 
-    // MER (ETFs) — treat 0 / missing as "no fee data" (common on stocks)
+    // Treat a zero or missing MER as unavailable fee data.
     if (filters.mer !== "all") {
       const mer = assetMer(item);
       const hasFee = mer != null && mer > 0;

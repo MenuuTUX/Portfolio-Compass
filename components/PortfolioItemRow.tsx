@@ -66,7 +66,7 @@ const PortfolioItemRow = memo(
 
         <td className="p-4 align-top hidden md:table-cell">
           <div className="flex flex-col gap-1 text-xs text-neutral-400">
-            {/* MER only applies to funds/ETFs — stocks have no management fee */}
+            {/* MER applies to funds and ETFs, not individual stocks. */}
             {item.assetType !== "STOCK" && (
               <div className="flex justify-between w-28 gap-2">
                 <HelpTip
@@ -79,7 +79,7 @@ const PortfolioItemRow = memo(
                 <span className="text-neutral-300">
                   {item.metrics?.mer != null && item.metrics.mer > 0
                     ? `${item.metrics.mer.toFixed(2)}%`
-                    : "—"}
+                    : "N/A"}
                 </span>
               </div>
             )}
@@ -95,7 +95,7 @@ const PortfolioItemRow = memo(
                 <span className="text-neutral-300">
                   {item.peRatio != null && item.peRatio > 0
                     ? item.peRatio.toFixed(1)
-                    : "—"}
+                    : "N/A"}
                 </span>
               </div>
             )}

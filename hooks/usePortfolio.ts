@@ -6,14 +6,18 @@ function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase();
 }
 
+function finiteNumber(value: any): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
   const ticker = (raw?.ticker || fallbackTicker).toUpperCase();
   return {
     ticker,
     name: raw?.name || ticker,
-    price: typeof raw?.price === "number" ? raw.price : 0,
-    changePercent:
-      typeof raw?.changePercent === "number" ? raw.changePercent : 0,
+    price: finiteNumber(raw?.price),
+    changePercent: finiteNumber(raw?.changePercent),
     assetType: raw?.assetType || "STOCK",
     isDeepAnalysisLoaded: Boolean(raw?.isDeepAnalysisLoaded),
     history: Array.isArray(raw?.history) ? raw.history : [],

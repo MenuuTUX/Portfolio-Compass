@@ -189,12 +189,14 @@ export default function AssetProfileCard({
         </div>
       )}
 
-      {/* Analyst Analysis Section - Only for Stocks */}
+      {/* Third-party analyst data for stocks */}
       {assetType === "STOCK" && info?.analyst && (
         <div className="space-y-4 pt-4 mt-2 border-t border-hairline">
           <div className="flex items-center gap-2 text-ink">
             <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-bold text-sm tracking-wide">Analyst Summary</h3>
+            <h3 className="font-bold text-sm tracking-wide">
+              Third-Party Analyst Data
+            </h3>
           </div>
 
           <div className="relative pl-4 border-l-2 border-emerald-500/30 py-1">
@@ -207,7 +209,7 @@ export default function AssetProfileCard({
             {/* Consensus Card */}
             <div className="bg-gradient-to-br from-ink/5 to-white/0 rounded-xl p-3 border border-hairline flex flex-col items-center justify-center text-center shadow-sm">
               <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold">
-                Consensus
+                Consensus Label
               </span>
               <Badge
                 variant="secondary"
@@ -228,7 +230,7 @@ export default function AssetProfileCard({
             <div className="bg-gradient-to-br from-ink/5 to-white/0 rounded-xl p-3 border border-hairline flex flex-col items-center justify-center text-center shadow-sm">
               <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold flex items-center gap-1">
                 <Target className="w-3 h-3" />
-                Target
+                Price Target
               </span>
               <div className="text-lg font-bold text-ink tracking-tight">
                 {info.analyst.targetPrice
@@ -250,6 +252,10 @@ export default function AssetProfileCard({
               )}
             </div>
           </div>
+          <p className="text-[11px] text-neutral-500 leading-relaxed">
+            Aggregated analyst data can be stale or incomplete. Check the
+            original research and publication date before relying on it.
+          </p>
         </div>
       )}
     </div>

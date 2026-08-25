@@ -3,7 +3,7 @@ import { getMarketMovers } from "@/lib/scrapers/stock-analysis";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const type = searchParams.get("type") as "gainers" | "losers";
+  const type = searchParams.get("type");
 
   if (type !== "gainers" && type !== "losers") {
     return NextResponse.json(

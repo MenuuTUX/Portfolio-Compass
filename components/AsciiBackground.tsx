@@ -24,7 +24,7 @@ const INK_DARK = "#F5F3EF";
 /**
  * Animated ASCII field: a slowly breathing, mirror-symmetric ink pattern
  * (Rorschach-style) rendered as text glyphs on a canvas. Designed to sit
- * behind hero content — pure decoration, pointer-events: none.
+ * behind hero content. It is decoration with pointer-events disabled.
  */
 export default function AsciiBackground({
   className = "",

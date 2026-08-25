@@ -10,7 +10,7 @@ import { z } from "zod";
 
 /**
  * "Sync" a ticker = refresh live market + fund details.
- * No database write — response is for the client to cache if it wants.
+ * This route does not write to a database. The client may cache the response.
  */
 
 const tickerSchema = z.string().min(1).max(12).regex(/^[A-Z0-9.-]+$/i);

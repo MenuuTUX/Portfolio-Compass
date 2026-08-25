@@ -13,7 +13,6 @@ import ContributePopup from "./ContributePopup";
 import OptimizationPanel from "./OptimizationPanel";
 import AlgorithmExplainer from "./AlgorithmExplainer";
 import RiskReturnScatter from "./RiskReturnScatter";
-import CorrelationHeatmap from "./CorrelationHeatmap";
 import PortfolioBarChart from "./PortfolioBarChart";
 import SectorPieChart, { COLORS } from "./SectorPieChart";
 
@@ -74,7 +73,7 @@ export default function PortfolioBuilder({
     return portfolio.reduce((acc: { [key: string]: number }, item) => {
       if (item.sectors) {
         Object.entries(item.sectors).forEach(([sector, amount]) => {
-          // Normalize sector name: Title Case and remove underscores
+          // Convert the sector slug into a readable title.
           const normalizedSector = sector
             .replace(/_/g, " ")
             .toLowerCase()
@@ -201,7 +200,7 @@ export default function PortfolioBuilder({
               Portfolio Builder
             </h2>
             <p className="text-sm md:text-base text-neutral-400">
-              Construct your custom allocation. Target 100% weight.
+              Set holdings and weights. Aim for a 100% total allocation.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
@@ -214,7 +213,7 @@ export default function PortfolioBuilder({
                   : "bg-surface-card border-hairline hover:bg-surface-soft text-ink",
               )}
             >
-              Optimization Mode
+              Allocation Mode
             </button>
             <button
               onClick={() => {
@@ -325,7 +324,7 @@ export default function PortfolioBuilder({
                 <div className="flex-1 border border-hairline rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden min-h-[500px]">
                   {displayPortfolio.length === 0 ? (
                     <div className="h-full border-2 border-dashed border-hairline rounded-xl flex items-center justify-center text-neutral-400 text-center p-4">
-                      Select ETFs from the Market Engine to build your
+                      Select assets from the Market Browser to build your
                       portfolio.
                     </div>
                   ) : (
@@ -416,15 +415,9 @@ export default function PortfolioBuilder({
               )}
 
               {builderView === "RISK" && (
-                <div className="flex flex-col gap-6 overflow-y-auto pr-1 custom-scrollbar h-full min-h-[800px]">
-                  {/* Increased heights for charts to be less compact */}
+                <div className="flex flex-col gap-6 overflow-y-auto pr-1 custom-scrollbar h-full min-h-[400px]">
                   <div className="min-h-[400px]">
                     <RiskReturnScatter items={portfolio} />
-                  </div>
-                  <div className="min-h-[400px]">
-                    <CorrelationHeatmap
-                      assets={portfolio.map((p) => p.ticker)}
-                    />
                   </div>
                 </div>
               )}

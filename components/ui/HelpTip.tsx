@@ -33,9 +33,11 @@ export function HelpTip({
   const tipId = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
-    null,
-  );
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    placeAbove: boolean;
+  } | null>(null);
 
   const updatePosition = useCallback(() => {
     const el = triggerRef.current;
@@ -48,10 +50,12 @@ export function HelpTip({
     // Prefer below; flip above if near bottom of viewport
     const below = rect.bottom + 8;
     const spaceBelow = window.innerHeight - rect.bottom;
-    const top = spaceBelow < 140 ? rect.top - 8 : below;
+    const placeAbove = spaceBelow < 140;
+    const top = placeAbove ? rect.top - 8 : below;
     setCoords({
       top,
       left,
+      placeAbove,
     });
   }, []);
 
@@ -67,7 +71,7 @@ export function HelpTip({
     };
   }, [open, updatePosition]);
 
-  // Unknown term → plain text, no tip chrome
+  // Unknown terms render as plain text.
   if (!entry) {
     return <span className={className}>{children ?? term}</span>;
   }
@@ -76,12 +80,6 @@ export function HelpTip({
     setOpen(true);
   };
   const hide = () => setOpen(false);
-
-  // Flip transform when tip is above the trigger
-  const placeAbove =
-    coords &&
-    triggerRef.current &&
-    coords.top < triggerRef.current.getBoundingClientRect().top;
 
   return (
     <>
@@ -117,7 +115,6 @@ export function HelpTip({
 
       {open &&
         coords &&
-        typeof document !== "undefined" &&
         createPortal(
           <div
             id={tipId}
@@ -128,7 +125,7 @@ export function HelpTip({
               left: coords.left,
               width: 280,
               zIndex: 9999,
-              transform: placeAbove ? "translateY(-100%)" : undefined,
+              transform: coords.placeAbove ? "translateY(-100%)" : undefined,
             }}
             className="pointer-events-none rounded-xl border border-hairline bg-stone-950/95 backdrop-blur-md shadow-2xl p-3.5"
             onMouseEnter={show}

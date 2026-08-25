@@ -1,6 +1,6 @@
 # Portfolio Compass
 
-ETF and stock analytics: compare assets, build a portfolio, run a Sharpe-oriented optimizer, and project outcomes with Monte Carlo simulation.
+Portfolio Compass is a local-first browser app for comparing stocks and ETFs, assembling a portfolio, and testing allocation assumptions.
 
 Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CSS.
 
@@ -13,18 +13,20 @@ Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CS
 | Portfolio holdings (tickers, weights, shares) | Browser **LocalStorage** |
 | Quotes, charts, search, fund details | **Live** Yahoo / scrapers via API routes |
 | Reddit community links | Static config in repo |
-| Market sentiment (optimizer) | Live CNN Fear & Greed |
+| Fear & Greed gauge | Live CNN index |
 
-Hosting (e.g. Vercel free tier) only runs the Next.js app + API proxies.  
-Clearing site data clears the portfolio — use export/import if you need a backup.
+Hosting, such as Vercel, runs the Next.js app and its API proxies. Clearing site data also clears the portfolio. Export a JSON backup before clearing browser data.
 
 ## Features
 
-- Live ETF/stock search with quotes and sparklines
-- Portfolio builder with **local-first** storage (no login)
-- Greedy optimizer (Sharpe / risk aversion under share constraints)
-- Monte Carlo paths with correlated returns (Cholesky)
-- Sector/holdings look-through, risk metrics, and quant scoring
+- Stock and ETF search with current quotes and price charts
+- Side-by-side comparison without automatic winner labels
+- Portfolio storage in the browser, with no login
+- A greedy whole-share allocator using explicit return and variance proxies
+- Constant-return projections and Monte Carlo model paths
+- Fund holdings, sector, credit-quality, and market-data views when sources provide them
+
+The allocator is a heuristic, not a Sharpe optimizer. It uses dividend yield plus a beta-based return proxy, a diagonal beta-based variance proxy, and no cross-asset correlations. Monte Carlo results use historical estimates and geometric Brownian motion. Both are model outputs, not forecasts or investment advice.
 
 ## Getting started
 
@@ -53,8 +55,9 @@ No `DATABASE_URL` needed. Optional env vars are documented in `.example.env`.
 | `bun run build` | Production build |
 | `bun test` | Unit tests |
 | `bun run lint` | ESLint |
+| `bun run lint:oxlint` | Anti-slop Oxlint rules |
 | `bun run typecheck` | `tsc --noEmit` |
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

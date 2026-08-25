@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Star, X, Github, Heart } from "lucide-react";
+import { Star, X, Github } from "lucide-react";
 import { useEffect } from "react";
 
 interface ContributePopupProps {
@@ -53,11 +53,10 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
           </div>
 
           <h3 className="text-2xl font-bold text-ink mb-2 font-space">
-            Enjoying Portfolio Compass?
+            Using Portfolio Compass?
           </h3>
           <p className="text-neutral-400 mb-8 max-w-xs mx-auto">
-            If you find this tool helpful, consider starring the repository on
-            GitHub. It helps us grow!
+            A GitHub star helps more people find the project.
           </p>
 
           <div className="flex flex-col gap-3 w-full">
@@ -76,14 +75,8 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
               onClick={onClose}
               className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-surface-card hover:bg-surface-soft border border-hairline text-neutral-300 font-medium transition-colors cursor-pointer"
             >
-              <span>Maybe Later</span>
+              <span>Not now</span>
             </button>
-          </div>
-
-          <div className="mt-6 text-xs text-neutral-500 flex items-center gap-1.5">
-            <span>Made with</span>
-            <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
-            <span>for investors</span>
           </div>
         </div>
       </motion.div>

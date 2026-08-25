@@ -33,12 +33,11 @@ describe('analyzeEtf', () => {
   it('should analyze volatility correctly', () => {
     const highBetaEtf = { beta: 1.5, metrics: {} } as ETF;
     expect(analyzeEtf(highBetaEtf).volatility.status).toBe('warning');
-    // (1.5 - 1) * 100 = 50%
-    expect(analyzeEtf(highBetaEtf).volatility.description).toContain('50% more volatile');
+    expect(analyzeEtf(highBetaEtf).volatility.description).toContain('greater historical sensitivity');
 
     const lowBetaEtf = { beta: 0.5, metrics: {} } as ETF;
     expect(analyzeEtf(lowBetaEtf).volatility.status).toBe('good');
-    expect(analyzeEtf(lowBetaEtf).volatility.description).toContain('more stable');
+    expect(analyzeEtf(lowBetaEtf).volatility.description).toContain('lower historical sensitivity');
 
     const marketBetaEtf = { beta: 1.0, metrics: {} } as ETF;
     expect(analyzeEtf(marketBetaEtf).volatility.status).toBe('neutral');
@@ -52,7 +51,7 @@ describe('analyzeEtf', () => {
     const etf = { metrics: {}, history: [] } as unknown as ETF;
     const verdict = analyzeEtf(etf, { history });
     expect(verdict.volatility.label).not.toBe('Volatility Unknown');
-    expect(verdict.volatility.description).toContain('Realized');
+    expect(verdict.volatility.description).toContain('realized volatility');
   });
 
   it('treats missing data as unknown, not as a judgement', () => {
@@ -62,10 +61,10 @@ describe('analyzeEtf', () => {
     const verdict = analyzeEtf(emptyEtf);
 
     expect(verdict.cost?.status).toBe('neutral');
-    expect(verdict.cost?.label).toBe('Fee Unknown');
+    expect(verdict.cost?.label).toBe('Fee Data Unavailable');
     expect(verdict.liquidity.status).toBe('neutral');
-    expect(verdict.liquidity.label).toBe('Liquidity Unknown');
+    expect(verdict.liquidity.label).toBe('Volume Data Unavailable');
     expect(verdict.volatility.status).toBe('neutral');
-    expect(verdict.volatility.label).toBe('Volatility Unknown');
+    expect(verdict.volatility.label).toBe('Volatility Data Unavailable');
   });
 });

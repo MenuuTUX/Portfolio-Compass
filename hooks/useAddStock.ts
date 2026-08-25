@@ -12,6 +12,11 @@ function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase();
 }
 
+function finiteNumber(value: any): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 /**
  * Normalize a market/search payload into a portfolio-ready ETF shape.
  */
@@ -20,13 +25,8 @@ function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
   return {
     ticker,
     name: raw?.name || ticker,
-    price: typeof raw?.price === "number" ? raw.price : 0,
-    changePercent:
-      typeof raw?.changePercent === "number"
-        ? raw.changePercent
-        : typeof raw?.daily_change === "number"
-          ? raw.daily_change
-          : 0,
+    price: finiteNumber(raw?.price),
+    changePercent: finiteNumber(raw?.changePercent ?? raw?.daily_change),
     assetType: raw?.assetType || "STOCK",
     isDeepAnalysisLoaded: Boolean(raw?.isDeepAnalysisLoaded),
     history: Array.isArray(raw?.history) ? raw.history : [],
@@ -91,7 +91,7 @@ async function resolveStock(
     }
   }
 
-  // Fast market fallback (same path the browse UI uses — no DB required)
+  // Fast market fallback using the same database-free path as the browse UI.
   const marketRes = await fetch(
     `/api/market/search?query=${encodeURIComponent(target)}&limit=10`,
   );

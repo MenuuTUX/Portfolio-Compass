@@ -1,9 +1,9 @@
 import { fetchFearAndGreedIndex } from "@/lib/scrapers/fear-greed";
 
 /**
- * Market risk / sentiment — fully live, no database.
+ * Live market sentiment with no database.
  * Uses CNN Fear & Greed (same source as /api/market/fear-greed).
- * Portfolio risk preferences stay in the browser; this only feeds the optimizer.
+ * Retained for the sentiment API. The current allocator does not consume it.
  */
 
 /**
@@ -55,7 +55,7 @@ function scoreToRegime(score: number): RiskRegime {
   return "NEUTRAL";
 }
 
-/** Map Fear & Greed (0–100) → risk-aversion lambda (2.0 → 0.5) */
+/** Map Fear & Greed from 0 to 100 onto a risk-aversion value from 2.0 to 0.5. */
 function scoreToLambda(score: number): number {
   let lambda = 2.0 - score * 0.015;
   return Math.max(0.5, Math.min(2.0, lambda));
@@ -63,7 +63,7 @@ function scoreToLambda(score: number): number {
 
 /**
  * Live market risk state from CNN Fear & Greed.
- * No DB seed / history table — single live snapshot is enough for the optimizer.
+ * A single live snapshot supplies the value. No history table is used.
  */
 export async function getMarketRiskState(): Promise<MarketRiskState> {
   try {
@@ -78,14 +78,14 @@ export async function getMarketRiskState(): Promise<MarketRiskState> {
     };
   } catch (error) {
     console.warn(
-      "[Sentiment] Live Fear & Greed unavailable — neutral defaults:",
+      "[Sentiment] Live Fear & Greed unavailable. Using neutral defaults:",
       error instanceof Error ? error.message : error,
     );
     return { ...NEUTRAL_MARKET_RISK, degraded: true };
   }
 }
 
-/** @deprecated No-op — kept so old imports/scripts don't break */
+/** @deprecated No-op retained for older imports and scripts. */
 export async function seedSentimentData(): Promise<boolean> {
   return false;
 }

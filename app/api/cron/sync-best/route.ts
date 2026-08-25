@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 /**
- * Cron DB sync is disabled — no server-side ETF cache.
+ * Cron database sync is disabled. There is no server-side ETF cache.
  */
 export async function GET() {
   return NextResponse.json(

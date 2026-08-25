@@ -42,7 +42,7 @@ export function getHoldingValue(item: PortfolioItem): number {
  *  3. Equal weight across all assets
  *
  * Always returns one weight per input item, summing to 1.
- * Includes every asset — never silently drops holdings.
+ * Includes every asset and never silently drops holdings.
  */
 export function getEffectiveWeights(portfolio: Portfolio): number[] {
   if (portfolio.length === 0) return [];

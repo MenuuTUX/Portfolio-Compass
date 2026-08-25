@@ -11,31 +11,40 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
-const EXPLANATIONS: Record<
-  string,
-  { title: string; meaning: string; thresholds: string }
-> = {
+interface Explanation {
+  title: string;
+  meaning: string;
+  thresholds: string;
+}
+
+const EXPLANATIONS = {
   cost: {
     title: "Management Expense Ratio (MER)",
     meaning:
-      "The MER is the annual fee deducted from your returns to pay for the fund's management. Over decades, even small fee differences can significantly impact total wealth.",
+      "The MER is an annual fund expense expressed as a percentage of assets. Fees reduce returns, but funds with different strategies are not directly comparable on cost alone.",
     thresholds:
-      "Rating Criteria: Low < 0.40% | Moderate 0.40-0.75% | High > 0.75%",
+      "Screen bands: below 0.40% | 0.40% to 0.75% | above 0.75%",
   },
   liquidity: {
     title: "Average Daily Volume",
     meaning:
-      "Liquidity refers to how easily you can buy or sell shares without causing a price impact. Low liquidity can lead to 'slippage', where you pay more or sell for less than the market price.",
-    thresholds: "Rating Criteria: High > 1M | Moderate 100k-1M | Low < 100k",
+      "Trading volume is one input to liquidity. Bid-ask spread and order-book depth also affect the cost of entering or leaving a position.",
+    thresholds: "Screen bands: above 1M | 100K to 1M | below 100K shares",
   },
   volatility: {
     title: "Beta / Realized Volatility",
     meaning:
-      "When beta is available we use market sensitivity vs the broad market. Otherwise we estimate annualized volatility from recent price history.",
+      "When beta is available, the screen shows historical sensitivity to a market benchmark. Otherwise, it estimates annualized volatility from available price history.",
     thresholds:
-      "Beta: Low < 0.85 | Market ~1.0 | High > 1.25 · Realized: Low < 10% | Moderate 10–35% | High > 35%",
+      "Beta bands: below 0.85 | 0.85 to 1.25 | above 1.25. Volatility bands: below 10% | 10% to 35% | above 35%.",
   },
-};
+} satisfies Record<
+  string,
+  Explanation
+>;
+const explanationsByKey = new Map<string, Explanation>(
+  Object.entries(EXPLANATIONS),
+);
 
 export default function EtfVerdictCard({
   etf,
@@ -43,7 +52,7 @@ export default function EtfVerdictCard({
   className,
 }: {
   etf: ETF;
-  /** Chart series — used to estimate vol when beta is missing */
+  /** Chart series used to estimate volatility when beta is missing. */
   history?: { price: number }[];
   className?: string;
 }) {
@@ -78,7 +87,7 @@ export default function EtfVerdictCard({
         .filter((entry): entry is [string, VerdictEntry] => !!entry[1])
         .map(([key, data]) => {
         const isExpanded = expandedKey === key;
-        const explanation = EXPLANATIONS[key];
+        const explanation = explanationsByKey.get(key);
 
         return (
           <motion.div

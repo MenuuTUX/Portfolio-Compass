@@ -31,14 +31,12 @@ export function PortfolioShareButton({
       const element = document.getElementById("portfolio-share-card");
       if (!element) return;
 
-      // 1. Generate PNG
       const dataUrl = await toPng(element, {
         cacheBust: true,
-        backgroundColor: "#FAFAFA", // canvas
-        pixelRatio: 2, // High res
+        backgroundColor: "#FAFAFA",
+        pixelRatio: 2,
       });
 
-      // 2. Trigger Download
       const link = document.createElement("a");
       link.download = `portfolio-compass-${new Date()
         .toISOString()
@@ -46,7 +44,6 @@ export function PortfolioShareButton({
       link.href = dataUrl;
       link.click();
 
-      // 3. Success State
       setIsSuccess(true);
       setTimeout(() => setIsSuccess(false), 2000);
     } catch (err) {
@@ -70,7 +67,11 @@ export function PortfolioShareButton({
         ) : (
           <Download className="w-3.5 h-3.5" />
         )}
-        {isGenerating ? "Generating..." : isSuccess ? "Saved!" : "Export Card"}
+        {isGenerating
+          ? "Generating..."
+          : isSuccess
+            ? "Saved"
+            : "Export snapshot"}
       </button>
 
       {/* Hidden Render Container */}

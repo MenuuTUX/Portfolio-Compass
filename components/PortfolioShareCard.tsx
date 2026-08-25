@@ -84,7 +84,7 @@ export const PortfolioShareCard = React.forwardRef<
       { equities: 0, bonds: 0, cash: 0 },
     );
 
-    const sectors = portfolio.reduce(
+    const sectors = portfolio.reduce<Record<string, number>>(
       (acc, item) => {
         const w = item.weight / totalWeight;
         const itemSectors = item.sectors || {};
@@ -105,7 +105,7 @@ export const PortfolioShareCard = React.forwardRef<
         }
         return acc;
       },
-      {} as Record<string, number>,
+      {},
     );
 
     const topSectors = Object.entries(sectors)
@@ -208,7 +208,7 @@ export const PortfolioShareCard = React.forwardRef<
               </h1>
               <div className="flex items-center gap-3">
                 <span className="px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                  Professional Analysis
+                  Portfolio Snapshot
                 </span>
                 <span className="text-neutral-500 text-xs font-medium uppercase tracking-wide">
                   Portfolio Report
@@ -242,7 +242,7 @@ export const PortfolioShareCard = React.forwardRef<
               <TrendingUp className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
-              Projected Value
+              Modeled Ending Balance
             </div>
             <div className="text-3xl font-bold text-ink tracking-tight mb-1">
               {formatCurrency(metrics.projectedValue)}
@@ -258,7 +258,7 @@ export const PortfolioShareCard = React.forwardRef<
               <Activity className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
-              Total Return
+              Change from Starting Balance
             </div>
             <div className="text-3xl font-bold text-emerald-400 tracking-tight mb-1">
               +{metrics.percentageGrowth.toFixed(0)}%
@@ -273,13 +273,13 @@ export const PortfolioShareCard = React.forwardRef<
               <DollarSign className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
-              Accumulated Yield
+              Estimated Dividends
             </div>
             <div className="text-3xl font-bold text-blue-400 tracking-tight mb-1">
               {formatCurrency(metrics.dividends)}
             </div>
             <div className="text-xs text-neutral-500 font-medium">
-              Reinvested Dividends
+              Reinvested in the model
             </div>
           </div>
 
@@ -288,13 +288,17 @@ export const PortfolioShareCard = React.forwardRef<
               <PieChart className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
-              CAGR
+              {metrics.growthType === "Monte Carlo"
+                ? "Median Simulated CAGR"
+                : "Annual Return Estimate"}
             </div>
             <div className="text-3xl font-bold text-ink tracking-tight mb-1">
               {(metrics.annualReturn * 100).toFixed(2)}%
             </div>
             <div className="text-xs text-neutral-500 font-medium">
-              Compound Annual Growth
+              {metrics.growthType === "Monte Carlo"
+                ? "Derived from the median path"
+                : "Used as a constant model input"}
             </div>
           </div>
         </div>
@@ -337,7 +341,7 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-4 h-4 text-rose-500" />
               <span className="text-xs font-bold text-ink uppercase tracking-wider">
-                Risk Profile
+                Portfolio Statistics
               </span>
             </div>
             <div className="flex justify-between items-end mb-2">
@@ -389,12 +393,12 @@ export const PortfolioShareCard = React.forwardRef<
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold text-ink flex items-center gap-3">
               <TrendingUp className="w-5 h-5 text-emerald-500" />
-              Wealth Growth vs S&P 500
+              {spyData ? "Modeled Balance vs S&P 500" : "Modeled Balance Over Time"}
             </h3>
             <div className="flex gap-6 text-xs font-medium">
               <div className="flex items-center gap-2 text-emerald-400">
                 <div className="w-3 h-1 rounded-full bg-emerald-500"></div>
-                Your Portfolio
+                Modeled Balance
               </div>
               {spyData && (
                 <div className="flex items-center gap-2 text-amber-400">
@@ -405,7 +409,7 @@ export const PortfolioShareCard = React.forwardRef<
               {hasRange && (
                 <div className="flex items-center gap-2 text-emerald-400/50">
                   <div className="w-3 h-3 rounded bg-emerald-500/10 border border-emerald-500/30"></div>
-                  90% Confidence Interval
+                  5th to 95th Percentile Range
                 </div>
               )}
             </div>
@@ -635,7 +639,7 @@ export const PortfolioShareCard = React.forwardRef<
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.6)]" />
             <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest">
-              Generated by Portfolio Compass
+              Model output, not financial advice
             </span>
           </div>
           <span className="text-xs text-neutral-500 font-mono">

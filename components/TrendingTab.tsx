@@ -25,6 +25,10 @@ interface TrendingTabProps {
   onImportPortfolio?: (items: PortfolioItem[]) => void;
 }
 
+const MoversResponseSchema = z.object({
+  tickers: z.array(z.string()).catch([]),
+});
+
 export default function TrendingTab({
   onAddToPortfolio,
   portfolio = [],
@@ -67,7 +71,7 @@ export default function TrendingTab({
         return z.array(ETFSchema).parse(raw);
       } catch (e) {
         console.warn("Snapshot validation failed:", e);
-        return raw as ETF[];
+        return [];
       }
     };
 
@@ -120,8 +124,14 @@ export default function TrendingTab({
         ]);
         if (cancelled) return;
 
-        const topGainers = ((gainersRaw.tickers || []) as string[]).slice(0, 50);
-        const topLosers = ((losersRaw.tickers || []) as string[]).slice(0, 50);
+        const topGainers = MoversResponseSchema.parse(gainersRaw).tickers.slice(
+          0,
+          50,
+        );
+        const topLosers = MoversResponseSchema.parse(losersRaw).tickers.slice(
+          0,
+          50,
+        );
 
         // One combined batch for both lists
         const moversData = await fetchSnapshot([...topGainers, ...topLosers]);
@@ -170,7 +180,7 @@ export default function TrendingTab({
       <div className="mb-6 flex items-center gap-2">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
         <span className="text-xs font-semibold tracking-[0.2em] uppercase text-muted">
-          Market Pulse
+          Market Snapshot
         </span>
       </div>
       <div className="mb-14 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
@@ -204,7 +214,7 @@ export default function TrendingTab({
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-ink">
               <Zap className="w-6 h-6 text-purple-400" />
-              MAG-7
+              Large Tech Watchlist
             </h2>
             {renderSkeleton(4)}
           </div>
@@ -213,7 +223,7 @@ export default function TrendingTab({
       ) : (
         <>
           <TrendingSection
-            title="MAG-7"
+            title="Large Tech Watchlist"
             items={mag7Items}
             Icon={Zap}
             theme="purple"
@@ -235,7 +245,7 @@ export default function TrendingTab({
             communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
-            title="r/justbuy..."
+            title="Reddit ETF Watchlist"
             items={justBuyItems}
             Icon={Sprout}
             theme="orange"
@@ -246,7 +256,7 @@ export default function TrendingTab({
             communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
-            title="Best"
+            title="Top Daily Gainers"
             items={trendingItems}
             Icon={ShoppingBag}
             theme="emerald"
@@ -257,7 +267,7 @@ export default function TrendingTab({
             communityLookup={(ticker, assetType) => getRedditCommunities(ticker, assetType).map(c => ({ name: c.displayName, url: c.url }))}
           />
           <TrendingSection
-            title="Discounted"
+            title="Top Daily Losers"
             items={discountedItems}
             Icon={TrendingDown}
             theme="rose"
@@ -273,15 +283,19 @@ export default function TrendingTab({
       <ETFDetailsDrawer
         etf={selectedItem}
         onClose={() => setSelectedItem(null)}
-        onTickerSelect={(ticker) =>
-          setSelectedItem({
+        onTickerSelect={(ticker) => {
+          const placeholder: ETF = {
             ticker,
             name: ticker,
             price: 0,
             changePercent: 0,
             assetType: "STOCK",
-          } as ETF)
-        }
+            history: [],
+            metrics: { mer: 0, yield: 0 },
+            allocation: { equities: 0, bonds: 0, cash: 0 },
+          };
+          setSelectedItem(placeholder);
+        }}
       />
     </section>
   );

@@ -5,11 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp,
   Activity,
-  BarChart2,
-  Sigma,
   Calculator,
   ArrowRight,
-  RefreshCw,
   Shuffle,
   GitBranch,
   Binary,
@@ -29,21 +26,21 @@ const steps = [
     icon: TrendingUp,
     color: "blue",
     description:
-      "The Simple Projection uses a deterministic mathematical model based on the standard compound interest formula. It assumes a constant rate of return year over year, making it ideal for baseline expectations but unrealistic for volatility.",
+      "The simple projection compounds a constant annual return and regular contributions. It shows how those assumptions accumulate over time; it does not model market volatility.",
     details: [
       {
         label: "Total Return",
-        text: "Price appreciation + reinvested dividends for every holding",
+        text: "A single annual return assumption",
         icon: Calculator,
       },
       {
         label: "All Assets",
-        text: "Value-weighted (shares × price) across the full portfolio",
+        text: "Starting balance plus regular contributions",
         icon: ArrowRight,
       },
       {
         label: "No Volatility",
-        text: "Ignores market crashes or corrections",
+        text: "Does not model changes in return",
         icon: Activity,
       },
     ],
@@ -55,21 +52,21 @@ const steps = [
     icon: GitBranch,
     color: "emerald",
     description:
-      'Monte Carlo simulations model many possible futures by introducing randomness (Brownian Motion) into each asset\'s path. Every holding participates (value-weighted), dividends boost the drift so income is reinvested, and correlations shape the cone of uncertainty.',
+      "The Monte Carlo model generates paths under geometric Brownian motion using estimated drift, volatility, and covariance. The paths are scenarios produced by those assumptions, not forecasts.",
     details: [
       {
         label: "Drift (μ)",
-        text: "Price return + dividend yield (total return)",
+        text: "Historical price drift plus dividend yield",
         icon: ArrowRight,
       },
       {
         label: "Shock (σ)",
-        text: "Random volatility component",
+        text: "Random shocks scaled by estimated volatility",
         icon: Shuffle,
       },
       {
         label: "All Assets",
-        text: "Full portfolio with correlations (Cholesky)",
+        text: "Holdings linked through an estimated covariance matrix",
         icon: Binary,
       },
     ],
@@ -104,13 +101,11 @@ export default function SimulatorExplainer({
                 <Binary className="w-6 h-6 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-ink tracking-tight">
-                Simulation Logic{" "}
-                <span className="text-emerald-400">Exposed</span>
+                How the <span className="text-emerald-400">projection works</span>
               </h2>
             </div>
             <p className="text-neutral-400 max-w-2xl text-sm">
-              Understand the mathematical models powering your wealth
-              projections.
+              Review the assumptions and equations behind each chart.
             </p>
           </div>
         </div>
@@ -224,7 +219,7 @@ export default function SimulatorExplainer({
                     {/* Visual Metaphor: Smooth Chart */}
                     <div className="w-full max-w-sm h-40 bg-surface-card border border-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
                       <div className="absolute top-4 left-4 text-xs text-neutral-400 font-mono">
-                        Growth Trajectory
+                        Constant-return path
                       </div>
                       <svg
                         className="w-full h-full overflow-visible"
@@ -256,7 +251,7 @@ export default function SimulatorExplainer({
                         </defs>
                       </svg>
                       <div className="absolute bottom-4 right-4 text-xs text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
-                        Predictable
+                        Deterministic
                       </div>
                     </div>
                   </motion.div>
@@ -300,7 +295,7 @@ export default function SimulatorExplainer({
                     {/* Visual Metaphor: Random Paths */}
                     <div className="w-full max-w-sm h-40 bg-surface-card border border-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
                       <div className="absolute top-4 left-4 text-xs text-neutral-400 font-mono">
-                        100+ Simulations
+                        Simulated paths
                       </div>
                       <svg
                         className="w-full h-full overflow-visible"
@@ -330,7 +325,7 @@ export default function SimulatorExplainer({
                           opacity="0.4"
                         />
 
-                        {/* Worst Case */}
+                        {/* Lower sample path */}
                         <path
                           d="M0,100 L20,105 L40,110 L60,100 L80,105 L100,95"
                           fill="none"
@@ -341,7 +336,7 @@ export default function SimulatorExplainer({
                         />
                       </svg>
                       <div className="absolute bottom-4 right-4 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
-                        Probabilistic
+                        Assumption-based
                       </div>
                     </div>
                   </motion.div>
