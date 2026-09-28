@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(assets, {
       headers: {
-        "Cache-Control": "public, max-age=15, stale-while-revalidate=60",
+        "Cache-Control": "public, max-age=5, stale-while-revalidate=15",
       },
     });
   } catch (error) {

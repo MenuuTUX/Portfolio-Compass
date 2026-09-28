@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { quoteSessionValues } from "@/lib/quote-session";
+
+const QuoteSessionSchema = z.enum(quoteSessionValues);
 
 // Helper for date string validation (basic ISO check or just string)
 const DateString = z.string();
@@ -43,6 +46,7 @@ export const ETFSchema = z.object({
   price: z.number(),
   currency: z.string().optional(),
   quoteAsOf: z.string().optional(),
+  quoteSession: QuoteSessionSchema.optional(),
   quoteStatus: z.enum(["ok", "unavailable"]).optional(),
   changePercent: z.number(),
   assetType: z.string().optional(),

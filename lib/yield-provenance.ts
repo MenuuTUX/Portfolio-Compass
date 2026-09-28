@@ -32,6 +32,8 @@ export function describeYieldProvenance(
     parts.push("raw provider value retained for reconciliation; definition may differ from issuer yield measures");
   } else if (source) {
     parts.push(source);
+    if (normalization) parts.push(normalization);
+    if (measurementDate) parts.push(`measurement date ${measurementDate}`);
   }
   if (retrievedAt) {
     const date = new Date(retrievedAt);

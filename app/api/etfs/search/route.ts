@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
   const isFullHistoryRequested = searchParams.get("full") === "true";
   const includeHistory =
     searchParams.get("includeHistory") === "true" || isFullHistoryRequested;
+  const includeProfiles = searchParams.get("profiles") !== "false";
 
   try {
     let tickers: string[] = [];
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [quotes, histories] = await Promise.all([
-      getFastQuotes(tickers, { includeProfiles: true }),
+      getFastQuotes(tickers, { includeProfiles }),
       includeHistory
         ? getFastHistory(tickers, isFullHistoryRequested ? "1Y" : "1M")
         : Promise.resolve(new Map<string, HistoryPoint[]>()),
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(assets, {
       headers: {
-        "Cache-Control": "public, max-age=15, stale-while-revalidate=60",
+        "Cache-Control": "public, max-age=5, stale-while-revalidate=15",
       },
     });
   } catch (error) {

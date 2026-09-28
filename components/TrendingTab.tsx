@@ -56,10 +56,13 @@ export default function TrendingTab({
   useEffect(() => {
     let cancelled = false;
 
-    const fetchSnapshot = async (tickers: string[]): Promise<ETF[]> => {
+    const fetchSnapshot = async (
+      tickers: string[],
+      includeHistory = false,
+    ): Promise<ETF[]> => {
       if (tickers.length === 0) return [];
       const res = await fetch(
-        `/api/market/snapshot?tickers=${tickers.join(",")}`,
+        `/api/market/snapshot?tickers=${tickers.join(",")}&history=${includeHistory}`,
       );
       if (!res.ok) throw new Error(`Snapshot failed: ${res.statusText}`);
       const raw = await res.json();
@@ -73,33 +76,36 @@ export default function TrendingTab({
 
     // 1. Curated sections render as soon as their single batch resolves
     const fetchCurated = async () => {
-      try {
-        const allSpecificTickers = [
-          ...MAG7_TICKERS,
-          ...JUST_BUY_TICKERS,
-          ...NATURAL_RESOURCES_TICKERS,
-        ];
-        const specificData = await fetchSnapshot(allSpecificTickers);
-        if (cancelled) return;
-
-        const specificMap = new Map<string, ETF>();
-        specificData.forEach((item) => specificMap.set(item.ticker, item));
-
+      const allSpecificTickers = [
+        ...MAG7_TICKERS,
+        ...JUST_BUY_TICKERS,
+        ...NATURAL_RESOURCES_TICKERS,
+      ];
+      const applyCurated = (data: ETF[]) => {
+        const specificMap = new Map(data.map((item) => [item.ticker, item]));
         setMag7Items(
-          MAG7_TICKERS.map((t) => specificMap.get(t)).filter(
-            (i): i is ETF => !!i,
+          MAG7_TICKERS.map((ticker) => specificMap.get(ticker)).filter(
+            (item): item is ETF => !!item,
           ),
         );
         setJustBuyItems(
-          JUST_BUY_TICKERS.map((t) => specificMap.get(t)).filter(
-            (i): i is ETF => !!i,
+          JUST_BUY_TICKERS.map((ticker) => specificMap.get(ticker)).filter(
+            (item): item is ETF => !!item,
           ),
         );
         setNaturalResourcesItems(
-          NATURAL_RESOURCES_TICKERS.map((t) => specificMap.get(t)).filter(
-            (i): i is ETF => !!i,
+          NATURAL_RESOURCES_TICKERS.map((ticker) => specificMap.get(ticker)).filter(
+            (item): item is ETF => !!item,
           ),
         );
+      };
+      try {
+        const specificData = await fetchSnapshot(allSpecificTickers);
+        if (cancelled) return;
+        applyCurated(specificData);
+        void fetchSnapshot(allSpecificTickers, true)
+          .then((details) => { if (!cancelled) applyCurated(details); })
+          .catch((error) => console.warn("Curated chart history failed:", error));
       } catch (error) {
         console.error("Failed to fetch curated sections:", error);
       } finally {
@@ -130,25 +136,30 @@ export default function TrendingTab({
         );
 
         // One combined batch for both lists
-        const moversData = await fetchSnapshot([...topGainers, ...topLosers]);
+        const moversTickers = [...topGainers, ...topLosers];
+        const applyMovers = (moversData: ETF[]) => {
+          const moversMap = new Map(moversData.map((item) => [item.ticker, item]));
+          const gainersData = topGainers
+            .map((ticker) => moversMap.get(ticker))
+            .filter((item): item is ETF => !!item);
+          const losersData = topLosers
+            .map((ticker) => moversMap.get(ticker))
+            .filter((item): item is ETF => !!item);
+
+          setTrendingItems(
+            gainersData.sort((a, b) => b.changePercent - a.changePercent),
+          );
+          setDiscountedItems(
+            losersData.sort((a, b) => a.changePercent - b.changePercent),
+          );
+        };
+
+        const moversData = await fetchSnapshot(moversTickers);
         if (cancelled) return;
-
-        const moversMap = new Map<string, ETF>();
-        moversData.forEach((item) => moversMap.set(item.ticker, item));
-
-        const gainersData = topGainers
-          .map((t) => moversMap.get(t))
-          .filter((i): i is ETF => !!i);
-        const losersData = topLosers
-          .map((t) => moversMap.get(t))
-          .filter((i): i is ETF => !!i);
-
-        setTrendingItems(
-          gainersData.sort((a, b) => b.changePercent - a.changePercent),
-        );
-        setDiscountedItems(
-          losersData.sort((a, b) => a.changePercent - b.changePercent),
-        );
+        applyMovers(moversData);
+        void fetchSnapshot(moversTickers, true)
+          .then((details) => { if (!cancelled) applyMovers(details); })
+          .catch((error) => console.warn("Mover chart history failed:", error));
       } catch (error) {
         console.error("Failed to fetch market movers:", error);
       }

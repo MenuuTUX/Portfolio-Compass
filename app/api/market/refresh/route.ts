@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     invalidateMarketCache(tickers);
 
     const [quotes, histories] = await Promise.all([
-      getFastQuotes(tickers, { bypassCache: true, includeProfiles: true }),
+      getFastQuotes(tickers, { bypassCache: true }),
       getFastHistory(tickers, "1M"),
     ]);
 

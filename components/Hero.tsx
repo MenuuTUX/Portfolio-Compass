@@ -134,24 +134,10 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
       <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 lg:gap-12 items-center pt-24 pb-12 lg:pt-20 lg:pb-0">
         <div className="text-left space-y-6 lg:space-y-8 pointer-events-none">
           <div className="pointer-events-auto">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              custom={0}
-              variants={textVariants}
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-mono tracking-widest backdrop-blur-md bg-emerald-900/20 border-emerald-500/20 text-emerald-400"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              LOCAL PORTFOLIOS · LIVE MARKET DATA
-            </motion.div>
-
             <motion.h1
               custom={1}
               variants={textVariants}
-              className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight mt-6"
+              className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight"
             >
               Build a portfolio, then test the{" "}
               <span className="text-emerald-400">assumptions behind it.</span>

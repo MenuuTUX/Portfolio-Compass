@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'bun:test';
-import {
-  calculateOverlap,
-  calculateOverlapFromHoldings,
-} from '@/lib/analytics';
+import { calculateOverlapFromHoldings } from '@/lib/analytics';
 
-describe('calculateOverlap', () => {
-  it('should calculate overlap correctly', async () => {
+describe('calculateOverlapFromHoldings', () => {
+  it('should calculate overlap correctly', () => {
     const holdingsA = [
       { ticker: 'AAPL', name: 'Apple', weight: 10 },
       { ticker: 'MSFT', name: 'Microsoft', weight: 5 },
@@ -18,7 +15,7 @@ describe('calculateOverlap', () => {
       { ticker: 'AMZN', name: 'Amazon', weight: 4 },
     ];
 
-    const result = await calculateOverlap(holdingsA, holdingsB);
+    const result = calculateOverlapFromHoldings(holdingsA, holdingsB);
 
     // Expected Overlap Score: min(10, 8) + min(5, 6) = 8 + 5 = 13
     expect(result.overlapScore).toBe(13);

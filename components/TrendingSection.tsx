@@ -25,6 +25,7 @@ import { getAssetIconUrl } from "@/lib/etf-providers";
 import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { quoteSessionLabel } from "@/lib/quote-session";
 
 interface TrendingSectionProps {
   title: string;
@@ -192,6 +193,7 @@ export default function TrendingSection({
               }).format(new Date(etf.quoteAsOf))
             : null;
           const quoteUnavailable = etf.quoteStatus === "unavailable";
+          const quoteLabel = quoteSessionLabel(etf.quoteSession);
 
           // Determine graph color based on history trend if available
           let isGraphPositive = etf.changePercent >= 0;
@@ -272,7 +274,7 @@ export default function TrendingSection({
                       {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
                     </span>
                     <span className="block text-[11px] text-muted mb-1">
-                      {quoteUnavailable ? "Quote unavailable" : quoteTime ? `Quote as of ${quoteTime}` : "Quote time unavailable"}
+                      {quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
                     </span>
                     <span
                       className={cn(

@@ -1,10 +1,13 @@
 
+import type { QuoteSession } from "@/lib/quote-session";
+
 export interface ETF {
   ticker: string;
   name: string;
   price: number;
   currency?: string;
   quoteAsOf?: string;
+  quoteSession?: QuoteSession;
   quoteStatus?: "ok" | "unavailable";
   changePercent: number;
   assetType?: string;
@@ -25,8 +28,8 @@ export interface ETF {
     yieldRetrievedAt?: string | null;
     yieldSourceField?: "trailingAnnualDividendYield" | "dividendYield" | null;
     yieldInputUnit?: "fraction" | "percent" | null;
-    yieldNormalization?: "fraction × 100 to percent" | "already percent" | null;
-    /** Yahoo quote responses do not supply a yield measurement date. */
+    yieldNormalization?: string | null;
+    /** The quote date used for a yield calculated from dated distributions. */
     yieldMeasurementDate?: string | null;
   };
   allocation: {
