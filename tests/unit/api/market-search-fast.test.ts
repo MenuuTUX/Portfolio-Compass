@@ -3,6 +3,7 @@ import { mockModule } from "@/tests/helpers/mock-module";
 
 const getFastQuotes = mock(async () => new Map());
 const getFastHistory = mock(async () => new Map());
+const getFastDividendHistories = mock(async () => new Map());
 const searchFastSymbols = mock(async () => []);
 const quoteToAsset = mock((quote: Record<string, unknown>, history: unknown[] = []) => ({
   ...quote,
@@ -12,6 +13,7 @@ const quoteToAsset = mock((quote: Record<string, unknown>, history: unknown[] = 
 await mockModule("@/lib/fast-market", () => ({
   getFastQuotes,
   getFastHistory,
+  getFastDividendHistories,
   searchFastSymbols,
   quoteToAsset,
 }));

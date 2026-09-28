@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { mapQuote, quoteToAsset } from "@/lib/fast-market";
+import { getSourcedYield } from "@/lib/yield-provenance";
+import { ETFSchema } from "@/schemas/assetSchema";
 import recordedYahooQuotes from "@/tests/fixtures/yahoo-dividend-yield-percentage.json";
 
 describe("Yahoo dividend yield units", () => {
@@ -48,5 +50,23 @@ describe("Yahoo dividend yield units", () => {
       yieldNormalization: null,
       yieldMeasurementDate: null,
     });
+  });
+
+  it("shows a trailing yield from complete distributions, including a known zero", () => {
+    const aapl = mapQuote(recordedYahooQuotes.quotes[0]);
+    const date = new Date().toISOString();
+    const paying = quoteToAsset(aapl, [], [{ date, amount: 1 }]);
+    expect(paying.metrics.yield).toBe(1);
+    expect(paying.metrics.yieldSource).toBe("Yahoo Finance dividend history (TTM)");
+    expect(getSourcedYield(paying.metrics)).toBe(1);
+    expect(ETFSchema.parse(paying).metrics.yieldNormalization).toContain("cash distributions");
+
+    const nonPaying = quoteToAsset(aapl, [], []);
+    expect(nonPaying.metrics.yield).toBe(0);
+    expect(getSourcedYield(nonPaying.metrics)).toBe(0);
+
+    const unavailable = quoteToAsset(aapl, [], null);
+    expect(unavailable.metrics.yieldSource).toBe("Yahoo Finance quote");
+    expect(getSourcedYield(unavailable.metrics)).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getFastQuotes,
   getFastHistory,
+  getFastDividendHistories,
   searchFastSymbols,
   quoteToAsset,
 } from "@/lib/fast-market";
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
         ? getFastHistory(tickers, "1M")
         : Promise.resolve(new Map<string, { date: string; price: number }[]>()),
     ]);
+    const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
 
     const assets = [];
     for (const ticker of tickers.map((t) => t.toUpperCase())) {
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
       if (!q) continue;
       if (assetType && q.assetType !== assetType) continue;
 
-      assets.push(quoteToAsset(q, histories.get(ticker) || []));
+      assets.push(quoteToAsset(q, histories.get(ticker) || [], dividendHistories.get(ticker)));
     }
 
     return NextResponse.json(assets, {

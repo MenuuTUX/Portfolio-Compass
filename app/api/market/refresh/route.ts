@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getFastQuotes,
   getFastHistory,
+  getFastDividendHistories,
   invalidateMarketCache,
   quoteToAsset,
 } from "@/lib/fast-market";
@@ -51,12 +52,13 @@ export async function POST(request: NextRequest) {
       getFastQuotes(tickers, { bypassCache: true }),
       getFastHistory(tickers, "1M"),
     ]);
+    const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
 
     const assets = [];
     for (const ticker of tickers.map((t) => t.toUpperCase())) {
       const q = quotes.get(ticker);
       if (!q) continue;
-      assets.push(quoteToAsset(q, histories.get(ticker) || []));
+      assets.push(quoteToAsset(q, histories.get(ticker) || [], dividendHistories.get(ticker)));
     }
 
     return NextResponse.json({

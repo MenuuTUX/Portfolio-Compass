@@ -29,6 +29,10 @@ export const MetricsSchema = z.object({
   merMeasurementDate: z.string().nullable().optional(),
   yieldSource: z.string().nullable().optional(),
   yieldRetrievedAt: z.string().nullable().optional(),
+  yieldSourceField: z.enum(["trailingAnnualDividendYield", "dividendYield"]).nullable().optional(),
+  yieldInputUnit: z.enum(["fraction", "percent"]).nullable().optional(),
+  yieldNormalization: z.string().nullable().optional(),
+  yieldMeasurementDate: z.string().nullable().optional(),
 });
 
 export const AllocationSchema = z.object({

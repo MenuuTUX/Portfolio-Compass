@@ -5,11 +5,13 @@ type AsyncMockFn = (...args: any[]) => Promise<any>;
 
 const mockGetFastQuotes = mock<AsyncMockFn>(async () => new Map());
 const mockGetFastHistory = mock<AsyncMockFn>(async () => new Map());
+const mockGetFastDividendHistories = mock<AsyncMockFn>(async () => new Map());
 const mockSearchFastSymbols = mock<AsyncMockFn>(async () => []);
 
 await mockModule('@/lib/fast-market', () => ({
   getFastQuotes: mockGetFastQuotes,
   getFastHistory: mockGetFastHistory,
+  getFastDividendHistories: mockGetFastDividendHistories,
   searchFastSymbols: mockSearchFastSymbols,
 }));
 
@@ -56,9 +58,11 @@ describe('API: /api/etfs/search (live, no DB)', () => {
   beforeEach(() => {
     mockGetFastQuotes.mockClear();
     mockGetFastHistory.mockClear();
+    mockGetFastDividendHistories.mockClear();
     mockSearchFastSymbols.mockClear();
     mockGetFastQuotes.mockResolvedValue(new Map());
     mockGetFastHistory.mockResolvedValue(new Map());
+    mockGetFastDividendHistories.mockResolvedValue(new Map());
     mockSearchFastSymbols.mockResolvedValue([]);
   });
 
@@ -68,6 +72,9 @@ describe('API: /api/etfs/search (live, no DB)', () => {
     );
     mockGetFastHistory.mockResolvedValue(
       new Map([['AAPL', [{ date: '2024-01-01', price: 180 }]]]),
+    );
+    mockGetFastDividendHistories.mockResolvedValue(
+      new Map([['AAPL', [{ date: new Date().toISOString(), amount: 1.9 }]]]),
     );
 
     const request = new NextRequest(
@@ -80,6 +87,8 @@ describe('API: /api/etfs/search (live, no DB)', () => {
     expect(response._data[0].ticker).toBe('AAPL');
     expect(response._data[0].price).toBe(190);
     expect(response._data[0].history).toHaveLength(1);
+    expect(response._data[0].metrics.yield).toBe(1);
+    expect(response._data[0].metrics.yieldSource).toBe('Yahoo Finance dividend history (TTM)');
 
     const parseResult = ETFSchema.safeParse(response._data[0]);
     if (!parseResult.success) console.error(parseResult.error);

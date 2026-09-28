@@ -2,7 +2,7 @@ import YahooFinance from "yahoo-finance2";
 import pLimit from "p-limit";
 import { z } from "zod";
 import type { QuoteSession } from "@/lib/quote-session";
-import type { DividendHistoryItem } from "@/lib/finance";
+import { calculateTTMYield, type DividendHistoryItem } from "@/lib/finance";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -660,6 +660,16 @@ export async function getFastDividendHistory(
   }
 }
 
+export async function getFastDividendHistories(
+  tickers: string[],
+): Promise<Map<string, DividendHistoryItem[] | null>> {
+  const limit = pLimit(8);
+  const entries = await Promise.all(normalizeTickers(tickers).map((ticker) =>
+    limit(async () => [ticker, await getFastDividendHistory(ticker)] as const),
+  ));
+  return new Map(entries);
+}
+
 export function isChartRange(value: string): value is ChartRange {
   return value in RANGE_CONFIG;
 }
@@ -1018,7 +1028,14 @@ export async function enrichEtfDetailsGaps(
 }
 
 /** Shared quote -> API asset payload used by the market/search/snapshot routes. */
-export function quoteToAsset(q: FastQuote, history: HistoryPoint[] = []) {
+export function quoteToAsset(
+  q: FastQuote,
+  history: HistoryPoint[] = [],
+  dividendHistory: DividendHistoryItem[] | null = null,
+) {
+  const calculatedYield = dividendHistory === null
+    ? null
+    : calculateTTMYield(dividendHistory, q.price, { historyComplete: true })?.toNumber() ?? null;
   return {
     ticker: q.ticker,
     name: q.name,
@@ -1031,15 +1048,21 @@ export function quoteToAsset(q: FastQuote, history: HistoryPoint[] = []) {
     isDeepAnalysisLoaded: false,
     history,
     metrics: {
-      yield: q.dividendYield ?? null,
-      yieldSource: q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
-      yieldRetrievedAt: q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
-      yieldSourceField: q.dividendYieldField ?? null,
-      yieldInputUnit: q.dividendYieldInputUnit ?? null,
-      yieldNormalization: q.dividendYieldField === "trailingAnnualDividendYield"
-        ? "fraction × 100 to percent"
-        : q.dividendYieldField === "dividendYield" ? "already percent" : null,
-      yieldMeasurementDate: null,
+      yield: calculatedYield ?? q.dividendYield ?? null,
+      yieldSource: calculatedYield !== null
+        ? "Yahoo Finance dividend history (TTM)"
+        : q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+      yieldRetrievedAt: calculatedYield !== null
+        ? new Date().toISOString()
+        : q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
+      yieldSourceField: calculatedYield !== null ? null : q.dividendYieldField ?? null,
+      yieldInputUnit: calculatedYield !== null ? null : q.dividendYieldInputUnit ?? null,
+      yieldNormalization: calculatedYield !== null
+        ? "12-month cash distributions ÷ current share price × 100"
+        : q.dividendYieldField === "trailingAnnualDividendYield"
+          ? "fraction × 100 to percent"
+          : q.dividendYieldField === "dividendYield" ? "already percent" : null,
+      yieldMeasurementDate: calculatedYield !== null ? q.quoteAsOf ?? null : null,
       mer: q.expenseRatio ?? null,
       merSource: q.expenseRatio !== undefined ? "Yahoo Finance quote" : null,
       merRetrievedAt: q.expenseRatio !== undefined ? q.retrievedAt ?? null : null,

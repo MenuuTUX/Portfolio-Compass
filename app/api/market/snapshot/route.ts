@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFastQuotes, getFastHistory, quoteToAsset } from "@/lib/fast-market";
+import { getFastQuotes, getFastHistory, getFastDividendHistories, quoteToAsset } from "@/lib/fast-market";
 
 export const maxDuration = 30;
 
@@ -28,13 +28,14 @@ export async function GET(request: NextRequest) {
         ? getFastHistory(tickers, "1M")
         : Promise.resolve(new Map<string, { date: string; price: number }[]>()),
     ]);
+    const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
 
     const assets = [];
     for (const ticker of tickers.map((t) => t.toUpperCase())) {
       const q = quotes.get(ticker);
       if (!q) continue;
 
-      assets.push(quoteToAsset(q, histories.get(ticker) || []));
+      assets.push(quoteToAsset(q, histories.get(ticker) || [], dividendHistories.get(ticker)));
     }
 
     return NextResponse.json(assets, {
