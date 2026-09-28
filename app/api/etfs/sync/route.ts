@@ -72,12 +72,40 @@ export async function POST(req: NextRequest) {
       ticker: q.ticker,
       name: q.name,
       price: q.price,
+      currency: q.currency,
+      quoteAsOf: q.quoteAsOf,
       changePercent: q.changePercent,
       isDeepAnalysisLoaded: Boolean(details),
       history,
       metrics: {
-        yield: q.dividendYield ?? details?.expenseRatio ?? 0,
-        mer: q.expenseRatio ?? details?.expenseRatio ?? 0,
+        yield: q.dividendYield ?? null,
+        yieldSource: q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+        yieldRetrievedAt: q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
+        yieldSourceField: q.dividendYieldField ?? null,
+        yieldInputUnit: q.dividendYieldInputUnit ?? null,
+        yieldNormalization: q.dividendYieldField === "trailingAnnualDividendYield"
+          ? "fraction × 100 to percent"
+          : q.dividendYieldField === "dividendYield" ? "already percent" : null,
+        yieldMeasurementDate: null,
+        mer: q.expenseRatio ?? details?.expenseRatio ?? null,
+        merSource: q.expenseRatio !== undefined
+          ? "Yahoo Finance quote"
+          : details?.expenseRatioSource ?? null,
+        merRetrievedAt: q.expenseRatio !== undefined
+          ? q.retrievedAt ?? null
+          : details?.expenseRatioRetrievedAt ?? null,
+        merSourceField: q.expenseRatio !== undefined
+          ? q.expenseRatioField ?? null
+          : details?.expenseRatioField ?? null,
+        merInputUnit: q.expenseRatio !== undefined
+          ? q.expenseRatioInputUnit ?? null
+          : details?.expenseRatioInputUnit ?? null,
+        merNormalization: q.expenseRatio !== undefined
+          ? q.expenseRatioNormalization ?? null
+          : details?.expenseRatioNormalization ?? null,
+        merMeasurementDate: q.expenseRatio !== undefined
+          ? q.expenseRatioMeasurementDate ?? null
+          : details?.expenseRatioMeasurementDate ?? null,
       },
       dividend: q.dividend,
       dividendYield: q.dividendYield,

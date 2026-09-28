@@ -17,6 +17,9 @@ export interface FastQuote {
   ticker: string;
   name: string;
   price: number;
+  currency?: string;
+  quoteAsOf?: string;
+  retrievedAt?: string;
   changePercent: number;
   change: number;
   assetType: "STOCK" | "ETF";
@@ -26,9 +29,16 @@ export interface FastQuote {
   forwardPe?: number;
   eps?: number;
   dividend?: number;
+  /** Yahoo quote field selected for dividendYield, with the raw field's unit. */
+  dividendYieldField?: "trailingAnnualDividendYield" | "dividendYield";
+  dividendYieldInputUnit?: "fraction" | "percent";
   dividendYield?: number;
   /** Expense ratio in percent (e.g. 0.09 for 0.09%). ETFs only. */
   expenseRatio?: number;
+  expenseRatioField?: "netExpenseRatio";
+  expenseRatioInputUnit?: "percent";
+  expenseRatioNormalization?: string;
+  expenseRatioMeasurementDate?: null;
   sector?: string;
   industry?: string;
   open?: number;
@@ -121,7 +131,7 @@ function normalizeTickers(tickers: string[]): string[] {
   );
 }
 
-function mapQuote(q: any): FastQuote {
+export function mapQuote(q: any): FastQuote {
   const low = q.regularMarketDayLow;
   const high = q.regularMarketDayHigh;
   const yearLow = q.fiftyTwoWeekLow;
@@ -130,26 +140,43 @@ function mapQuote(q: any): FastQuote {
     a !== undefined && b !== undefined
       ? `${a.toFixed(2)} - ${b.toFixed(2)}`
       : undefined;
+  const quoteTime = q.regularMarketTime instanceof Date
+    ? q.regularMarketTime.getTime()
+    : isFiniteNumber(q.regularMarketTime)
+      ? q.regularMarketTime * (q.regularMarketTime < 1e12 ? 1000 : 1)
+      : NaN;
+  const quoteAsOf = Number.isFinite(quoteTime)
+    ? new Date(quoteTime).toISOString()
+    : undefined;
 
   let dividendYield: number | undefined;
-  if (isFiniteNumber(q.trailingAnnualDividendYield)) {
+  let dividendYieldField: FastQuote["dividendYieldField"];
+  let dividendYieldInputUnit: FastQuote["dividendYieldInputUnit"];
+  if (isFiniteNumber(q.trailingAnnualDividendYield) && q.trailingAnnualDividendYield > 0) {
     dividendYield = q.trailingAnnualDividendYield * 100;
-  } else if (isFiniteNumber(q.dividendYield)) {
-    // Some payloads already express this as a percentage
-    dividendYield =
-      q.dividendYield < 1 ? q.dividendYield * 100 : q.dividendYield;
+    dividendYieldField = "trailingAnnualDividendYield";
+    dividendYieldInputUnit = "fraction";
+  } else if (isFiniteNumber(q.dividendYield) && q.dividendYield > 0) {
+    // Yahoo's quote dividendYield field is already a percentage.
+    dividendYield = q.dividendYield;
+    dividendYieldField = "dividendYield";
+    dividendYieldInputUnit = "percent";
   }
 
-  // netExpenseRatio is already percent (e.g. 0.0945 for SPY). 0 = missing.
-  let expenseRatio: number | undefined;
-  if (isFiniteNumber(q.netExpenseRatio) && q.netExpenseRatio > 0) {
-    expenseRatio = q.netExpenseRatio;
-  }
+  // Keep the hot quote path independent of fund-detail helpers. Yahoo uses
+  // percent for this field; zero and implausibly large values are unknown.
+  const expenseRatio = isFiniteNumber(q.netExpenseRatio) &&
+      q.netExpenseRatio > 0 && q.netExpenseRatio < 20
+    ? q.netExpenseRatio
+    : undefined;
 
   return {
     ticker: q.symbol,
     name: q.shortName || q.longName || q.symbol,
     price: q.regularMarketPrice ?? 0,
+    currency: typeof q.currency === "string" ? q.currency : undefined,
+    quoteAsOf,
+    retrievedAt: new Date().toISOString(),
     changePercent: q.regularMarketChangePercent ?? 0,
     change: q.regularMarketChange ?? 0,
     assetType: q.quoteType === "ETF" ? "ETF" : "STOCK",
@@ -160,7 +187,15 @@ function mapQuote(q: any): FastQuote {
     eps: q.epsTrailingTwelveMonths,
     dividend: q.trailingAnnualDividendRate,
     dividendYield,
+    dividendYieldField,
+    dividendYieldInputUnit,
     expenseRatio,
+    expenseRatioField: expenseRatio !== undefined ? "netExpenseRatio" : undefined,
+    expenseRatioInputUnit: expenseRatio !== undefined ? "percent" : undefined,
+    expenseRatioNormalization: expenseRatio !== undefined
+      ? "kept as percent per netExpenseRatio field assumption"
+      : undefined,
+    expenseRatioMeasurementDate: expenseRatio !== undefined ? null : undefined,
     open: q.regularMarketOpen,
     previousClose: q.regularMarketPreviousClose,
     daysRange: fmtRange(low, high),
@@ -579,6 +614,12 @@ export interface FastEtfDetails {
   ticker: string;
   description?: string;
   expenseRatio?: number; // percent, e.g. 0.09 for 0.09%
+  expenseRatioSource?: string;
+  expenseRatioField?: "netExpenseRatio" | "annualReportExpenseRatio" | "Expense Ratio";
+  expenseRatioInputUnit?: "fraction" | "percent" | "unknown";
+  expenseRatioNormalization?: string;
+  expenseRatioMeasurementDate?: string | null;
+  expenseRatioRetrievedAt?: string;
   beta?: number;
   holdingsCount?: number;
   /** Equity sector weights as 0-1 fractions, keyed by Yahoo slug or label */
@@ -664,7 +705,7 @@ export async function getFastEtfDetails(
         detectFundClass,
         positionsToAllocation,
         parseBondRatings,
-        normalizeExpenseRatio,
+        normalizeExpenseRatioWithProvenance,
         pickBeta,
       } = await import("@/lib/asset-class");
 
@@ -707,9 +748,14 @@ export async function getFastEtfDetails(
         data.fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio ??
         undefined;
       const feeFromQuote = quote?.netExpenseRatio ?? undefined;
-      const expenseRatio =
-        normalizeExpenseRatio(feeFromQuote, "quote") ??
-        normalizeExpenseRatio(feeFromProfile, "profile");
+      const normalizedQuoteFee = normalizeExpenseRatioWithProvenance(feeFromQuote, "quote");
+      const normalizedProfileFee = normalizeExpenseRatioWithProvenance(feeFromProfile, "profile");
+      const selectedFee = normalizedQuoteFee ?? normalizedProfileFee;
+      const expenseRatio = selectedFee?.value;
+      const expenseRatioSource = normalizedQuoteFee
+        ? "Yahoo Finance quote"
+        : normalizedProfileFee ? "Yahoo Finance fund profile" : undefined;
+      const expenseRatioField = selectedFee?.sourceField;
 
       const stockPosition = th?.stockPosition ?? undefined;
       const bondPosition = th?.bondPosition ?? undefined;
@@ -758,6 +804,12 @@ export async function getFastEtfDetails(
         ticker: ticker.toUpperCase(),
         description,
         expenseRatio,
+        expenseRatioSource,
+        expenseRatioField,
+        expenseRatioInputUnit: selectedFee?.inputUnit,
+        expenseRatioNormalization: selectedFee?.normalization,
+        expenseRatioMeasurementDate: selectedFee?.measurementDate ?? null,
+        expenseRatioRetrievedAt: expenseRatioSource ? new Date().toISOString() : undefined,
         beta,
         holdingsCount: holdings.length || undefined,
         sectors,
@@ -785,7 +837,7 @@ export async function getFastEtfDetails(
 export async function enrichEtfDetailsGaps(
   base: FastEtfDetails,
 ): Promise<FastEtfDetails> {
-  const needsMer = !base.expenseRatio;
+  const needsMer = base.expenseRatio === undefined;
   const needsHoldings = base.holdings.length === 0;
   const needsDesc = !base.description;
   const needsBeta = base.beta === undefined;
@@ -798,7 +850,7 @@ export async function enrichEtfDetailsGaps(
     const { getStockProfile, getEtfHoldings } = await import(
       "@/lib/scrapers/stock-analysis"
     );
-    const { normalizeExpenseRatio, pickBeta } = await import(
+    const { normalizeExpenseRatioWithProvenance, pickBeta } = await import(
       "@/lib/asset-class"
     );
 
@@ -813,8 +865,20 @@ export async function enrichEtfDetailsGaps(
 
     if (profile) {
       if (needsMer) {
-        const mer = normalizeExpenseRatio(profile.expenseRatio, "scraper");
-        if (mer !== undefined) next.expenseRatio = mer;
+        const fee = normalizeExpenseRatioWithProvenance(
+          profile.expenseRatio,
+          "scraper",
+          profile.expenseRatioInputUnit,
+        );
+        if (fee !== undefined) {
+          next.expenseRatio = fee.value;
+          next.expenseRatioSource = "StockAnalysis";
+          next.expenseRatioField = fee.sourceField;
+          next.expenseRatioInputUnit = fee.inputUnit;
+          next.expenseRatioNormalization = fee.normalization;
+          next.expenseRatioMeasurementDate = fee.measurementDate;
+          next.expenseRatioRetrievedAt = new Date().toISOString();
+        }
       }
       if (needsDesc && profile.description) {
         next.description = profile.description;
@@ -855,4 +919,56 @@ export async function enrichEtfDetailsGaps(
     console.warn(`[FastMarket] Gap enrichment failed for ${base.ticker}:`, e);
     return base;
   }
+}
+
+/** Shared quote -> API asset payload used by the market/search/snapshot routes. */
+export function quoteToAsset(q: FastQuote, history: HistoryPoint[] = []) {
+  return {
+    ticker: q.ticker,
+    name: q.name,
+    price: q.price,
+    currency: q.currency,
+    quoteAsOf: q.quoteAsOf,
+    changePercent: q.changePercent,
+    assetType: q.assetType,
+    isDeepAnalysisLoaded: false,
+    history,
+    metrics: {
+      yield: q.dividendYield ?? null,
+      yieldSource: q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+      yieldRetrievedAt: q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
+      yieldSourceField: q.dividendYieldField ?? null,
+      yieldInputUnit: q.dividendYieldInputUnit ?? null,
+      yieldNormalization: q.dividendYieldField === "trailingAnnualDividendYield"
+        ? "fraction × 100 to percent"
+        : q.dividendYieldField === "dividendYield" ? "already percent" : null,
+      yieldMeasurementDate: null,
+      mer: q.expenseRatio ?? null,
+      merSource: q.expenseRatio !== undefined ? "Yahoo Finance quote" : null,
+      merRetrievedAt: q.expenseRatio !== undefined ? q.retrievedAt ?? null : null,
+      merSourceField: q.expenseRatioField ?? null,
+      merInputUnit: q.expenseRatioInputUnit ?? null,
+      merNormalization: q.expenseRatioNormalization ?? null,
+      merMeasurementDate: q.expenseRatioMeasurementDate ?? null,
+    },
+    allocation: { equities: 0, bonds: 0, cash: 0 },
+    sectors: {},
+    sector: q.sector,
+    industry: q.industry,
+    marketCap: q.marketCap,
+    volume: q.volume,
+    peRatio: q.peRatio,
+    forwardPe: q.forwardPe,
+    eps: q.eps,
+    dividend: q.dividend,
+    dividendYield: q.dividendYield,
+    open: q.open,
+    previousClose: q.previousClose,
+    daysRange: q.daysRange,
+    fiftyTwoWeekRange: q.fiftyTwoWeekRange,
+    fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
+    fiftyTwoWeekLow: q.fiftyTwoWeekLow,
+    earningsDate: q.earningsDate,
+    sharesOutstanding: q.sharesOutstanding,
+  };
 }

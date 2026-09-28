@@ -1,0 +1,12 @@
+{
+  "capturedAt": "2026-09-26",
+  "source": "Yahoo Finance quote fields recorded during the Portfolio Compass financial audit",
+  "field": "dividendYield",
+  "unit": "percent for dividendYield; decimal fraction for trailingAnnualDividendYield",
+  "quotes": [
+    { "symbol": "AAPL", "quoteType": "EQUITY", "regularMarketPrice": 100, "dividendYield": 0.32 },
+    { "symbol": "SPY", "quoteType": "ETF", "regularMarketPrice": 100, "dividendYield": 0.98 },
+    { "symbol": "XIC.TO", "quoteType": "ETF", "regularMarketPrice": 100, "dividendYield": 1.94 },
+    { "symbol": "QQQ", "quoteType": "ETF", "regularMarketPrice": 100, "trailingAnnualDividendYield": 0.014 }
+  ]
+}

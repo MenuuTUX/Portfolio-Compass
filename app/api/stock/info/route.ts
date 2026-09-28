@@ -41,10 +41,7 @@ export async function GET(request: Request) {
     // Primary profile source
     let profile: Partial<StockProfile> | null = await getStockProfile(ticker);
 
-    // 2. Try to get specialized ETF description from ETF.com (User requested source)
-    // We do this if profile is missing, or even if present to see if we can get "Analysis & Insights"
-    // However, to save time, we might only do it if we suspect it's an ETF or if description is missing.
-    // Given the user request "scrap this website... for the description", we prioritize it.
+    // ETF.com descriptions are richer than Yahoo's, so they win when present
     const etfDesc = await getEtfDescription(ticker);
     if (etfDesc) {
       profile = profile
@@ -52,7 +49,7 @@ export async function GET(request: Request) {
         : { sector: "Unknown", industry: "Unknown", description: etfDesc };
     }
 
-    // 3. Fallback to Yahoo Finance if still missing description or basic info
+    // Fall back to Yahoo when description or basic info is still missing
     if (!profile || !profile.description) {
       try {
         // Fetch summaryProfile (stocks) and fundProfile (ETFs)
@@ -109,8 +106,14 @@ export async function GET(request: Request) {
       );
     }
 
-    // Partial profile is still useful (sector/industry without description)
-    return NextResponse.json(profile);
+    // The profile card uses these descriptive fields only. Scraped analyst
+    // targets lack a reliable as-of date and currency, so do not publish them
+    // through this endpoint as though they were current advice.
+    return NextResponse.json({
+      sector: profile.sector,
+      industry: profile.industry,
+      description: profile.description,
+    });
   } catch (error) {
     console.error("Error fetching stock profile:", error);
 

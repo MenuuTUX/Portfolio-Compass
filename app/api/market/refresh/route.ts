@@ -3,6 +3,7 @@ import {
   getFastQuotes,
   getFastHistory,
   invalidateMarketCache,
+  quoteToAsset,
 } from "@/lib/fast-market";
 import { z } from "zod";
 
@@ -55,25 +56,7 @@ export async function POST(request: NextRequest) {
     for (const ticker of tickers.map((t) => t.toUpperCase())) {
       const q = quotes.get(ticker);
       if (!q) continue;
-      assets.push({
-        ticker: q.ticker,
-        name: q.name,
-        price: q.price,
-        changePercent: q.changePercent,
-        assetType: q.assetType,
-        history: histories.get(ticker) || [],
-        metrics: {
-          yield: q.dividendYield ?? 0,
-          mer: q.expenseRatio ?? 0,
-        },
-        allocation: { equities: 0, bonds: 0, cash: 0 },
-        sector: q.sector,
-        industry: q.industry,
-        marketCap: q.marketCap,
-        volume: q.volume,
-        peRatio: q.peRatio,
-        dividendYield: q.dividendYield,
-      });
+      assets.push(quoteToAsset(q, histories.get(ticker) || []));
     }
 
     return NextResponse.json({

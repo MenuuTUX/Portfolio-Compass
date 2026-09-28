@@ -1,0 +1,15 @@
+{
+  "source": "Representative raw adapter inputs used to lock the current unit assumptions; not a provider accuracy certification.",
+  "yahooQuote": {
+    "symbol": "QUOTE",
+    "quoteType": "ETF",
+    "regularMarketPrice": 100,
+    "netExpenseRatio": 0.0945
+  },
+  "yahooFundProfile": {
+    "annualReportExpenseRatio": 0.0003
+  },
+  "stockAnalysis": {
+    "expenseRatioText": "0.03%"
+  }
+}

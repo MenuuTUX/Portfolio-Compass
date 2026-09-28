@@ -11,8 +11,9 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  ReferenceLine,
 } from "recharts";
-import { cn, formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { Portfolio } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -29,32 +30,57 @@ import {
   getCholeskyDecomposition,
   generateMonteCarloPaths,
   calculateCone,
+  calculateQuantile,
 } from "@/lib/monte-carlo";
 import {
   getEffectiveWeights,
-  getAssetYieldFraction,
   getPortfolioMarketValue,
-  getPortfolioDividendYield,
-  annualYieldToDailyLogDrift,
-  estimateAssetTotalReturn,
+  getPortfolioCurrency,
 } from "@/lib/math/portfolio-returns";
+import {
+  alignPriceHistories,
+  hasDailyObservationCoverage,
+} from "@/lib/math/history";
+import { convertPriceHistoryToCad, type HistoricalFxRate } from "@/lib/math/fx-history";
+import { getPortfolioValuation, type BankOfCanadaFxRate } from "@/lib/math/portfolio-returns";
 import { PortfolioShareButton } from "../PortfolioShareButton";
 import SimulatorExplainer from "./SimulatorExplainer";
 
 interface MonteCarloSimulatorProps {
   portfolio: Portfolio;
+  baseCurrency?: string;
+  startingValue?: number;
+  fxProvenance?: BankOfCanadaFxRate;
   onBack?: () => void;
+}
+
+interface SimulationModelStats {
+  annualizedLogDrift: number;
+  annualizedVolatility: number;
+  observationCount: number;
+  lookbackStart: string;
+  lookbackEnd: string;
+}
+
+function hasDailyHistory(points: Portfolio[0]["history"]): boolean {
+  return !!points && points.length >= 200 &&
+    hasDailyObservationCoverage(points.map((point) => point.date));
 }
 
 export default function MonteCarloSimulator({
   portfolio,
+  baseCurrency,
+  startingValue,
+  fxProvenance,
   onBack,
 }: MonteCarloSimulatorProps) {
+  const heldPortfolio = portfolio.filter((item) => item.shares > 0);
+  const currency = baseCurrency ?? getPortfolioCurrency(portfolio) ?? undefined;
+  const mixedCurrency = new Set(heldPortfolio.map((item) => item.currency)).size > 1;
+  const currentPortfolioValue = useMemo(() => startingValue ??
+    (mixedCurrency && currency ? getPortfolioValuation(portfolio, currency, Date.now(), fxProvenance).totalValue ?? NaN : getPortfolioMarketValue(portfolio)),
+    [portfolio, startingValue, mixedCurrency, currency, fxProvenance]);
   // Market value across *all* holdings
-  const currentPortfolioValue = useMemo(
-    () => getPortfolioMarketValue(portfolio),
-    [portfolio],
-  );
 
   // State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -63,16 +89,16 @@ export default function MonteCarloSimulator({
   const [numSimulations, setNumSimulations] = useState(50);
   const [timeHorizonYears, setTimeHorizonYears] = useState(10);
 
-  // Initialize with portfolio value if > 0, else 10000
+  // Do not invent a balance when the portfolio value is unavailable.
   const [initialInvestment, setInitialInvestment] = useState<number>(
-    currentPortfolioValue || 10000,
+    Number.isFinite(currentPortfolioValue) ? currentPortfolioValue : 0,
   );
 
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [richPortfolio, setRichPortfolio] = useState<Portfolio>(portfolio);
-  const [analyticSharpe, setAnalyticSharpe] = useState<number>(0);
-  const [weightedYield, setWeightedYield] = useState<number>(0);
+  const [modelStats, setModelStats] = useState<SimulationModelStats | null>(
+    null,
+  );
 
   // Animation Ref
   const animationFrameRef = useRef<number>(0);
@@ -88,50 +114,92 @@ export default function MonteCarloSimulator({
 
   // Load full history if needed
   const ensureFullHistory = useCallback(async (): Promise<Portfolio | null> => {
-    // Check if we have enough history (e.g. > 100 points) for all items
-    const needsFetch = portfolio.some(
-      (item) => !item.history || item.history.length < 200,
-    );
+    const heldPortfolio = portfolio.filter((item) => item.shares > 0);
+    const needsFetch = heldPortfolio.some((item) => !hasDailyHistory(item.history));
 
-    if (!needsFetch) {
-      setRichPortfolio(portfolio);
-      return portfolio;
+    let historyPortfolio = heldPortfolio;
+    if (needsFetch) {
+      setIsLoadingHistory(true);
+      setError(null);
+
+      try {
+        const tickers = heldPortfolio.map((p) => p.ticker).join(",");
+        const res = await fetch(
+          `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`,
+        );
+        if (!res.ok) throw new Error("Failed to fetch historical data");
+
+        const { series } = await res.json();
+
+        historyPortfolio = heldPortfolio.map((item) => {
+          const points = series?.[item.ticker.toUpperCase()];
+          return points?.length ? { ...item, history: points } : item;
+        });
+      } catch (e: any) {
+        setError(`Error loading data: ${e.message}`);
+        setIsLoadingHistory(false);
+        return null;
+      }
     }
 
-    setIsLoadingHistory(true);
-    setError(null);
-
-    try {
-      const tickers = portfolio.map((p) => p.ticker).join(",");
-      const res = await fetch(
-        `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`,
-      );
-      if (!res.ok) throw new Error("Failed to fetch historical data");
-
-      const { series } = await res.json();
-
-      const newPortfolio = portfolio.map((item) => {
-        const points = series?.[item.ticker.toUpperCase()];
-        if (points && points.length > 0) {
-          return { ...item, history: points };
+    if (mixedCurrency) {
+      try {
+        if (currency !== "CAD" || !fxProvenance || !Number.isFinite(fxProvenance.usdCad) || fxProvenance.usdCad <= 0) {
+          throw new Error("A fresh CAD valuation and USD/CAD rate are required for mixed-currency simulation.");
         }
-        return item;
-      });
-
-      setRichPortfolio(newPortfolio);
-      setIsLoadingHistory(false);
-      return newPortfolio;
-    } catch (e: any) {
-      setError(`Error loading data: ${e.message}`);
-      setIsLoadingHistory(false);
-      return null;
+        const historyDates = historyPortfolio.flatMap((item) => (item.history ?? []).map((point) => point.date))
+          .filter((date) => Number.isFinite(Date.parse(date)))
+          .map((date) => new Date(Date.parse(date)).toISOString().slice(0, 10))
+          .sort();
+        const earliestDate = historyDates[0];
+        const latestDate = historyDates[historyDates.length - 1];
+        if (!earliestDate || !latestDate) throw new Error("Historical prices are unavailable for FX conversion.");
+        const start = new Date(Date.parse(earliestDate) - 10 * 86_400_000).toISOString().slice(0, 10);
+        const response = await fetch(`/api/market/fx-history?start_date=${start}&end_date=${latestDate}`);
+        if (!response.ok) throw new Error("Historical FX data is unavailable.");
+        const data = await response.json();
+        if (!Array.isArray(data?.series)) throw new Error("Historical FX data is invalid.");
+        const fxRates = data.series as HistoricalFxRate[];
+        const converted = historyPortfolio.map((item) => {
+          const history = convertPriceHistoryToCad(item.history ?? [], item.currency ?? "", fxRates);
+          return history ? { ...item, currency: "CAD", history, price: item.currency === "USD" ? Number(item.price) * fxProvenance.usdCad : Number(item.price) } : null;
+        });
+        if (converted.some((item) => !item)) throw new Error("Historical FX does not cover every held price observation.");
+        historyPortfolio = converted as Portfolio;
+      } catch (e: any) {
+        setError(e.message);
+        setIsLoadingHistory(false);
+        return null;
+      }
     }
-  }, [portfolio]);
+    setIsLoadingHistory(false);
+    return historyPortfolio;
+  }, [portfolio, mixedCurrency, currency, fxProvenance]);
 
   // Prepare data for every portfolio asset.
   const prepareSimulation = useCallback(async () => {
     if (portfolio.length === 0) {
       setError("Portfolio is empty.");
+      return;
+    }
+
+    // Validate the live portfolio valuation before loading history. An
+    // unavailable value must never be replaced with a synthetic starting sum.
+    if (!Number.isFinite(currentPortfolioValue) || currentPortfolioValue <= 0) {
+      setError("Simulation requires a positive valued portfolio.");
+      return;
+    }
+    if (!currency || !getPortfolioValuation(portfolio, currency, Date.now(), fxProvenance).complete) {
+      setError("Simulation requires fresh, complete quotes and a valid currency for every holding.");
+      return;
+    }
+    const heldPortfolio = portfolio.filter((item) => item.shares > 0);
+    if (heldPortfolio.some((item) => !Number.isFinite(Number(item.price)) || Number(item.price) <= 0)) {
+      setError("Simulation is unavailable until every holding has a valid positive quote.");
+      return;
+    }
+    if (!Number.isFinite(initialInvestment) || initialInvestment <= 0) {
+      setError("Enter a positive starting value to run the simulation.");
       return;
     }
 
@@ -144,172 +212,57 @@ export default function MonteCarloSimulator({
 
     const activePortfolio = fetchedPortfolio;
     const n = activePortfolio.length;
-    // Value-based weights preferred; falls back to explicit weights / equal
+
     const weights = getEffectiveWeights(activePortfolio);
+    const aligned = alignPriceHistories(activePortfolio);
+    const prices = aligned?.prices;
+    const dates = aligned?.dates;
+    const observationCount = prices?.[0]?.length ? prices[0].length - 1 : 0;
+    if (!prices || !dates || observationCount < 200 || !hasDailyObservationCoverage(dates)) {
+      setError(`Simulation needs at least 200 aligned daily returns for every holding; found ${observationCount}.`);
+      return;
+    }
 
-    // Assets with enough price history for empirical returns
-    const HISTORY_MIN = 30;
-    const hasHistory = activePortfolio.map(
-      (item) => !!(item.history && item.history.length >= HISTORY_MIN),
+    const returnsMatrix = prices.map(calculateLogReturns);
+    if (returnsMatrix.some((returns) => returns.length !== observationCount)) {
+      setError("Simulation history contains invalid prices and cannot be aligned safely.");
+      return;
+    }
+    const covMatrix = calculateCovarianceMatrix(returnsMatrix);
+    const meanReturns = returnsMatrix.map(
+      (returns) => returns.reduce((sum, value) => sum + value, 0) / returns.length,
     );
-    const historyIndices = hasHistory
-      .map((ok, i) => (ok ? i : -1))
-      .filter((i) => i >= 0);
-    const noHistoryIndices = hasHistory
-      .map((ok, i) => (!ok ? i : -1))
-      .filter((i) => i >= 0);
-
-    if (noHistoryIndices.length > 0) {
-      const names = noHistoryIndices
-        .map((i) => activePortfolio[i].ticker)
-        .join(", ");
-      // These assets still enter the model through yield and heuristic drift.
-      setError(
-        `Note: ${names} lack price history; using yield + heuristic drift so they still count.`,
-      );
-    }
-
-    // Align overlapping history among assets that have it
-    let meanPriceLog: number[] = new Array(n).fill(0);
-    let covMatrix: number[][] = Array.from({ length: n }, () =>
-      Array(n).fill(0),
-    );
-
-    if (historyIndices.length > 0) {
-      const histItems = historyIndices.map((i) => activePortfolio[i]);
-      const startDates = histItems.map((item) =>
-        new Date(item.history[0].date).getTime(),
-      );
-      const latestStartDate = Math.max(...startDates);
-
-      const alignedPrices: number[][] = [];
-      histItems.forEach((item) => {
-        const filtered = item.history.filter(
-          (h) => new Date(h.date).getTime() >= latestStartDate,
-        );
-        alignedPrices.push(filtered.map((h) => h.price));
-      });
-
-      const minLen = Math.min(...alignedPrices.map((arr) => arr.length));
-      if (minLen < HISTORY_MIN && historyIndices.length === n) {
-        // Every asset has history but overlap is too short
-        const limitingItem = histItems.reduce((a, b) =>
-          new Date(a.history[0].date) > new Date(b.history[0].date) ? a : b,
-        );
-        const startDate = new Date(
-          limitingItem.history[0].date,
-        ).toLocaleDateString();
-        setError(
-          `Portfolio overlap is too short (${minLen} days). Limited by ${limitingItem.ticker} (Starts ${startDate}).`,
-        );
-        return;
-      }
-
-      if (minLen >= 2) {
-        const finalPrices = alignedPrices.map((arr) =>
-          arr.slice(arr.length - minLen),
-        );
-        const returnsMatrix = finalPrices.map((prices) =>
-          calculateLogReturns(prices),
-        );
-
-        // Empirical price log-means for history assets
-        historyIndices.forEach((pi, localIdx) => {
-          const rets = returnsMatrix[localIdx];
-          meanPriceLog[pi] =
-            rets.reduce((a, b) => a + b, 0) / Math.max(1, rets.length);
-        });
-
-        // Empirical covariance among history assets
-        try {
-          const histCov = calculateCovarianceMatrix(returnsMatrix);
-          for (let i = 0; i < historyIndices.length; i++) {
-            for (let j = 0; j < historyIndices.length; j++) {
-              covMatrix[historyIndices[i]][historyIndices[j]] = histCov[i][j];
-            }
-          }
-        } catch (e: any) {
-          setError("Math Error: " + e.message);
-          return;
-        }
-      }
-    }
-
-    // Use the median daily variance of assets with history as fallback volatility.
-    const histVars = historyIndices
-      .map((i) => covMatrix[i][i])
-      .filter((v) => v > 0);
-    const medianVar =
-      histVars.length > 0
-        ? histVars.sort((a, b) => a - b)[Math.floor(histVars.length / 2)]
-        : (0.15 * 0.15) / 252; // ~15% ann. vol default
-
-    // Assets without history: heuristic total return → price log-mean
-    // (yield is added separately below for every asset)
-    noHistoryIndices.forEach((i) => {
-      const totalAnn = estimateAssetTotalReturn(activePortfolio[i]);
-      const yieldAnn = getAssetYieldFraction(activePortfolio[i]);
-      // Price component of heuristic (avoid double-counting yield later)
-      const priceAnn = Math.max(0, totalAnn - yieldAnn);
-      meanPriceLog[i] = Math.log(1 + priceAnn) / 252;
-      covMatrix[i][i] = medianVar; // uncorrelated with others
-    });
-
-    // Ensure every diagonal is positive (needed for Cholesky)
-    for (let i = 0; i < n; i++) {
-      if (!(covMatrix[i][i] > 1e-12)) {
-        covMatrix[i][i] = medianVar;
-      }
-    }
-
-    // Total-return daily drift = price log-mean + dividend log-drift
-    // (history uses unadjusted closes, so yield must be added explicitly)
-    const meanReturns = activePortfolio.map((item, i) => {
-      const divDrift = annualYieldToDailyLogDrift(getAssetYieldFraction(item));
-      return meanPriceLog[i] + divDrift;
-    });
 
     let cholesky: number[][];
     try {
       cholesky = getCholeskyDecomposition(covMatrix);
     } catch {
-      // If cross-correlations make the matrix non-PD (e.g. after padding),
-      // fall back to a diagonal Cholesky so the sim still runs for all assets.
-      cholesky = Array.from({ length: n }, (_, i) => {
-        const row = Array(n).fill(0);
-        row[i] = Math.sqrt(Math.max(covMatrix[i][i], 1e-12));
-        return row;
-      });
-      setError(
-        "Note: correlations regularized (non-PD covariance); all assets still included.",
-      );
+      setError("Simulation unavailable: historical covariance is not positive definite, so correlations cannot be modeled reliably.");
+      return;
     }
 
-    // Guard: prices must be positive
-    const currentPrices = activePortfolio.map((item) => {
-      const p = Number(item.price);
-      return p > 0 ? p : 1;
+    const currentPrices = activePortfolio.map((item) => Number(item.price));
+
+    const portfolioValues = dates.map((_, day) => activePortfolio.reduce(
+      (sum, item, index) => sum + item.shares * prices[index][day], 0,
+    ));
+    if (portfolioValues.some((value) => !Number.isFinite(value) || value <= 0)) {
+      setError("Simulation history contains invalid portfolio values.");
+      return;
+    }
+    const portfolioReturns = calculateLogReturns(portfolioValues);
+    const sampleMean = portfolioReturns.reduce((sum, value) => sum + value, 0) / observationCount;
+    const sampleVariance = portfolioReturns.reduce(
+      (sum, value) => sum + (value - sampleMean) ** 2, 0,
+    ) / (observationCount - 1);
+
+    setModelStats({
+      annualizedLogDrift: sampleMean * 252,
+      annualizedVolatility: Math.sqrt(sampleVariance * 252),
+      observationCount,
+      lookbackStart: dates[0],
+      lookbackEnd: dates[dates.length - 1],
     });
-
-    // Analytic Sharpe on total-return moments
-    let expDailyRet = 0;
-    for (let i = 0; i < n; i++) expDailyRet += weights[i] * meanReturns[i];
-
-    let expDailyVar = 0;
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        expDailyVar += weights[i] * weights[j] * covMatrix[i][j];
-      }
-    }
-
-    const annRet = Math.exp(expDailyRet * 252) - 1;
-    const annVol = Math.sqrt(Math.max(0, expDailyVar)) * Math.sqrt(252);
-    const riskFree = 0.04;
-    setAnalyticSharpe(annVol > 0 ? (annRet - riskFree) / annVol : 0);
-
-    // Dividend yield across ALL assets (for display / income chart)
-    const calculatedYield = getPortfolioDividendYield(activePortfolio);
-    setWeightedYield(calculatedYield);
 
     const numDays = timeHorizonYears * 252;
 
@@ -331,7 +284,10 @@ export default function MonteCarloSimulator({
     numSimulations,
     timeHorizonYears,
     initialInvestment,
+    currentPortfolioValue,
     ensureFullHistory,
+    currency,
+    fxProvenance,
   ]);
 
   // Animation Loop
@@ -381,41 +337,16 @@ export default function MonteCarloSimulator({
   const coneChartData = useMemo(() => {
     if (!simulationComplete || !coneRef.current) return [];
     const { median, p05, p95 } = coneRef.current;
-    const dailyYieldRate = weightedYield / 252;
-    let accumulatedDividends = 0;
-
     return median.map((m: number, i: number) => {
-      // Calculate accumulated dividends for this step based on median value
-      if (i > 0) {
-        accumulatedDividends += m * dailyYieldRate;
-      }
-
       return {
         day: i,
         median: m,
         p05: p05[i],
         p95: p95[i],
-        dividends: accumulatedDividends,
+        interval: Math.max(0, p95[i] - p05[i]),
       };
     });
-  }, [simulationComplete, weightedYield]);
-
-  // SPY Comparison Data (Deterministic for Share Card)
-  const spyData = useMemo(() => {
-    if (!simulationComplete) return [];
-    const spyAnnualRet = 0.1; // 10%
-    const dailyRate = Math.pow(1 + spyAnnualRet, 1 / 252) - 1;
-
-    // Generate same length as cone data
-    const days = coneChartData.length;
-    const data = [];
-    let val = initialInvestment;
-    for (let i = 0; i < days; i++) {
-      data.push({ value: val });
-      val *= 1 + dailyRate;
-    }
-    return data;
-  }, [simulationComplete, coneChartData, initialInvestment]);
+  }, [simulationComplete]);
 
   const riskMetrics = useMemo(() => {
     if (
@@ -425,18 +356,16 @@ export default function MonteCarloSimulator({
     )
       return null;
     const finalValues = allPathsRef.current.map((p) => p[p.length - 1]);
-    finalValues.sort((a, b) => a - b);
 
-    const totalDividends =
-      coneChartData[coneChartData.length - 1]?.dividends || 0;
+    const medianOutcome = calculateQuantile(finalValues, 0.5);
+    const p05Outcome = calculateQuantile(finalValues, 0.05);
+    const p95Outcome = calculateQuantile(finalValues, 0.95);
 
     return {
-      medianOutcome: finalValues[Math.floor(finalValues.length * 0.5)],
-      p05Outcome: finalValues[Math.floor(finalValues.length * 0.05)],
-      p95Outcome: finalValues[Math.floor(finalValues.length * 0.95)],
-      modeledLossAtP05:
-        initialInvestment - finalValues[Math.floor(finalValues.length * 0.05)],
-      totalDividends,
+      medianOutcome,
+      p05Outcome,
+      p95Outcome,
+      modeledLossAtP05: initialInvestment - p05Outcome,
     };
   }, [simulationComplete, initialInvestment, coneChartData]);
 
@@ -482,8 +411,7 @@ export default function MonteCarloSimulator({
               </span>
             </h2>
             <p className="text-sm text-neutral-400">
-              Generate {numSimulations} model paths from estimated return,
-              volatility, and covariance.
+              Runs {numSimulations} illustrative paths from observed daily price returns, volatility, and correlations. Results depend on this historical sample and the assumptions below.
             </p>
           </div>
         </div>
@@ -495,10 +423,10 @@ export default function MonteCarloSimulator({
               metrics={{
                 totalValue: currentPortfolioValue,
                 annualReturn: medianCAGR,
-                yield: weightedYield,
+                yield: null,
                 projectedValue: riskMetrics.medianOutcome,
                 totalInvested: initialInvestment,
-                dividends: riskMetrics.totalDividends,
+                dividends: null,
                 years: timeHorizonYears,
                 scenario: "Monte Carlo Median",
                 growthType: "Monte Carlo",
@@ -507,13 +435,11 @@ export default function MonteCarloSimulator({
               history={coneChartData.map(
                 (d: {
                   median: number;
-                  dividends: number;
                   p05: number;
                   p95: number;
                   day: number;
                 }) => ({
                   value: d.median,
-                  dividendValue: d.dividends,
                   min: d.p05,
                   max: d.p95,
                   date: `Y${(d.day / 252).toFixed(1)}`,
@@ -568,6 +494,7 @@ export default function MonteCarloSimulator({
             <span className="text-neutral-500">$</span>
             <input
               type="number"
+              aria-label={`Starting balance (${currency ?? "currency"})`}
               value={initialInvestment}
               onChange={(e) => setInitialInvestment(Number(e.target.value))}
               className="bg-transparent text-xl font-mono text-ink focus:outline-none w-full"
@@ -609,16 +536,54 @@ export default function MonteCarloSimulator({
       </div>
 
       <p className="text-xs text-neutral-500 leading-relaxed">
-        These are model scenarios, not forecasts. Results depend on historical
-        estimates and geometric Brownian motion, which may not capture sudden
-        market shifts or extreme events.
+        Illustrative price-only scenarios, not forecasts or calibrated probabilities. Each simulated step applies a random daily price return using the historical average, volatility, and co-movement between holdings. It assumes a buy-and-hold portfolio. Recurring contributions, withdrawals, rebalancing, distributions, fees, and extreme events are excluded.
       </p>
+      {mixedCurrency && fxProvenance && (
+        <p className="text-xs text-neutral-500">
+          Historical USD/CAD moves are included in the converted CAD return samples. Current USD quotes use {fxProvenance.usdCad} CAD/USD ({fxProvenance.date}); future FX is not modeled as a separate process or forecast.
+        </p>
+      )}
 
       {/* Error */}
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <p>{error}</p>
+        </div>
+      )}
+
+      {simulationComplete && modelStats && (
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-hairline bg-hairline text-xs text-muted sm:grid-cols-3">
+          <div className="bg-surface-card px-3 py-2">
+              <span className="block">Historical annualized log drift</span>
+            <strong className="mt-1 block font-mono text-sm text-ink">
+              {(modelStats.annualizedLogDrift * 100).toFixed(2)}%
+            </strong>
+          </div>
+          <div className="bg-surface-card px-3 py-2">
+              <span className="block">Historical annualized volatility</span>
+            <strong className="mt-1 block font-mono text-sm text-ink">
+              {(modelStats.annualizedVolatility * 100).toFixed(2)}%
+            </strong>
+          </div>
+          <div className="bg-surface-card px-3 py-2">
+            <span className="block">Historical covariance model</span>
+            <strong className="mt-1 block font-mono text-sm text-ink">
+              Historical sample
+            </strong>
+          </div>
+          <div className="bg-surface-card px-3 py-2">
+            <span className="block">Aligned daily returns</span>
+            <strong className="mt-1 block font-mono text-sm text-ink">
+              {modelStats.observationCount}
+            </strong>
+          </div>
+          <div className="bg-surface-card px-3 py-2 sm:col-span-3">
+            <span className="block">Observed lookback</span>
+            <strong className="mt-1 block font-mono text-sm text-ink">
+              {modelStats.lookbackStart} to {modelStats.lookbackEnd} · daily closes · price returns only
+            </strong>
+          </div>
         </div>
       )}
 
@@ -645,21 +610,28 @@ export default function MonteCarloSimulator({
               <XAxis
                 dataKey="day"
                 stroke="#555"
+                tick={{ fill: "var(--muted)", fontSize: 12 }}
                 tickFormatter={(d) => `Y${Math.floor(d / 252)}`}
                 type="number"
                 domain={[0, timeHorizonYears * 252]}
               />
               <YAxis
                 stroke="#555"
+                tick={{ fill: "var(--muted)", fontSize: 12 }}
                 domain={["auto", "auto"]}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                tickFormatter={(v) => `${currency} ${(v / 1000).toFixed(0)}k`}
+              />
+              <ReferenceLine
+                y={initialInvestment}
+                stroke="#8f9b94"
+                strokeDasharray="4 4"
               />
               {Array.from({ length: numSimulations }).map((_, i) => (
                 <Line
                   key={i}
                   type="monotone"
                   dataKey={`sim${i}`}
-                  stroke="#10b981"
+                  stroke="#ef4444"
                   strokeWidth={1}
                   strokeOpacity={0.3}
                   dot={false}
@@ -678,12 +650,6 @@ export default function MonteCarloSimulator({
           >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={coneChartData}>
-                <defs>
-                  <linearGradient id="coneGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#333"
@@ -692,11 +658,20 @@ export default function MonteCarloSimulator({
                 <XAxis
                   dataKey="day"
                   stroke="#555"
+                  tick={{ fill: "var(--muted)", fontSize: 12 }}
                   tickFormatter={(d) => `Y${Math.floor(d / 252)}`}
                   minTickGap={30}
+                  label={{
+                    value: "Trading days",
+                    position: "insideBottom",
+                    offset: -4,
+                    fill: "#666",
+                    fontSize: 12,
+                  }}
                 />
                 <YAxis
                   stroke="#555"
+                  tick={{ fill: "var(--muted)", fontSize: 12 }}
                   tickFormatter={(value) => {
                     if (value >= 1000000)
                       return `$${(value / 1000000).toFixed(1)}M`;
@@ -704,6 +679,24 @@ export default function MonteCarloSimulator({
                     return `$${value}`;
                   }}
                   width={60}
+                  label={{
+                    value: currency ?? "Currency unavailable",
+                    angle: -90,
+                    position: "insideLeft",
+                    fill: "#666",
+                    fontSize: 12,
+                  }}
+                />
+                <ReferenceLine
+                  y={initialInvestment}
+                  stroke="var(--muted)"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: "Initial",
+                    fill: "#737373",
+                    fontSize: 12,
+                    position: "insideTopLeft",
+                  }}
                 />
                 <Tooltip
                   contentStyle={{
@@ -712,47 +705,54 @@ export default function MonteCarloSimulator({
                     color: "var(--ink)",
                   }}
                   itemStyle={{ color: "var(--ink)" }}
-                  formatter={(val: any) => formatCurrency(Number(val))}
+                  formatter={(val: any) => formatCurrency(Number(val), currency)}
                   labelFormatter={(d) => `Year ${(d / 252).toFixed(1)}`}
                 />
-                {/* 95th percentile */}
+                {/* Lower edge of the simulated percentile range. */}
                 <Area
                   type="monotone"
+                  dataKey="p05"
+                  stackId="interval"
+                  name="5th Percentile"
+                  stroke="none"
+                  fill="transparent"
+                  fillOpacity={0}
+                  isAnimationActive={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="interval"
+                  stackId="interval"
+                  name="Illustrative 5th–95th percentile range"
+                  stroke="none"
+                  fill="#10b981"
+                  fillOpacity={1}
+                  isAnimationActive={false}
+                />
+                <Line
+                  type="monotone"
                   dataKey="p95"
-                  name="95th Percentile"
+                  name="Illustrative 95th percentile"
                   stroke="#34d399"
                   strokeWidth={2}
-                  fill="url(#coneGradient)"
-                  fillOpacity={1}
+                  dot={false}
+                  strokeDasharray="4 4"
                 />
-                {/* Median */}
                 <Area
                   type="monotone"
                   dataKey="median"
-                  name="Median"
+                  name="Illustrative median"
                   stroke="#10b981"
                   strokeWidth={3}
                   fill="none"
                 />
-                {/* 5th percentile */}
-                <Area
+                <Line
                   type="monotone"
                   dataKey="p05"
-                  name="5th Percentile"
-                  stroke="#ef4444"
+                  name="Illustrative 5th percentile"
+                  stroke="#10b981"
                   strokeWidth={2}
-                  strokeDasharray="4 4"
-                  fill="none"
-                />
-                {/* Estimated accumulated dividends */}
-                <Area
-                  type="monotone"
-                  dataKey="dividends"
-                  name="Estimated Accumulated Dividends"
-                  stroke="#60a5fa"
-                  strokeWidth={2}
-                  strokeDasharray="2 2"
-                  fill="none"
+                  dot={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -771,27 +771,19 @@ export default function MonteCarloSimulator({
             <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-surface-card">
               <div className="text-xs text-neutral-400">Median</div>
               <div className="text-xl font-bold text-ink">
-                {formatCurrency(riskMetrics.medianOutcome)}
+                {formatCurrency(riskMetrics.medianOutcome, currency)}
               </div>
             </div>
             <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-surface-card">
               <div className="text-xs text-neutral-400">95th Percentile</div>
               <div className="text-lg font-bold text-emerald-300">
-                {formatCurrency(riskMetrics.p95Outcome)}
+                {formatCurrency(riskMetrics.p95Outcome, currency)}
               </div>
             </div>
             <div className="glass-card p-4 rounded-xl border-l-4 border-rose-500 bg-surface-card">
               <div className="text-xs text-neutral-400">5th Percentile</div>
               <div className="text-lg font-bold text-rose-400">
-                {formatCurrency(riskMetrics.p05Outcome)}
-              </div>
-            </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-blue-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">
-                Estimated Dividends
-              </div>
-              <div className="text-lg font-bold text-blue-400">
-                {formatCurrency(riskMetrics.totalDividends)}
+                {formatCurrency(riskMetrics.p05Outcome, currency)}
               </div>
             </div>
             <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-surface-card">
@@ -803,6 +795,7 @@ export default function MonteCarloSimulator({
                   riskMetrics.modeledLossAtP05 > 0
                     ? riskMetrics.modeledLossAtP05
                     : 0,
+                  currency,
                 )}
               </div>
             </div>

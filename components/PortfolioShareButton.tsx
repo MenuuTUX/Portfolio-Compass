@@ -7,6 +7,8 @@ import { PortfolioShareCard, ShareCardProps } from "./PortfolioShareCard";
 
 interface PortfolioShareButtonProps {
   portfolio: ShareCardProps["portfolio"];
+  currency?: string;
+  fxProvenance?: ShareCardProps["fxProvenance"];
   metrics: ShareCardProps["metrics"];
   history: {
     date: string;
@@ -19,6 +21,8 @@ interface PortfolioShareButtonProps {
 
 export function PortfolioShareButton({
   portfolio,
+  currency,
+  fxProvenance,
   metrics,
   history,
 }: PortfolioShareButtonProps) {
@@ -79,6 +83,8 @@ export function PortfolioShareButton({
         <div id="portfolio-share-card">
           <PortfolioShareCard
             portfolio={portfolio}
+            currency={currency}
+            fxProvenance={fxProvenance}
             metrics={metrics}
             chartData={history}
           />

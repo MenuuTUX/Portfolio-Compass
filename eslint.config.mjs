@@ -2,7 +2,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 
 export default defineConfig([
-  globalIgnores(['.next/**', 'node_modules/**', 'out/**', 'lib/generated/**']),
+  globalIgnores(['.next/**', 'node_modules/**', 'out/**']),
   ...nextCoreWebVitals,
   {
     // Test mocks intentionally render bare <img> in place of next/image

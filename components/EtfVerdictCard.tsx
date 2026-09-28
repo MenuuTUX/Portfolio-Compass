@@ -19,11 +19,10 @@ interface Explanation {
 
 const EXPLANATIONS = {
   cost: {
-    title: "Management Expense Ratio (MER)",
+    title: "Provider-reported expense ratio",
     meaning:
-      "The MER is an annual fund expense expressed as a percentage of assets. Fees reduce returns, but funds with different strategies are not directly comparable on cost alone.",
-    thresholds:
-      "Screen bands: below 0.40% | 0.40% to 0.75% | above 0.75%",
+      "This source-reported annual fund expense is expressed as a percentage of assets. Definitions and periods can differ by provider. Fees reduce returns, but funds with different strategies are not directly comparable on cost alone.",
+    thresholds: "No fee bands applied.",
   },
   liquidity: {
     title: "Average Daily Volume",
@@ -42,6 +41,29 @@ const EXPLANATIONS = {
   string,
   Explanation
 >;
+
+const getIcon = (status: string) => {
+  switch (status) {
+    case "good":
+      return <CheckCircle className="w-5 h-5 text-emerald-400" />;
+    case "warning":
+      return <AlertTriangle className="w-5 h-5 text-rose-400" />;
+    default:
+      return <Info className="w-5 h-5 text-blue-400" />;
+  }
+};
+
+const getColor = (status: string) => {
+  switch (status) {
+    case "good":
+      return "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10";
+    case "warning":
+      return "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10";
+    default:
+      return "border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10";
+  }
+};
+
 const explanationsByKey = new Map<string, Explanation>(
   Object.entries(EXPLANATIONS),
 );
@@ -53,33 +75,11 @@ export default function EtfVerdictCard({
 }: {
   etf: ETF;
   /** Chart series used to estimate volatility when beta is missing. */
-  history?: { price: number }[];
+  history?: { date: string; price: number }[];
   className?: string;
 }) {
   const verdict = analyzeEtf(etf, { history });
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-
-  const getIcon = (status: string) => {
-    switch (status) {
-      case "good":
-        return <CheckCircle className="w-5 h-5 text-emerald-400" />;
-      case "warning":
-        return <AlertTriangle className="w-5 h-5 text-rose-400" />;
-      default:
-        return <Info className="w-5 h-5 text-blue-400" />;
-    }
-  };
-
-  const getColor = (status: string) => {
-    switch (status) {
-      case "good":
-        return "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10";
-      case "warning":
-        return "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10";
-      default:
-        return "border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10";
-    }
-  };
 
   return (
     <div className={cn("grid grid-cols-1 gap-4", className)}>
@@ -93,29 +93,34 @@ export default function EtfVerdictCard({
           <motion.div
             key={key}
             layout
-            onClick={() => setExpandedKey(isExpanded ? null : key)}
             className={cn(
               "p-4 rounded-xl border flex flex-col gap-2 cursor-pointer transition-colors relative overflow-hidden",
               getColor(data.status),
             )}
           >
-            <motion.div layout className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                {key}
+            <button
+              type="button"
+              onClick={() => setExpandedKey(isExpanded ? null : key)}
+              aria-expanded={isExpanded}
+              className="w-full text-left rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            >
+              <span className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  {key}
+                </span>
+                <span className="flex items-center gap-2">
+                  {getIcon(data.status)}
+                  {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-neutral-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-neutral-500" />
+                  )}
+                </span>
               </span>
-              <div className="flex items-center gap-2">
-                {getIcon(data.status)}
-                {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-neutral-500" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-neutral-500" />
-                )}
-              </div>
-            </motion.div>
-
-            <motion.div layout className="font-bold text-ink text-lg">
-              {data.label}
-            </motion.div>
+              <span className="block mt-2 font-bold text-ink text-lg">
+                {data.label}
+              </span>
+            </button>
 
             <motion.p
               layout

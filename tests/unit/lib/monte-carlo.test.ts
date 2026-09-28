@@ -4,8 +4,9 @@ import {
   calculateCovarianceMatrix,
   getCholeskyDecomposition,
   generateMonteCarloPaths,
+  calculateCone,
+  calculateQuantile,
 } from '@/lib/monte-carlo';
-import { annualYieldToDailyLogDrift } from '@/lib/math/portfolio-returns';
 
 describe('Monte Carlo Math Library', () => {
 
@@ -49,6 +50,15 @@ describe('Monte Carlo Math Library', () => {
     expect(matrix[1][1]).toBeCloseTo(4);
   });
 
+  it('keeps ragged return inputs finite by using a common trailing window', () => {
+    const matrix = calculateCovarianceMatrix([
+      [0.01, 0.02, 0.03],
+      [0.02, 0.03],
+    ]);
+
+    expect(matrix.every((row) => row.every(Number.isFinite))).toBe(true);
+  });
+
   it('getCholeskyDecomposition should return lower triangular matrix', () => {
     // Matrix [[4, 2], [2, 2]]
     // L such that L*L' = M
@@ -72,7 +82,7 @@ describe('Monte Carlo Math Library', () => {
       expect(() => getCholeskyDecomposition(badCov)).toThrow();
   });
 
-  it('generateMonteCarloPaths compounds dividend yield in the drift', () => {
+  it('generateMonteCarloPaths compounds the supplied daily drift', () => {
     // Zero-vol path: final value is deterministic from drift only
     const cholesky = [[0]]; // zero shocks
     const prices = [100];
@@ -83,10 +93,10 @@ describe('Monte Carlo Math Library', () => {
     const noDiv = generateMonteCarloPaths(
       prices, weights, [0], cholesky, 1, numDays, initial,
     );
-    const withDiv = generateMonteCarloPaths(
+    const withDrift = generateMonteCarloPaths(
       prices,
       weights,
-      [annualYieldToDailyLogDrift(0.05)],
+      [Math.log(1.05) / 252],
       cholesky,
       1,
       numDays,
@@ -94,12 +104,12 @@ describe('Monte Carlo Math Library', () => {
     );
 
     const finalNoDiv = noDiv[0][noDiv[0].length - 1];
-    const finalWithDiv = withDiv[0][withDiv[0].length - 1];
+    const finalWithDrift = withDrift[0][withDrift[0].length - 1];
 
-    // Zero drift → ~flat; 5% yield drift → ~+5%
+    // Zero drift stays flat; a 5% price drift compounds to ~+5%.
     expect(finalNoDiv).toBeCloseTo(initial, 0);
-    expect(finalWithDiv / initial).toBeCloseTo(1.05, 2);
-    expect(finalWithDiv).toBeGreaterThan(finalNoDiv);
+    expect(finalWithDrift / initial).toBeCloseTo(1.05, 2);
+    expect(finalWithDrift).toBeGreaterThan(finalNoDiv);
   });
 
   it('generateMonteCarloPaths includes every asset by weight', () => {
@@ -108,7 +118,7 @@ describe('Monte Carlo Math Library', () => {
     const paths = generateMonteCarloPaths(
       [100, 50],
       [0.5, 0.5],
-      [annualYieldToDailyLogDrift(0.10), annualYieldToDailyLogDrift(0)],
+      [Math.log(1.1) / 252, 0],
       L,
       1,
       252,
@@ -117,6 +127,37 @@ describe('Monte Carlo Math Library', () => {
     const final = paths[0][paths[0].length - 1];
     // 50/50 of +10% and +0% ≈ +5%
     expect(final / 10_000).toBeCloseTo(1.05, 1);
+  });
+
+  it('produces identical paths for an explicit seed', () => {
+    expect(generateMonteCarloPaths(
+      [100], [1], [0.001], [[0.01]], 4, 20, 10_000, 12345,
+    )).toEqual(
+      generateMonteCarloPaths(
+        [100], [1], [0.001], [[0.01]], 4, 20, 10_000, 12345,
+      ),
+    );
+  });
+
+  it('rejects invalid prices instead of silently omitting an asset', () => {
+    expect(() => generateMonteCarloPaths(
+      [100, 0], [0.5, 0.5], [0, 0], [[0, 0], [0, 0]], 1, 1, 1000,
+    )).toThrow(/finite positive price/);
+  });
+
+  it('returns an empty cone for an empty simulation set', () => {
+    expect(calculateCone([])).toEqual({
+      median: [],
+      p05: [],
+      p95: [],
+      dates: [],
+    });
+  });
+
+  it('uses the same interpolated percentile definition as the cone chart', () => {
+    expect(calculateQuantile([10, 20, 30, 40], 0.05)).toBeCloseTo(11.5);
+    expect(calculateQuantile([10, 20, 30, 40], 0.5)).toBeCloseTo(25);
+    expect(calculateQuantile([10, 20, 30, 40], 0.95)).toBeCloseTo(38.5);
   });
 
 });

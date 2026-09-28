@@ -3,6 +3,7 @@ import {
   getFastQuotes,
   getFastHistory,
   searchFastSymbols,
+  quoteToAsset,
   type FastQuote,
   type HistoryPoint,
 } from "@/lib/fast-market";
@@ -25,48 +26,14 @@ function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
   return value === "STOCK" || value === "ETF" ? value : undefined;
 }
 
-function formatAsset(
-  q: FastQuote,
-  history: HistoryPoint[] = [],
-) {
-  const communities = getRedditCommunities(q.ticker, q.assetType).map((c) => ({
-    subreddit: c.name,
-    url: c.url,
-  }));
-
+function formatAsset(q: FastQuote, history: HistoryPoint[] = []) {
   return {
-    ticker: q.ticker,
-    name: q.name,
-    price: q.price,
-    changePercent: q.changePercent,
-    assetType: q.assetType,
-    isDeepAnalysisLoaded: false,
-    history,
-    metrics: {
-      yield: q.dividendYield ?? 0,
-      mer: q.expenseRatio ?? 0,
-    },
-    allocation: { equities: 0, bonds: 0, cash: 0 },
-    sectors: {},
+    ...quoteToAsset(q, history),
     holdings: [],
-    marketCap: q.marketCap,
-    volume: q.volume,
-    peRatio: q.peRatio,
-    forwardPe: q.forwardPe,
-    eps: q.eps,
-    dividend: q.dividend,
-    dividendYield: q.dividendYield,
-    open: q.open,
-    previousClose: q.previousClose,
-    daysRange: q.daysRange,
-    fiftyTwoWeekRange: q.fiftyTwoWeekRange,
-    fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
-    fiftyTwoWeekLow: q.fiftyTwoWeekLow,
-    earningsDate: q.earningsDate,
-    sharesOutstanding: q.sharesOutstanding,
-    sector: q.sector,
-    industry: q.industry,
-    redditCommunities: communities,
+    redditCommunities: getRedditCommunities(q.ticker, q.assetType).map((c) => ({
+      subreddit: c.name,
+      url: c.url,
+    })),
   };
 }
 

@@ -11,7 +11,7 @@ export const useRemoveStock = () => {
 
   return useMutation({
     mutationFn: async (ticker: string) => {
-      // 1. Update Local Storage
+      // Update Local Storage
       const currentItems = loadPortfolio();
       const newItems = currentItems.filter(
         (item) => item.ticker.toUpperCase() !== ticker.toUpperCase(),

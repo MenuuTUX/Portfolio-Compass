@@ -37,7 +37,6 @@
     "@vercel/analytics"
   ],
   "dependencies": {
-    "@happy-dom/global-registrator": "^20.0.11",
     "@tanstack/react-query": "^5.90.11",
     "@tanstack/react-virtual": "^3.13.13",
     "@vercel/analytics": "^1.6.1",
@@ -45,7 +44,6 @@
     "cheerio": "^1.1.2",
     "clsx": "^2.1.1",
     "decimal.js": "^10.6.0",
-    "dotenv": "^17.4.2",
     "framer-motion": "^12.23.26",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.555.0",
@@ -61,7 +59,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@oxlint/plugins": "1.80.0",
+    "@happy-dom/global-registrator": "^20.0.11",
     "@tailwindcss/postcss": "^4.1.17",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

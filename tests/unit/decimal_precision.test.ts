@@ -26,15 +26,7 @@ describe('Decimal Precision Logic', () => {
     // Test 3.5 rounds to 4
     expect(new Decimal(3.5).toDecimalPlaces(0).toNumber()).toBe(4);
 
-    // Test 2.55 to 1 decimal place -> 2.6 (5 is odd?) No, 5 is the digit being rounded.
-    // 2.55 -> round to 1 dec place.
-    // digit at 1st dec place is 5. Next is 5.
-    // Round Half Even checks the digit *to the left* of the 5.
-    // Wait, standard rounding:
-    // 2.5 -> round to integer. Digit to round is 2. Drop 5. 2 is even, so keep 2.
-    // 3.5 -> round to integer. Digit to round is 3. Drop 5. 3 is odd, so round up to 4.
-
-    // Let's verify our configuration
+    // ROUND_HALF_EVEN breaks an exact .5 tie toward the even neighbour.
     expect(new Decimal(1.25).toDecimalPlaces(1).toNumber()).toBe(1.2); // 2 is even
     expect(new Decimal(1.35).toDecimalPlaces(1).toNumber()).toBe(1.4); // 3 is odd
   });

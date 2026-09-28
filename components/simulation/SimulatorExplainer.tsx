@@ -52,21 +52,21 @@ const steps = [
     icon: GitBranch,
     color: "emerald",
     description:
-      "The Monte Carlo model generates paths under geometric Brownian motion using estimated drift, volatility, and covariance. The paths are scenarios produced by those assumptions, not forecasts.",
+      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily price returns using geometric Brownian motion. Percentiles are not calibrated probabilities or forecasts; distributions are excluded.",
     details: [
       {
         label: "Drift (μ)",
-        text: "Historical price drift plus dividend yield",
+        text: "Mean aligned daily price return",
         icon: ArrowRight,
       },
       {
         label: "Shock (σ)",
-        text: "Random shocks scaled by estimated volatility",
+        text: "Historical price volatility; distributions excluded",
         icon: Shuffle,
       },
       {
         label: "All Assets",
-        text: "Holdings linked through an estimated covariance matrix",
+        text: "Holdings linked through sample price covariance",
         icon: Binary,
       },
     ],

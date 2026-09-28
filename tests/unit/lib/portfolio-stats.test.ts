@@ -20,6 +20,8 @@ function makeItem(partial: Partial<PortfolioItem> & { ticker: string }): Portfol
   return {
     name: partial.ticker,
     price: partial.price ?? 100,
+    currency: "USD",
+    quoteAsOf: new Date().toISOString(),
     changePercent: 0,
     history: partial.history || [],
     metrics: partial.metrics || { mer: 0, yield: 0 },
@@ -31,8 +33,7 @@ function makeItem(partial: Partial<PortfolioItem> & { ticker: string }): Portfol
 }
 
 describe("calculatePortfolioHistoricalStats", () => {
-  it("adds dividend yield on top of price returns (total return)", () => {
-    // ~200 trading days of flat prices (0% price return) + 4% yield
+  it("does not treat today's dividend yield as a historical distribution", () => {
     const history = makeHistory(200, 100, 0);
     const portfolio: Portfolio = [
       makeItem({
@@ -46,12 +47,10 @@ describe("calculatePortfolioHistoricalStats", () => {
     ];
 
     const stats = calculatePortfolioHistoricalStats(portfolio);
-    // Price return ≈ 0, yield 4% → total ≈ 4%
-    expect(stats.annualizedReturn).toBeGreaterThan(0.03);
-    expect(stats.annualizedReturn).toBeLessThan(0.06);
+    expect(stats.annualizedReturn).toBeCloseTo(0);
   });
 
-  it("includes assets without history via heuristic + yield", () => {
+  it("reports unavailable when a held asset has no history", () => {
     const history = makeHistory(200, 100, 0.0002); // mild drift
     const portfolio: Portfolio = [
       makeItem({
@@ -71,37 +70,87 @@ describe("calculatePortfolioHistoricalStats", () => {
     ];
 
     const stats = calculatePortfolioHistoricalStats(portfolio);
-    // Must be a finite positive blend — both assets contribute
-    expect(Number.isFinite(stats.annualizedReturn)).toBe(true);
+    expect(stats.annualizedReturn).toBeNull();
+    expect(stats.annualizedVolatility).toBeNull();
+  });
+
+  it("uses dated history even when the latest quote is stale", () => {
+    const stats = calculatePortfolioHistoricalStats([
+      makeItem({
+        ticker: "OLDQUOTE",
+        quoteAsOf: "2020-01-01T00:00:00.000Z",
+        history: makeHistory(200, 100, 0.0002),
+      }),
+    ]);
+    expect(stats.annualizedReturn).not.toBeNull();
     expect(stats.annualizedReturn).toBeGreaterThan(0);
   });
 
-  it("uses value weights so share counts matter", () => {
-    const historyA = makeHistory(200, 100, 0);
-    const historyB = makeHistory(200, 100, 0);
-    // A is 90% of value with 0% yield; B is 10% with 10% yield
+  it("withholds historical stats when a saved share count is invalid", () => {
+    const stats = calculatePortfolioHistoricalStats([
+      makeItem({ ticker: "VALID", shares: 1, history: makeHistory(200, 100, 0.0002) }),
+      makeItem({ ticker: "INVALID", shares: Number.NaN, history: makeHistory(200, 100, 0.0002) }),
+    ]);
+    expect(stats).toEqual({ annualizedReturn: null, annualizedVolatility: null });
+  });
+
+  it("keeps historical stats unavailable for mixed-currency holdings without dated FX history", () => {
+    const history = makeHistory(200, 100, 0.0002);
+    const stats = calculatePortfolioHistoricalStats([
+      makeItem({ ticker: "USD", currency: "USD", history }),
+      makeItem({ ticker: "CAD", currency: "CAD", history }),
+    ]);
+    expect(stats).toEqual({ annualizedReturn: null, annualizedVolatility: null });
+  });
+
+  it("uses held shares and aligned values for buy-and-hold return", () => {
+    const start = Date.UTC(2024, 0, 1);
+    const dates = [0, 61, 122, 183, 244, 305, 365].map((days) =>
+      new Date(start + days * 86400000).toISOString(),
+    );
+    const historyA = [100, 116.7, 133.3, 150, 166.7, 183.3, 200].map(
+      (price, i) => ({ date: dates[i], price }),
+    );
+    const historyB = [100, 91.7, 83.3, 75, 66.7, 58.3, 50].map(
+      (price, i) => ({ date: dates[i], price }),
+    );
     const portfolio: Portfolio = [
       makeItem({
         ticker: "A",
-        price: 100,
-        shares: 90,
+        price: 200,
+        shares: 1,
         history: historyA,
         metrics: { mer: 0, yield: 0 },
-        weight: 50, // misleading weight — market value should win
+        weight: 50,
       }),
       makeItem({
         ticker: "B",
-        price: 100,
-        shares: 10,
+        price: 50,
+        shares: 1,
         history: historyB,
-        metrics: { mer: 0, yield: 10 },
+        metrics: { mer: 0, yield: 0 },
         weight: 50,
       }),
     ];
 
     const stats = calculatePortfolioHistoricalStats(portfolio);
-    // Value-weighted yield ≈ 1%, not 5%
-    expect(stats.annualizedReturn).toBeGreaterThan(0.005);
-    expect(stats.annualizedReturn).toBeLessThan(0.03);
+    // One share of each: 200 at the start, 250 at the end.
+    expect(stats.annualizedReturn).toBeCloseTo(0.25, 2);
+    // Seven observations spread over a year cannot support daily volatility.
+    expect(stats.annualizedVolatility).toBeNull();
+  });
+
+  it("preserves zero volatility for a flat historical series", () => {
+    const portfolio: Portfolio = [
+      makeItem({
+        ticker: "FLAT",
+        weight: 100,
+        history: makeHistory(200, 100, 0),
+      }),
+    ];
+
+    expect(
+      calculatePortfolioHistoricalStats(portfolio).annualizedVolatility,
+    ).toBeCloseTo(0);
   });
 });

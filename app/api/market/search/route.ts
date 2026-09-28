@@ -3,6 +3,7 @@ import {
   getFastQuotes,
   getFastHistory,
   searchFastSymbols,
+  quoteToAsset,
 } from "@/lib/fast-market";
 import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
 
@@ -40,53 +41,19 @@ export async function GET(request: NextRequest) {
       tickers = Array.from(new Set(curated)).slice(skip, skip + limit);
     }
 
-    // Search results are already capped small; only browse mode paginates
-    const pageTickers = query ? tickers : tickers;
-
     const [quotes, histories] = await Promise.all([
       // Profiles (sector/industry) needed for market filters sort-by-industry
-      getFastQuotes(pageTickers, { includeProfiles: true }),
-      getFastHistory(pageTickers, "1M"),
+      getFastQuotes(tickers, { includeProfiles: true }),
+      getFastHistory(tickers, "1M"),
     ]);
 
     const assets = [];
-    for (const ticker of pageTickers.map((t) => t.toUpperCase())) {
+    for (const ticker of tickers.map((t) => t.toUpperCase())) {
       const q = quotes.get(ticker);
       if (!q) continue;
       if (assetType && q.assetType !== assetType) continue;
 
-      assets.push({
-        ticker: q.ticker,
-        name: q.name,
-        price: q.price,
-        changePercent: q.changePercent,
-        assetType: q.assetType,
-        isDeepAnalysisLoaded: false,
-        history: histories.get(ticker) || [],
-        metrics: {
-          yield: q.dividendYield ?? 0,
-          mer: q.expenseRatio ?? 0,
-        },
-        allocation: { equities: 0, bonds: 0, cash: 0 },
-        sectors: {},
-        sector: q.sector,
-        industry: q.industry,
-        marketCap: q.marketCap,
-        volume: q.volume,
-        peRatio: q.peRatio,
-        forwardPe: q.forwardPe,
-        eps: q.eps,
-        dividend: q.dividend,
-        dividendYield: q.dividendYield,
-        open: q.open,
-        previousClose: q.previousClose,
-        daysRange: q.daysRange,
-        fiftyTwoWeekRange: q.fiftyTwoWeekRange,
-        fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
-        fiftyTwoWeekLow: q.fiftyTwoWeekLow,
-        earningsDate: q.earningsDate,
-        sharesOutstanding: q.sharesOutstanding,
-      });
+      assets.push(quoteToAsset(q, histories.get(ticker) || []));
     }
 
     return NextResponse.json(assets, {

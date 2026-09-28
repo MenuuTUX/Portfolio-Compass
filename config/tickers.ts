@@ -1,4 +1,3 @@
-export const SP500_FALLBACK = ['AAPL', 'MSFT', 'GOOG', 'AMZN', 'NVDA', 'META', 'TSLA'];
 
 // Broad set of large, liquid US (+ a few TSX) stocks across sectors, used to
 // seed the Stocks tab browse grid before any search query is typed.
@@ -63,10 +62,10 @@ export interface RedditCommunity {
 }
 
 /**
- * Helper function to create a Reddit community entry
+ * Create a Reddit community entry
  * Usage: createCommunity('wallstreetbets', 'r/WSB') or createCommunity('investing')
  */
-export function createCommunity(subreddit: string, displayName?: string): RedditCommunity {
+function createCommunity(subreddit: string, displayName?: string): RedditCommunity {
   return {
     name: subreddit,
     displayName: displayName || `r/${subreddit}`,
@@ -104,7 +103,7 @@ interface RedditCommunityDirectory {
   [ticker: string]: RedditCommunity[];
 }
 
-export const REDDIT_COMMUNITIES: RedditCommunityDirectory = {
+const REDDIT_COMMUNITIES: RedditCommunityDirectory = {
   // ====== Canadian ETFs ======
   'XEQT.TO': [COMMUNITIES.justbuy, COMMUNITIES.pfc, COMMUNITIES.canadianInvestor],
   'VEQT.TO': [COMMUNITIES.justbuy, COMMUNITIES.pfc, COMMUNITIES.canadianInvestor],
@@ -161,7 +160,7 @@ export const REDDIT_COMMUNITIES: RedditCommunityDirectory = {
   'PHO': [createCommunity('water'), COMMUNITIES.investing],
 };
 
-// Helper function to get Reddit communities for a ticker.
+// Reddit communities for a ticker.
 //
 // Reddit locked down unauthenticated API/JSON access in 2023 (every
 // subreddit-search and about.json request now 403s, even with browser-like
@@ -190,28 +189,4 @@ export function getRedditCommunities(
   if (!cleanTicker) return [];
 
   return [createCommunity(`${cleanTicker}_Stock`)];
-}
-
-/**
- * Add a new Reddit community association for a ticker.
- * This can be called at runtime to dynamically add communities.
- * 
- * @example
- * addRedditCommunity('GME', createCommunity('Superstonk'));
- * addRedditCommunity('AMC', [createCommunity('amcstock'), COMMUNITIES.wsb]);
- */
-export function addRedditCommunity(ticker: string, communities: RedditCommunity | RedditCommunity[]): void {
-  const upperTicker = ticker.toUpperCase();
-  const newCommunities = Array.isArray(communities) ? communities : [communities];
-  
-  if (REDDIT_COMMUNITIES[upperTicker]) {
-    // Add to existing, avoiding duplicates
-    newCommunities.forEach(c => {
-      if (!REDDIT_COMMUNITIES[upperTicker].some(existing => existing.name === c.name)) {
-        REDDIT_COMMUNITIES[upperTicker].push(c);
-      }
-    });
-  } else {
-    REDDIT_COMMUNITIES[upperTicker] = newCommunities;
-  }
 }

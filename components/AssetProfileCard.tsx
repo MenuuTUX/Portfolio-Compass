@@ -3,15 +3,12 @@
 import * as React from "react";
 import {
   Layers,
-  AlertCircle,
-  TrendingUp,
-  Target,
   Factory,
   BookOpen,
   Info,
 } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -20,12 +17,6 @@ interface StockInfo {
   sector: string;
   industry: string;
   description: string | null;
-  analyst?: {
-    summary: string;
-    consensus: string;
-    targetPrice: number | null;
-    targetUpside: number | null;
-  };
 }
 
 function DescriptionText({ text }: { text: string }) {
@@ -70,7 +61,6 @@ export default function AssetProfileCard({
 }: AssetProfileCardProps) {
   const [info, setInfo] = React.useState<StockInfo | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -79,7 +69,6 @@ export default function AssetProfileCard({
       if (!ticker) return;
 
       setLoading(true);
-      setError(null);
       try {
         const res = await fetch(
           `/api/stock/info?ticker=${encodeURIComponent(ticker)}`,
@@ -92,7 +81,7 @@ export default function AssetProfileCard({
         if (mounted) {
           setInfo(data);
         }
-      } catch (err) {
+      } catch {
         if (mounted) {
           // Silent fail - we will show "Description unavailable"
           setInfo(null);
@@ -189,75 +178,6 @@ export default function AssetProfileCard({
         </div>
       )}
 
-      {/* Third-party analyst data for stocks */}
-      {assetType === "STOCK" && info?.analyst && (
-        <div className="space-y-4 pt-4 mt-2 border-t border-hairline">
-          <div className="flex items-center gap-2 text-ink">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <h3 className="font-bold text-sm tracking-wide">
-              Third-Party Analyst Data
-            </h3>
-          </div>
-
-          <div className="relative pl-4 border-l-2 border-emerald-500/30 py-1">
-            <p className="text-sm text-neutral-300 italic leading-relaxed">
-              &ldquo;{info.analyst.summary}&rdquo;
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            {/* Consensus Card */}
-            <div className="bg-gradient-to-br from-ink/5 to-white/0 rounded-xl p-3 border border-hairline flex flex-col items-center justify-center text-center shadow-sm">
-              <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold">
-                Consensus Label
-              </span>
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "text-sm font-bold px-3 py-1",
-                  info.analyst.consensus.toLowerCase().includes("buy")
-                    ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                    : info.analyst.consensus.toLowerCase().includes("sell")
-                      ? "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30"
-                      : "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30",
-                )}
-              >
-                {info.analyst.consensus}
-              </Badge>
-            </div>
-
-            {/* Price Target Card */}
-            <div className="bg-gradient-to-br from-ink/5 to-white/0 rounded-xl p-3 border border-hairline flex flex-col items-center justify-center text-center shadow-sm">
-              <span className="text-[10px] text-neutral-500 mb-1.5 uppercase tracking-wider font-semibold flex items-center gap-1">
-                <Target className="w-3 h-3" />
-                Price Target
-              </span>
-              <div className="text-lg font-bold text-ink tracking-tight">
-                {info.analyst.targetPrice
-                  ? `$${info.analyst.targetPrice.toFixed(2)}`
-                  : "N/A"}
-              </div>
-              {info.analyst.targetUpside !== null && (
-                <div
-                  className={cn(
-                    "text-[10px] font-medium mt-0.5",
-                    info.analyst.targetUpside >= 0
-                      ? "text-emerald-400"
-                      : "text-rose-400",
-                  )}
-                >
-                  {info.analyst.targetUpside >= 0 ? "▲" : "▼"}{" "}
-                  {Math.abs(info.analyst.targetUpside).toFixed(1)}%
-                </div>
-              )}
-            </div>
-          </div>
-          <p className="text-[11px] text-neutral-500 leading-relaxed">
-            Aggregated analyst data can be stale or incomplete. Check the
-            original research and publication date before relying on it.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

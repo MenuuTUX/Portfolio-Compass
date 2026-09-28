@@ -112,12 +112,12 @@ describe('Visualization Components', () => {
 
             render(<PortfolioBarChart portfolio={portfolio} />);
 
-            expect(screen.getByText('Portfolio Look-Through')).toBeTruthy();
+            expect(screen.getByText('Target Portfolio Look-Through')).toBeTruthy();
             expect(screen.getByText('Up to 5%')).toBeTruthy();
             expect(screen.getByText('Above 20%')).toBeTruthy();
             expect(screen.getByTestId('bar-chart')).toBeTruthy();
 
-            // Verify items with effective weights
+            // Verify items with the declared target weights.
             expect(screen.getByText('AAPL: 25.00')).toBeTruthy();
             expect(screen.getByText('MSFT: 25.00')).toBeTruthy();
             expect(screen.getByText('GOOGL: 40.00')).toBeTruthy();

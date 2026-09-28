@@ -6,65 +6,17 @@ export interface DividendHistoryItem {
   exDate?: string;
 }
 
-export interface AssetWithCompositeScore {
-  scores: {
-    composite: number;
-  };
-}
-
-/**
- * Forecasts expected return for a single asset based on Benchmark Volatility Scaling.
- * mu = R_free + (zScore * sigma_benchmark)
- *
- * @param zScore - The composite Z-Score of the asset.
- * @param benchmarkVol - The volatility of the benchmark (sigma_benchmark), defaults to 0.15.
- * @param riskFreeRate - The base risk-free rate (alpha), defaults to 0.04.
- * @returns Expected return (mu).
- */
-export function forecastExpectedReturn(
-  zScore: number,
-  benchmarkVol: number = 0.15,
-  riskFreeRate: number = 0.04, // 4% Risk Free Rate
-): number {
-  // Formula: mu = R_free + (zScore * sigma_benchmark)
-  // This ensures a stock with Z=1.0 gets the same expected return as the benchmark.
-  return riskFreeRate + zScore * benchmarkVol;
-}
-
-/**
- * Forecasts expected returns based on Benchmark Volatility Scaling for a list of assets.
- * mu_i = alpha + (CompositeZScore_i * sigma_benchmark)
- *
- * @param assets - List of assets with composite scores.
- * @param benchmarkVol - The volatility of the benchmark (sigma_benchmark).
- * @param riskFreeRate - The base risk-free rate (alpha), defaults to 0.04.
- * @returns Array of expected returns corresponding to the input assets.
- */
-export function forecastExpectedReturns<T extends AssetWithCompositeScore>(
-  assets: T[],
-  benchmarkVol: number,
-  riskFreeRate: number = 0.04,
-): number[] {
-  return assets.map((asset) => {
-    return forecastExpectedReturn(
-      asset.scores.composite,
-      benchmarkVol,
-      riskFreeRate,
-    );
-  });
-}
-
 export function calculateTTMYield(
   dividendHistory: DividendHistoryItem[],
   currentPrice: number | Decimal,
-): Decimal {
+): Decimal | null {
   if (!dividendHistory || dividendHistory.length === 0) {
-    return new Decimal(0);
+    return null;
   }
 
   const price = new Decimal(currentPrice);
-  if (price.isZero()) {
-    return new Decimal(0);
+  if (!price.isFinite() || !price.greaterThan(0)) {
+    return null;
   }
 
   const oneYearAgo = new Date();
@@ -77,6 +29,11 @@ export function calculateTTMYield(
     const date = new Date(dateStr);
     return date >= oneYearAgo && date <= now;
   });
+  if (ttmDividends.length === 0) return null;
+  if (ttmDividends.some((item) => {
+    const amount = new Decimal(item.amount);
+    return !amount.isFinite() || amount.lessThan(0);
+  })) return null;
 
   const annualPayout = ttmDividends.reduce(
     (sum, item) => sum.plus(new Decimal(item.amount)),

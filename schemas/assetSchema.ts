@@ -16,8 +16,16 @@ export const DividendHistoryItemSchema = z.object({
 });
 
 export const MetricsSchema = z.object({
-  mer: z.number(),
-  yield: z.number(),
+  mer: z.number().nullable().optional(),
+  yield: z.number().nullable().optional(),
+  merSource: z.string().nullable().optional(),
+  merRetrievedAt: z.string().nullable().optional(),
+  merSourceField: z.enum(["netExpenseRatio", "annualReportExpenseRatio", "Expense Ratio"]).nullable().optional(),
+  merInputUnit: z.enum(["fraction", "percent", "unknown"]).nullable().optional(),
+  merNormalization: z.string().nullable().optional(),
+  merMeasurementDate: z.string().nullable().optional(),
+  yieldSource: z.string().nullable().optional(),
+  yieldRetrievedAt: z.string().nullable().optional(),
 });
 
 export const AllocationSchema = z.object({
@@ -33,6 +41,9 @@ export const ETFSchema = z.object({
   ticker: z.string(),
   name: z.string(),
   price: z.number(),
+  currency: z.string().optional(),
+  quoteAsOf: z.string().optional(),
+  quoteStatus: z.enum(["ok", "unavailable"]).optional(),
   changePercent: z.number(),
   assetType: z.string().optional(),
   isDeepAnalysisLoaded: z.boolean().optional(),
@@ -68,7 +79,7 @@ export const ETFSchema = z.object({
   earningsDate: z.string().optional(),
   dividend: z.number().optional(),
   exDividendDate: z.string().optional(),
-  dividendYield: z.number().optional(),
+  dividendYield: z.number().nullable().optional(),
   fiftyTwoWeekLow: z.number().optional(),
   fiftyTwoWeekHigh: z.number().optional(),
   dividendGrowth5Y: z.number().optional(),

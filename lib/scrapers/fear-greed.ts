@@ -51,10 +51,7 @@ export async function fetchFearAndGreedIndex(): Promise<FearAndGreedData> {
 
   } catch (error) {
     console.error('Error fetching Fear & Greed Index:', error);
-    // Return a neutral fallback or rethrow.
-    // Since the UI needs to handle errors, we might want to throw or return null.
-    // However, the prompt says "Handle API failures gracefully".
-    // We'll throw here and handle in the API route.
+    // The API route turns this into a 500 with a neutral payload.
     throw error;
   }
 }

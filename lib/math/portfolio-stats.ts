@@ -1,200 +1,68 @@
 import { Portfolio } from "@/types";
-import {
-  calculateLogReturns,
-  calculateCovarianceMatrix,
-} from "@/lib/monte-carlo";
-import {
-  getAssetYieldFraction,
-  getEffectiveWeights,
-  estimateAssetTotalReturn,
-} from "@/lib/math/portfolio-returns";
+import { alignPriceHistories } from "@/lib/math/history";
 
 export interface PortfolioHistoricalStats {
-  annualizedReturn: number;
-  annualizedVolatility: number;
+  /** Annualized change in the market value of the same held shares. Price only. */
+  annualizedReturn: number | null;
+  annualizedVolatility: number | null;
 }
 
-/**
- * Calculates historical portfolio statistics (Annualized Return, Annualized Volatility)
- * based on the provided portfolio items' history.
- *
- * Price series are unadjusted closes → historical means are *price* returns.
- * Dividend yield is added so the reported annualizedReturn is a total return.
- *
- * Assets without usable history contribute their yield (and a heuristic price
- * drift) so every holding still affects the portfolio expected return.
- *
- * @param portfolio The portfolio with `history` property populated.
- * @param riskFreeRate The risk-free rate (default 0.04), reserved for callers
- * @returns Object with annualizedReturn and annualizedVolatility
- */
+/** Historical price statistics for a buy-and-hold portfolio without cash flows. */
 export function calculatePortfolioHistoricalStats(
   portfolio: Portfolio,
-  _riskFreeRate: number = 0.04,
 ): PortfolioHistoricalStats {
-  if (!portfolio || portfolio.length === 0) {
-    return { annualizedReturn: 0, annualizedVolatility: 0 };
+  const unavailable = { annualizedReturn: null, annualizedVolatility: null };
+  if (portfolio.some((item) => !Number.isFinite(item.shares) || item.shares < 0)) {
+    return unavailable;
+  }
+  const holdings = portfolio.filter((item) => item.shares > 0);
+  const currency = holdings[0]?.currency;
+  if (!currency || !/^[A-Z]{3}$/.test(currency) ||
+    holdings.some((item) => item.currency !== currency || item.history.length < 6)) {
+    return unavailable;
   }
 
-  const weights = getEffectiveWeights(portfolio);
-  const TRADING_DAYS = 252;
+  const aligned = alignPriceHistories(holdings);
+  if (!aligned || aligned.dates.length < 6) return unavailable;
 
-  // Split assets with / without usable price history
-  const withHistoryIdx: number[] = [];
-  const withoutHistoryIdx: number[] = [];
+  const years =
+    (new Date(aligned.dates.at(-1)!).getTime() -
+      new Date(aligned.dates[0]).getTime()) /
+    (1000 * 60 * 60 * 24 * 365.25);
+  if (years < 0.5) return unavailable;
 
-  portfolio.forEach((item, i) => {
-    if (item.history && item.history.length > 5) {
-      withHistoryIdx.push(i);
-    } else {
-      withoutHistoryIdx.push(i);
-    }
-  });
-
-  // --- No history at all: pure heuristic total return ---
-  if (withHistoryIdx.length === 0) {
-    let annRet = 0;
-    for (let i = 0; i < portfolio.length; i++) {
-      annRet += weights[i] * estimateAssetTotalReturn(portfolio[i]);
-    }
-    // Assume moderate equity-like vol when we have no data
-    return { annualizedReturn: annRet, annualizedVolatility: 0.15 };
-  }
-
-  // Align price series on the latest common start date
-  const histItems = withHistoryIdx.map((i) => portfolio[i]);
-  const startDates = histItems.map((item) =>
-    new Date(item.history[0].date).getTime(),
+  const values = aligned.dates.map((_, dateIndex) =>
+    holdings.reduce(
+      (sum, item, itemIndex) =>
+        sum + item.shares * aligned.prices[itemIndex][dateIndex],
+      0,
+    ),
   );
-  const latestStartDate = Math.max(...startDates);
-
-  const alignedPrices: number[][] = [];
-  let referenceDates: number[] = [];
-
-  histItems.forEach((item, index) => {
-    const filteredHistory = item.history.filter(
-      (h) => new Date(h.date).getTime() >= latestStartDate,
-    );
-    const prices = filteredHistory.map((h) => h.price);
-    if (index === 0) {
-      referenceDates = filteredHistory.map((h) => new Date(h.date).getTime());
-    }
-    alignedPrices.push(prices);
-  });
-
-  const minLen = Math.min(...alignedPrices.map((arr) => arr.length));
-  if (minLen < 2) {
-    // Fall back to heuristics for everything
-    let annRet = 0;
-    for (let i = 0; i < portfolio.length; i++) {
-      annRet += weights[i] * estimateAssetTotalReturn(portfolio[i]);
-    }
-    return { annualizedReturn: annRet, annualizedVolatility: 0.15 };
+  if (values.some((value) => !Number.isFinite(value) || value <= 0)) {
+    return unavailable;
   }
 
-  const finalPrices = alignedPrices.map((arr) => arr.slice(arr.length - minLen));
-  referenceDates = referenceDates.slice(referenceDates.length - minLen);
-
-  const startDate = referenceDates[0];
-  const endDate = referenceDates[referenceDates.length - 1];
-  const timeSpanYears =
-    (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
-
-  // Short windows produce unstable annualizations, so use heuristics instead.
-  if (timeSpanYears < 0.5) {
-    let annRet = 0;
-    for (let i = 0; i < portfolio.length; i++) {
-      annRet += weights[i] * estimateAssetTotalReturn(portfolio[i]);
-    }
-    return { annualizedReturn: annRet, annualizedVolatility: 0.15 };
+  const annualizedReturn =
+    Math.pow(values.at(-1)! / values[0], 1 / years) - 1;
+  const gapsInDays = aligned.dates.slice(1).map((date, index) =>
+    (new Date(date).getTime() - new Date(aligned.dates[index]).getTime()) /
+    (1000 * 60 * 60 * 24),
+  );
+  // Annualizing a handful of monthly or irregular changes as daily volatility
+  // produces a number with unjustified precision. Keep the observed price CAGR
+  // but withhold volatility until the common series is sufficiently dense.
+  if (gapsInDays.length < 100 || gapsInDays.some((gap) => gap > 10)) {
+    return { annualizedReturn, annualizedVolatility: null };
   }
+  const logReturns = values.slice(1).map((value, index) =>
+    Math.log(value / values[index]),
+  );
+  const mean = logReturns.reduce((sum, value) => sum + value, 0) / logReturns.length;
+  const variance = logReturns.reduce(
+    (sum, value) => sum + (value - mean) ** 2,
+    0,
+  ) / (logReturns.length - 1);
+  const annualizedVolatility = Math.sqrt(variance * (logReturns.length / years));
 
-  const N = finalPrices[0].length;
-  const dt = timeSpanYears / (N - 1);
-  const samplesPerYear = 1 / dt;
-
-  const returnsMatrix = finalPrices.map((prices) => calculateLogReturns(prices));
-
-  // Mean *price* log-return per step
-  const meanPriceLog = returnsMatrix.map((returns) => {
-    const sum = returns.reduce((a, b) => a + b, 0);
-    return sum / returns.length;
-  });
-
-  const covMatrix = calculateCovarianceMatrix(returnsMatrix);
-
-  // Renormalize weights among history assets for the price-return sleeve,
-  // then blend with no-history assets via original portfolio weights.
-  const histWeightSum = withHistoryIdx.reduce((s, i) => s + weights[i], 0);
-
-  // Portfolio expected *price* log return per step (history assets only, renormed)
-  let expStepPriceLog = 0;
-  if (histWeightSum > 0) {
-    withHistoryIdx.forEach((pi, localIdx) => {
-      const w = weights[pi] / histWeightSum;
-      expStepPriceLog += w * meanPriceLog[localIdx];
-    });
-  }
-
-  // Portfolio variance per step (history assets)
-  let expStepVar = 0;
-  if (histWeightSum > 0) {
-    for (let i = 0; i < withHistoryIdx.length; i++) {
-      for (let j = 0; j < withHistoryIdx.length; j++) {
-        const wi = weights[withHistoryIdx[i]] / histWeightSum;
-        const wj = weights[withHistoryIdx[j]] / histWeightSum;
-        expStepVar += wi * wj * covMatrix[i][j];
-      }
-    }
-  }
-
-  const annPriceLog = expStepPriceLog * samplesPerYear;
-  const annPriceReturn = Math.exp(annPriceLog) - 1; // price only
-
-  // Dividend yield across *all* assets (fraction)
-  let portfolioYield = 0;
-  for (let i = 0; i < portfolio.length; i++) {
-    portfolioYield += weights[i] * getAssetYieldFraction(portfolio[i]);
-  }
-
-  // Blend: history sleeve total return + no-history sleeve heuristic
-  // History sleeve already gets +yield; no-history uses full heuristic.
-  let annualizedReturn: number;
-  if (withoutHistoryIdx.length === 0) {
-    // All assets have history → price return + yield = total return
-    annualizedReturn = annPriceReturn + portfolioYield;
-  } else {
-    const noHistWeight = withoutHistoryIdx.reduce((s, i) => s + weights[i], 0);
-    let noHistRet = 0;
-    if (noHistWeight > 0) {
-      withoutHistoryIdx.forEach((i) => {
-        noHistRet += (weights[i] / noHistWeight) * estimateAssetTotalReturn(portfolio[i]);
-      });
-    }
-    // History assets: renormed price return + their own yield contribution
-    let histYield = 0;
-    withHistoryIdx.forEach((i) => {
-      histYield += (weights[i] / (histWeightSum || 1)) * getAssetYieldFraction(portfolio[i]);
-    });
-    const histTotal = annPriceReturn + histYield;
-    annualizedReturn =
-      histWeightSum * histTotal + noHistWeight * noHistRet;
-  }
-
-  const annualizedVolatility =
-    Math.sqrt(Math.max(0, expStepVar)) * Math.sqrt(samplesPerYear);
-
-  // Floor vol slightly if we have no-history assets (they add uncertainty)
-  const vol =
-    withoutHistoryIdx.length > 0
-      ? Math.max(annualizedVolatility, 0.1)
-      : annualizedVolatility;
-
-  return {
-    annualizedReturn,
-    annualizedVolatility: vol || 0.15,
-  };
+  return { annualizedReturn, annualizedVolatility };
 }
-
-// Re-export trading-day constant for callers
-export const TRADING_DAYS_PER_YEAR = 252;

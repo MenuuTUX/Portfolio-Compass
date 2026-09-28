@@ -4,32 +4,33 @@ import Image from "next/image";
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  TrendingUp,
-  TrendingDown,
   Plus,
   ArrowUpRight,
   ArrowDownRight,
+  Trash2,
+  Check,
+  ChevronDown,
+  MessageCircle,
+  TrendingUp,
+  TrendingDown,
   ShoppingBag,
   Tag,
   Zap,
   Sprout,
-  Trash2,
-  Check,
   Pickaxe,
-  ChevronDown,
-  MessageCircle,
 } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
+import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
 
 interface TrendingSectionProps {
   title: string;
   items: ETF[];
   Icon: React.ElementType;
-  theme: "emerald" | "rose" | "purple" | "orange" | "amber";
+  theme?: "emerald" | "rose" | "purple" | "orange" | "amber";
   onAddToPortfolio: (etf: ETF) => Promise<void>;
   portfolio?: PortfolioItem[];
   onRemoveFromPortfolio?: (ticker: string) => void;
@@ -44,7 +45,7 @@ export default function TrendingSection({
   title,
   items,
   Icon,
-  theme,
+  theme = "emerald",
   onAddToPortfolio,
   portfolio = [],
   onRemoveFromPortfolio,
@@ -95,62 +96,17 @@ export default function TrendingSection({
     );
   };
 
-  const getThemeStyles = (t: typeof theme) => {
-    switch (t) {
-      case "rose":
-        return {
-          bg: "bg-rose-500/20",
-          text: "text-rose-400",
-          border: "hover:border-rose-500/30",
-          shadow: "hover:shadow-rose-500/20",
-          tagBg: "bg-rose-500",
-          tagText: "SALE",
-          tagIcon: Tag,
-        };
-      case "purple":
-        return {
-          bg: "bg-purple-500/20",
-          text: "text-purple-400",
-          border: "hover:border-purple-500/30",
-          shadow: "hover:shadow-purple-500/20",
-          tagBg: "bg-purple-500",
-          tagText: "ELITE",
-          tagIcon: Zap,
-        };
-      case "orange":
-        return {
-          bg: "bg-[#FF5700]/20",
-          text: "text-[#FF5700]",
-          border: "hover:border-[#FF5700]/30",
-          shadow: "hover:shadow-[#FF5700]/20",
-          tagBg: "bg-[#FF5700]",
-          tagText: "REDDIT",
-          tagIcon: Sprout,
-        };
-      case "amber":
-        return {
-          bg: "bg-amber-500/20",
-          text: "text-amber-400",
-          border: "hover:border-amber-500/30",
-          shadow: "hover:shadow-amber-500/20",
-          tagBg: "bg-amber-500",
-          tagText: "RESOURCE",
-          tagIcon: Pickaxe,
-        };
-      default:
-        return {
-          bg: "bg-emerald-500/20",
-          text: "text-emerald-400",
-          border: "hover:border-hairline-strong",
-          shadow: "hover:shadow-emerald-500/10",
-          tagBg: "bg-emerald-500",
-          tagText: "HOT",
-          tagIcon: TrendingUp,
-        };
+  const getThemeStyles = () => {
+    switch (theme) {
+      case "rose": return { bg: "bg-rose-500/20", text: "text-rose-400", border: "hover:border-rose-500/30", shadow: "hover:shadow-rose-500/20", tagBg: "bg-rose-500", tagText: "SALE", tagIcon: Tag };
+      case "purple": return { bg: "bg-purple-500/20", text: "text-purple-400", border: "hover:border-purple-500/30", shadow: "hover:shadow-purple-500/20", tagBg: "bg-purple-500", tagText: "ELITE", tagIcon: Zap };
+      case "orange": return { bg: "bg-[#FF5700]/20", text: "text-[#FF5700]", border: "hover:border-[#FF5700]/30", shadow: "hover:shadow-[#FF5700]/20", tagBg: "bg-[#FF5700]", tagText: "REDDIT", tagIcon: Sprout };
+      case "amber": return { bg: "bg-amber-500/20", text: "text-amber-400", border: "hover:border-amber-500/30", shadow: "hover:shadow-amber-500/20", tagBg: "bg-amber-500", tagText: "RESOURCE", tagIcon: Pickaxe };
+      default: return { bg: "bg-emerald-500/20", text: "text-emerald-400", border: "hover:border-hairline-strong", shadow: "hover:shadow-emerald-500/10", tagBg: "bg-emerald-500", tagText: "HOT", tagIcon: TrendingUp };
     }
   };
+  const styles = getThemeStyles();
 
-  const styles = getThemeStyles(theme);
   const visibleItems = items.slice(0, visibleCount);
   const hasMore = visibleCount < items.length;
 
@@ -172,21 +128,16 @@ export default function TrendingSection({
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <motion.div
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            className={cn("p-3 rounded-xl", styles.bg)}
-          >
-            <Icon className={cn("w-6 h-6", styles.text)} />
+          <motion.div whileHover={{ scale: 1.1, rotate: 5 }} className={cn("p-3 rounded-xl", styles.bg)}>
+            <Icon className={cn("w-6 h-6", styles.text)} aria-hidden="true" />
           </motion.div>
           <div>
             <h2 className="text-3xl font-bold text-ink tracking-tight leading-tight">
               {title}
             </h2>
-            <div
-              className={cn("h-[3px] w-10 rounded-full mt-1.5 mb-1.5", styles.tagBg)}
-            />
+            <div className={cn("h-[3px] w-10 rounded-full mt-1.5 mb-1.5", styles.tagBg)} />
             <div className="flex items-center gap-3">
-              <span className="text-muted text-sm font-medium">
+              <span className="text-neutral-500 text-xs">
                 {visibleItems.length} of {items.length} assets
               </span>
               {ownedCount > 0 && (
@@ -221,16 +172,6 @@ export default function TrendingSection({
           <p className="text-neutral-400 text-sm max-w-md mx-auto">
             Fetching the latest data. This may take a moment if the market data is being synced.
           </p>
-          <div className="flex justify-center gap-1 mt-4">
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                className={cn("w-2 h-2 rounded-full", styles.tagBg)}
-                animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
-              />
-            ))}
-          </div>
         </motion.div>
       )}
 
@@ -238,9 +179,19 @@ export default function TrendingSection({
         {visibleItems.map((etf) => {
           const inPortfolio = isItemInPortfolio(etf.ticker);
           const flashState = flashStates[etf.ticker];
+          const yieldValue = getSourcedYield(etf.metrics, etf.dividendYield);
+          const yieldKnown = yieldValue != null;
+          const yieldUnverified = isUnverifiedProviderYield(etf.metrics?.yieldSource);
           const communityLinks = communityLookup
             ? communityLookup(etf.ticker, etf.assetType)
             : [];
+          const quoteTime = etf.quoteAsOf
+            ? new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(new Date(etf.quoteAsOf))
+            : null;
+          const quoteUnavailable = etf.quoteStatus === "unavailable";
 
           // Determine graph color based on history trend if available
           let isGraphPositive = etf.changePercent >= 0;
@@ -261,11 +212,10 @@ export default function TrendingSection({
               }
               transition={{ duration: 0.4 }}
               className={cn(
-                "group relative bg-surface-card border border-hairline rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1",
-                styles.border,
-                styles.shadow,
+                "glass-card rounded-xl relative overflow-hidden bg-surface-card border transition-all group flex flex-col",
+                styles.border, styles.shadow,
                 inPortfolio &&
-                  "shadow-[0_0_30px_-5px_rgba(16,185,129,0.3)] border-emerald-500/30",
+                  "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]",
               )}
             >
               {/* Flash Overlay */}
@@ -285,12 +235,7 @@ export default function TrendingSection({
                 )}
               </AnimatePresence>
 
-              <div
-                className={cn(
-                  "absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10",
-                  styles.tagBg,
-                )}
-              >
+              <div className={cn("absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10", styles.tagBg)}>
                 <styles.tagIcon className="w-3 h-3" />
                 {styles.tagText}
               </div>
@@ -310,23 +255,7 @@ export default function TrendingSection({
                 )}
 
                 <div className="flex items-start gap-3 mb-4">
-                  {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
-                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      <Image
-                        src={
-                          getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!
-                        }
-                        alt={`${etf.ticker} logo`}
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          e.currentTarget.parentElement!.style.display = "none";
-                        }}
-                      />
-                    </div>
-                  )}
+                  {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && <div className="w-10 h-10 flex items-center justify-center shrink-0"><Image src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!} alt={`${etf.ticker} logo`} width={40} height={40} className="w-full h-full object-contain" /></div>}
                   <div className="flex-1 min-w-0">
                     <h3 className="text-xl font-bold text-ink mb-1">
                       {etf.ticker}
@@ -339,30 +268,35 @@ export default function TrendingSection({
 
                 <div className="flex justify-between items-end mb-4">
                   <div>
-                    <span className="block text-2xl font-bold text-ink mb-1">
-                      {formatCurrency(etf.price)}
+                    <span className="block text-xl font-semibold text-ink mb-1 tabular-nums">
+                      {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
+                    </span>
+                    <span className="block text-[11px] text-muted mb-1">
+                      {quoteUnavailable ? "Quote unavailable" : quoteTime ? `Quote as of ${quoteTime}` : "Quote time unavailable"}
                     </span>
                     <span
                       className={cn(
-                        "flex items-center text-sm font-medium",
-                        etf.changePercent >= 0
-                          ? "text-emerald-400"
-                          : "text-rose-400",
+                        "flex items-center text-sm font-medium tabular-nums",
+                        quoteUnavailable
+                          ? "text-muted"
+                          : etf.changePercent >= 0
+                          ? "text-data-up"
+                          : "text-data-down",
                       )}
                     >
-                      {etf.changePercent >= 0 ? (
+                      {!quoteUnavailable && (etf.changePercent >= 0 ? (
                         <ArrowUpRight className="w-4 h-4" />
                       ) : (
                         <ArrowDownRight className="w-4 h-4" />
-                      )}
-                      {Math.abs(etf.changePercent).toFixed(2)}%
+                      ))}
+                      {quoteUnavailable ? "Change unavailable" : `Daily change ${etf.changePercent > 0 ? "+" : etf.changePercent < 0 ? "−" : ""}${Math.abs(etf.changePercent).toFixed(2)}%`}
                     </span>
                   </div>
                   {etf.history && etf.history.length > 0 && (
                     <div className="pb-1 pr-1 rounded-lg bg-surface-soft/60">
                       <Sparkline
                         data={etf.history}
-                        color={isGraphPositive ? "#10b981" : "#f43f5e"}
+                        color={isGraphPositive ? "#5cb883" : "#ef7a72"}
                         name={etf.ticker}
                       />
                     </div>
@@ -373,11 +307,19 @@ export default function TrendingSection({
                   <span className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium text-muted bg-surface-soft rounded-lg py-1.5">
                     {etf.assetType || "ETF"}
                   </span>
-                  <span className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-500/10 rounded-lg py-1.5">
-                    {(etf.metrics?.yield ?? etf.dividendYield ?? 0).toFixed(2)}%{" "}
-                    <HelpTip term="Yield" showIcon={false} className="text-emerald-400/80">
-                      yield
-                    </HelpTip>
+                  <span
+                    className={cn("flex-1 inline-flex flex-col items-center justify-center gap-0.5 text-xs font-medium bg-surface-soft rounded-card py-1.5", yieldUnverified ? "text-neutral-400" : "text-muted")}
+                    title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {!yieldKnown ? "N/A" : `${yieldValue!.toFixed(2)}%`}{" "}
+                    <HelpTip term={yieldUnverified ? "Unverified Yahoo yield unavailable" : "Dividend yield"} showIcon={false} className="text-muted">
+                        dividend yield
+                      </HelpTip>
+                    </span>
+                    {yieldUnverified && (
+                      <span className="text-[9px] text-neutral-500">Unverified yield unavailable</span>
+                    )}
                   </span>
                 </div>
 
@@ -401,20 +343,23 @@ export default function TrendingSection({
                 )}
               </div>
 
-              {/* Hover Overlay */}
               <div className="absolute inset-0 bg-dune/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
                 {inPortfolio ? (
                   <button
+                    type="button"
                     onClick={() => handleRemove(etf.ticker)}
-                    className="bg-rose-500 hover:bg-rose-600 text-white p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-75 shadow-lg"
+                    aria-label={`Remove ${etf.ticker} from portfolio`}
+                    className="bg-surface-card border border-hairline text-ink p-3 rounded-full transform scale-0 group-hover:scale-100 group-focus-within:scale-100 transition-all duration-300 delay-75"
                     title="Remove from Portfolio"
                   >
                     <Trash2 className="w-6 h-6" />
                   </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={() => handleAdd(etf)}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-75 shadow-lg"
+                    aria-label={`Add ${etf.ticker} to portfolio`}
+                    className="bg-surface-card border border-hairline text-ink p-3 rounded-full transform scale-0 group-hover:scale-100 group-focus-within:scale-100 transition-all duration-300 delay-75"
                     title="Add to Portfolio"
                   >
                     <Plus className="w-6 h-6" />
@@ -422,8 +367,10 @@ export default function TrendingSection({
                 )}
 
                 <button
+                  type="button"
                   onClick={() => handleView(etf)}
-                  className="bg-white text-black hover:bg-neutral-200 p-3 rounded-full transform scale-0 group-hover:scale-100 transition-all duration-300 delay-100 shadow-lg"
+                  aria-label={`View details for ${etf.ticker}`}
+                  className="bg-white text-black hover:bg-neutral-200 p-3 rounded-full transform scale-0 group-hover:scale-100 group-focus-within:scale-100 transition-all duration-300 delay-100"
                   title="View Details"
                 >
                   <ArrowUpRight className="w-6 h-6" />

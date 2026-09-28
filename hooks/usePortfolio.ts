@@ -1,56 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
-import { loadPortfolio } from "@/lib/storage";
+import { loadPortfolio, type LocalPortfolioItem } from "@/lib/storage";
+import { normalizeTicker, toPortfolioEtf } from "./normalize";
 
-function normalizeTicker(ticker: string): string {
-  return ticker.trim().toUpperCase();
-}
-
-function finiteNumber(value: any): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
-  const ticker = (raw?.ticker || fallbackTicker).toUpperCase();
-  return {
-    ticker,
-    name: raw?.name || ticker,
-    price: finiteNumber(raw?.price),
-    changePercent: finiteNumber(raw?.changePercent),
-    assetType: raw?.assetType || "STOCK",
-    isDeepAnalysisLoaded: Boolean(raw?.isDeepAnalysisLoaded),
-    history: Array.isArray(raw?.history) ? raw.history : [],
-    metrics: {
-      mer: raw?.metrics?.mer ?? 0,
-      yield: raw?.metrics?.yield ?? raw?.dividendYield ?? 0,
-    },
-    allocation: {
-      equities: raw?.allocation?.equities ?? 0,
-      bonds: raw?.allocation?.bonds ?? 0,
-      cash: raw?.allocation?.cash ?? 0,
-    },
-    sectors: raw?.sectors || {},
-    holdings: raw?.holdings,
-    marketCap: raw?.marketCap,
-    volume: raw?.volume,
-    peRatio: raw?.peRatio,
-    forwardPe: raw?.forwardPe,
-    eps: raw?.eps,
-    dividend: raw?.dividend,
-    dividendYield: raw?.dividendYield,
-    open: raw?.open,
-    previousClose: raw?.previousClose,
-    daysRange: raw?.daysRange,
-    fiftyTwoWeekRange: raw?.fiftyTwoWeekRange,
-    fiftyTwoWeekHigh: raw?.fiftyTwoWeekHigh,
-    fiftyTwoWeekLow: raw?.fiftyTwoWeekLow,
-    earningsDate: raw?.earningsDate,
-    sharesOutstanding: raw?.sharesOutstanding,
-    sector: raw?.sector,
-    industry: raw?.industry,
-    beta: raw?.beta,
-  };
+export function mergeLocalPortfolio(
+  localItems: LocalPortfolioItem[],
+  etfByTicker: Map<string, ETF>,
+): Portfolio {
+  return localItems.map((localItem) => {
+    const ticker = normalizeTicker(localItem.ticker);
+    const etf = etfByTicker.get(ticker);
+    return {
+      ...(etf ?? {
+        ticker,
+        name: ticker,
+        price: 0,
+        changePercent: 0,
+        history: [],
+        metrics: {},
+        allocation: { equities: 0, bonds: 0, cash: 0 },
+      }),
+      quoteStatus: etf ? "ok" : "unavailable",
+      weight: localItem.weight,
+      shares: localItem.shares,
+    };
+  });
 }
 
 /**
@@ -70,7 +44,7 @@ export const usePortfolio = () => {
 
       const etfByTicker = new Map<string, ETF>();
 
-      // Batch DB-backed enrich
+      // Batch live-market enrichment
       try {
         const tickers = localItems.map((item) => item.ticker).join(",");
         const response = await fetch(
@@ -122,21 +96,9 @@ export const usePortfolio = () => {
         );
       }
 
-      const portfolio: Portfolio = [];
-      localItems.forEach((localItem) => {
-        const etf = etfByTicker.get(normalizeTicker(localItem.ticker));
-        if (etf) {
-          portfolio.push({
-            ...etf,
-            weight: localItem.weight,
-            shares: localItem.shares,
-          });
-        }
-      });
-
-      return portfolio;
+      return mergeLocalPortfolio(localItems, etfByTicker);
     },
     staleTime: 60000, // 1 minute
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 };

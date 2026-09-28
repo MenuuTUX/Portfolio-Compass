@@ -14,7 +14,7 @@ export const maxDuration = 30;
 export async function GET(request: NextRequest) {
   const ticker = (request.nextUrl.searchParams.get("ticker") || "").trim();
 
-  if (!ticker || !/^[A-Za-z0-9.\-]{1,12}$/.test(ticker)) {
+  if (!ticker || !/^[A-Za-z0-9.-]{1,12}$/.test(ticker)) {
     return NextResponse.json({ error: "Invalid ticker" }, { status: 400 });
   }
 

@@ -81,16 +81,9 @@ const { getStockProfile, parseMarketNumber } = await import('../../../../lib/scr
 describe('getStockProfile', () => {
   it('should scrape stock profile successfully', async () => {
     const profile = await getStockProfile('AAPL');
-    // Note: getStockProfile returns { sector, industry, description }, not ticker
-    // If the scraper uses specific DOM structure, we must match it in the mock.
-    // The scraper looks for span with "Sector" text, then next element or sibling.
-    // Our mock: <div><span>Sector</span><a ...>Technology</a></div>
-    // The scraper:
-    // $('span, div, td, th').each ... if (text === label) ... next().text()
-    // It seems our mock should work if the scraper iterates spans.
-
-    // Debugging: If it returns Unknown, it means the extraction failed.
-    // Let's ensure strict matching.
+    // The scraper matches a label element by exact text, then reads next().text().
+    // The mock mirrors that: <div><span>Sector</span><a>Technology</a></div>.
+    // "Unknown" here means extraction missed the label.
 
     expect(profile?.sector).toBe('Technology');
     expect(profile?.industry).toBe('Consumer Electronics');

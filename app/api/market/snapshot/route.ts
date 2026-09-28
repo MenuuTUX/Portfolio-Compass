@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFastQuotes, getFastHistory } from "@/lib/fast-market";
+import { getFastQuotes, getFastHistory, quoteToAsset } from "@/lib/fast-market";
 
 export const maxDuration = 30;
 
@@ -34,38 +34,7 @@ export async function GET(request: NextRequest) {
       const q = quotes.get(ticker);
       if (!q) continue;
 
-      assets.push({
-        ticker: q.ticker,
-        name: q.name,
-        price: q.price,
-        changePercent: q.changePercent,
-        assetType: q.assetType,
-        isDeepAnalysisLoaded: false,
-        history: histories.get(ticker) || [],
-        metrics: {
-          yield: q.dividendYield ?? 0,
-          mer: q.expenseRatio ?? 0,
-        },
-        allocation: { equities: 0, bonds: 0, cash: 0 },
-        sectors: {},
-        sector: q.sector,
-        industry: q.industry,
-        marketCap: q.marketCap,
-        volume: q.volume,
-        peRatio: q.peRatio,
-        forwardPe: q.forwardPe,
-        eps: q.eps,
-        dividend: q.dividend,
-        dividendYield: q.dividendYield,
-        open: q.open,
-        previousClose: q.previousClose,
-        daysRange: q.daysRange,
-        fiftyTwoWeekRange: q.fiftyTwoWeekRange,
-        fiftyTwoWeekHigh: q.fiftyTwoWeekHigh,
-        fiftyTwoWeekLow: q.fiftyTwoWeekLow,
-        earningsDate: q.earningsDate,
-        sharesOutstanding: q.sharesOutstanding,
-      });
+      assets.push(quoteToAsset(q, histories.get(ticker) || []));
     }
 
     return NextResponse.json(assets, {

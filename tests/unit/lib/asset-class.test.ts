@@ -46,8 +46,10 @@ describe("detectFundClass", () => {
 });
 
 describe("normalizeExpenseRatio", () => {
-  it("treats zero as missing", () => {
+  it("keeps explicit scraped zero fees and treats Yahoo zero as missing", () => {
     expect(normalizeExpenseRatio(0)).toBeUndefined();
+    expect(normalizeExpenseRatio(0, "quote")).toBeUndefined();
+    expect(normalizeExpenseRatio(0, "scraper")).toBe(0);
   });
 
   it("converts profile decimals to percent", () => {
@@ -104,15 +106,70 @@ describe("positionsToAllocation", () => {
 
 describe("realizedAnnualVolatility", () => {
   it("returns undefined for short series", () => {
-    expect(realizedAnnualVolatility([{ price: 1 }, { price: 2 }])).toBeUndefined();
+    expect(realizedAnnualVolatility([
+      { date: "2024-01-01", price: 1 },
+      { date: "2024-01-02", price: 2 },
+    ])).toBeUndefined();
   });
 
   it("estimates positive vol for a noisy series", () => {
-    const history = Array.from({ length: 30 }, (_, i) => ({
+    const start = Date.UTC(2024, 0, 1);
+    const history = Array.from({ length: 220 }, (_, i) => ({
+      date: new Date(start + i * 86400000).toISOString(),
       price: 100 + Math.sin(i) * 5 + i * 0.1,
     }));
     const v = realizedAnnualVolatility(history);
     expect(v).toBeGreaterThan(0);
+  });
+
+  it("annualizes daily and weekly observations at their observed cadence", () => {
+    const makeHistory = (count: number, stepDays: number, weekdaysOnly = false) => {
+      const history: { date: string; price: number }[] = [];
+      let day = Date.UTC(2020, 0, 1);
+      let price = 100;
+      for (let i = 0; i < count; i++) {
+        if (weekdaysOnly) {
+          const weekday = new Date(day).getUTCDay();
+          if (weekday === 0) day += 86400000;
+          if (weekday === 6) day += 2 * 86400000;
+        }
+        history.push({ date: new Date(day).toISOString(), price });
+        price *= Math.exp(Math.sin(i * 1.7) * 0.01);
+        day += stepDays * 86400000;
+      }
+      return history;
+    };
+
+    const daily = realizedAnnualVolatility(makeHistory(220, 1, true));
+    const weekly = realizedAnnualVolatility(makeHistory(220, 7));
+    expect(daily).toBeGreaterThan(0);
+    expect(weekly).toBeGreaterThan(0);
+    // Equal per-point noise scales by observed points per year (~252 vs ~52).
+    expect(daily! / weekly!).toBeGreaterThan(2);
+    expect(daily! / weekly!).toBeLessThan(2.5);
+  });
+
+  it("does not annualize intraday ranges or insufficient daily history", () => {
+    const start = Date.UTC(2024, 0, 1);
+    const intraday = Array.from({ length: 220 }, (_, i) => ({
+      date: new Date(start + i * 5 * 60_000).toISOString(),
+      price: 100 + Math.sin(i),
+    }));
+    const shortDaily = Array.from({ length: 100 }, (_, i) => ({
+      date: new Date(start + i * 86400000).toISOString(),
+      price: 100 + Math.sin(i),
+    }));
+    expect(realizedAnnualVolatility(intraday)).toBeUndefined();
+    expect(realizedAnnualVolatility(shortDaily)).toBeUndefined();
+  });
+
+  it("withholds a volatility estimate for sparse observations", () => {
+    const start = Date.UTC(2024, 0, 1);
+    const history = Array.from({ length: 101 }, (_, i) => ({
+      date: new Date(start + i * 14 * 86400000).toISOString(),
+      price: 100 + Math.sin(i),
+    }));
+    expect(realizedAnnualVolatility(history)).toBeUndefined();
   });
 });
 

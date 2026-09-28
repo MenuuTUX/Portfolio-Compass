@@ -38,6 +38,7 @@ export interface StockProfile {
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
   expenseRatio?: number;
+  expenseRatioInputUnit?: "percent" | "unknown";
 
   // New ETF Metrics
   inceptionDate?: string;
@@ -53,6 +54,17 @@ export interface ScrapedHolding {
     name: string;
     weight: number;
     shares: number | null;
+}
+
+export function parseExpenseRatioText(raw: string): {
+  value?: number;
+  inputUnit: "percent" | "unknown";
+} {
+  const value = Number.parseFloat(raw.replace(/%/g, "").trim());
+  return {
+    value: Number.isFinite(value) ? value : undefined,
+    inputUnit: raw.includes("%") ? "percent" : "unknown",
+  };
 }
 
 export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<string[]> {
@@ -255,7 +267,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   }
 
   let upperTicker = ticker.toUpperCase();
-  let isEtf = false;
 
   const urls = profileUrlsForTicker(ticker);
   if (urls.length === 0) {
@@ -263,12 +274,9 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   }
 
   let response: Response | null = null;
-  let usedUrl = urls[0];
   for (const url of urls) {
-    usedUrl = url;
     response = await fetchWithUserAgent(url);
     if (response.ok) {
-      if (url.includes("/etf/") || url.includes("/quote/")) isEtf = true;
       break;
     }
   }
@@ -531,8 +539,11 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
 
   const rawExp = extractValue('Expense Ratio');
   if (rawExp) {
-      const n = parseFloat(rawExp.replace('%', '').trim());
-      if (!isNaN(n)) metrics.expenseRatio = n;
+      const parsed = parseExpenseRatioText(rawExp);
+      if (parsed.value !== undefined) {
+          metrics.expenseRatio = parsed.value;
+          metrics.expenseRatioInputUnit = parsed.inputUnit;
+      }
   }
 
   const rawInception = extractValue('Inception Date');

@@ -22,11 +22,24 @@ Hosting, such as Vercel, runs the Next.js app and its API proxies. Clearing site
 - Stock and ETF search with current quotes and price charts
 - Side-by-side comparison without automatic winner labels
 - Portfolio storage in the browser, with no login
-- A greedy whole-share allocator using explicit return and variance proxies
+- An experimental whole-share allocation score using explicit return and variance proxies; its candidates cannot be applied from the panel
 - Constant-return projections and Monte Carlo model paths
 - Fund holdings, sector, credit-quality, and market-data views when sources provide them
 
-The allocator is a heuristic, not a Sharpe optimizer. It uses dividend yield plus a beta-based return proxy, a diagonal beta-based variance proxy, and no cross-asset correlations. Monte Carlo results use historical estimates and geometric Brownian motion. Both are model outputs, not forecasts or investment advice.
+The allocation score is a heuristic, not a Sharpe optimizer. It uses a provider-reported yield and beta-based return proxy, with covariance estimated from overlapping price history when sufficient data exists or from a single-index fallback otherwise. Reported yield has not been independently reconciled for every fund, so the panel does not apply trades. Monte Carlo uses historical **price** returns and geometric Brownian motion for illustrative paths, not calibrated forecasts or investment advice. Portfolio totals and projections are withheld when a held quote is stale or unavailable, or when held currencies differ and dated FX conversion is unavailable.
+
+## Pages
+
+| Route | Purpose |
+|-------|---------|
+| `/` | The app |
+| `/privacy` | What is stored locally, what reaches the server, which third parties see requests |
+| `/terms` | Terms of use, including what the projections are and are not |
+| `/robots.txt`, `/sitemap.xml` | Generated at build time |
+| `/opengraph-image` | 1200×630 social card, generated at build time |
+
+The `/api` routes are rate-limited to 120 requests per minute per IP in
+`middleware.ts`, since each one proxies an upstream data provider.
 
 ## Getting started
 
@@ -45,7 +58,7 @@ bun run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-No `DATABASE_URL` needed. Optional env vars are documented in `.example.env`.
+No environment variables are required.
 
 ## Scripts
 
@@ -55,7 +68,7 @@ No `DATABASE_URL` needed. Optional env vars are documented in `.example.env`.
 | `bun run build` | Production build |
 | `bun test` | Unit tests |
 | `bun run lint` | ESLint |
-| `bun run lint:oxlint` | Anti-slop Oxlint rules |
+| `bun run lint:oxlint` | Oxlint |
 | `bun run typecheck` | `tsc --noEmit` |
 
 ## License

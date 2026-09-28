@@ -34,7 +34,7 @@ describe("applyMarketFilters", () => {
       changePercent: 1.5,
       marketCap: 3e12,
       peRatio: 30,
-      metrics: { yield: 0.5, mer: 0 },
+      metrics: { yield: 0.5, yieldSource: "Issuer factsheet", mer: 0 },
     },
     {
       ticker: "SCHD",
@@ -43,7 +43,7 @@ describe("applyMarketFilters", () => {
       changePercent: -0.8,
       marketCap: 50e9,
       peRatio: 15,
-      metrics: { yield: 3.5, mer: 0.06 },
+      metrics: { yield: 3.5, yieldSource: "Issuer factsheet", mer: 0.06, merSource: "Issuer factsheet" },
     },
     {
       ticker: "TSLA",
@@ -52,7 +52,7 @@ describe("applyMarketFilters", () => {
       changePercent: 0.1,
       marketCap: 800e9,
       peRatio: 60,
-      metrics: { yield: 0, mer: 0 },
+      metrics: { yield: 0, yieldSource: "Issuer factsheet", mer: 0 },
     },
   ];
 
@@ -79,6 +79,32 @@ describe("applyMarketFilters", () => {
     });
     expect(out[0].ticker).toBe("SCHD");
     expect(out[out.length - 1].ticker).toBe("TSLA");
+  });
+
+  it("excludes unverified Yahoo quote yields from yield filters and sorting", () => {
+    const withYahooQuote = [
+      ...sample,
+      {
+        ticker: "YAHOO",
+        name: "Yahoo quoted yield",
+        price: 50,
+        changePercent: 0,
+        metrics: { yield: 8, yieldSource: "Yahoo Finance quote", mer: 0 },
+      },
+    ];
+
+    const highYield = applyMarketFilters(withYahooQuote, {
+      ...DEFAULT_MARKET_FILTERS,
+      yieldFilter: "high",
+    });
+    const byYield = applyMarketFilters(withYahooQuote, {
+      ...DEFAULT_MARKET_FILTERS,
+      sort: "yield_desc",
+    });
+
+    expect(highYield.map((item) => item.ticker)).toEqual(["SCHD"]);
+    expect(byYield[0].ticker).toBe("SCHD");
+    expect(byYield.at(-1)?.ticker).toBe("YAHOO");
   });
 
   it("sorts by industry A–Z (missing industry last)", () => {
@@ -121,7 +147,7 @@ describe("applyMarketFilters", () => {
     expect(out.map((x) => x.ticker)).toEqual(["SCHD"]);
   });
 
-  it("filters ultra-low MER", () => {
+  it("filters sourced ultra-low expense ratios", () => {
     const out = applyMarketFilters(sample, {
       ...DEFAULT_MARKET_FILTERS,
       mer: "ultra_low",

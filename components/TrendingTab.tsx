@@ -10,7 +10,7 @@ import TrendingSection from "./TrendingSection";
 import FearGreedGauge from "./FearGreedGauge";
 import ImportPortfolioCard from "./ImportPortfolioCard";
 import InstitutionalPortfolios from "./InstitutionalPortfolios";
-import { useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
+import { BatchAddItem, useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
 import {
   MAG7_TICKERS,
   JUST_BUY_TICKERS,
@@ -49,12 +49,8 @@ export default function TrendingTab({
 
   const batchAddMutation = useBatchAddPortfolio();
 
-  const handleInstitutionalAdd = async (items: any[]) => {
-    try {
-      await batchAddMutation.mutateAsync({ items, replace: true });
-    } catch (error) {
-      console.error("Failed to add portfolio", error);
-    }
+  const handleInstitutionalAdd = async (items: BatchAddItem[]) => {
+    await batchAddMutation.mutateAsync({ items, replace: true });
   };
 
   useEffect(() => {
@@ -197,15 +193,10 @@ export default function TrendingTab({
           <FearGreedGauge className="h-full" />
         </div>
 
-        {/* Import Portfolio Card */}
         <div className="w-full h-full">
-          {onImportPortfolio && (
-            <ImportPortfolioCard
-              onImport={onImportPortfolio}
-              className="h-full"
-            />
-          )}
+          {onImportPortfolio && <ImportPortfolioCard onImport={onImportPortfolio} className="h-full" />}
         </div>
+
       </div>
 
       {/* Stock Sections */}
@@ -291,7 +282,7 @@ export default function TrendingTab({
             changePercent: 0,
             assetType: "STOCK",
             history: [],
-            metrics: { mer: 0, yield: 0 },
+            metrics: {},
             allocation: { equities: 0, bonds: 0, cash: 0 },
           };
           setSelectedItem(placeholder);
