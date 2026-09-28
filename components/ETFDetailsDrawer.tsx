@@ -34,6 +34,7 @@ import ComparisonModal from "./ComparisonModal";
 import { HelpTip } from "./ui/HelpTip";
 import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
 import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { quoteSessionLabel } from "@/lib/quote-session";
 import { useMemo, useState, useEffect } from "react";
 import { getRedditCommunities } from "@/config/tickers";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
@@ -775,6 +776,12 @@ export default function ETFDetailsDrawer({
                   <div className="text-2xl font-light text-ink">
                     {formatCurrency(displayEtf.price, displayEtf.currency)}
                   </div>
+                  {quoteSessionLabel(displayEtf.quoteSession) && (
+                    <div className="text-[11px] text-muted">
+                      {quoteSessionLabel(displayEtf.quoteSession)}
+                      {displayEtf.quoteAsOf && ` · ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(displayEtf.quoteAsOf))}`}
+                    </div>
+                  )}
                   <div
                     className={cn(
                       "text-xs font-medium",

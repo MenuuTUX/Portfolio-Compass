@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = (searchParams.get("query") || "").trim();
   const assetType = parseAssetType(searchParams.get("type"));
+  const includeHistory = searchParams.get("history") !== "false";
+  const includeProfiles = searchParams.get("profiles") !== "false";
   const skip = Math.max(0, parseInt(searchParams.get("skip") || "0", 10) || 0);
   const limit = Math.min(
     MAX_RESULTS,
@@ -30,7 +32,10 @@ export async function GET(request: NextRequest) {
     let tickers: string[];
 
     if (query) {
-      tickers = await searchFastSymbols(query, assetType, 20);
+      const exactTicker = query.trim().toUpperCase();
+      tickers = /^[A-Z0-9.^=-]{1,12}$/.test(exactTicker)
+        ? [exactTicker]
+        : await searchFastSymbols(query, assetType, 20);
     } else {
       const curated =
         assetType === "ETF"
@@ -42,9 +47,10 @@ export async function GET(request: NextRequest) {
     }
 
     const [quotes, histories] = await Promise.all([
-      // Profiles (sector/industry) needed for market filters sort-by-industry
-      getFastQuotes(tickers, { includeProfiles: true }),
-      getFastHistory(tickers, "1M"),
+      getFastQuotes(tickers, { includeProfiles }),
+      includeHistory
+        ? getFastHistory(tickers, "1M")
+        : Promise.resolve(new Map<string, { date: string; price: number }[]>()),
     ]);
 
     const assets = [];
@@ -58,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(assets, {
       headers: {
-        "Cache-Control": "public, max-age=15, stale-while-revalidate=60",
+        "Cache-Control": "public, max-age=5, stale-while-revalidate=15",
       },
     });
   } catch (error) {

@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { mockModule } from "@/tests/helpers/mock-module";
 import type { FastQuote } from "@/lib/fast-market";
+import type { DividendHistoryItem } from "@/lib/finance";
 
 const mockGetFastQuotes = mock(async (): Promise<Map<string, FastQuote>> => new Map([
     ["TEST", {
@@ -16,10 +17,12 @@ const mockGetFastQuotes = mock(async (): Promise<Map<string, FastQuote>> => new 
       quoteAsOf: "2026-09-25T20:00:00.000Z",
     }],
   ]));
+const mockGetFastDividendHistory = mock(async (): Promise<DividendHistoryItem[] | null> => null);
 
 await mockModule("@/lib/fast-market", () => ({
   getFastQuotes: mockGetFastQuotes,
   getFastHistory: mock(async () => new Map()),
+  getFastDividendHistory: mockGetFastDividendHistory,
   getFastEtfDetails: mock(async () => ({
     expenseRatio: 0.25,
     expenseRatioSource: "StockAnalysis",
@@ -126,5 +129,41 @@ describe("ETF sync financial fields", () => {
     expect(asset.metrics.yieldInputUnit).toBe("fraction");
     expect(asset.metrics.yieldNormalization).toBe("fraction × 100 to percent");
     expect(asset.metrics.yieldMeasurementDate).toBeNull();
+  });
+
+  it("calculates a sourced trailing yield from complete cash distribution history", async () => {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    mockGetFastDividendHistory.mockResolvedValueOnce([
+      { date: sixMonthsAgo.toISOString(), amount: 2.5 },
+      { date: sixMonthsAgo.toISOString(), amount: 2.5 },
+    ]);
+
+    const response = await POST(new Request("http://localhost/api/etfs/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "TEST" }),
+    }) as Parameters<typeof POST>[0]);
+    const asset = await response.json();
+
+    expect(asset.metrics.yield).toBe(5);
+    expect(asset.metrics.yieldSource).toBe("Yahoo Finance dividend history (TTM)");
+    expect(asset.metrics.yieldNormalization).toContain("cash distributions");
+    expect(asset.metrics.yieldMeasurementDate).toBe("2026-09-25T20:00:00.000Z");
+    expect(asset.metrics.yieldSourceField).toBeNull();
+  });
+
+  it("reports a complete no-distribution year as a known zero yield", async () => {
+    mockGetFastDividendHistory.mockResolvedValueOnce([]);
+
+    const response = await POST(new Request("http://localhost/api/etfs/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "TEST" }),
+    }) as Parameters<typeof POST>[0]);
+    const asset = await response.json();
+
+    expect(asset.metrics.yield).toBe(0);
+    expect(asset.metrics.yieldSource).toBe("Yahoo Finance dividend history (TTM)");
   });
 });

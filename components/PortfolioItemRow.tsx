@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { getQuoteFreshness } from "@/lib/math/portfolio-returns";
+import { quoteSessionLabel } from "@/lib/quote-session";
 import { PortfolioItem } from "@/types";
 import { motion } from "framer-motion";
 import { VirtualItem } from "@tanstack/react-virtual";
@@ -33,6 +34,7 @@ const PortfolioItemRow = memo(
     const [imgError, setImgError] = useState(false);
     const iconUrl = getAssetIconUrl(item.ticker, item.name, item.assetType);
     const quoteFreshness = getQuoteFreshness(item.quoteAsOf, now);
+    const quoteLabel = quoteSessionLabel(item.quoteSession);
     const quoteMessage = item.quoteStatus === "unavailable"
       ? "Latest quote unavailable"
       : quoteFreshness === "stale"
@@ -84,6 +86,9 @@ const PortfolioItemRow = memo(
               >
                 {item.name}
               </span>
+              {!quoteMessage && quoteLabel && (
+                <span className="text-[10px] text-muted">{quoteLabel}</span>
+              )}
               {quoteMessage && <span className="text-xs text-amber-400">{quoteMessage}</span>}
             </div>
           </div>
@@ -223,6 +228,7 @@ const PortfolioItemRow = memo(
       prevProps.item.peRatio === nextProps.item.peRatio &&
       prevProps.item.metrics === nextProps.item.metrics &&
       prevProps.item.quoteAsOf === nextProps.item.quoteAsOf &&
+      prevProps.item.quoteSession === nextProps.item.quoteSession &&
       prevProps.item.quoteStatus === nextProps.item.quoteStatus &&
       prevProps.now === nextProps.now &&
       // Check virtualRow properties relevant for rendering/sizing

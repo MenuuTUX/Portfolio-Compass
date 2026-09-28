@@ -94,19 +94,3 @@ export function calculateOverlapFromHoldings(
     coverageB,
   };
 }
-
-/**
- * @deprecated Prefer calculateOverlapFromHoldings with client/live data.
- * Kept as an alias that accepts two holdings arrays (not tickers + DB).
- */
-export async function calculateOverlap(
-  holdingsA: HoldingWeight[] | string,
-  holdingsB?: HoldingWeight[] | string,
-): Promise<OverlapResult> {
-  // Legacy ticker-string calls have no holdings data and return an empty result.
-  // New signature: two holdings arrays.
-  if (!Array.isArray(holdingsA) || !Array.isArray(holdingsB)) {
-    return { overlapScore: 0, status: 'valid', commonHoldings: [], coverageA: 0, coverageB: 0 };
-  }
-  return calculateOverlapFromHoldings(holdingsA, holdingsB);
-}

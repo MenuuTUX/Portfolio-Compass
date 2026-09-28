@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import { calculateOverlapFromHoldings } from '@/lib/analytics';
 
-describe('Analytics: calculateOverlap', () => {
+describe('Analytics: calculateOverlapFromHoldings', () => {
   it('should calculate overlap score and common holdings correctly', () => {
     const holdingsA = [
       { ticker: 'AAPL', name: 'Apple', weight: 10 },

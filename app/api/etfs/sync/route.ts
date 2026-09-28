@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getFastQuotes,
   getFastHistory,
+  getFastDividendHistory,
   getFastEtfDetails,
   enrichEtfDetailsGaps,
 } from "@/lib/fast-market";
+import { calculateTTMYield } from "@/lib/finance";
 import { getRedditCommunities } from "@/config/tickers";
 import { z } from "zod";
 
@@ -43,9 +45,10 @@ export async function POST(req: NextRequest) {
 
     const normalizedTicker = validation.data.ticker.toUpperCase();
 
-    const [quotes, histories, details] = await Promise.all([
+    const [quotes, histories, dividendHistory, details] = await Promise.all([
       getFastQuotes([normalizedTicker], { includeProfiles: true }),
       getFastHistory([normalizedTicker], "1Y"),
+      getFastDividendHistory(normalizedTicker),
       getFastEtfDetails(normalizedTicker).then((d) =>
         d ? enrichEtfDetailsGaps(d) : null,
       ),
@@ -60,6 +63,10 @@ export async function POST(req: NextRequest) {
     }
 
     const history = histories.get(normalizedTicker) || [];
+    const calculatedYield = dividendHistory === null
+      ? null
+      : calculateTTMYield(dividendHistory, q.price, { historyComplete: true })?.toNumber() ?? null;
+    const yieldRetrievedAt = new Date().toISOString();
     const communities = getRedditCommunities(
       normalizedTicker,
       q.assetType,
@@ -78,15 +85,21 @@ export async function POST(req: NextRequest) {
       isDeepAnalysisLoaded: Boolean(details),
       history,
       metrics: {
-        yield: q.dividendYield ?? null,
-        yieldSource: q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
-        yieldRetrievedAt: q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
-        yieldSourceField: q.dividendYieldField ?? null,
-        yieldInputUnit: q.dividendYieldInputUnit ?? null,
-        yieldNormalization: q.dividendYieldField === "trailingAnnualDividendYield"
+        yield: calculatedYield ?? q.dividendYield ?? null,
+        yieldSource: calculatedYield !== null
+          ? "Yahoo Finance dividend history (TTM)"
+          : q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+        yieldRetrievedAt: calculatedYield !== null
+          ? yieldRetrievedAt
+          : q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
+        yieldSourceField: calculatedYield !== null ? null : q.dividendYieldField ?? null,
+        yieldInputUnit: calculatedYield !== null ? null : q.dividendYieldInputUnit ?? null,
+        yieldNormalization: calculatedYield !== null
+          ? "12-month cash distributions ÷ current share price × 100"
+          : q.dividendYieldField === "trailingAnnualDividendYield"
           ? "fraction × 100 to percent"
           : q.dividendYieldField === "dividendYield" ? "already percent" : null,
-        yieldMeasurementDate: null,
+        yieldMeasurementDate: calculatedYield !== null ? q.quoteAsOf ?? null : null,
         mer: q.expenseRatio ?? details?.expenseRatio ?? null,
         merSource: q.expenseRatio !== undefined
           ? "Yahoo Finance quote"

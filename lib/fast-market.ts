@@ -1,6 +1,8 @@
 import YahooFinance from "yahoo-finance2";
 import pLimit from "p-limit";
 import { z } from "zod";
+import type { QuoteSession } from "@/lib/quote-session";
+import type { DividendHistoryItem } from "@/lib/finance";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -19,6 +21,7 @@ export interface FastQuote {
   price: number;
   currency?: string;
   quoteAsOf?: string;
+  quoteSession?: QuoteSession;
   retrievedAt?: string;
   changePercent: number;
   change: number;
@@ -74,6 +77,7 @@ const RANGE_CONFIG = {
 } satisfies Record<ChartRange, RangeConfiguration>;
 
 const QUOTE_TTL_MS = 30_000;
+const DIVIDEND_HISTORY_TTL_MS = 30 * 60_000;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -140,14 +144,36 @@ export function mapQuote(q: any): FastQuote {
     a !== undefined && b !== undefined
       ? `${a.toFixed(2)} - ${b.toFixed(2)}`
       : undefined;
-  const quoteTime = q.regularMarketTime instanceof Date
-    ? q.regularMarketTime.getTime()
-    : isFiniteNumber(q.regularMarketTime)
-      ? q.regularMarketTime * (q.regularMarketTime < 1e12 ? 1000 : 1)
+  const asTimestamp = (value: unknown) => value instanceof Date
+    ? value.getTime()
+    : isFiniteNumber(value)
+      ? value * (value < 1e12 ? 1000 : 1)
       : NaN;
+  const regularTime = asTimestamp(q.regularMarketTime);
+  const state = typeof q.marketState === "string" ? q.marketState : "";
+  const preMarketTime = asTimestamp(q.preMarketTime);
+  const postMarketTime = asTimestamp(q.postMarketTime);
+  const hasPreMarketQuote = ["PRE", "PREPRE"].includes(state) &&
+    isFiniteNumber(q.preMarketPrice) && Number.isFinite(preMarketTime);
+  const hasPostMarketQuote = ["POST", "POSTPOST"].includes(state) &&
+    isFiniteNumber(q.postMarketPrice) && Number.isFinite(postMarketTime);
+  const quoteTime = hasPreMarketQuote
+    ? preMarketTime
+    : hasPostMarketQuote
+      ? postMarketTime
+      : regularTime;
   const quoteAsOf = Number.isFinite(quoteTime)
     ? new Date(quoteTime).toISOString()
     : undefined;
+  const quoteSession: QuoteSession = hasPreMarketQuote
+    ? "pre-market"
+    : hasPostMarketQuote
+      ? "after-hours"
+      : state === "REGULAR"
+        ? "regular"
+        : state === "CLOSED"
+          ? "closed"
+          : "unknown";
 
   let dividendYield: number | undefined;
   let dividendYieldField: FastQuote["dividendYieldField"];
@@ -173,12 +199,25 @@ export function mapQuote(q: any): FastQuote {
   return {
     ticker: q.symbol,
     name: q.shortName || q.longName || q.symbol,
-    price: q.regularMarketPrice ?? 0,
+    price: hasPreMarketQuote
+      ? q.preMarketPrice
+      : hasPostMarketQuote
+        ? q.postMarketPrice
+        : q.regularMarketPrice ?? 0,
     currency: typeof q.currency === "string" ? q.currency : undefined,
     quoteAsOf,
+    quoteSession,
     retrievedAt: new Date().toISOString(),
-    changePercent: q.regularMarketChangePercent ?? 0,
-    change: q.regularMarketChange ?? 0,
+    changePercent: hasPreMarketQuote
+      ? q.preMarketChangePercent ?? q.regularMarketChangePercent ?? 0
+      : hasPostMarketQuote
+        ? q.postMarketChangePercent ?? q.regularMarketChangePercent ?? 0
+        : q.regularMarketChangePercent ?? 0,
+    change: hasPreMarketQuote
+      ? q.preMarketChange ?? q.regularMarketChange ?? 0
+      : hasPostMarketQuote
+        ? q.postMarketChange ?? q.regularMarketChange ?? 0
+        : q.regularMarketChange ?? 0,
     assetType: q.quoteType === "ETF" ? "ETF" : "STOCK",
     marketCap: q.marketCap,
     volume: q.regularMarketVolume,
@@ -564,6 +603,63 @@ export async function getFastHistory(
   return result;
 }
 
+/** Return dated cash distributions only when Yahoo returned a full trailing year. */
+export async function getFastDividendHistory(
+  ticker: string,
+): Promise<DividendHistoryItem[] | null> {
+  const [symbol] = normalizeTickers([ticker]);
+  if (!symbol) return null;
+
+  try {
+    return await cached(`dividends:${symbol}`, DIVIDEND_HISTORY_TTL_MS, async () => {
+      const now = new Date();
+      const period1 = new Date(now);
+      period1.setFullYear(period1.getFullYear() - 1);
+      period1.setDate(period1.getDate() - 7);
+
+      const result = await yf.chart(symbol, {
+        period1,
+        period2: now,
+        interval: "1d",
+        events: "div",
+      });
+      const quoteDates = result.quotes
+        .map((quote) => quote.date.getTime())
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+      const firstQuoteDate = quoteDates[0];
+      const lastQuoteDate = quoteDates.at(-1);
+      const trailingYearStart = new Date(now);
+      trailingYearStart.setFullYear(trailingYearStart.getFullYear() - 1);
+      const latestExpectedQuote = new Date(now);
+      latestExpectedQuote.setDate(latestExpectedQuote.getDate() - 7);
+      if (
+        firstQuoteDate === undefined ||
+        firstQuoteDate > trailingYearStart.getTime() ||
+        lastQuoteDate === undefined ||
+        lastQuoteDate < latestExpectedQuote.getTime()
+      ) {
+        return null;
+      }
+
+      const events = result.events?.dividends ?? [];
+      const history: DividendHistoryItem[] = [];
+      for (const event of events) {
+        const date = event.date;
+        if (!(date instanceof Date) || !Number.isFinite(date.getTime()) ||
+            !isFiniteNumber(event.amount) || event.amount < 0) {
+          return null;
+        }
+        history.push({ date: date.toISOString(), amount: event.amount });
+      }
+      return history;
+    });
+  } catch (error) {
+    console.warn(`[FastMarket] Dividend history failed for ${symbol}:`, error);
+    return null;
+  }
+}
+
 export function isChartRange(value: string): value is ChartRange {
   return value in RANGE_CONFIG;
 }
@@ -929,6 +1025,7 @@ export function quoteToAsset(q: FastQuote, history: HistoryPoint[] = []) {
     price: q.price,
     currency: q.currency,
     quoteAsOf: q.quoteAsOf,
+    quoteSession: q.quoteSession,
     changePercent: q.changePercent,
     assetType: q.assetType,
     isDeepAnalysisLoaded: false,

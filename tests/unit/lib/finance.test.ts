@@ -8,6 +8,18 @@ describe('calculateTTMYield', () => {
     expect(yieldValue).toBeNull();
   });
 
+  it('returns zero only when an empty history is confirmed complete', () => {
+    expect(calculateTTMYield([], 100, { historyComplete: true })?.toNumber()).toBe(0);
+  });
+
+  it('returns zero when a complete history has no payments in the trailing year', () => {
+    expect(calculateTTMYield(
+      [{ date: '2020-01-01', amount: 2 }],
+      100,
+      { historyComplete: true },
+    )?.toNumber()).toBe(0);
+  });
+
   it('should return unknown if current price is 0', () => {
     const history: DividendHistoryItem[] = [{ date: '2023-01-01', amount: 1 }];
     const yieldValue = calculateTTMYield(history, 0);

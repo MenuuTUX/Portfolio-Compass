@@ -27,7 +27,9 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const { data: portfolio = [] } = usePortfolio();
+  const { data: portfolio = [] } = usePortfolio(
+    viewMode === "APP" && activeTab === "PORTFOLIO",
+  );
   const addStockMutation = useAddStock();
   const removeStockMutation = useRemoveStock();
   const updatePortfolioItemMutation = useUpdatePortfolioItem();

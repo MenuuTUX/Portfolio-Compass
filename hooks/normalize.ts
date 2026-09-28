@@ -18,6 +18,7 @@ export function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
     price: finiteNumber(raw?.price),
     currency: typeof raw?.currency === "string" ? raw.currency : undefined,
     quoteAsOf: raw?.quoteAsOf,
+    quoteSession: raw?.quoteSession,
     changePercent: finiteNumber(raw?.changePercent ?? raw?.daily_change),
     assetType: raw?.assetType || "STOCK",
     isDeepAnalysisLoaded: Boolean(raw?.isDeepAnalysisLoaded),

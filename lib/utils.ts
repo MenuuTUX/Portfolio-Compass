@@ -6,12 +6,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const safeDecimal = (val: any) => {
-  if (Decimal.isDecimal(val)) return val.toNumber();
-  const parsed = Number(val);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
 export function formatCurrency(value: number | Decimal, currency?: string) {
   const val = Decimal.isDecimal(value) ? value.toNumber() : value;
   if (!currency || !/^[A-Z]{3}$/.test(currency)) {
@@ -43,17 +37,6 @@ export function formatPercentage(value: number | Decimal) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(val / 100);
-}
-
-export async function fetchWithUserAgent(url: string, options?: RequestInit) {
-  return fetch(url, {
-    ...options,
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-      ...options?.headers,
-    },
-  });
 }
 
 export interface RiskMetric {

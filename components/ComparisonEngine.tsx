@@ -32,6 +32,7 @@ import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
 import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
 import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { quoteSessionLabel } from "@/lib/quote-session";
 import MarketFilters, {
   DEFAULT_MARKET_FILTERS,
   MarketFilterState,
@@ -64,6 +65,7 @@ const ETFCard = memo(
     const quoteTime = etf.quoteAsOf && Number.isFinite(Date.parse(etf.quoteAsOf))
       ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(etf.quoteAsOf))
       : null;
+    const quoteLabel = quoteSessionLabel(etf.quoteSession);
 
     const displayHistory = etf.history ?? [];
 
@@ -136,7 +138,7 @@ const ETFCard = memo(
                 {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
               </div>
               <div className="text-xs text-muted mt-1">
-                {quoteUnavailable ? "Quote unavailable" : quoteTime ? `Quote as of ${quoteTime}` : "Quote time unavailable"}
+                {quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
               </div>
             </div>
             {displayHistory.length > 0 && (
@@ -370,78 +372,80 @@ export default function ComparisonEngine({
   }, []);
 
   const fetchEtfs = useCallback(
-    async (query: string, skip = 0) => {
+    async (query: string, skip = 0, signal?: AbortSignal) => {
       if (skip === 0) setLoading(true);
-      try {
+      const buildUrl = (includeDetails: boolean) => {
         let url = `/api/market/search?query=${encodeURIComponent(query)}&skip=${skip}&limit=24`;
-        if (assetType) {
-          url += `&type=${encodeURIComponent(assetType)}`;
-        }
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to fetch");
-        const rawData = await res.json();
+        if (assetType) url += `&type=${encodeURIComponent(assetType)}`;
+        if (!includeDetails) url += "&history=false&profiles=false";
+        return url;
+      };
 
-        let data: ETF[] = [];
+      const parseAssets = async (response: Response): Promise<ETF[]> => {
+        const rawData = await response.json();
         try {
-          data = z.array(ETFSchema).parse(rawData);
-        } catch (e) {
-          if (e instanceof z.ZodError) {
-            console.warn("API response validation failed:", e.issues);
+          return z.array(ETFSchema).parse(rawData);
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            console.warn("API response validation failed:", error.issues);
           } else {
-            console.warn("API response validation failed:", e);
+            console.warn("API response validation failed:", error);
           }
-          data = [];
+          return [];
         }
+      };
 
-        // Filter results on client side
-        if (assetType) {
-          const valid = data.filter((item) => item.assetType === assetType);
-          const other = data.filter((item) => item.assetType !== assetType);
+      const applyResults = (data: ETF[], pageSkip: number) => {
+        const items = assetType
+          ? data.filter((item) => item.assetType === assetType)
+          : data;
 
-          if (skip === 0) {
-            setEtfs(valid);
-            setOtherTypeEtfs(other);
-            setSuggestions(valid);
-          } else {
-            setEtfs((prev) => {
-              // Deduplicate by ticker to prevent key collisions
-              const existingTickers = new Set(prev.map((e) => e.ticker));
-              const newItems = valid.filter(
-                (e) => !existingTickers.has(e.ticker),
-              );
-              return [...prev, ...newItems];
-            });
-          }
-
-          if (data.length === 0) {
-            setHasMoreServer(false);
-          } else {
-            setHasMoreServer(true);
-          }
-          return valid.length;
+        if (pageSkip === 0) {
+          setEtfs(items);
+          setSuggestions(items);
+          setOtherTypeEtfs(
+            assetType ? data.filter((item) => item.assetType !== assetType) : [],
+          );
         } else {
-          if (skip === 0) {
-            setEtfs(data);
-            setSuggestions(data);
-            setOtherTypeEtfs([]);
-          } else {
-            setEtfs((prev) => {
-              const existingTickers = new Set(prev.map((e) => e.ticker));
-              const newItems = data.filter(
-                (e) => !existingTickers.has(e.ticker),
-              );
-              return [...prev, ...newItems];
-            });
-          }
-
-          if (data.length === 0) {
-            setHasMoreServer(false);
-          } else {
-            setHasMoreServer(true);
-          }
-          return data.length;
+          setEtfs((previous) => {
+            const existing = new Set(previous.map((item) => item.ticker));
+            return [...previous, ...items.filter((item) => !existing.has(item.ticker))];
+          });
         }
+        setHasMoreServer(data.length > 0);
+        return items.length;
+      };
+
+      try {
+        const res = await fetch(buildUrl(skip !== 0), { signal });
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await parseAssets(res);
+        const count = applyResults(data, skip);
+
+        if (skip === 0) {
+          const detailsUrl = `/api/etfs/search?tickers=${encodeURIComponent(data.map((item) => item.ticker).join(","))}&includeHistory=true&profiles=true`;
+          void fetch(detailsUrl, { signal })
+            .then((response) => response.ok ? parseAssets(response) : [])
+            .then((details) => {
+              if (signal?.aborted || details.length === 0) return;
+              const detailByTicker = new Map(details.map((item) => [item.ticker, item]));
+              const merge = (item: ETF) => {
+                const detail = detailByTicker.get(item.ticker);
+                return detail
+                  ? { ...item, ...detail, history: detail.history.length ? detail.history : item.history }
+                  : item;
+              };
+              setEtfs((items) => items.map(merge));
+              setSuggestions((items) => items.map(merge));
+              setOtherTypeEtfs((items) => items.map(merge));
+            })
+            .catch((error) => {
+              if (!signal?.aborted) console.warn("Market details failed to load:", error);
+            });
+        }
+        return count;
       } catch (err) {
+        if (signal?.aborted) return 0;
         console.error("Failed to load ETF data", err);
         if (skip === 0) {
           setEtfs([]);
@@ -460,7 +464,9 @@ export default function ComparisonEngine({
   useEffect(() => {
     // Reset server pagination state on new search
     setHasMoreServer(true);
-    fetchEtfs(debouncedSearch, 0);
+    const controller = new AbortController();
+    fetchEtfs(debouncedSearch, 0, controller.signal);
+    return () => controller.abort();
   }, [debouncedSearch, fetchEtfs]);
 
   // Reset pagination when search or asset type changes
