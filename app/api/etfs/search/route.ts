@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getFastQuotes,
   getFastHistory,
+  getFastDividendHistories,
   searchFastSymbols,
   quoteToAsset,
   type FastQuote,
   type HistoryPoint,
 } from "@/lib/fast-market";
+import type { DividendHistoryItem } from "@/lib/finance";
 import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
 import { getRedditCommunities } from "@/config/tickers";
 
@@ -26,9 +28,9 @@ function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
   return value === "STOCK" || value === "ETF" ? value : undefined;
 }
 
-function formatAsset(q: FastQuote, history: HistoryPoint[] = []) {
+function formatAsset(q: FastQuote, history: HistoryPoint[] = [], dividendHistory: DividendHistoryItem[] | null = null) {
   return {
-    ...quoteToAsset(q, history),
+    ...quoteToAsset(q, history, dividendHistory),
     holdings: [],
     redditCommunities: getRedditCommunities(q.ticker, q.assetType).map((c) => ({
       subreddit: c.name,
@@ -103,6 +105,7 @@ export async function GET(request: NextRequest) {
         ? getFastHistory(tickers, isFullHistoryRequested ? "1Y" : "1M")
         : Promise.resolve(new Map<string, HistoryPoint[]>()),
     ]);
+    const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
 
     const assets = [];
     for (const ticker of tickers.map((t) => t.toUpperCase())) {
@@ -110,7 +113,7 @@ export async function GET(request: NextRequest) {
       if (!q) continue;
       if (assetType && q.assetType !== assetType) continue;
       assets.push(
-        formatAsset(q, histories.get(ticker) || []),
+        formatAsset(q, histories.get(ticker) || [], dividendHistories.get(ticker)),
       );
     }
 
