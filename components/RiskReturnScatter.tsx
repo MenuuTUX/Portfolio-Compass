@@ -10,12 +10,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Cell,
   Label,
 } from "recharts";
 import { PortfolioItem } from "@/types";
 import { Info, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
 
 interface RiskReturnScatterProps {
   items: PortfolioItem[];
@@ -23,33 +23,34 @@ interface RiskReturnScatterProps {
 
 export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
   const [showInfo, setShowInfo] = useState(false);
+  const excludedYahooYieldCount = items.filter((item) =>
+    isUnverifiedProviderYield(item.metrics?.yieldSource),
+  ).length;
 
-  const data = items.map((item) => {
-    // Use market beta when available. Missing values sit at the market baseline.
-    const beta = item.beta ?? 1.0;
-    const yieldVal = item.metrics?.yield ?? 0;
-    const growthVal = item.dividendGrowth5Y ?? 0;
-    const dividendSignal = yieldVal + growthVal;
-
-    return {
+  const data = items.flatMap((item) => {
+    const beta = item.beta;
+    const yieldPercent = getSourcedYield(item.metrics, item.dividendYield);
+    if (isUnverifiedProviderYield(item.metrics?.yieldSource) || beta == null || yieldPercent == null ||
+        !Number.isFinite(beta) || !Number.isFinite(yieldPercent)) return [];
+    return [{
       ticker: item.ticker,
       name: item.name,
       x: beta,
-      y: dividendSignal,
+      y: yieldPercent,
       z: item.weight,
-      fill: beta > 1.2 ? "#f43f5e" : beta < 0.8 ? "#10b981" : "#f59e0b",
-    };
+    }];
   });
 
   return (
-    <div className="w-full h-full min-h-[400px] glass-panel p-4 rounded-xl flex flex-col relative group">
+    <div className="w-full h-full min-h-[400px] glass-panel p-4 rounded-card flex flex-col relative group">
       <div className="flex justify-between items-start mb-4 z-10">
         <div>
           <h3 className="text-sm font-medium text-neutral-200">
-            Beta and dividend metrics
+            Beta and sourced yield
           </h3>
           <p className="text-xs text-neutral-500">
-            Market beta vs yield plus 5-year dividend growth
+            Reported beta vs sourced yield; Yahoo quote yields are excluded
+            {data.length < items.length && ` · ${items.length - data.length} unavailable`}
           </p>
         </div>
         <button
@@ -67,31 +68,35 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-hairline rounded-lg p-5 flex flex-col gap-3 shadow-2xl"
+            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-hairline rounded-card p-5 flex flex-col gap-3"
           >
             <div className="flex justify-between items-start">
-              <h4 className="text-sm font-bold text-emerald-400">
+              <h4 className="text-sm font-bold text-data-up">
                 Reading this chart
               </h4>
               <button
                 onClick={() => setShowInfo(false)}
                 className="text-neutral-500 hover:text-ink"
+                aria-label="Close chart explanation"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <div className="text-xs text-neutral-300 space-y-2 leading-relaxed overflow-y-auto">
               <p>
-                This is a screening view. It does not estimate future returns or
-                measure every form of investment risk.
+                This is a screening view of reported fields, not a return
+                forecast or a complete measure of risk. Assets missing either
+                field are omitted. Beta depends on the provider&apos;s benchmark
+                and lookback period.
               </p>
               <ul className="list-disc pl-4 space-y-1 text-neutral-400">
                 <li>
                   <strong className="text-ink">
                     Vertical axis:
                   </strong>{" "}
-                  Dividend yield plus five-year dividend growth. Adding the two
-                  creates a simple dividend signal, not a total-return forecast.
+                    Sourced dividend or distribution yield. It can change, is not a
+                    measure of total return, and Yahoo quote yields are excluded
+                    because their issuer-equivalent definition is unverified.
                 </li>
                 <li>
                   <strong className="text-ink">
@@ -114,14 +119,14 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             <XAxis
               type="number"
               dataKey="x"
-              name="Market Beta"
+              name="Reported Beta"
               tick={{ fill: "#737373", fontSize: 11 }}
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               domain={["dataMin - 0.2", "dataMax + 0.2"]}
             >
               <Label
-                value="Market Beta"
+                value="Reported Beta"
                 offset={0}
                 position="bottom"
                 fill="#525252"
@@ -131,14 +136,14 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             <YAxis
               type="number"
               dataKey="y"
-              name="Dividend Signal (%)"
+              name="Sourced Yield (%)"
               tick={{ fill: "#737373", fontSize: 11 }}
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               unit="%"
             >
               <Label
-                value="Yield + 5Y Dividend Growth (%)"
+                value="Sourced Yield (%)"
                 angle={-90}
                 position="insideLeft"
                 fill="#525252"
@@ -152,35 +157,27 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-hairline p-3 rounded-lg shadow-xl min-w-[150px]">
+                    <div className="bg-stone-950/90 backdrop-blur-md border border-hairline p-3 rounded-card min-w-[150px]">
                       <p className="font-bold text-ink mb-2 border-b border-hairline pb-1">
                         {d.ticker}
                       </p>
                       <div className="text-xs space-y-1.5">
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">Market Beta:</span>
-                          <span
-                            className={
-                              d.x > 1.2
-                                ? "text-rose-400"
-                                : d.x < 0.8
-                                  ? "text-emerald-400"
-                                  : "text-amber-400"
-                            }
-                          >
+                          <span className="text-neutral-400">Reported Beta:</span>
+                          <span className="text-ink">
                             {d.x.toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
                           <span className="text-neutral-400">
-                            Dividend Signal:
+                            Sourced Yield:
                           </span>
-                          <span className="text-emerald-400">
+                          <span className="text-ink">
                             {d.y.toFixed(2)}%
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">Weight:</span>
+                          <span className="text-neutral-400">Target Weight:</span>
                           <span className="text-ink">{d.z.toFixed(2)}%</span>
                         </div>
                       </div>
@@ -202,30 +199,17 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               />
             </ReferenceLine>
 
-            {/* Visual guide for lower beta values */}
-            <ReferenceLine
-              x={0.8}
-              stroke="#10b981"
-              strokeOpacity={0.2}
-              strokeDasharray="5 5"
-            />
-
-            <Scatter name="Assets" data={data}>
-              {data.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.fill}
-                  stroke="rgba(50,48,47,0.1)"
-                  strokeWidth={1}
-                />
-              ))}
-            </Scatter>
+            <Scatter name="Assets" data={data} fill="#2b7fff" />
           </ScatterChart>
         </ResponsiveContainer>
 
-        <div className="absolute top-4 left-10 text-[10px] text-emerald-500/30 font-bold uppercase tracking-widest pointer-events-none hidden sm:block">
-          Higher dividend signal / lower beta
-        </div>
+        {data.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-neutral-400">
+            {excludedYahooYieldCount > 0
+              ? "No sourced yield and beta are available. Yahoo quote yields are excluded because their definition is unverified."
+              : "Sourced beta and yield are unavailable for these holdings."}
+          </div>
+        )}
       </div>
     </div>
   );

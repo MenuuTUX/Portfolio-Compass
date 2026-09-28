@@ -2,6 +2,8 @@ import React from "react";
 import Image from "next/image";
 import { Portfolio } from "@/types";
 import { formatCurrency } from "@/lib/utils";
+import { getPortfolioCurrency } from "@/lib/math/portfolio-returns";
+import type { BankOfCanadaFxRate } from "@/lib/math/portfolio-returns";
 import {
   Share2,
   TrendingUp,
@@ -12,18 +14,21 @@ import {
   DollarSign,
 } from "lucide-react";
 import { getAssetIconUrl } from "@/lib/etf-providers";
+import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
 
 export interface ShareCardProps {
   userName?: string;
   portfolioName?: string;
   portfolio: Portfolio;
+  currency?: string;
+  fxProvenance?: BankOfCanadaFxRate;
   metrics: {
     totalValue: number;
     annualReturn: number;
-    yield: number;
+    yield?: number | null;
     projectedValue: number;
     totalInvested: number;
-    dividends: number;
+    dividends: number | null;
     years: number;
     scenario: string;
     growthType: "Simple" | "Monte Carlo";
@@ -45,27 +50,31 @@ export const PortfolioShareCard = React.forwardRef<
   ShareCardProps
 >(
   (
-    { userName, portfolioName, portfolio, metrics, chartData, spyData },
+    { userName, portfolioName, portfolio, currency: explicitCurrency, fxProvenance, metrics, chartData, spyData },
     ref,
   ) => {
+    const currency = explicitCurrency ?? getPortfolioCurrency(portfolio) ?? undefined;
     const topHoldings = [...portfolio]
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 6);
 
-    const totalWeight =
-      portfolio.reduce((sum, item) => sum + item.weight, 0) || 1;
+    const totalWeight = portfolio.reduce((sum, item) => sum + item.weight, 0);
 
-    const weightedMER = portfolio.reduce((acc, item) => {
-      return acc + (item.metrics?.mer || 0) * (item.weight / totalWeight);
-    }, 0);
+    const weightedExpenseRatio = totalWeight > 0 && portfolio.every((item) =>
+      getSourcedExpenseRatio(item.metrics) != null)
+      ? portfolio.reduce((acc, item) =>
+        acc + (getSourcedExpenseRatio(item.metrics) ?? 0) * (item.weight / totalWeight), 0)
+      : null;
 
-    const weightedBeta = portfolio.reduce((acc, item) => {
-      return acc + (item.beta || 1.0) * (item.weight / totalWeight);
-    }, 0);
+    const weightedBeta = totalWeight > 0 && portfolio.every((item) =>
+      item.beta != null && Number.isFinite(item.beta))
+      ? portfolio.reduce((acc, item) =>
+        acc + (item.beta ?? 0) * (item.weight / totalWeight), 0)
+      : null;
 
     const assetAllocation = portfolio.reduce(
       (acc, item) => {
-        const w = item.weight / totalWeight;
+        const w = totalWeight > 0 ? item.weight / totalWeight : 0;
         let e = item.allocation?.equities || 0;
         let b = item.allocation?.bonds || 0;
         let c = item.allocation?.cash || 0;
@@ -86,7 +95,7 @@ export const PortfolioShareCard = React.forwardRef<
 
     const sectors = portfolio.reduce<Record<string, number>>(
       (acc, item) => {
-        const w = item.weight / totalWeight;
+        const w = totalWeight > 0 ? item.weight / totalWeight : 0;
         const itemSectors = item.sectors || {};
         const sectorEntries = Object.entries(itemSectors);
 
@@ -179,9 +188,9 @@ export const PortfolioShareCard = React.forwardRef<
     );
 
     const formatYTick = (val: number) => {
-      if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
-      if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
-      return `$${val}`;
+      if (val >= 1000000) return `${currency ?? "?"} ${(val / 1000000).toFixed(1)}M`;
+      if (val >= 1000) return `${currency ?? "?"} ${(val / 1000).toFixed(0)}k`;
+      return `${currency ?? "?"} ${val}`;
     };
 
     return (
@@ -208,10 +217,10 @@ export const PortfolioShareCard = React.forwardRef<
               </h1>
               <div className="flex items-center gap-3">
                 <span className="px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                  Portfolio Snapshot
+                  Illustrative Scenario
                 </span>
                 <span className="text-neutral-500 text-xs font-medium uppercase tracking-wide">
-                  Portfolio Report
+                  Scenario Summary
                 </span>
               </div>
             </div>
@@ -245,12 +254,17 @@ export const PortfolioShareCard = React.forwardRef<
               Modeled Ending Balance
             </div>
             <div className="text-3xl font-bold text-ink tracking-tight mb-1">
-              {formatCurrency(metrics.projectedValue)}
+              {formatCurrency(metrics.projectedValue, currency)}
             </div>
             <div className="flex items-center gap-2 text-xs font-medium text-emerald-400">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
               {metrics.years} Year Horizon
             </div>
+            {fxProvenance && (
+              <p className="mt-2 text-[10px] text-neutral-500">
+                Starting balance: Bank of Canada {fxProvenance.date}, {fxProvenance.usdCad} CAD/USD. Future FX changes excluded.
+              </p>
+            )}
           </div>
 
           <div className="bg-[#111] border border-hairline rounded-2xl p-6 relative overflow-hidden">
@@ -258,10 +272,11 @@ export const PortfolioShareCard = React.forwardRef<
               <Activity className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
-              Change from Starting Balance
+              Gain/loss vs. amount invested
             </div>
-            <div className="text-3xl font-bold text-emerald-400 tracking-tight mb-1">
-              +{metrics.percentageGrowth.toFixed(0)}%
+            <div className={`text-3xl font-bold tracking-tight mb-1 ${metrics.percentageGrowth < 0 ? "text-rose-400" : "text-emerald-400"}`}>
+              {metrics.percentageGrowth >= 0 ? "+" : ""}
+              {metrics.percentageGrowth.toFixed(0)}%
             </div>
             <div className="text-xs text-neutral-500 font-medium">
               {metrics.growthType} Model
@@ -273,13 +288,17 @@ export const PortfolioShareCard = React.forwardRef<
               <DollarSign className="w-6 h-6" />
             </div>
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
-              Estimated Dividends
+              {metrics.dividends == null
+                ? metrics.growthType === "Monte Carlo" ? "Starting Balance" : "Total Amount Invested"
+                : "Estimated Dividends"}
             </div>
             <div className="text-3xl font-bold text-blue-400 tracking-tight mb-1">
-              {formatCurrency(metrics.dividends)}
+              {formatCurrency(metrics.dividends ?? metrics.totalInvested, currency)}
             </div>
             <div className="text-xs text-neutral-500 font-medium">
-              Reinvested in the model
+              {metrics.dividends == null
+                ? metrics.growthType === "Monte Carlo" ? "No contributions modeled" : "Starting balance plus contributions"
+                : "Reinvested in the model"}
             </div>
           </div>
 
@@ -290,7 +309,7 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="text-neutral-500 text-[11px] font-bold uppercase tracking-widest mb-2">
               {metrics.growthType === "Monte Carlo"
                 ? "Median Simulated CAGR"
-                : "Annual Return Estimate"}
+                : "Assumed Annual Return"}
             </div>
             <div className="text-3xl font-bold text-ink tracking-tight mb-1">
               {(metrics.annualReturn * 100).toFixed(2)}%
@@ -308,7 +327,7 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="flex items-center gap-2 mb-4">
               <Layers className="w-4 h-4 text-emerald-500" />
               <span className="text-xs font-bold text-ink uppercase tracking-wider">
-                Asset Allocation
+                Target Asset Allocation
               </span>
             </div>
             <div className="flex h-4 w-full rounded-full overflow-hidden bg-neutral-900 mb-4 ring-1 ring-white/5">
@@ -341,34 +360,39 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="flex items-center gap-2 mb-2">
               <Activity className="w-4 h-4 text-rose-500" />
               <span className="text-xs font-bold text-ink uppercase tracking-wider">
-                Portfolio Statistics
+                Target-Weighted Statistics
               </span>
             </div>
             <div className="flex justify-between items-end mb-2">
               <span className="text-neutral-400 text-xs font-medium">Beta</span>
               <span className="text-xl font-bold text-ink">
-                {weightedBeta.toFixed(2)}
+                {weightedBeta == null ? "Unavailable" : weightedBeta.toFixed(2)}
               </span>
             </div>
             <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-4">
               <div
                 className="h-full bg-rose-500 rounded-full"
-                style={{ width: `${Math.min(weightedBeta * 50, 100)}%` }}
+                style={{ width: `${weightedBeta == null ? 0 : Math.min(weightedBeta * 50, 100)}%` }}
               />
             </div>
             <div className="flex justify-between items-end">
-              <span className="text-neutral-400 text-xs font-medium">MER</span>
+              <span className="text-neutral-400 text-xs font-medium">Provider-reported expense ratio</span>
               <span className="text-xl font-bold text-ink">
-                {weightedMER.toFixed(2)}%
+                {weightedExpenseRatio == null ? "N/A" : `${weightedExpenseRatio.toFixed(2)}%`}
               </span>
             </div>
+            {weightedExpenseRatio != null && (
+              <p className="mt-2 text-[10px] text-neutral-500">
+                Target-weighted provider fees; verify current rates with each issuer.
+              </p>
+            )}
           </div>
 
           <div className="col-span-4 bg-[#111] border border-hairline rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <PieChart className="w-4 h-4 text-indigo-500" />
               <span className="text-xs font-bold text-ink uppercase tracking-wider">
-                Sector Exposure
+                Reported Target Sector Exposure
               </span>
             </div>
             <div className="space-y-3">
@@ -473,7 +497,7 @@ export const PortfolioShareCard = React.forwardRef<
                   fontWeight="bold"
                   letterSpacing="1"
                 >
-                  PORTFOLIO VALUE (USD)
+                  PORTFOLIO VALUE ({currency ?? "UNAVAILABLE"})
                 </text>
 
                 <g transform={`translate(0, ${height + 15})`}>
@@ -574,7 +598,7 @@ export const PortfolioShareCard = React.forwardRef<
           <div className="flex justify-between items-center mb-5 border-b border-hairline pb-2">
             <h3 className="text-lg font-bold text-ink flex items-center gap-2">
               <Shield className="w-5 h-5 text-emerald-500" />
-              Top Holdings
+              Top Target Weights
             </h3>
             <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
               {portfolio.length} TOTAL ASSETS
@@ -639,7 +663,7 @@ export const PortfolioShareCard = React.forwardRef<
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.6)]" />
             <span className="text-xs text-neutral-400 font-bold uppercase tracking-widest">
-              Model output, not financial advice
+              Illustrative model; market inputs may be incomplete. Not financial advice.
             </span>
           </div>
           <span className="text-xs text-neutral-500 font-mono">

@@ -1,5 +1,5 @@
 
-import { write, file } from 'bun';
+import { write } from 'bun';
 
 const providers = [
   { name: 'AGFiQ', domain: 'agf.com' },

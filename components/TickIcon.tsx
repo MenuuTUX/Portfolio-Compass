@@ -15,10 +15,6 @@ export const TickIcon = ({
 }) => {
   const [hasError, setHasError] = useState(false);
 
-  // Logic: if it's "Other" or "Cash", no icon.
-  // Otherwise try to get icon.
-  // If error, show fallback circle with initial.
-
   if (ticker === "Cash" || ticker === "Other") return null;
 
   const iconUrl = getAssetIconUrl(ticker, ticker, assetType);

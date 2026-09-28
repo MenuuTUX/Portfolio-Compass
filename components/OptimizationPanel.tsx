@@ -5,26 +5,26 @@ import { PortfolioItem } from "@/types";
 import {
   optimizePortfolioGreedy,
   GreedyOptimizationResult,
+  calculatePortfolioUtility,
+  getOptimizerInputGaps,
+  riskPenaltyForProfile,
 } from "@/lib/optimizer";
 import {
-  ArrowRight,
   DollarSign,
   TrendingDown,
   Activity,
-  Minus,
-  Plus,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Decimal } from "@/lib/decimal";
-import OptimizationDiffChart from "./OptimizationDiffChart";
+import { estimateAnnualCovariance } from "@/lib/math/covariance";
+import {
+  getAssetBeta,
+  getAssetYieldFraction,
+} from "@/lib/math/portfolio-returns";
 
 interface OptimizationPanelProps {
   portfolio: PortfolioItem[];
-  onApply: (
-    newShares: Record<string, number>,
-    newWeights: Record<string, number>,
-  ) => void;
   onCalibrating?: (isCalibrating: boolean) => void;
 }
 
@@ -38,7 +38,6 @@ const RISK_PROFILE_BY_STRATEGY = {
 
 export default function OptimizationPanel({
   portfolio,
-  onApply,
   onCalibrating,
 }: OptimizationPanelProps) {
   const [investmentAmount, setInvestmentAmount] = useState<number>(7000);
@@ -46,11 +45,32 @@ export default function OptimizationPanel({
   const [proposedShares, setProposedShares] = useState<Record<string, number>>(
     {},
   );
-  const [isApplying, setIsApplying] = useState(false);
   const [strategyMode, setStrategyMode] = useState<StrategyMode>("Balanced");
+  const covariance = useMemo(() => estimateAnnualCovariance(portfolio), [portfolio]);
+  const candidates = useMemo(
+    () => portfolio.map((p) => ({
+      ticker: p.ticker,
+      price: p.price,
+      // Return proxy used by this allocator, not a forecast.
+      expectedReturn: getAssetYieldFraction(p) + getAssetBeta(p) * 0.06,
+    })),
+    [portfolio],
+  );
+  const riskProfile = RISK_PROFILE_BY_STRATEGY[strategyMode];
+  const lambda = riskPenaltyForProfile(riskProfile);
+  const missingInputTickers = useMemo(() => getOptimizerInputGaps(portfolio), [portfolio]);
+  const currency = portfolio[0]?.currency;
 
   // Debounced calculation for initial recommendation
   useEffect(() => {
+    if (portfolio.length < 2 || missingInputTickers.length > 0) {
+      const timer = setTimeout(() => {
+        setResult(null);
+        setProposedShares({});
+        onCalibrating?.(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
     onCalibrating?.(true);
     const timer = setTimeout(() => {
       if (portfolio.length > 0) {
@@ -65,28 +85,14 @@ export default function OptimizationPanel({
           investmentAmount - currentPortfolioValue,
         );
 
-        const candidates = portfolio.map((p) => ({
-          ticker: p.ticker,
-          price: p.price,
-          // Return proxy used by this allocator, not a forecast.
-          expectedReturn:
-            (p.metrics?.yield || 0) / 100 + (p.beta || 1.0) * 0.06,
-        }));
-
-        const n = portfolio.length;
-        // Beta-based diagonal variance proxy. Cross-asset covariance is zero.
-        const covarianceMatrix = Array(n)
-          .fill(0)
-          .map(() => Array(n).fill(0));
-        for (let i = 0; i < n; i++) {
-          const vol = (portfolio[i].beta || 1.0) * 0.15;
-          covarianceMatrix[i][i] = vol * vol;
-        }
-
+        // Sample covariance from aligned price history when the holdings have
+        // enough overlap, else a single-index matrix built from beta. Either
+        // way the off-diagonals are populated: with them zeroed, two funds
+        // tracking the same index looked like genuine diversification.
         const res = optimizePortfolioGreedy({
           candidates,
-          covarianceMatrix,
-          riskProfile: RISK_PROFILE_BY_STRATEGY[strategyMode],
+          covarianceMatrix: covariance.matrix,
+          riskProfile,
           budget: effectiveBudget,
           initialShares: Object.fromEntries(
             portfolio.map((p) => [p.ticker, p.shares || 0]),
@@ -99,7 +105,7 @@ export default function OptimizationPanel({
       onCalibrating?.(false);
     }, 300); // 300ms debounce
     return () => clearTimeout(timer);
-  }, [investmentAmount, portfolio, onCalibrating, strategyMode]);
+  }, [investmentAmount, portfolio, onCalibrating, strategyMode, candidates, covariance, riskProfile, missingInputTickers]);
 
   // Ensure calibration state is reset on unmount
   useEffect(() => {
@@ -130,116 +136,40 @@ export default function OptimizationPanel({
       });
     }
 
-    let usedBudget = new Decimal(0);
-    Object.entries(proposedShares).forEach(([ticker, count]) => {
-      const item = portfolio.find((p) => p.ticker === ticker);
-      if (item) {
-        usedBudget = usedBudget.plus(new Decimal(item.price || 0).times(count));
-      }
-    });
-
-    return { newWeights, usedBudget, futureTotalValue, futureShares };
+    return { newWeights, futureTotalValue, futureShares };
   }, [portfolio, proposedShares, result]);
 
-  const handleShareChange = (ticker: string, delta: number) => {
-    if (!result || !projectedMetrics) return;
-
-    const currentAdded = proposedShares[ticker] || 0;
-    const nextVal = currentAdded + delta;
-
-    const item = portfolio.find((p) => p.ticker === ticker);
-    if (!item) return;
-
-    // Allow selling up to the current holding amount
-    // currentAdded is the 'delta'. if it is -5, it means we are selling 5 shares.
-    // We cannot sell more than item.shares.
-    // So currentAdded + delta cannot be less than -item.shares
-    const minVal = -(item.shares || 0);
-
-    if (nextVal < minVal) return;
-
-    const costDelta = new Decimal(item.price || 0).times(delta);
-
-    // projectedMetrics.usedBudget is strictly the cost of *added* (delta) shares.
-    // If delta is negative, this reduces the used budget.
-    const newUsedBudget = projectedMetrics.usedBudget.plus(costDelta);
-
-    // Calculate current holdings value (Initial state)
-    let currentHoldingsValue = new Decimal(0);
-    portfolio.forEach((p) => {
-      currentHoldingsValue = currentHoldingsValue.plus(
-        new Decimal(p.price || 0).times(p.shares || 0),
-      );
-    });
-
-    // Total proposed value = Initial Holdings + Cost of Changes
-    const totalProposedValue = currentHoldingsValue.plus(newUsedBudget);
-    const budgetLimit = new Decimal(investmentAmount);
-
-    const nextShares = { ...proposedShares };
-    nextShares[ticker] = nextVal;
-
-    if (delta > 0 && totalProposedValue.greaterThan(budgetLimit)) {
-      let remainingDeficit = totalProposedValue.minus(budgetLimit);
-
-      // Auto-reduce "added" shares first to stay within budget
-      // We filter for items where we have added shares (delta > 0)
-      // Extending this to "sell" initial shares automatically is complex, so we stick to reducing additions.
-      // BUT, we should probably allow reducing *any* share that has value > 0?
-      // For now, keep existing logic: reduce from items that have positive delta.
-      // If the user wants to buy more, they must manually sell something else (create negative delta).
-
-      const otherTickers = Object.keys(nextShares).filter(
-        (t) => t !== ticker && nextShares[t] > 0,
-      );
-
-      for (const other of otherTickers) {
-        if (remainingDeficit.lessThanOrEqualTo(0)) break;
-
-        const otherItem = portfolio.find((p) => p.ticker === other);
-        if (!otherItem) continue;
-
-        const otherPrice = new Decimal(otherItem.price || 0);
-        const availableAddedShares = nextShares[other]; // Only reduce the 'added' portion automatically
-
-        const sharesToRemove = Math.ceil(
-          remainingDeficit.div(otherPrice).toNumber(),
-        );
-        const actualRemove = Math.min(availableAddedShares, sharesToRemove);
-
-        nextShares[other] -= actualRemove;
-        remainingDeficit = remainingDeficit.minus(
-          otherPrice.times(actualRemove),
-        );
-      }
-
-      if (remainingDeficit.greaterThan(0)) {
-        return; // Cannot afford even after reducing other additions
-      }
-    }
-
-    setProposedShares(nextShares);
-  };
-
-  const handleApply = () => {
-    if (!projectedMetrics) return;
-    setIsApplying(true);
-    setTimeout(() => {
-      onApply(proposedShares, projectedMetrics.newWeights);
-      setIsApplying(false);
-    }, 500);
-  };
+  const modelScores = useMemo(() => {
+    const currentShares = portfolio.map((item) => item.shares || 0);
+    const proposalShares = portfolio.map(
+      (item) => (item.shares || 0) + (proposedShares[item.ticker] || 0),
+    );
+    return {
+      current: calculatePortfolioUtility(candidates, covariance.matrix, lambda, currentShares),
+      proposal: calculatePortfolioUtility(candidates, covariance.matrix, lambda, proposalShares),
+    };
+  }, [portfolio, proposedShares, candidates, covariance, lambda]);
 
   if (!result || !projectedMetrics)
     return (
-      <div className="p-6 text-neutral-400">Calculating allocation...</div>
+      <div className="rounded-card border border-hairline bg-surface-card p-6 text-body">
+        {portfolio.length < 2 ? (
+          <>
+            <p className="font-semibold text-ink">Allocation score unavailable</p>
+            <p className="mt-2">{portfolio.length === 0
+              ? "Add at least two assets to compare allocations."
+              : "Add a second asset to compare allocations. Buying more of one asset leaves its model weight at 100%, so this score cannot evaluate that purchase. Use the simple contribution scenario to model an added amount."}</p>
+          </>
+        ) : missingInputTickers.length > 0 ? (
+          <>
+            <p className="font-semibold text-ink">Experimental score unavailable</p>
+            <p className="mt-2">An issuer-sourced yield or reported beta is missing for {missingInputTickers.join(", ")}. Yahoo quote yield is unverified and cannot qualify this score.</p>
+          </>
+        ) : (
+          "Calculating allocation..."
+        )}
+      </div>
     );
-
-  // Construct proposed portfolio items for the Diff Chart
-  const proposedPortfolioItems = portfolio.map((item) => ({
-    ...item,
-    shares: projectedMetrics.futureShares[item.ticker] || 0,
-  }));
 
   return (
     <div className="flex flex-col h-full bg-surface-card backdrop-blur-md border border-hairline rounded-xl overflow-hidden relative">
@@ -253,18 +183,24 @@ export default function OptimizationPanel({
             </h2>
           </div>
 
-          <p className="text-xs text-neutral-500 leading-relaxed">
-            Uses dividend yield and beta as return and variance proxies. It
-            assumes zero cross-asset correlation.
+          <p className="text-sm leading-6 text-body">
+            Experimental score only. It uses issuer yield, reported beta × 6%,
+            and estimated annual covariance. These inputs are proxies, not
+            forecasts or a recommendation.{" "}
+            {covariance.source === "history"
+              ? `The covariance uses ${covariance.samples} overlapping daily returns.`
+              : "The covariance uses a beta-based estimate because the holdings lack enough overlapping price history."}
           </p>
 
-          <div className="text-[10px] text-neutral-500 uppercase tracking-wider">
-            Variance penalty
+          <div className="text-sm font-medium text-body">
+            Risk penalty
           </div>
-          <div className="flex gap-2 bg-dune/30 p-1 rounded-lg border border-hairline">
+          <div className="flex gap-2 flex gap-2 bg-dune/30 p-1 rounded-lg border border-hairline">
             {STRATEGY_MODES.map((mode) => (
                 <button
+                  type="button"
                   key={mode}
+                  aria-pressed={strategyMode === mode}
                   onClick={() => setStrategyMode(mode)}
                   className={cn(
                     "flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all",
@@ -279,57 +215,71 @@ export default function OptimizationPanel({
           </div>
         </div>
 
-        <div className="relative group">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <DollarSign className="h-6 w-6 text-emerald-500/80" />
+        <div className="relative">
+          <label htmlFor="optimizer-portfolio-cap" className="text-right text-[10px] text-neutral-500 mt-1 mr-1">
+            Maximum portfolio value for this comparison
+          </label>
+          <div className="relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+              <DollarSign className="h-5 w-5 text-muted" />
+            </div>
+            <input
+              id="optimizer-portfolio-cap"
+              type="number"
+              value={investmentAmount}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setInvestmentAmount(Number.isFinite(next) ? Math.max(0, next) : 0);
+              }}
+              className="block w-full pl-12 pr-4 py-4 bg-dune/30 border border-hairline rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
+              placeholder="0.00"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted">
+              {currency}
+            </span>
           </div>
-          <input
-            type="number"
-            value={investmentAmount}
-            onChange={(e) =>
-              setInvestmentAmount(Math.max(0, Number(e.target.value)))
-            }
-            className="block w-full pl-12 pr-4 py-4 bg-dune/30 border border-hairline rounded-lg text-2xl font-bold text-white placeholder-neutral-600 focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all outline-none"
-            placeholder="0.00"
-          />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-neutral-500 font-medium">
-            USD
-          </span>
         </div>
-        <div className="text-right text-[10px] text-neutral-500 mt-1 mr-1">
-          Target portfolio value
-        </div>
-
         <div className="mt-2 flex justify-between text-xs text-neutral-500">
           <span>
-            Proposed value: $
-            {projectedMetrics.futureTotalValue
-              .toNumber()
-              .toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            Proposed portfolio value: {formatCurrency(projectedMetrics.futureTotalValue, currency)}
           </span>
-          <span>Target: ${investmentAmount.toLocaleString()}</span>
+          <span>Cap: {formatCurrency(investmentAmount, currency)}</span>
         </div>
+        <div className="mt-1 text-right text-xs text-neutral-500">
+          Unallocated cash under cap: {formatCurrency(
+            Math.max(0, investmentAmount - projectedMetrics.futureTotalValue.toNumber()),
+            currency,
+          )}
+        </div>
+        <p className="mt-1 text-xs text-neutral-500">
+          The model can leave cash unallocated when no affordable purchase improves its allocation score.
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
         <section>
           <div className="flex justify-between items-end mb-3">
             <h3 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-emerald-400" />
+              <TrendingDown className="w-4 h-4 text-ink" />
               Model Score
             </h3>
           </div>
           <div className="space-y-3">
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-neutral-500">
-                <span>Current proposal</span>
+                <span>Current portfolio</span>
                 <span className="text-emerald-400 font-bold">
-                  {result.utility.toFixed(4)}
+                  {modelScores.current.toFixed(4)}
                 </span>
               </div>
-              <p className="text-[10px] text-neutral-500">
-                This unitless score is only comparable with other allocations
-                under the same inputs and penalty setting.
+              <div className="flex justify-between text-xs text-neutral-500">
+                <span>Model candidate score</span>
+                <span className="text-emerald-400 font-bold">
+                  {modelScores.proposal.toFixed(4)}
+                </span>
+              </div>
+              <p className="text-sm leading-5 text-body">
+                Unitless scores are comparable only under these same heuristic inputs. No trade can be applied from this panel.
               </p>
             </div>
           </div>
@@ -337,16 +287,13 @@ export default function OptimizationPanel({
 
         <section>
           <h3 className="text-sm font-medium text-neutral-300 mb-3">
-            Review share changes
+            Illustrative share mix
           </h3>
           <div className="space-y-2">
             {portfolio.map((item) => {
               const sharesToAdd = proposedShares[item.ticker] || 0;
               const newWeight =
                 projectedMetrics.newWeights[item.ticker] || item.weight;
-
-              // Min shares limit: we cannot sell more than we have
-              const minSharesDelta = -(item.shares || 0);
 
               return (
                 <motion.div
@@ -357,31 +304,18 @@ export default function OptimizationPanel({
                   <div className="flex justify-between items-center">
                     <span className="font-bold text-ink">{item.ticker}</span>
                     <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleShareChange(item.ticker, -1)}
-                        className="p-1 rounded bg-surface-soft hover:bg-surface-soft text-ink disabled:opacity-30"
-                        disabled={sharesToAdd <= minSharesDelta}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
                       <span
                         className={cn(
                           "text-sm font-mono w-6 text-center",
                           sharesToAdd > 0
                             ? "text-emerald-400 font-bold"
                             : sharesToAdd < 0
-                              ? "text-rose-400 font-bold"
+                              ? "text-emerald-400 font-bold"
                               : "text-neutral-500",
                         )}
                       >
                         {sharesToAdd > 0 ? `+${sharesToAdd}` : sharesToAdd}
                       </span>
-                      <button
-                        onClick={() => handleShareChange(item.ticker, 1)}
-                        className="p-1 rounded bg-surface-soft hover:bg-surface-soft text-ink"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
                     </div>
                   </div>
 
@@ -413,28 +347,11 @@ export default function OptimizationPanel({
         </section>
       </div>
 
-      <div className="p-6 border-t border-hairline bg-black/5 flex flex-col gap-4">
-        {/* Diff Chart Preview */}
-        <OptimizationDiffChart
-          current={portfolio}
-          proposed={proposedPortfolioItems}
-        />
-
-        <button
-          onClick={handleApply}
-          disabled={
-            isApplying || Object.values(proposedShares).every((s) => s === 0)
-          }
-          className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.6)] transition-all flex items-center justify-center gap-2"
-        >
-          {isApplying ? (
-            <span className="animate-pulse">Applying changes...</span>
-          ) : (
-            <>
-              Apply share changes <ArrowRight className="w-5 h-5" />
-            </>
-          )}
-        </button>
+      <div className="flex flex-col gap-4 border-t border-hairline bg-canvas p-6">
+        <p className="text-sm leading-5 text-body">
+          This experimental result is for inspection only. Apply is unavailable
+          while expected returns and fallback correlations remain heuristic.
+        </p>
       </div>
     </div>
   );

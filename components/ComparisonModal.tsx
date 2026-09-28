@@ -8,10 +8,8 @@ import {
   Search,
   ChevronRight,
   TrendingUp,
-  DollarSign,
   Activity,
   Scale,
-  Layers,
 } from "lucide-react";
 import {
   AreaChart,
@@ -23,17 +21,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ETF } from "@/types";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatSectorName } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
-import SectorPieChart, { COLORS } from "./SectorPieChart";
-
-// Helper to format sector names
-const formatSectorName = (name: string) => {
-  return name
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
+import SectorPieChart from "./SectorPieChart";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
 
 interface ComparisonModalProps {
   baseAsset: ETF;
@@ -43,9 +36,11 @@ interface ComparisonModalProps {
 
 interface ComparisonMetric {
   label: string;
-  valueA: number | undefined;
-  valueB: number | undefined;
-  formatter: (value: number) => string;
+  valueA: number | null | undefined;
+  valueB: number | null | undefined;
+  titleA?: string;
+  titleB?: string;
+  formatter: (value: number, side: "A" | "B") => string;
 }
 
 // Helper Components
@@ -54,18 +49,22 @@ function MetricRow({
   label,
   valueA,
   valueB,
+  titleA,
+  titleB,
   formatter,
 }: {
   label: string;
-  valueA: number | undefined;
-  valueB: number | undefined;
-  formatter: (v: number) => string;
+  valueA: number | null | undefined;
+  valueB: number | null | undefined;
+  titleA?: string;
+  titleB?: string;
+  formatter: (v: number, side: "A" | "B") => string;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 border-b border-hairline last:border-0 hover:bg-surface-soft transition-colors px-4 rounded-lg">
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 border-b border-hairline last:border-0 hover:bg-surface-soft transition-colors px-4 rounded-card">
       {/* Asset A Value */}
-      <div className="text-sm font-mono text-right text-neutral-400">
-        {valueA !== undefined ? formatter(valueA) : "--"}
+      <div className="text-sm font-mono text-right text-neutral-400" title={titleA}>
+        {valueA != null ? formatter(valueA, "A") : "N/A"}
       </div>
 
       <div className="flex flex-col items-center justify-center min-w-[100px]">
@@ -74,8 +73,8 @@ function MetricRow({
         </span>
       </div>
 
-      <div className="text-sm font-mono text-left text-neutral-400">
-        {valueB !== undefined ? formatter(valueB) : "--"}
+      <div className="text-sm font-mono text-left text-neutral-400" title={titleB}>
+        {valueB != null ? formatter(valueB, "B") : "N/A"}
       </div>
     </div>
   );
@@ -92,10 +91,10 @@ export default function ComparisonModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ETF[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [comparisonSeries, setComparisonSeries] = useState<
     Record<string, { date: string; price: number }[]>
   >({});
+  const dialogRef = useDialogA11y<HTMLDivElement>(isOpen, onClose);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -160,7 +159,6 @@ export default function ComparisonModal({
   }, [searchQuery, baseAsset.assetType, baseAsset.ticker]);
 
   const handleSelectAsset = async (asset: ETF) => {
-    setIsSyncing(true);
     // Show the selection immediately; live quote metrics merge in right after
     setCompareAsset(asset);
     try {
@@ -180,10 +178,7 @@ export default function ComparisonModal({
           setCompareAsset({
             ...asset,
             ...snap,
-            metrics:
-              asset.metrics?.mer || asset.metrics?.yield
-                ? asset.metrics
-                : snap.metrics,
+            metrics: { ...asset.metrics, ...snap.metrics },
             sectors:
               asset.sectors && Object.keys(asset.sectors).length > 0
                 ? asset.sectors
@@ -195,7 +190,6 @@ export default function ComparisonModal({
     } catch (err) {
       console.error("Failed to fetch live quote for comparison:", err);
     } finally {
-      setIsSyncing(false);
       setSearchQuery(""); // Clear search for clean view
     }
   };
@@ -214,18 +208,22 @@ export default function ComparisonModal({
 
     const addMetric = (
       label: string,
-      getValue: (asset: ETF) => number | undefined,
-      formatter: (v: number) => string,
+      getValue: (asset: ETF) => number | null | undefined,
+      formatter: (v: number, side: "A" | "B") => string,
+      getProvenance?: (asset: ETF) => string | undefined,
     ) => {
       list.push({
         label,
         valueA: getValue(baseAsset),
         valueB: getValue(compareAsset),
+        titleA: getProvenance?.(baseAsset),
+        titleB: getProvenance?.(compareAsset),
         formatter,
       });
     };
 
-    addMetric("Price", (asset) => asset.price, (v) => formatCurrency(v));
+    addMetric("Price", (asset) => asset.price, (v, side) =>
+      formatCurrency(v, side === "A" ? baseAsset.currency : compareAsset.currency));
     addMetric(
       "Change",
       (asset) => asset.changePercent,
@@ -245,27 +243,37 @@ export default function ComparisonModal({
     if (isStock) {
       addMetric("PE Ratio", (asset) => asset.peRatio, (v) => v.toFixed(2));
       addMetric("Beta", (asset) => asset.beta, (v) => v.toFixed(2));
-      addMetric("EPS", (asset) => asset.eps, (v) => formatCurrency(v));
+      addMetric("EPS", (asset) => asset.eps, (v, side) =>
+        formatCurrency(v, side === "A" ? baseAsset.currency : compareAsset.currency));
       addMetric(
         "Revenue",
         (asset) => asset.revenue,
         (v) => (v / 1e9).toFixed(2) + "B",
       );
       addMetric(
-        "Div Yield",
-        (asset) => asset.dividendYield,
+        isUnverifiedProviderYield(baseAsset.metrics?.yieldSource) ||
+          isUnverifiedProviderYield(compareAsset.metrics?.yieldSource)
+          ? "Yahoo yield unavailable · unverified"
+          : "Div Yield",
+        (asset) => getSourcedYield(asset.metrics, asset.dividendYield),
         (v) => `${v.toFixed(2)}%`,
+        (asset) => describeYieldProvenance(asset.metrics?.yieldSource, asset.metrics?.yieldRetrievedAt, asset.metrics?.yieldSourceField, asset.metrics?.yieldInputUnit, asset.metrics?.yieldNormalization, asset.metrics?.yieldMeasurementDate),
       );
     } else {
       addMetric(
-        "Expense Ratio",
-        (asset) => asset.metrics?.mer,
+        "Provider-reported expense ratio",
+        (asset) => getSourcedExpenseRatio(asset.metrics),
         (v) => `${v.toFixed(2)}%`,
+        (asset) => describeExpenseRatioProvenance(asset.metrics),
       );
       addMetric(
-        "Yield",
-        (asset) => asset.metrics?.yield,
+        isUnverifiedProviderYield(baseAsset.metrics?.yieldSource) ||
+          isUnverifiedProviderYield(compareAsset.metrics?.yieldSource)
+          ? "Yahoo yield unavailable · unverified"
+          : "Yield",
+        (asset) => getSourcedYield(asset.metrics, asset.dividendYield),
         (v) => `${v.toFixed(2)}%`,
+        (asset) => describeYieldProvenance(asset.metrics?.yieldSource, asset.metrics?.yieldRetrievedAt, asset.metrics?.yieldSourceField, asset.metrics?.yieldInputUnit, asset.metrics?.yieldNormalization, asset.metrics?.yieldMeasurementDate),
       );
       addMetric("Holdings", (asset) => asset.holdingsCount, (v) =>
         Math.round(v).toLocaleString(),
@@ -351,20 +359,25 @@ export default function ComparisonModal({
         className="fixed inset-0 bg-dune/50 backdrop-blur-md z-[60]"
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="comparison-modal-title"
         key="modal"
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed inset-0 m-auto w-full max-w-6xl h-[90vh] bg-canvas border border-hairline rounded-2xl shadow-2xl z-[70] overflow-hidden flex flex-col"
+        className="fixed inset-0 m-auto w-full max-w-6xl h-[90dvh] bg-canvas border border-hairline rounded-card z-[70] overflow-hidden flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-hairline bg-surface-card">
           <div className="flex items-center gap-4">
-            <Scale className="w-6 h-6 text-emerald-400" />
-            <h2 className="text-xl font-bold text-ink">Asset Comparison</h2>
+            <Scale className="w-6 h-6 text-data-up" />
+            <h2 id="comparison-modal-title" className="text-xl font-bold text-ink">Asset Comparison</h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close comparison"
             className="p-2 hover:bg-surface-soft rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-neutral-400" />
@@ -376,7 +389,7 @@ export default function ComparisonModal({
           {/* Asset Headers */}
           <div className="grid grid-cols-[1fr_auto_1fr] gap-4 mb-8">
             {/* Asset A (Left) */}
-            <div className="flex flex-col items-center p-4 bg-emerald-900/10 border border-emerald-500/20 rounded-xl">
+            <div className="flex flex-col items-center p-4 bg-surface-soft border border-hairline rounded-card">
               <div className="w-12 h-12 mb-3">
                 {getAssetIconUrl(
                   baseAsset.ticker,
@@ -408,8 +421,8 @@ export default function ComparisonModal({
                 className={cn(
                   "mt-2 font-mono",
                   baseAsset.changePercent >= 0
-                    ? "text-emerald-400"
-                    : "text-rose-400",
+                    ? "text-data-up"
+                    : "text-data-down",
                 )}
               >
                 {baseAsset.changePercent >= 0 ? "+" : ""}
@@ -426,10 +439,10 @@ export default function ComparisonModal({
 
             {/* Asset B (Right) or Search */}
             {compareAsset ? (
-              <div className="relative flex flex-col items-center p-4 bg-blue-900/10 border border-blue-500/20 rounded-xl group">
+              <div className="relative flex flex-col items-center p-4 bg-surface-soft border border-hairline rounded-card group">
                 <button
                   onClick={handleRemoveComparison}
-                  className="absolute top-2 right-2 p-1.5 bg-dune/30 hover:bg-rose-500/20 text-neutral-400 hover:text-rose-400 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                  className="absolute top-2 right-2 p-1.5 bg-dune/30 hover:bg-surface-soft text-neutral-400 hover:text-data-down rounded-full transition-colors opacity-0 group-hover:opacity-100"
                   title="Remove Asset"
                 >
                   <X className="w-4 h-4" />
@@ -465,8 +478,8 @@ export default function ComparisonModal({
                   className={cn(
                     "mt-2 font-mono",
                     compareAsset.changePercent >= 0
-                      ? "text-emerald-400"
-                      : "text-rose-400",
+                      ? "text-data-up"
+                      : "text-data-down",
                   )}
                 >
                   {compareAsset.changePercent >= 0 ? "+" : ""}
@@ -474,21 +487,22 @@ export default function ComparisonModal({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center p-4 border border-dashed border-hairline-strong rounded-xl h-full min-h-[160px]">
+              <div className="flex flex-col items-center justify-center p-4 border border-dashed border-hairline-strong rounded-card h-full min-h-[160px]">
                 <div className="w-full max-w-xs relative">
                   <input
                     type="text"
+                    aria-label="Search for an asset to compare"
                     placeholder="Search to compare..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-surface-card border border-hairline rounded-lg px-4 py-2 text-ink text-sm focus:outline-none focus:border-emerald-500/50"
+                    className="w-full bg-surface-card border border-hairline rounded-card px-4 py-2 text-ink text-sm focus:outline-none focus:border-hairline"
                     autoFocus
                   />
                   <Search className="absolute right-3 top-2.5 w-4 h-4 text-neutral-500" />
 
                   {/* Search Results Dropdown */}
                   {searchQuery && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto z-20">
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-surface-card border border-hairline rounded-card overflow-hidden max-h-60 overflow-y-auto z-20">
                       {isSearching ? (
                         <div className="p-4 text-center text-xs text-neutral-500">
                           Searching...
@@ -508,7 +522,7 @@ export default function ComparisonModal({
                                 {item.name}
                               </div>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-neutral-600 group-hover:text-emerald-400" />
+                            <ChevronRight className="w-4 h-4 text-neutral-600 group-hover:text-data-up" />
                           </button>
                         ))
                       ) : (
@@ -531,9 +545,9 @@ export default function ComparisonModal({
           {compareAsset && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* 1. Comparison Chart */}
-              <div className="bg-surface-card rounded-2xl p-6 border border-hairline">
+              <div className="bg-surface-card rounded-card p-6 border border-hairline">
                 <div className="flex items-center gap-2 mb-6">
-                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                  <TrendingUp className="w-5 h-5 text-data-up" />
                   <h3 className="text-lg font-bold text-ink">
                     Performance Comparison (Normalized)
                   </h3>
@@ -545,24 +559,24 @@ export default function ComparisonModal({
                         <linearGradient id="gradA" x1="0" y1="0" x2="0" y2="1">
                           <stop
                             offset="5%"
-                            stopColor="#10b981"
+                            stopColor="#5cb883"
                             stopOpacity={0.3}
                           />
                           <stop
                             offset="95%"
-                            stopColor="#10b981"
+                            stopColor="#5cb883"
                             stopOpacity={0}
                           />
                         </linearGradient>
                         <linearGradient id="gradB" x1="0" y1="0" x2="0" y2="1">
                           <stop
                             offset="5%"
-                            stopColor="#3b82f6"
+                            stopColor="#6b7f8c"
                             stopOpacity={0.3}
                           />
                           <stop
                             offset="95%"
-                            stopColor="#3b82f6"
+                            stopColor="#6b7f8c"
                             stopOpacity={0}
                           />
                         </linearGradient>
@@ -599,7 +613,7 @@ export default function ComparisonModal({
                       <Area
                         type="monotone"
                         dataKey="valueA"
-                        stroke="#10b981"
+                        stroke="#5cb883"
                         strokeWidth={2}
                         fill="url(#gradA)"
                         name="valueA"
@@ -607,7 +621,7 @@ export default function ComparisonModal({
                       <Area
                         type="monotone"
                         dataKey="valueB"
-                        stroke="#3b82f6"
+                        stroke="#6b7f8c"
                         strokeWidth={2}
                         fill="url(#gradB)"
                         name="valueB"
@@ -638,9 +652,9 @@ export default function ComparisonModal({
               </div>
 
               {/* 2. Key metrics */}
-              <div className="bg-surface-card rounded-2xl p-6 border border-hairline">
+              <div className="bg-surface-card rounded-card p-6 border border-hairline">
                 <div className="flex items-center gap-2 mb-6">
-                  <Activity className="w-5 h-5 text-emerald-400" />
+                  <Activity className="w-5 h-5 text-data-up" />
                   <h3 className="text-lg font-bold text-ink">
                     Side-by-Side Metrics
                   </h3>
@@ -662,7 +676,7 @@ export default function ComparisonModal({
                 compareAsset.assetType === "ETF" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Asset A Sector */}
-                    <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col items-center">
+                    <div className="bg-surface-card rounded-card p-6 border border-hairline flex flex-col items-center">
                       <h4 className="text-sm font-bold text-ink mb-4">
                         {baseAsset.ticker} Allocation
                       </h4>
@@ -682,7 +696,7 @@ export default function ComparisonModal({
                       </div>
                     </div>
                     {/* Asset B Sector */}
-                    <div className="bg-surface-card rounded-2xl p-6 border border-hairline flex flex-col items-center">
+                    <div className="bg-surface-card rounded-card p-6 border border-hairline flex flex-col items-center">
                       <h4 className="text-sm font-bold text-ink mb-4">
                         {compareAsset.ticker} Allocation
                       </h4>

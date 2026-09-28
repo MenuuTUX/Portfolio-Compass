@@ -1,8 +1,10 @@
 "use client";
 
+import { cn, formatCurrency } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Portfolio, PortfolioItem } from "@/types";
+import { getPortfolioValuation } from "@/lib/math/portfolio-returns";
+import { useBankOfCanadaFx } from "@/hooks/useBankOfCanadaFx";
+import { Portfolio } from "@/types";
 import { motion } from "framer-motion";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -21,9 +23,6 @@ interface PortfolioBuilderProps {
   onRemove: (ticker: string) => void;
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
-  onBatchUpdate: (
-    updates: { ticker: string; weight?: number; shares?: number }[],
-  ) => void;
   onClear: () => void;
 }
 
@@ -32,7 +31,6 @@ export default function PortfolioBuilder({
   onRemove,
   onUpdateWeight,
   onUpdateShares,
-  onBatchUpdate,
   onClear,
 }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<"BUILDER" | "PROJECTION">("BUILDER");
@@ -46,23 +44,66 @@ export default function PortfolioBuilder({
 
   const [isOptimizerActive, setIsOptimizerActive] = useState(true);
   const [isCalibrating, setIsCalibrating] = useState(false);
-  const [isApplying, setIsApplying] = useState(false);
+  const [valuationNow, setValuationNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setValuationNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const currencies = new Set(portfolio.filter((item) => item.shares > 0).map((item) => item.currency));
+  const fxQuery = useBankOfCanadaFx(currencies.size > 1);
+  const requestedBaseCurrency = currencies.size > 1 ? "CAD" : undefined;
+  const portfolioValuation = getPortfolioValuation(
+    portfolio,
+    requestedBaseCurrency,
+    valuationNow,
+    fxQuery.data,
+  );
+  const portfolioCurrency = portfolioValuation.complete
+    ? portfolioValuation.baseCurrency
+    : null;
+  const sameCurrencyValuation = !!portfolioCurrency && !requestedBaseCurrency;
+  const projectionAvailable = portfolioValuation.complete;
+  const optimizerAvailable = sameCurrencyValuation && portfolio.every((item) => item.currency === portfolioCurrency);
+  const mixedFxInternalsMessage = "The simple projection starts from today's CAD-converted value and does not model future FX changes. Allocation scoring and Monte Carlo remain unavailable for mixed currencies.";
+  const optimizerUnavailableMessage = sameCurrencyValuation
+    ? "Allocation scoring is unavailable while a candidate uses a different currency from the held portfolio."
+    : mixedFxInternalsMessage;
+  const valuationUnavailableMessage = (() => {
+    switch (portfolioValuation.unavailableReason) {
+      case "quote-stale":
+        return "A held quote is older than five days. Refresh quotes before using portfolio totals or projections.";
+      case "quote-invalid":
+        return "A held quote has an invalid timestamp. Refresh quotes before using portfolio totals or projections.";
+      case "quote-from-future":
+        return "A held quote timestamp is in the future. Refresh quotes before using portfolio totals or projections.";
+      case "quote-unavailable":
+        return "A held quote is unavailable. Refresh quotes before using portfolio totals or projections.";
+      case "quote-missing":
+        return `Only ${portfolioValuation.pricedHoldings} of ${portfolioValuation.heldHoldings} held positions have a fresh quote.`;
+      case "currency-unavailable":
+        return "A held quote is missing a supported currency.";
+      case "unsupported-shares":
+        return "A holding has an invalid share count, so portfolio totals and projections are unavailable.";
+      case "fx-conversion-unavailable":
+        return fxQuery.isError
+          ? "Bank of Canada FX is unavailable. Mixed-currency totals are hidden until a fresh daily rate is available."
+          : "A fresh Bank of Canada daily FX rate is unavailable. Mixed-currency totals are hidden.";
+      default:
+        return "Add holdings with fresh quotes and known currencies to calculate a total.";
+    }
+  })();
 
   // Calculate aggregate metrics using Decimal for precision (Layer 1)
-  const { totalWeight, totalValue } = useMemo(() => {
+  const { totalWeight } = useMemo(() => {
     return portfolio.reduce(
       (acc, item) => {
         const weight = new Decimal(item.weight || 0);
-        const price = new Decimal(item.price || 0);
-        const shares = new Decimal(item.shares || 0);
-        const value = price.times(shares);
 
         return {
           totalWeight: acc.totalWeight.plus(weight),
-          totalValue: acc.totalValue.plus(value),
         };
       },
-      { totalWeight: new Decimal(0), totalValue: new Decimal(0) },
+      { totalWeight: new Decimal(0) },
     );
   }, [portfolio]);
 
@@ -173,6 +214,18 @@ export default function PortfolioBuilder({
   });
 
   if (viewMode === "PROJECTION") {
+    if (!projectionAvailable) {
+      return (
+        <section className="p-6 text-ink">
+          <button onClick={() => setViewMode("BUILDER")} className="underline">
+            Back to portfolio
+          </button>
+          <p className="mt-4">
+            {portfolioCurrency ? mixedFxInternalsMessage : valuationUnavailableMessage}
+          </p>
+        </section>
+      );
+    }
     return (
       <>
         {showContributePopup && (
@@ -180,6 +233,9 @@ export default function PortfolioBuilder({
         )}
         <WealthProjector
           portfolio={portfolio}
+          startingValue={portfolioValuation.totalValue!}
+          baseCurrency={portfolioCurrency!}
+          fxProvenance={requestedBaseCurrency ? fxQuery.data : undefined}
           onBack={() => setViewMode("BUILDER")}
         />
       </>
@@ -206,8 +262,10 @@ export default function PortfolioBuilder({
           <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
             <button
               onClick={() => setIsOptimizerActive(!isOptimizerActive)}
+              disabled={!optimizerAvailable}
+              title={!optimizerAvailable ? optimizerUnavailableMessage : undefined}
               className={cn(
-                "flex-1 md:flex-none justify-center px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer border",
+                "flex-1 md:flex-none justify-center px-6 py-3 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed",
                 isOptimizerActive
                   ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)]"
                   : "bg-surface-card border-hairline hover:bg-surface-soft text-ink",
@@ -220,7 +278,9 @@ export default function PortfolioBuilder({
                 setViewMode("PROJECTION");
                 setTimeout(() => setShowContributePopup(true), 800);
               }}
-              className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer"
+              disabled={!projectionAvailable}
+              title={!projectionAvailable ? valuationUnavailableMessage : undefined}
+              className="flex-1 md:flex-none justify-center px-6 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.5)] flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               See Growth Projection
             </button>
@@ -270,55 +330,36 @@ export default function PortfolioBuilder({
           </button>
         </div>
 
-        {/*
-            Expanded Height Layout:
-            - Changed h-[75vh] to flex-1 with min-h for better responsiveness
-            - Added gap-8 for spacing
-        */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-4 flex-1 min-h-[800px]">
-          {/* Main Content Area (Left 2/3) */}
           <div
             className={cn(
               "lg:col-span-2 flex flex-col h-full min-h-0 transition-all duration-300",
-              (isCalibrating || isApplying) &&
-                "blur-sm opacity-50 pointer-events-none",
+              isCalibrating && "blur-sm opacity-50 pointer-events-none",
             )}
           >
-            {/* Header Stats */}
             {portfolio.length > 0 && (
               <div className="flex flex-col gap-2 mb-4 flex-shrink-0">
-                <div className="p-4 rounded-lg border border-hairline bg-surface-card flex justify-between items-center">
-                  <span className="font-medium text-ink">
-                    Total Portfolio Value
-                  </span>
-                  <span className="font-bold text-xl text-emerald-400">
-                    $
-                    {totalValue
-                      .toNumber()
-                      .toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                <div className="p-4 rounded-card border border-hairline bg-surface-card flex justify-between items-center">
+                  <span className="font-medium text-ink">Total Portfolio Value</span>
+                  <span className="font-bold text-xl text-data-up">
+                    {portfolioCurrency ? formatCurrency(portfolioValuation.totalValue!, portfolioCurrency) : "Unavailable"}
                   </span>
                 </div>
-
-                <div
-                  className={cn(
-                    "p-4 rounded-lg border flex justify-between items-center",
-                    isValid
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                      : "bg-rose-500/10 border-rose-500/30 text-rose-400",
-                  )}
-                >
-                  <span className="font-medium">Total Allocation</span>
-                  <span className="font-bold text-xl">
-                    {totalWeight.toNumber().toFixed(1)}%
-                  </span>
+                {portfolioCurrency && requestedBaseCurrency && portfolioValuation.complete && (
+                  <p className="text-xs text-neutral-500">Values converted to CAD using Bank of Canada FXUSDCAD daily average dated {fxQuery.data?.date}.</p>
+                )}
+                {!portfolioCurrency && <p className="text-sm text-neutral-400">{valuationUnavailableMessage}</p>}
+                {portfolioCurrency && !sameCurrencyValuation && <p className="text-sm text-neutral-400">{mixedFxInternalsMessage}</p>}
+                <div className={cn(
+                  "p-4 rounded-card border flex justify-between items-center",
+                  isValid ? "bg-surface-soft border-hairline text-data-up" : "bg-surface-soft border-hairline text-data-down",
+                )}>
+                  <span className="font-medium">Total Target Allocation</span>
+                  <span className="font-bold text-xl">{totalWeight.toNumber().toFixed(1)}%</span>
                 </div>
               </div>
             )}
 
-            {/* View Switcher Logic */}
             <div className="flex-1 min-h-0 relative flex flex-col">
               {builderView === "LIST" && (
                 <div className="flex-1 border border-hairline rounded-xl bg-white/[0.02] flex flex-col relative overflow-hidden min-h-[500px]">
@@ -380,6 +421,7 @@ export default function PortfolioBuilder({
                                 <PortfolioItemRow
                                   key={item.ticker}
                                   item={item}
+                                  now={valuationNow}
                                   virtualRow={virtualRow}
                                   measureElement={rowVirtualizer.measureElement}
                                   onRemove={onRemove}
@@ -424,44 +466,9 @@ export default function PortfolioBuilder({
             </div>
           </div>
 
-          {/* Right Column (Optimizer / Stats) */}
           <div className="flex flex-col gap-6 lg:h-full lg:overflow-y-auto custom-scrollbar pr-1">
-            {isOptimizerActive && portfolio.length > 0 ? (
-              <OptimizationPanel
-                portfolio={portfolio}
-                onCalibrating={setIsCalibrating}
-                onApply={(newShares, newWeights) => {
-                  setIsApplying(true);
-
-                  setTimeout(() => {
-                    const updates: {
-                      ticker: string;
-                      weight?: number;
-                      shares?: number;
-                    }[] = [];
-                    const allTickers = new Set([
-                      ...Object.keys(newShares),
-                      ...Object.keys(newWeights),
-                    ]);
-
-                    allTickers.forEach((ticker) => {
-                      const item = portfolio.find((p) => p.ticker === ticker);
-                      const currentShares = item?.shares || 0;
-                      const additionalShares = newShares[ticker] || 0;
-
-                      updates.push({
-                        ticker,
-                        shares: currentShares + additionalShares,
-                        weight: newWeights[ticker],
-                      });
-                    });
-
-                    onBatchUpdate(updates);
-                    setIsApplying(false);
-                    setIsOptimizerActive(false);
-                  }, 1500);
-                }}
-              />
+            {isOptimizerActive && portfolio.length > 0 && optimizerAvailable ? (
+              <OptimizationPanel portfolio={portfolio} onCalibrating={setIsCalibrating} />
             ) : (
               <div className="glass-panel p-6 rounded-xl flex flex-col bg-surface-card border border-hairline h-fit">
                 <h3 className="text-lg font-medium text-ink mb-6 flex-shrink-0">

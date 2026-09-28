@@ -2,10 +2,12 @@ import { describe, it, expect } from "bun:test";
 import {
   getAssetYieldFraction,
   getEffectiveWeights,
-  getPortfolioDividendYield,
   getPortfolioMarketValue,
-  estimateAssetTotalReturn,
-  annualYieldToDailyLogDrift,
+  getPortfolioValuation,
+  getPortfolioDividendYieldStatus,
+  getQuoteFreshness,
+  gainOnInvestedPercent,
+  annualRateToMonthlyRate,
 } from "@/lib/math/portfolio-returns";
 import { Portfolio, PortfolioItem } from "@/types";
 
@@ -13,9 +15,11 @@ function makeItem(partial: Partial<PortfolioItem> & { ticker: string }): Portfol
   return {
     name: partial.name || partial.ticker,
     price: partial.price ?? 100,
+    currency: "USD",
+    quoteAsOf: new Date().toISOString(),
     changePercent: 0,
     history: partial.history || [],
-    metrics: partial.metrics || { mer: 0, yield: 0 },
+    metrics: partial.metrics || { mer: null, yield: null },
     allocation: partial.allocation || { equities: 100, bonds: 0, cash: 0 },
     weight: partial.weight ?? 0,
     shares: partial.shares ?? 0,
@@ -26,24 +30,29 @@ function makeItem(partial: Partial<PortfolioItem> & { ticker: string }): Portfol
 
 describe("getAssetYieldFraction", () => {
   it("reads metrics.yield as percent", () => {
-    const item = makeItem({ ticker: "SCHD", metrics: { mer: 0.06, yield: 3.5 } });
+    const item = makeItem({ ticker: "SCHD", metrics: { mer: 0.06, yield: 3.5, yieldSource: "Issuer factsheet" } });
     expect(getAssetYieldFraction(item)).toBeCloseTo(0.035);
   });
 
-  it("falls back to dividendYield when metrics.yield is 0 or missing", () => {
+  it("withholds Yahoo and source-free yield values from return projections", () => {
     const zeroMetrics = makeItem({
       ticker: "AAPL",
-      metrics: { mer: 0, yield: 0 },
+      metrics: { mer: 0, yield: 0, yieldSource: "Yahoo Finance quote" },
       dividendYield: 0.5,
     });
-    expect(getAssetYieldFraction(zeroMetrics)).toBeCloseTo(0.005);
+    expect(getAssetYieldFraction(zeroMetrics)).toBe(0);
 
     const noMetrics = makeItem({
       ticker: "MSFT",
       dividendYield: 0.8,
     });
     (noMetrics as any).metrics = undefined;
-    expect(getAssetYieldFraction(noMetrics)).toBeCloseTo(0.008);
+    expect(getAssetYieldFraction(noMetrics)).toBe(0);
+  });
+
+  it("does not treat a source-free yield number as known", () => {
+    const item = makeItem({ ticker: "UNKNOWN", metrics: { yield: 8 }, dividendYield: 8 });
+    expect(getPortfolioDividendYieldStatus([item]).yield).toBeNull();
   });
 
   it("returns 0 for non-payers", () => {
@@ -96,7 +105,7 @@ describe("getEffectiveWeights", () => {
   });
 });
 
-describe("getPortfolioDividendYield", () => {
+describe("getPortfolioDividendYieldStatus", () => {
   it("value-weights yields across all assets", () => {
     // A: $1000 @ 4% yield, B: $1000 @ 0% yield → portfolio yield 2%
     const portfolio: Portfolio = [
@@ -104,16 +113,16 @@ describe("getPortfolioDividendYield", () => {
         ticker: "SCHD",
         price: 100,
         shares: 10,
-        metrics: { mer: 0, yield: 4 },
+        metrics: { mer: 0, yield: 4, yieldSource: "Issuer factsheet" },
       }),
       makeItem({
         ticker: "TSLA",
         price: 100,
         shares: 10,
-        metrics: { mer: 0, yield: 0 },
+        metrics: { mer: 0, yield: 0, yieldSource: "test" },
       }),
     ];
-    expect(getPortfolioDividendYield(portfolio)).toBeCloseTo(0.02);
+    expect(getPortfolioDividendYieldStatus(portfolio).yield).toBeCloseTo(0.02);
   });
 
   it("counts a 100% high-yield portfolio fully", () => {
@@ -122,10 +131,10 @@ describe("getPortfolioDividendYield", () => {
         ticker: "JEPI",
         price: 50,
         shares: 20,
-        metrics: { mer: 0.35, yield: 8 },
+        metrics: { mer: 0.35, yield: 8, yieldSource: "Issuer factsheet" },
       }),
     ];
-    expect(getPortfolioDividendYield(portfolio)).toBeCloseTo(0.08);
+    expect(getPortfolioDividendYieldStatus(portfolio).yield).toBeCloseTo(0.08);
   });
 });
 
@@ -137,38 +146,174 @@ describe("getPortfolioMarketValue", () => {
     ];
     expect(getPortfolioMarketValue(portfolio)).toBe(10 * 5 + 20 * 3);
   });
+
+  it("refuses to add prices in different or unknown currencies", () => {
+    expect(getPortfolioMarketValue([
+      makeItem({ ticker: "US", price: 100, shares: 1, currency: "USD" }),
+      makeItem({ ticker: "CA", price: 100, shares: 1, currency: "CAD" }),
+    ])).toBeNaN();
+    expect(getPortfolioMarketValue([
+      makeItem({ ticker: "UNKNOWN", price: 100, shares: 1, currency: undefined }),
+    ])).toBeNaN();
+  });
+
+  it("reports incomplete held quotes and refuses cross-currency base conversion", () => {
+    const missingQuote = makeItem({ ticker: "MISSING", shares: 2, price: 0 });
+    const incomplete = getPortfolioValuation([missingQuote]);
+    expect(incomplete).toMatchObject({
+      baseCurrency: "USD",
+      totalValue: null,
+      heldHoldings: 1,
+      pricedHoldings: 0,
+      complete: false,
+    });
+
+    const needsFx = getPortfolioValuation([
+      makeItem({ ticker: "US", shares: 1, currency: "USD" }),
+    ], "CAD");
+    expect(needsFx.totalValue).toBeNull();
+    expect(needsFx.complete).toBe(false);
+    expect(needsFx.unavailableReason).toBe("fx-conversion-unavailable");
+
+    const stale = getPortfolioValuation([
+      makeItem({ ticker: "STALE", shares: 1, quoteStatus: "unavailable" }),
+    ]);
+    expect(stale.totalValue).toBeNull();
+    expect(stale.unavailableReason).toBe("quote-unavailable");
+
+    const now = Date.UTC(2026, 8, 26, 12);
+    const oldQuote = makeItem({
+      ticker: "OLD",
+      shares: 1,
+      quoteAsOf: new Date(now - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    expect(getPortfolioValuation([oldQuote], undefined, now)).toMatchObject({
+      totalValue: null,
+      pricedHoldings: 0,
+      unavailableReason: "quote-stale",
+    });
+  });
+
+  it("uses market-value weights only for a complete same-currency valuation", () => {
+    const portfolio = [
+      makeItem({ ticker: "US", shares: 1, weight: 50, currency: "USD" }),
+      makeItem({ ticker: "CA", shares: 1, weight: 50, currency: "CAD" }),
+    ];
+    expect(getEffectiveWeights(portfolio)).toEqual([0.5, 0.5]);
+  });
+
+  it("converts current mixed-currency values into an explicit CAD base", () => {
+    const now = Date.UTC(2026, 8, 26, 12);
+    const fx = { usdCad: 1.35, date: "2026-09-25" };
+    const portfolio = [
+      makeItem({ ticker: "US", price: 100, shares: 1, currency: "USD", quoteAsOf: new Date(now).toISOString() }),
+      makeItem({ ticker: "CA", price: 100, shares: 1, currency: "CAD", quoteAsOf: new Date(now).toISOString() }),
+    ];
+    expect(getPortfolioValuation(portfolio, "CAD", now, fx)).toMatchObject({
+      baseCurrency: "CAD", totalValue: 235, complete: true,
+    });
+    expect(getEffectiveWeights(portfolio, fx, "CAD", now)).toEqual([
+      135 / 235, 100 / 235,
+    ]);
+  });
+
+  it("inverts the official USD/CAD rate for USD base values", () => {
+    const now = Date.UTC(2026, 8, 26, 12);
+    const portfolio = [
+      makeItem({ ticker: "CA", price: 135, shares: 1, currency: "CAD", quoteAsOf: new Date(now).toISOString() }),
+      makeItem({ ticker: "US", price: 100, shares: 1, currency: "USD", quoteAsOf: new Date(now).toISOString() }),
+    ];
+    expect(getPortfolioValuation(portfolio, "USD", now, {
+      usdCad: 1.35, date: "2026-09-25",
+    }).totalValue).toBeCloseTo(200);
+  });
+
+  it("withholds mixed-currency totals when FX is missing or stale", () => {
+    const now = Date.UTC(2026, 8, 26, 12);
+    const portfolio = [
+      makeItem({ ticker: "US", shares: 1, currency: "USD", quoteAsOf: new Date(now).toISOString() }),
+      makeItem({ ticker: "CA", shares: 1, currency: "CAD", quoteAsOf: new Date(now).toISOString() }),
+    ];
+    expect(getPortfolioValuation(portfolio, "CAD", now).totalValue).toBeNull();
+    expect(getPortfolioValuation(portfolio, "CAD", now, {
+      usdCad: 1.35, date: "2026-09-20",
+    }).totalValue).toBeNull();
+  });
+
+  it("rejects impossible and future FX observation dates", () => {
+    const now = Date.UTC(2026, 8, 26, 23, 58);
+    const portfolio = [
+      makeItem({ ticker: "US", shares: 1, currency: "USD", quoteAsOf: new Date(now).toISOString() }),
+      makeItem({ ticker: "CA", shares: 1, currency: "CAD", quoteAsOf: new Date(now).toISOString() }),
+    ];
+
+    for (const date of ["2026-02-30", "2026-09-27"]) {
+      expect(getPortfolioValuation(portfolio, "CAD", now, {
+        usdCad: 1.35, date,
+      }).totalValue).toBeNull();
+    }
+    expect(getPortfolioValuation(portfolio, "CAD", now, {
+      usdCad: 1.35, date: "2026-09-26",
+    }).totalValue).toBe(235);
+  });
 });
 
-describe("estimateAssetTotalReturn", () => {
-  it("adds equity growth on top of yield", () => {
-    const item = makeItem({
-      ticker: "VTI",
-      metrics: { mer: 0.03, yield: 1.5 },
-      allocation: { equities: 100, bonds: 0, cash: 0 },
-    });
-    expect(estimateAssetTotalReturn(item)).toBeCloseTo(0.015 + 0.06);
+describe("getQuoteFreshness", () => {
+  const now = Date.UTC(2026, 8, 26, 12);
+
+  it("requires a parseable quote timestamp", () => {
+    expect(getQuoteFreshness(undefined, now)).toBe("missing");
+    expect(getQuoteFreshness("not-a-date", now)).toBe("invalid");
+    expect(getQuoteFreshness(123, now)).toBe("invalid");
   });
 
-  it("treats bond tickers as low price-appreciation + yield", () => {
-    const item = makeItem({
-      ticker: "BND",
-      metrics: { mer: 0.03, yield: 4 },
-      allocation: { equities: 0, bonds: 100, cash: 0 },
-    });
-    expect(estimateAssetTotalReturn(item)).toBeCloseTo(0.04 + 0.01);
+  it("allows five days for weekends and holidays, then marks older and future quotes", () => {
+    expect(getQuoteFreshness(new Date(now - 5 * 24 * 60 * 60 * 1000).toISOString(), now)).toBe("fresh");
+    expect(getQuoteFreshness(new Date(now - 5 * 24 * 60 * 60 * 1000 - 1).toISOString(), now)).toBe("stale");
+    expect(getQuoteFreshness(new Date(now + 6 * 60 * 1000).toISOString(), now)).toBe("future");
+    expect(getQuoteFreshness(new Date(now + 4 * 60 * 1000).toISOString(), now)).toBe("fresh");
   });
 });
 
-describe("annualYieldToDailyLogDrift", () => {
-  it("converts annual yield to daily log drift", () => {
-    const daily = annualYieldToDailyLogDrift(0.05);
-    // Compounding daily for 252 days ≈ 5%
-    const compounded = Math.exp(daily * 252) - 1;
-    expect(compounded).toBeCloseTo(0.05, 5);
+describe("getPortfolioDividendYieldStatus", () => {
+  it("marks a missing yield as incomplete instead of treating it as zero", () => {
+    const result = getPortfolioDividendYieldStatus([
+      makeItem({ ticker: "UNKNOWN", shares: 1, weight: 100 }),
+    ]);
+    expect(result).toEqual({
+      yield: null,
+      complete: false,
+      missingTickers: ["UNKNOWN"],
+    });
   });
 
-  it("returns 0 for zero / invalid", () => {
-    expect(annualYieldToDailyLogDrift(0)).toBe(0);
-    expect(annualYieldToDailyLogDrift(-1)).toBe(0);
+  it("accepts a sourced zero yield", () => {
+    const result = getPortfolioDividendYieldStatus([
+      makeItem({
+        ticker: "NOYIELD",
+        shares: 1,
+        weight: 100,
+        metrics: { mer: 0, yield: 0, yieldSource: "provider" },
+      }),
+    ]);
+    expect(result).toEqual({ yield: 0, complete: true, missingTickers: [] });
+  });
+});
+
+describe("gainOnInvestedPercent", () => {
+  it("does not count deposits as investment gain", () => {
+    // $1,000 starting capital plus $100 per month for a year at 0% return.
+    expect(gainOnInvestedPercent(2200, 2200)).toBe(0);
+  });
+});
+
+describe("annualRateToMonthlyRate", () => {
+  it("preserves the effective annual return when compounded monthly", () => {
+    const monthly = annualRateToMonthlyRate(0.07);
+    expect(Math.pow(1 + monthly, 12) - 1).toBeCloseTo(0.07, 10);
+  });
+
+  it("handles a total-loss return without producing NaN", () => {
+    expect(annualRateToMonthlyRate(-1)).toBe(-1);
   });
 });

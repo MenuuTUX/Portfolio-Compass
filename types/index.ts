@@ -1,17 +1,33 @@
-import { Decimal } from "decimal.js";
 
 export interface ETF {
   ticker: string;
   name: string;
   price: number;
+  currency?: string;
+  quoteAsOf?: string;
+  quoteStatus?: "ok" | "unavailable";
   changePercent: number;
   assetType?: string;
   isDeepAnalysisLoaded?: boolean;
   history: { date: string; price: number; interval?: string }[];
   dividendHistory?: { date: string; amount: number; exDate?: string }[];
   metrics: {
-    mer: number;
-    yield: number;
+    mer?: number | null;
+    yield?: number | null;
+    merSource?: string | null;
+    merRetrievedAt?: string | null;
+    merSourceField?: "netExpenseRatio" | "annualReportExpenseRatio" | "Expense Ratio" | null;
+    merInputUnit?: "fraction" | "percent" | "unknown" | null;
+    merNormalization?: string | null;
+    /** Measurement/report date; provider adapters currently do not supply one. */
+    merMeasurementDate?: string | null;
+    yieldSource?: string | null;
+    yieldRetrievedAt?: string | null;
+    yieldSourceField?: "trailingAnnualDividendYield" | "dividendYield" | null;
+    yieldInputUnit?: "fraction" | "percent" | null;
+    yieldNormalization?: "fraction × 100 to percent" | "already percent" | null;
+    /** Yahoo quote responses do not supply a yield measurement date. */
+    yieldMeasurementDate?: string | null;
   };
   allocation: {
     equities: number;
@@ -57,7 +73,7 @@ export interface ETF {
   earningsDate?: string;
   dividend?: number;
   exDividendDate?: string;
-  dividendYield?: number;
+  dividendYield?: number | null;
   fiftyTwoWeekLow?: number;
   fiftyTwoWeekHigh?: number;
   dividendGrowth5Y?: number;

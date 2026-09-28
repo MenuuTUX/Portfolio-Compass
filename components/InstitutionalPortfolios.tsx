@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
@@ -18,9 +18,10 @@ import {
   Institution,
 } from "@/lib/institutional-portfolios";
 import { cn } from "@/lib/utils";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface InstitutionalPortfoliosProps {
-  onBatchAdd: (items: BatchAddItem[]) => void;
+  onBatchAdd: (items: BatchAddItem[]) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -42,9 +43,12 @@ export default function InstitutionalPortfolios({
     "Growth" | "Balanced" | "Conservative"
   >("Growth");
   const [added, setAdded] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const closeInstitutional = useCallback(() => setSelectedInstitution(null), []);
+  const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(selectedInstitution), closeInstitutional);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!selectedInstitution) return;
 
     const portfolio = selectedInstitution.portfolios[selectedType];
@@ -54,17 +58,18 @@ export default function InstitutionalPortfolios({
       shares: 0,
     }));
 
-    onBatchAdd(items);
-    setAdded(true);
-    setTimeout(() => {
-      setAdded(false);
-      // Optionally close the modal
-      // setSelectedInstitution(null);
-    }, 2000);
+    setAddError(null);
+    try {
+      await onBatchAdd(items);
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    } catch (error) {
+      setAddError(error instanceof Error ? error.message : "Could not load this portfolio example.");
+    }
   };
 
   const handleImageError = (id: string) => {
-    setFailedImages((prev) => new Set(prev).add(id));
+    setFailedImages((previous) => new Set(previous).add(id));
   };
 
   const activePortfolio = selectedInstitution?.portfolios[selectedType];
@@ -97,7 +102,6 @@ export default function InstitutionalPortfolios({
               onClick={() => setSelectedInstitution(inst)}
               className="relative aspect-square cursor-pointer group flex flex-col items-center justify-center gap-2"
             >
-              {/* App Icon Shape */}
               <div
                 className={cn(
                   "w-full h-full rounded-2xl overflow-hidden relative flex items-center justify-center border border-hairline transition-all duration-300 group-hover:border-hairline-strong",
@@ -125,14 +129,10 @@ export default function InstitutionalPortfolios({
                     />
                   )}
                 </div>
-
-                {/* Hover Overlay */}
                 <div
                   className={`absolute inset-0 bg-gradient-to-tr ${inst.themeGradient} opacity-0 group-hover:opacity-40 transition-opacity duration-300 pointer-events-none mix-blend-overlay`}
                 />
               </div>
-
-              {/* Label */}
               <span className="text-[10px] font-medium text-stone-500 group-hover:text-stone-300 transition-colors text-center w-full truncate px-1 opacity-0 group-hover:opacity-100 absolute -bottom-6">
                 {inst.name.split(" ")[0]}
               </span>
@@ -161,7 +161,13 @@ export default function InstitutionalPortfolios({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="bg-canvas border border-hairline text-ink rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative overflow-hidden shadow-2xl pointer-events-auto glass-panel">
+              <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="institutional-portfolio-title"
+                className="bg-canvas border border-hairline text-ink rounded-card w-full max-w-2xl max-h-[90dvh] flex flex-col relative overflow-hidden pointer-events-auto glass-panel"
+              >
                 {/* Modal Header */}
                 <div className="p-6 pb-2 flex items-start justify-between bg-surface-card border-b border-hairline z-10 backdrop-blur-md">
                   <div className="flex-1 pr-4">
@@ -169,12 +175,10 @@ export default function InstitutionalPortfolios({
                       {failedImages.has(selectedInstitution.id) ||
                       !selectedInstitution.logo ? (
                         <h2
+                          id="institutional-portfolio-title"
                           className={cn(
                             "text-2xl font-bold tracking-tight",
-                            selectedInstitution.themeColor.replace(
-                              "text-",
-                              "text-",
-                            ),
+                            selectedInstitution.themeColor,
                           )}
                         >
                           {selectedInstitution.name}
@@ -186,9 +190,7 @@ export default function InstitutionalPortfolios({
                             alt={selectedInstitution.name}
                             fill
                             className="object-contain object-left p-1"
-                            onError={() =>
-                              handleImageError(selectedInstitution.id)
-                            }
+                            onError={() => handleImageError(selectedInstitution.id)}
                           />
                         </div>
                       )}
@@ -200,7 +202,9 @@ export default function InstitutionalPortfolios({
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => setSelectedInstitution(null)}
+                    aria-label="Close allocation examples"
                     className="p-2 hover:bg-surface-soft text-neutral-400 hover:text-ink rounded-full transition-colors shrink-0"
                   >
                     <X className="w-5 h-5" />
@@ -209,16 +213,16 @@ export default function InstitutionalPortfolios({
 
                 {/* Tabs */}
                 <div className="px-6 py-2 bg-black/5 z-10 border-b border-hairline">
-                  <div className="flex p-1 bg-surface-card rounded-lg border border-hairline">
+                  <div className="flex p-1 bg-surface-card rounded-card border border-hairline">
                     {(["Growth", "Balanced", "Conservative"] as const).map(
                       (type) => (
                         <button
                           key={type}
                           onClick={() => setSelectedType(type)}
                           className={cn(
-                            "flex-1 py-2 text-sm font-medium rounded-md transition-all",
+                            "flex-1 py-2 text-sm font-medium rounded-card transition-all",
                             selectedType === type
-                              ? "bg-surface-soft text-ink shadow-sm border border-hairline"
+                              ? "bg-surface-soft text-ink border border-hairline"
                               : "text-neutral-400 hover:text-neutral-200",
                           )}
                         >
@@ -243,13 +247,13 @@ export default function InstitutionalPortfolios({
                         {/* Description */}
                         <div
                           className={cn(
-                            "flex items-start gap-3 mb-6 p-4 rounded-xl border",
+                            "flex items-start gap-3 mb-6 p-4 rounded-card border",
                             "bg-surface-card border-hairline",
                           )}
                         >
                           <div
                             className={cn(
-                              "p-2 rounded-full shrink-0 bg-dune/30 shadow-sm border border-hairline",
+                              "p-2 rounded-full shrink-0 bg-dune/30 border border-hairline",
                               selectedInstitution.themeColor,
                             )}
                           >
@@ -290,7 +294,7 @@ export default function InstitutionalPortfolios({
                                     {h.name}
                                   </div>
                                 </td>
-                                <td className="py-3 text-right font-mono text-emerald-400 font-medium pr-2">
+                                <td className="py-3 text-right font-mono text-data-up font-medium pr-2">
                                   {h.weight}%
                                 </td>
                               </tr>
@@ -304,13 +308,14 @@ export default function InstitutionalPortfolios({
 
                 {/* Footer Action */}
                 <div className="p-6 border-t border-hairline bg-surface-card z-10 backdrop-blur-md">
+                  {addError && <p role="alert" className="mb-3 text-sm text-data-down">{addError}</p>}
                   <button
                     onClick={handleAdd}
                     disabled={isLoading || added}
                     className={cn(
-                      "w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
+                      "w-full py-3.5 rounded-button font-bold transition-all flex items-center justify-center gap-2",
                       added
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-signal-mint text-on-mint"
                         : "bg-white text-black hover:bg-neutral-200 active:scale-95",
                     )}
                     aria-label="Load this allocation example"
@@ -332,13 +337,6 @@ export default function InstitutionalPortfolios({
                   </button>
                 </div>
 
-                {/* Decorative Accent */}
-                <div
-                  className={cn(
-                    "absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] pointer-events-none bg-gradient-to-bl opacity-50",
-                    selectedInstitution.themeGradient,
-                  )}
-                />
               </div>
             </motion.div>
           </>

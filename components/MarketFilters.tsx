@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HelpTip } from "./ui/HelpTip";
+import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
 
 export type SortKey =
   | "relevance"
@@ -78,6 +80,7 @@ function Chip({
       type="button"
       title={title}
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         "px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all",
         active
@@ -135,7 +138,7 @@ export default function MarketFilters({
       { key: "change_asc", label: "Top losers" },
       { key: "price_desc", label: "Price: high" },
       { key: "price_asc", label: "Price: low" },
-      { key: "yield_desc", label: "Highest yield" },
+      { key: "yield_desc", label: "Highest sourced yield" },
     ];
     if (isStock) {
       base.push(
@@ -147,7 +150,7 @@ export default function MarketFilters({
     } else {
       base.push(
         { key: "mcap_desc", label: "Largest funds" },
-        { key: "mer_asc", label: "Lowest fees" },
+        { key: "mer_asc", label: "Lowest reported expense ratio" },
         // ETF sector/industry fields map to Yahoo fund category
         { key: "industry_asc", label: "Category A to Z" },
       );
@@ -274,19 +277,19 @@ export default function MarketFilters({
           active={value.yieldFilter === "any"}
           onClick={() => set("yieldFilter", "any")}
         >
-          Pays dividend
+          Pays dividend (sourced)
         </Chip>
         <Chip
           active={value.yieldFilter === "high"}
           onClick={() => set("yieldFilter", "high")}
         >
-          High yield (3%+)
+          High sourced yield (3%+)
         </Chip>
         <Chip
           active={value.yieldFilter === "none"}
           onClick={() => set("yieldFilter", "none")}
         >
-          No dividend
+          Sourced zero yield
         </Chip>
       </Section>
 
@@ -348,7 +351,7 @@ export default function MarketFilters({
 
       {/* ETF fees */}
       {!isStock && (
-        <Section icon={CircleDollarSign} title="Fees" tip="Expense Ratio">
+        <Section icon={CircleDollarSign} title="Fees">
           <Chip active={value.mer === "all"} onClick={() => set("mer", "all")}>
             Any fee
           </Chip>
@@ -356,13 +359,13 @@ export default function MarketFilters({
             active={value.mer === "ultra_low"}
             onClick={() => set("mer", "ultra_low")}
           >
-            Ultra-low (&lt;0.10%)
+            Under 0.10%
           </Chip>
           <Chip
             active={value.mer === "low"}
             onClick={() => set("mer", "low")}
           >
-            Low (&lt;0.25%)
+            Under 0.25%
           </Chip>
           <Chip active={value.mer === "any"} onClick={() => set("mer", "any")}>
             Has fee data
@@ -389,17 +392,15 @@ export default function MarketFilters({
 // Pure helpers used by ComparisonEngine to filter/sort lists
 
 function assetYield(etf: {
-  metrics?: { yield?: number };
-  dividendYield?: number;
-}): number {
-  const y = etf.metrics?.yield || etf.dividendYield || 0;
-  return Number(y) || 0;
+  metrics?: { yield?: number | null; yieldSource?: string | null };
+  dividendYield?: number | null;
+}): number | null {
+  if (isUnverifiedProviderYield(etf.metrics?.yieldSource)) return null;
+  return getSourcedYield(etf.metrics, etf.dividendYield);
 }
 
-function assetMer(etf: { metrics?: { mer?: number } }): number | null {
-  const m = etf.metrics?.mer;
-  if (m == null || !Number.isFinite(m)) return null;
-  return m;
+function assetMer(etf: { metrics?: { mer?: number | null; merSource?: string | null } }): number | null {
+  return getSourcedExpenseRatio(etf.metrics);
 }
 
 function sizeBucket(mcap?: number): SizeFilter | "unknown" {
@@ -418,8 +419,8 @@ export function applyMarketFilters<
     changePercent: number;
     marketCap?: number;
     peRatio?: number;
-    metrics?: { yield?: number; mer?: number };
-    dividendYield?: number;
+    metrics?: { yield?: number | null; yieldSource?: string | null; mer?: number | null; merSource?: string | null };
+    dividendYield?: number | null;
     industry?: string;
     sector?: string;
   },
@@ -438,9 +439,10 @@ export function applyMarketFilters<
 
     // Yield
     const y = assetYield(item);
-    if (filters.yieldFilter === "any" && y <= 0) return false;
-    if (filters.yieldFilter === "high" && y < 3) return false;
-    if (filters.yieldFilter === "none" && y > 0) return false;
+    if (filters.yieldFilter !== "all" && y == null) return false;
+    if (filters.yieldFilter === "any" && y! <= 0) return false;
+    if (filters.yieldFilter === "high" && y! < 3) return false;
+    if (filters.yieldFilter === "none" && y! > 0) return false;
 
     // Size
     if (filters.size !== "all") {
@@ -460,10 +462,10 @@ export function applyMarketFilters<
       }
     }
 
-    // Treat a zero or missing MER as unavailable fee data.
+    // Require a sourced, finite, nonnegative expense ratio.
     if (filters.mer !== "all") {
       const mer = assetMer(item);
-      const hasFee = mer != null && mer > 0;
+      const hasFee = mer != null;
       if (filters.mer === "any") {
         if (!hasFee) return false;
       } else if (filters.mer === "ultra_low") {
@@ -494,7 +496,11 @@ export function applyMarketFilters<
       sorted.sort((a, b) => a.changePercent - b.changePercent);
       break;
     case "yield_desc":
-      sorted.sort((a, b) => assetYield(b) - assetYield(a));
+      sorted.sort((a, b) => {
+        const ya = assetYield(a);
+        const yb = assetYield(b);
+        return ya == null ? (yb == null ? 0 : 1) : yb == null ? -1 : yb - ya;
+      });
       break;
     case "mcap_desc":
       sorted.sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));

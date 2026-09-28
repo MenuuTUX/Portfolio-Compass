@@ -19,6 +19,9 @@ const libreCaslon = Libre_Caslon_Text({
   display: 'swap',
 });
 
+export const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://portfolio-compass.vercel.app";
+
 export const metadata = {
   title: "PortfolioCompass",
   description:

@@ -147,13 +147,17 @@ export function parseBondRatings(
  * - fundProfile.annualReportExpenseRatio → decimal fraction (BND=0.0003)
  * - scrapers → usually already percent with a % sign stripped
  *
- * Zero is treated as missing (Yahoo often returns 0 for .TO funds).
+ * Zero from scraper rows is explicit (for example, a parsed "0%" fee).
+ * Yahoo zero values remain unknown because it also uses zero for absent data.
  */
 export function normalizeExpenseRatio(
   raw: number | undefined | null,
   source: "quote" | "profile" | "scraper" | "auto" = "auto",
 ): number | undefined {
-  if (raw === undefined || raw === null || !Number.isFinite(raw) || raw <= 0) {
+  if (
+    raw === undefined || raw === null || !Number.isFinite(raw) || raw < 0 ||
+    (raw === 0 && source !== "scraper")
+  ) {
     return undefined;
   }
 
@@ -172,6 +176,55 @@ export function normalizeExpenseRatio(
   if (raw > 0 && raw < 0.01) return raw * 100;
   if (raw >= 0.01 && raw < 20) return raw;
   return undefined;
+}
+
+export interface NormalizedExpenseRatio {
+  value: number;
+  sourceField: "netExpenseRatio" | "annualReportExpenseRatio" | "Expense Ratio";
+  inputUnit: "fraction" | "percent" | "unknown";
+  normalization: string;
+  measurementDate: null;
+}
+
+/** Normalize one named source field and retain how its input unit was interpreted. */
+export function normalizeExpenseRatioWithProvenance(
+  raw: number | undefined | null,
+  source: "quote" | "profile" | "scraper",
+  scraperInputUnit?: "percent" | "unknown",
+): NormalizedExpenseRatio | undefined {
+  const value = normalizeExpenseRatio(raw, source);
+  if (value === undefined || raw == null) return undefined;
+
+  if (source === "profile") {
+    const inputUnit = raw < 1 ? "fraction" : "percent";
+    return {
+      value,
+      sourceField: "annualReportExpenseRatio",
+      inputUnit,
+      normalization: raw < 1
+        ? "interpreted as fraction; multiplied by 100"
+        : "interpreted as already percent",
+      measurementDate: null,
+    };
+  }
+  if (source === "scraper") {
+    return {
+      value,
+      sourceField: "Expense Ratio",
+      inputUnit: scraperInputUnit ?? "unknown",
+      normalization: scraperInputUnit === "percent"
+        ? "percent sign stripped; value kept as percent"
+        : "unit marker absent; value assumed percent",
+      measurementDate: null,
+    };
+  }
+  return {
+    value,
+    sourceField: "netExpenseRatio",
+    inputUnit: "percent",
+    normalization: "kept as percent per netExpenseRatio field assumption",
+    measurementDate: null,
+  };
 }
 
 /** Prefer 5y beta, then 3y, ignore zeros. */
@@ -193,27 +246,38 @@ export function pickBeta(
 }
 
 /**
- * Annualized volatility from a price series (daily/weekly points).
- * Returns fraction (0.15 = 15%). Needs ≥10 points.
+ * Annualized price volatility from a sufficiently dense, dated series.
+ * Scales by observed returns per year, so weekly and daily series use their
+ * actual cadence. Short intraday ranges and histories with large gaps are
+ * withheld instead of assigned an assumed frequency. Returns a fraction;
+ * distributions are not included.
  */
 export function realizedAnnualVolatility(
-  history: { price: number }[],
-  periodsPerYear = 252,
+  history: { date: string; price: number }[],
 ): number | undefined {
-  if (!history || history.length < 10) return undefined;
+  if (!history || history.length < 101) return undefined;
+  const points = history.map((point) => ({
+    date: new Date(point.date).getTime(),
+    price: point.price,
+  })).sort((a, b) => a.date - b.date);
+  if (points.some((point) =>
+    !Number.isFinite(point.date) || !Number.isFinite(point.price) || point.price <= 0
+  )) return undefined;
+  const years = (points.at(-1)!.date - points[0].date) /
+    (365.25 * 24 * 60 * 60 * 1000);
+  if (years < 0.5) return undefined;
   const rets: number[] = [];
-  for (let i = 1; i < history.length; i++) {
-    const a = history[i - 1].price;
-    const b = history[i].price;
-    if (a > 0 && b > 0) rets.push(Math.log(b / a));
+  for (let i = 1; i < points.length; i++) {
+    const gapDays = (points[i].date - points[i - 1].date) / (24 * 60 * 60 * 1000);
+    if (gapDays <= 0 || gapDays > 10) return undefined;
+    rets.push(Math.log(points[i].price / points[i - 1].price));
   }
-  if (rets.length < 9) return undefined;
   const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
   let varSum = 0;
   for (const r of rets) varSum += (r - mean) ** 2;
   const std = Math.sqrt(varSum / (rets.length - 1));
-  const ann = std * Math.sqrt(periodsPerYear);
-  if (!Number.isFinite(ann) || ann <= 0) return undefined;
+  const ann = std * Math.sqrt(rets.length / years);
+  if (!Number.isFinite(ann)) return undefined;
   return ann;
 }
 

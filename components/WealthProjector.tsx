@@ -16,124 +16,74 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
 import MonteCarloSimulator from "./simulation/MonteCarloSimulator";
 import SimulatorExplainer from "./simulation/SimulatorExplainer";
-import { calculatePortfolioHistoricalStats } from "@/lib/math/portfolio-stats";
 import {
   getPortfolioMarketValue,
-  getPortfolioDividendYield,
-  getEffectiveWeights,
-  estimateAssetTotalReturn,
+  getPortfolioCurrency,
+  gainOnInvestedPercent,
+  type BankOfCanadaFxRate,
 } from "@/lib/math/portfolio-returns";
+import { projectContributionScenario } from "@/lib/math/scenario";
 import { PortfolioShareButton } from "./PortfolioShareButton";
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
+  startingValue?: number;
+  baseCurrency?: string;
+  fxProvenance?: BankOfCanadaFxRate;
   onBack?: () => void;
 }
 
 export default function WealthProjector({
   portfolio,
+  startingValue,
+  baseCurrency,
+  fxProvenance,
   onBack,
 }: WealthProjectorProps) {
   const [mode, setMode] = useState<"SIMPLE" | "MONTE_CARLO">("SIMPLE");
+  const currency = baseCurrency ?? getPortfolioCurrency(portfolio) ?? undefined;
+  const mixedCurrency = new Set(portfolio.filter((item) => item.shares > 0).map((item) => item.currency)).size > 1;
 
   // Market value from *all* holdings (shares × price)
   const currentPortfolioValue = useMemo(
-    () => getPortfolioMarketValue(portfolio),
-    [portfolio],
+    () => startingValue ?? getPortfolioMarketValue(portfolio),
+    [portfolio, startingValue],
   );
 
   // Simple Projection Logic
-  // Initialize with portfolio value if > 0, else 10000
+  // Use the actual held value, including zero, rather than seed a fictitious balance.
   const [initialInvestment, setInitialInvestment] = useState<number>(() => {
-    return currentPortfolioValue > 0 ? currentPortfolioValue : 10000;
+    return Number.isFinite(currentPortfolioValue) && currentPortfolioValue >= 0
+      ? currentPortfolioValue
+      : 0;
   });
+  const [startingBalanceEdited, setStartingBalanceEdited] = useState(false);
 
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(20);
+  const [annualReturnInput, setAnnualReturnInput] = useState("7");
+  const enteredReturn = Number(annualReturnInput);
+  const annualReturnAssumption = Number.isFinite(enteredReturn)
+    ? Math.max(-0.99, Math.min(1, enteredReturn / 100))
+    : 0;
 
-  // Sync initialInvestment with portfolio value if it loads later and we are
-  // still at the default (adjust-state-during-render instead of an effect)
+  // Follow quote updates until the user enters their own starting balance.
   const [prevPortfolioValue, setPrevPortfolioValue] = useState(
     currentPortfolioValue,
   );
   if (currentPortfolioValue !== prevPortfolioValue) {
     setPrevPortfolioValue(currentPortfolioValue);
-    if (currentPortfolioValue > 0 && initialInvestment === 10000) {
+    if (Number.isFinite(currentPortfolioValue) && currentPortfolioValue >= 0 && !startingBalanceEdited) {
       setInitialInvestment(currentPortfolioValue);
     }
   }
 
-  // Weighted dividend yield across ALL assets (value weights preferred)
-  const weightedYield = useMemo(
-    () => getPortfolioDividendYield(portfolio),
-    [portfolio],
+  const projectionData = useMemo(
+    () => projectContributionScenario(
+      initialInvestment, monthlyContribution, years, annualReturnAssumption,
+    ),
+    [initialInvestment, monthlyContribution, years, annualReturnAssumption],
   );
-
-  // Estimated annual return, including reinvested dividends.
-  // calculatePortfolioHistoricalStats already folds yield into total return.
-  const weightedReturn = useMemo(() => {
-    if (portfolio.length === 0) return 0.07;
-
-    const hasHistory = portfolio.some(
-      (p) => p.history && p.history.length > 30,
-    );
-    if (hasHistory) {
-      try {
-        const stats = calculatePortfolioHistoricalStats(portfolio);
-        if (stats.annualizedReturn !== 0) return stats.annualizedReturn;
-      } catch (e) {
-        console.warn("Failed to calc historical stats for simple projection", e);
-      }
-    }
-
-    // Fall back to a weighted heuristic when price history is unavailable.
-    const weights = getEffectiveWeights(portfolio);
-    return portfolio.reduce((acc, item, i) => {
-      return acc + estimateAssetTotalReturn(item) * weights[i];
-    }, 0);
-  }, [portfolio]);
-
-  // Deterministic monthly compound projection.
-  // Balance grows at *total* return (includes reinvested dividends).
-  // "Accumulated Dividends" is the income component for display only;
-  // it is already embedded in the ending balance, not added on top.
-  const projectionData = useMemo(() => {
-    let balance = initialInvestment;
-    let accumulatedDividends = 0;
-    const data: {
-      year: string;
-      balance: number;
-      invested: number;
-      dividends: number;
-      value: number;
-      dividendValue: number;
-    }[] = [];
-
-    const monthlyRate = weightedReturn / 12;
-    const monthlyYieldRate = weightedYield / 12;
-
-    for (let i = 0; i <= years * 12; i++) {
-      if (i % 12 === 0) {
-        data.push({
-          year: `Y${i / 12}`,
-          balance: Math.round(balance),
-          invested: initialInvestment + monthlyContribution * i,
-          dividends: Math.round(accumulatedDividends),
-          value: Math.round(balance),
-          dividendValue: Math.round(accumulatedDividends),
-        });
-      }
-
-      // Dividend income is reinvested and already included in total return.
-      const monthlyDividend = balance * monthlyYieldRate;
-      accumulatedDividends += monthlyDividend;
-
-      // Compound at total return (price + yield)
-      balance = (balance + monthlyContribution) * (1 + monthlyRate);
-    }
-
-    return data;
-  }, [initialInvestment, monthlyContribution, years, weightedReturn, weightedYield]);
 
   const finalAmount =
     projectionData.length > 0
@@ -143,16 +93,24 @@ export default function WealthProjector({
     projectionData.length > 0
       ? projectionData[projectionData.length - 1].invested
       : 0;
-  const totalDividends =
-    projectionData.length > 0
-      ? projectionData[projectionData.length - 1].dividends
-      : 0;
+  const modeledGain = finalAmount - totalInvested;
 
-  // Percentage Growth Calculation
-  const percentageGrowth =
-    initialInvestment > 0
-      ? ((finalAmount - initialInvestment) / initialInvestment) * 100
-      : 0;
+  // Gain relative to all paid-in capital, not contributions mistaken for growth.
+  const percentageGrowth = gainOnInvestedPercent(finalAmount, totalInvested);
+
+  if (!Number.isFinite(currentPortfolioValue) || !currency ||
+    (mixedCurrency && (!fxProvenance || !Number.isFinite(fxProvenance.usdCad) || fxProvenance.usdCad <= 0))) {
+    return (
+      <section className="max-w-3xl mx-auto px-4 py-12" role="status">
+        <h2 className="text-2xl font-semibold text-ink">Scenario unavailable</h2>
+        <p className="mt-3 text-neutral-400">
+          {mixedCurrency
+            ? "A mixed-currency starting balance needs a fresh, dated USD/CAD rate and valid quotes for every held asset."
+            : "Add a holding with a valid price and currency. Every held asset needs a valid quote before its value can be used as the starting balance."}
+        </p>
+      </section>
+    );
+  }
 
   if (mode === "MONTE_CARLO") {
     return (
@@ -165,7 +123,13 @@ export default function WealthProjector({
             Switch to Simple Projection
           </button>
         </div>
-        <MonteCarloSimulator portfolio={portfolio} onBack={onBack} />
+        <MonteCarloSimulator
+          portfolio={portfolio}
+          baseCurrency={currency}
+          startingValue={initialInvestment}
+          fxProvenance={mixedCurrency ? fxProvenance : undefined}
+          onBack={onBack}
+        />
       </section>
     );
   }
@@ -195,7 +159,8 @@ export default function WealthProjector({
               </h2>
               <p className="text-neutral-400">
                 See how a starting balance and monthly contributions compound
-                under the app&apos;s return estimate.
+                under a return assumption you choose. The starting balance uses
+                the current value of held shares when available.
               </p>
             </div>
           </div>
@@ -203,13 +168,14 @@ export default function WealthProjector({
           <div className="flex items-center gap-3">
             <PortfolioShareButton
               portfolio={portfolio}
+              currency={currency}
+              fxProvenance={mixedCurrency ? fxProvenance : undefined}
               metrics={{
                 totalValue: currentPortfolioValue,
-                annualReturn: weightedReturn,
-                yield: weightedYield,
+                annualReturn: annualReturnAssumption,
                 projectedValue: finalAmount,
                 totalInvested: totalInvested,
-                dividends: totalDividends,
+                dividends: null,
                 years: years,
                 scenario: "Simple Projection",
                 growthType: "Simple",
@@ -218,7 +184,6 @@ export default function WealthProjector({
               history={projectionData.map((d) => ({
                 date: d.year,
                 value: d.balance,
-                dividendValue: d.dividends,
               }))}
             />
 
@@ -231,6 +196,16 @@ export default function WealthProjector({
             </button>
           </div>
         </div>
+        {fxProvenance && mixedCurrency && (
+          <p className="mb-6 text-xs text-neutral-500">
+            Starting value converted to {currency} using Bank of Canada FXUSDCAD daily average dated {fxProvenance.date} ({fxProvenance.usdCad} CAD per USD). Future FX changes are not modeled.
+          </p>
+        )}
+        {mixedCurrency && (
+          <p className="mb-6 text-xs text-neutral-500">
+            Monte Carlo converts historical USD prices to CAD using dated Bank of Canada daily FX averages. Future exchange rate changes are excluded; simulated results remain illustrative price-only model assumptions.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
           {/* Controls */}
@@ -241,14 +216,15 @@ export default function WealthProjector({
                   htmlFor="initial-investment"
                   className="text-sm text-neutral-400 block"
                 >
-                  Starting Balance
+                  Starting Balance ({currency})
                 </label>
-                {currentPortfolioValue > 0 &&
+                {Number.isFinite(currentPortfolioValue) && currentPortfolioValue >= 0 &&
                   initialInvestment !== currentPortfolioValue && (
                     <button
-                      onClick={() =>
-                        setInitialInvestment(currentPortfolioValue)
-                      }
+                      onClick={() => {
+                        setInitialInvestment(currentPortfolioValue);
+                        setStartingBalanceEdited(false);
+                      }}
                       className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
                       title="Reset to current portfolio value"
                     >
@@ -259,13 +235,19 @@ export default function WealthProjector({
               </div>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-neutral-400">
-                  $
+                  {currency}
                 </span>
                 <input
                   id="initial-investment"
                   type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
                   value={initialInvestment}
-                  onChange={(e) => setInitialInvestment(Number(e.target.value))}
+                  onChange={(e) => {
+                    setInitialInvestment(Math.max(0, Number(e.target.value) || 0));
+                    setStartingBalanceEdited(true);
+                  }}
                   className="w-full bg-black/50 border border-hairline rounded-lg pl-8 pr-4 py-2 text-ink focus:border-emerald-500 focus:outline-none"
                 />
               </div>
@@ -276,18 +258,21 @@ export default function WealthProjector({
                 htmlFor="monthly-contribution"
                 className="text-sm text-neutral-400 block mb-2"
               >
-                Monthly Contribution
+                Monthly Contribution ({currency})
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2.5 text-neutral-400">
-                  $
+                  {currency}
                 </span>
                 <input
                   id="monthly-contribution"
                   type="number"
+                  min={0}
+                  step="any"
+                  inputMode="decimal"
                   value={monthlyContribution}
                   onChange={(e) =>
-                    setMonthlyContribution(Number(e.target.value))
+                    setMonthlyContribution(Math.max(0, Number(e.target.value) || 0))
                   }
                   className="w-full bg-black/50 border border-hairline rounded-lg pl-8 pr-4 py-2 text-ink focus:border-emerald-500 focus:outline-none"
                 />
@@ -312,26 +297,40 @@ export default function WealthProjector({
               />
             </div>
 
+            <div>
+              <label
+                htmlFor="annual-return-assumption"
+                className="text-sm text-neutral-400 block mb-2"
+              >
+                Assumed Annual Total Return (%)
+              </label>
+              <input
+                id="annual-return-assumption"
+                type="number"
+                min="-99"
+                max="100"
+                step="0.1"
+                value={annualReturnInput}
+                onChange={(e) => setAnnualReturnInput(e.target.value)}
+                onBlur={() => setAnnualReturnInput(String(annualReturnAssumption * 100))}
+                className="w-full bg-black/50 border border-hairline rounded-lg px-3 py-2 text-ink focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
+
             <div className="pt-6 border-t border-hairline space-y-4">
               <div>
                 <div className="text-sm text-neutral-400 mb-1">
-                  Annual Return Estimate
+                  Assumed Annual Total Return
                 </div>
                 <div className="text-2xl font-bold text-emerald-400">
-                  {(weightedReturn * 100).toFixed(2)}%
+                  {(annualReturnAssumption * 100).toFixed(2)}%
                 </div>
               </div>
-              <div>
-                <div className="text-sm text-neutral-400 mb-1">
-                  Avg. Dividend Yield
-                </div>
-                <div className="text-xl font-bold text-blue-400">
-                  {(weightedYield * 100).toFixed(2)}%
-                </div>
-              </div>
-              <p className="text-[11px] text-neutral-500 leading-relaxed">
-                Based on available price history. When history is missing, the
-                app uses a weighted yield-and-growth heuristic.
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                This is a constant nominal total-return assumption, not a
+                forecast. Contributions are added at the start of each month.
+                Enter a return after fees if you want fees included. Inflation,
+                taxes, and dividends are not modeled separately.
               </p>
             </div>
           </div>
@@ -344,24 +343,24 @@ export default function WealthProjector({
                   Ending Balance Under Assumptions
                 </div>
                 <div className="text-3xl font-bold text-ink">
-                  {formatCurrency(finalAmount)}
+                  {formatCurrency(finalAmount, currency)}
                 </div>
               </div>
               <div>
                 <div className="text-sm text-neutral-400">
-                  Estimated Dividends
+                  Modeled Gain or Loss
                 </div>
                 <div className="text-3xl font-bold text-blue-400">
-                  {formatCurrency(totalDividends)}
+                  {formatCurrency(modeledGain, currency)}
                 </div>
                 <div className="text-[11px] text-neutral-500 mt-0.5">
-                  Reinvested and included in the ending balance
+                  Ending balance minus starting balance and contributions
                 </div>
               </div>
               <div className="text-left sm:text-right">
                 <div className="text-sm text-neutral-400">Total Invested</div>
                 <div className="text-xl font-medium text-neutral-300">
-                  {formatCurrency(totalInvested)}
+                  {formatCurrency(totalInvested, currency)}
                 </div>
               </div>
             </div>
@@ -370,13 +369,7 @@ export default function WealthProjector({
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={projectionData}>
                   <defs>
-                    <linearGradient
-                      id="colorBalance"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
+                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
@@ -398,7 +391,7 @@ export default function WealthProjector({
                     tick={{ fill: "#666" }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={(value) => `$${value / 1000}k`}
+                    tickFormatter={(value) => `${currency} ${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
                     contentStyle={{
@@ -406,7 +399,7 @@ export default function WealthProjector({
                       borderColor: "var(--hairline)",
                       color: "var(--ink)",
                     }}
-                    formatter={(value: any) => formatCurrency(Number(value))}
+                    formatter={(value: any) => formatCurrency(Number(value), currency)}
                   />
                   <Area
                     type="monotone"
@@ -424,14 +417,6 @@ export default function WealthProjector({
                     strokeDasharray="5 5"
                     fill="transparent"
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="dividends"
-                    name="Accumulated Dividends"
-                    stroke="#60a5fa"
-                    strokeWidth={2}
-                    fill="transparent"
-                  />
                 </AreaChart>
               </ResponsiveContainer>
               <table className="sr-only">
@@ -441,16 +426,16 @@ export default function WealthProjector({
                     <th scope="col">Year</th>
                     <th scope="col">Balance Under Assumptions</th>
                     <th scope="col">Total Invested</th>
-                    <th scope="col">Accumulated Dividends</th>
+                    <th scope="col">Modeled Gain or Loss</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projectionData.map((item, index) => (
                     <tr key={index}>
                       <td>{item.year}</td>
-                      <td>{formatCurrency(item.balance)}</td>
-                      <td>{formatCurrency(item.invested)}</td>
-                      <td>{formatCurrency(item.dividends)}</td>
+                      <td>{formatCurrency(item.balance, currency)}</td>
+                      <td>{formatCurrency(item.invested, currency)}</td>
+                      <td>{formatCurrency(item.gain, currency)}</td>
                     </tr>
                   ))}
                 </tbody>

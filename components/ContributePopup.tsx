@@ -3,12 +3,14 @@
 import { motion } from "framer-motion";
 import { Star, X, Github } from "lucide-react";
 import { useEffect } from "react";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface ContributePopupProps {
   onClose: () => void;
 }
 
 export default function ContributePopup({ onClose }: ContributePopupProps) {
+  const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose);
   // Prevent scrolling when popup is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -22,8 +24,10 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dune/40 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="contribute-popup-title"
     >
       <motion.div
+        ref={dialogRef}
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -52,7 +56,7 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
             </div>
           </div>
 
-          <h3 className="text-2xl font-bold text-ink mb-2 font-space">
+          <h3 id="contribute-popup-title" className="text-2xl font-bold text-ink mb-2 font-space">
             Using Portfolio Compass?
           </h3>
           <p className="text-neutral-400 mb-8 max-w-xs mx-auto">

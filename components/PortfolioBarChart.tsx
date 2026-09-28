@@ -265,7 +265,7 @@ export default function PortfolioBarChart({
 
   if (portfolio.length === 0) {
     return (
-      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-xl">
+      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-card">
         No assets in portfolio
       </div>
     );
@@ -277,12 +277,12 @@ export default function PortfolioBarChart({
     <motion.div
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-full glass-panel p-6 rounded-xl flex flex-col border border-hairline bg-gradient-to-br from-stone-950/50 to-stone-900/50"
+      className="w-full h-full glass-panel p-6 rounded-card flex flex-col border border-hairline bg-surface-card"
     >
       <div className="flex flex-col gap-1 mb-8">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold text-ink tracking-tight">
-            Portfolio Look-Through
+            Target Portfolio Look-Through
           </h3>
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
@@ -328,7 +328,7 @@ export default function PortfolioBarChart({
           </div>
         </div>
         <p className="text-sm text-neutral-500 font-light">
-          Combines direct positions with disclosed fund holdings. Incomplete
+          Uses target weights and disclosed fund holdings. Incomplete
           fund data is grouped under the source ticker or Other.
         </p>
       </div>
@@ -454,7 +454,7 @@ export default function PortfolioBarChart({
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="bg-stone-950/95 backdrop-blur-xl border border-hairline p-4 rounded-xl text-xs shadow-2xl z-50 min-w-[220px]">
+                      <div className="bg-stone-950/95 backdrop-blur-xl border border-hairline p-4 rounded-card text-xs z-50 min-w-[220px]">
                         <div className="font-bold text-ink mb-0.5 text-base tracking-tight">
                           {d.name}
                         </div>
@@ -464,7 +464,7 @@ export default function PortfolioBarChart({
 
                         <div className="flex justify-between gap-6 border-t border-hairline pt-3 mb-3">
                           <span className="text-neutral-400 font-medium">
-                            Total Weight
+                            Target Weight
                           </span>
                           <span
                             className="font-mono font-bold text-base"
@@ -475,12 +475,12 @@ export default function PortfolioBarChart({
                         </div>
 
                         {d.totalWeight > 10 && (
-                          <div className="flex items-start gap-2 mb-4 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg text-rose-200">
-                            <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex items-start gap-2 mb-4 bg-surface-soft border border-hairline p-2.5 rounded-card text-rose-200">
+                            <AlertTriangle className="w-4 h-4 text-data-down flex-shrink-0 mt-0.5" />
                             <span className="leading-snug">
                               This holding represents more than{" "}
                               {d.totalWeight > 20 ? "20%" : "10%"} of the
-                              portfolio.
+                              target allocation.
                             </span>
                           </div>
                         )}
@@ -501,7 +501,7 @@ export default function PortfolioBarChart({
                               >
                                 <div className="flex items-center gap-2">
                                   <div
-                                    className="w-1.5 h-1.5 rounded-full shadow-sm"
+                                    className="w-1.5 h-1.5 rounded-full"
                                     style={{ backgroundColor: entry.color }}
                                   />
                                   <span className="text-neutral-300 font-medium">

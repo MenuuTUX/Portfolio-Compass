@@ -49,6 +49,31 @@ const richStock: ETF = {
     volume: 50e6,
 };
 
+const unknownYieldFund: ETF = {
+    ...sparseAsset,
+    ticker: 'TEST',
+    name: 'Test Fund',
+    assetType: 'ETF',
+    metrics: {
+        mer: 0.25,
+        merSource: 'StockAnalysis',
+        merRetrievedAt: '2026-09-26T10:00:00.000Z',
+        yield: null,
+    },
+};
+
+const unattributedYieldFund: ETF = {
+    ...unknownYieldFund,
+    dividendYield: 5,
+    metrics: { ...unknownYieldFund.metrics, yield: 5 },
+};
+
+const unattributedYieldStock: ETF = {
+    ...richStock,
+    dividendYield: 5,
+    metrics: { yield: 5 },
+};
+
 describe('ETFDetailsDrawer sparse-data handling', () => {
     const originalFetch = global.fetch;
 
@@ -111,4 +136,36 @@ describe('ETFDetailsDrawer sparse-data handling', () => {
         expect(screen.queryByText('Revenue')).not.toBeInTheDocument();
         expect(screen.queryByText('n/a')).not.toBeInTheDocument();
     });
+
+    it('shows unknown yield separately from sourced expense ratio', async () => {
+        render(<ETFDetailsDrawer etf={unknownYieldFund} onClose={() => {}} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Dividend Yield')).toBeInTheDocument();
+        });
+        expect(screen.getByText('0.25%')).toBeInTheDocument();
+        expect(screen.getByText('N/A')).toBeInTheDocument();
+        expect(screen.getAllByText(/StockAnalysis/).length).toBeGreaterThan(0);
+    });
+
+    it('withholds a positive source-free yield in fund details', async () => {
+        render(<ETFDetailsDrawer etf={unattributedYieldFund} onClose={() => {}} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Dividend Yield')).toBeInTheDocument();
+        });
+        expect(screen.getByText('N/A')).toBeInTheDocument();
+        expect(screen.queryByText('5.00%')).not.toBeInTheDocument();
+    });
+
+    it('omits a positive source-free stock yield in fund details', async () => {
+        render(<ETFDetailsDrawer etf={unattributedYieldStock} onClose={() => {}} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('Market Cap')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('Div Yield')).not.toBeInTheDocument();
+        expect(screen.queryByText('5.00%')).not.toBeInTheDocument();
+    });
+
 });

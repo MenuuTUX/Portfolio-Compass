@@ -13,7 +13,7 @@ export const useBatchUpdatePortfolio = () => {
 
   return useMutation({
     mutationFn: async (updates: BatchUpdateItem[]) => {
-      // 1. Update Local Storage
+      // Update Local Storage
       const currentItems = loadPortfolio();
       const newItems = currentItems.map((item) => {
         const update = updates.find(

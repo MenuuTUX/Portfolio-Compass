@@ -43,12 +43,15 @@ describe('calculateRiskMetric', () => {
 
 describe('formatCurrency', () => {
   it('should format CAD currency correctly', () => {
-    // The exact output might depend on the locale environment, but we expect it to contain the symbol and number
-    const result = formatCurrency(1234.56);
-    // Since environment locale might vary slightly in format (e.g. CA$ vs $), we check for key parts
-    // But memory says 'en-CA' is used explicitly.
-    // 'en-CA' usually formats as "$1,234.56"
+    const result = formatCurrency(1234.56, 'CAD');
+    // Assert on the digits only: the en-CA currency symbol renders as "$" or
+    // "CA$" depending on the ICU build.
     expect(result).toContain('1,234.56');
+  });
+
+  it('keeps USD distinct from CAD and marks unknown currency', () => {
+    expect(formatCurrency(100, 'USD')).toContain('USD');
+    expect(formatCurrency(100)).toContain('currency unavailable');
   });
 });
 

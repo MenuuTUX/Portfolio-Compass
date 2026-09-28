@@ -52,10 +52,8 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
             if (description) return;
             const text = $(el).text().trim();
             if (text.includes('Analysis & Insights')) {
-                // Found the header.
-                // The content usually follows. It might be in a sibling, or parent's sibling.
-
-                // Case 1: Siblings (p tags directly after header)
+                // Content follows the header as a sibling, or inside the parent's sibling.
+                // Try siblings first.
                 let next = $(el).next();
                 let foundContent = false;
 
@@ -96,7 +94,7 @@ export async function getEtfDescription(ticker: string): Promise<string | null> 
         });
 
         return description.trim() || null;
-    } catch (e) {
+    } catch {
         return null;
     }
 }

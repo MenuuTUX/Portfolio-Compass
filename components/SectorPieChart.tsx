@@ -157,7 +157,13 @@ export default function SectorPieChart({
             {...interactivePieProps}
             onMouseEnter={(_, index) => setActiveIndex(index)}
             onMouseLeave={() => setActiveIndex(undefined)}
-            onClick={(data) => onSectorClick && onSectorClick(data.name)}
+            onClick={(data) => {
+              const nextIndex = processedData.findIndex(
+                (entry) => entry.name === data.name,
+              );
+              setActiveIndex(nextIndex >= 0 ? nextIndex : undefined);
+              onSectorClick?.(data.name);
+            }}
             cursor={onSectorClick ? "pointer" : "default"}
             stroke="none"
           >

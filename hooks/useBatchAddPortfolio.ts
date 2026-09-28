@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
+import { normalizeTicker, toPortfolioEtf } from "./normalize";
 import { z } from "zod";
 import { ETFSchema } from "@/schemas/assetSchema";
 
@@ -15,56 +16,8 @@ interface BatchAddPayload {
   replace?: boolean;
 }
 
-function normalizeTicker(ticker: string): string {
-  return ticker.trim().toUpperCase();
-}
 
-function finiteNumber(value: any): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
-function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
-  const ticker = (raw?.ticker || fallbackTicker).toUpperCase();
-  return {
-    ticker,
-    name: raw?.name || ticker,
-    price: finiteNumber(raw?.price),
-    changePercent: finiteNumber(raw?.changePercent),
-    assetType: raw?.assetType || "STOCK",
-    isDeepAnalysisLoaded: Boolean(raw?.isDeepAnalysisLoaded),
-    history: Array.isArray(raw?.history) ? raw.history : [],
-    metrics: {
-      mer: raw?.metrics?.mer ?? 0,
-      yield: raw?.metrics?.yield ?? raw?.dividendYield ?? 0,
-    },
-    allocation: {
-      equities: raw?.allocation?.equities ?? 0,
-      bonds: raw?.allocation?.bonds ?? 0,
-      cash: raw?.allocation?.cash ?? 0,
-    },
-    sectors: raw?.sectors || {},
-    holdings: raw?.holdings,
-    marketCap: raw?.marketCap,
-    volume: raw?.volume,
-    peRatio: raw?.peRatio,
-    forwardPe: raw?.forwardPe,
-    eps: raw?.eps,
-    dividend: raw?.dividend,
-    dividendYield: raw?.dividendYield,
-    open: raw?.open,
-    previousClose: raw?.previousClose,
-    daysRange: raw?.daysRange,
-    fiftyTwoWeekRange: raw?.fiftyTwoWeekRange,
-    fiftyTwoWeekHigh: raw?.fiftyTwoWeekHigh,
-    fiftyTwoWeekLow: raw?.fiftyTwoWeekLow,
-    earningsDate: raw?.earningsDate,
-    sharesOutstanding: raw?.sharesOutstanding,
-    sector: raw?.sector,
-    industry: raw?.industry,
-    beta: raw?.beta,
-  };
-}
 
 async function fetchStocksByTickers(tickers: string[]): Promise<ETF[]> {
   if (tickers.length === 0) return [];
@@ -137,6 +90,19 @@ export const useBatchAddPortfolio = () => {
 
       if (stocks.length === 0) {
         throw new Error("Could not resolve any tickers for portfolio import");
+      }
+
+      if (replace) {
+        const resolved = new Set(stocks
+          .filter((stock) => stock.name.trim() && Number.isFinite(stock.price) && stock.price > 0 &&
+            typeof stock.currency === "string" && /^[A-Z]{3}$/.test(stock.currency) &&
+            typeof stock.quoteAsOf === "string" && Number.isFinite(Date.parse(stock.quoteAsOf)))
+          .map((stock) => normalizeTicker(stock.ticker)));
+        const missing = [...new Set(items.map((item) => normalizeTicker(item.ticker)))]
+          .filter((ticker) => !resolved.has(ticker));
+        if (missing.length > 0) {
+          throw new Error(`Could not replace portfolio: valid quotes unavailable for ${missing.join(", ")}`);
+        }
       }
 
       const currentItems = replace ? [] : loadPortfolio();

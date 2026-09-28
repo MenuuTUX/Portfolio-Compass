@@ -76,6 +76,20 @@ export default function InteractiveSlider({
     }
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 10 : 1;
+    const direction = event.key === "ArrowRight" || event.key === "ArrowUp" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 0;
+    if (!direction) return;
+
+    event.preventDefault();
+    const nextValue = Math.max(min, Math.min(max, value + direction * step));
+    setValue(nextValue);
+    onChange?.(nextValue);
+    if (trackWidth > 0) {
+      x.set(((nextValue - min) / (max - min)) * trackWidth);
+    }
+  };
+
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       <div className="flex justify-between items-end mb-1">
@@ -113,6 +127,13 @@ export default function InteractiveSlider({
 
         {/* Thumb */}
         <motion.div
+          role="slider"
+          tabIndex={0}
+          aria-label={label}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={value}
+          aria-valuetext={`${value}${unit}`}
           drag="x"
           dragConstraints={{ left: 0, right: trackWidth }}
           dragElastic={0}
@@ -121,7 +142,8 @@ export default function InteractiveSlider({
           style={{ x }}
           whileHover={{ scale: 1.2 }}
           whileTap={{ scale: 0.9 }}
-          className="absolute top-1/2 left-0 -translate-y-1/2 -ml-3 cursor-grab active:cursor-grabbing z-10"
+          onKeyDown={handleKeyDown}
+            className="absolute top-1/2 left-0 -translate-y-1/2 -ml-3 cursor-grab active:cursor-grabbing z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
         >
           {/* Outer Glow */}
           <motion.div

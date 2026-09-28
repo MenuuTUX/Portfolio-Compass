@@ -3,15 +3,14 @@ import { analyzeEtf } from '@/lib/etf-analysis';
 import { ETF } from '@/types';
 
 describe('analyzeEtf', () => {
-  it('should analyze cost correctly', () => {
-    const highCostEtf = { metrics: { mer: 0.8, yield: 0 } } as ETF;
-    expect(analyzeEtf(highCostEtf).cost?.status).toBe('warning');
-
-    const moderateCostEtf = { metrics: { mer: 0.5, yield: 0 } } as ETF;
-    expect(analyzeEtf(moderateCostEtf).cost?.status).toBe('neutral');
-
-    const lowCostEtf = { metrics: { mer: 0.1, yield: 0 } } as ETF;
-    expect(analyzeEtf(lowCostEtf).cost?.status).toBe('good');
+  it('shows a sourced fee without asserting MER equivalence or a cost verdict', () => {
+    const etf = { metrics: { mer: 0.8, merSource: 'Yahoo Finance quote', merSourceField: 'netExpenseRatio', merRetrievedAt: '2026-09-26T12:00:00.000Z' } } as ETF;
+    const cost = analyzeEtf(etf).cost;
+    expect(cost?.status).toBe('neutral');
+    expect(cost?.label).toBe('Provider expense ratio 0.80%');
+    expect(cost?.description).toContain('netExpenseRatio');
+    expect(cost?.description).toContain('MER equivalence are unverified');
+    expect(analyzeEtf({ metrics: { mer: 0.8 } } as ETF).cost?.label).toBe('Fee Data Unavailable');
   });
 
   it('should omit the cost verdict for stocks (no expense ratio)', () => {
@@ -21,22 +20,22 @@ describe('analyzeEtf', () => {
 
   it('should analyze liquidity correctly', () => {
     const highVolEtf = { volume: 2000000, metrics: {} } as ETF;
-    expect(analyzeEtf(highVolEtf).liquidity.status).toBe('good');
+    expect(analyzeEtf(highVolEtf).liquidity.status).toBe('neutral');
 
     const medVolEtf = { volume: 500000, metrics: {} } as ETF;
     expect(analyzeEtf(medVolEtf).liquidity.status).toBe('neutral');
 
     const lowVolEtf = { volume: 50000, metrics: {} } as ETF;
-    expect(analyzeEtf(lowVolEtf).liquidity.status).toBe('warning');
+    expect(analyzeEtf(lowVolEtf).liquidity.status).toBe('neutral');
   });
 
   it('should analyze volatility correctly', () => {
     const highBetaEtf = { beta: 1.5, metrics: {} } as ETF;
-    expect(analyzeEtf(highBetaEtf).volatility.status).toBe('warning');
+    expect(analyzeEtf(highBetaEtf).volatility.status).toBe('neutral');
     expect(analyzeEtf(highBetaEtf).volatility.description).toContain('greater historical sensitivity');
 
     const lowBetaEtf = { beta: 0.5, metrics: {} } as ETF;
-    expect(analyzeEtf(lowBetaEtf).volatility.status).toBe('good');
+    expect(analyzeEtf(lowBetaEtf).volatility.status).toBe('neutral');
     expect(analyzeEtf(lowBetaEtf).volatility.description).toContain('lower historical sensitivity');
 
     const marketBetaEtf = { beta: 1.0, metrics: {} } as ETF;
@@ -44,14 +43,22 @@ describe('analyzeEtf', () => {
   });
 
   it('estimates volatility from price history when beta is missing', () => {
-    const history = Array.from({ length: 40 }, (_, i) => ({
-      date: `2024-01-${i + 1}`,
+    const start = Date.UTC(2024, 0, 1);
+    const history = Array.from({ length: 220 }, (_, i) => ({
+      date: new Date(start + i * 86400000).toISOString(),
       price: 100 + Math.sin(i * 0.8) * 8,
     }));
     const etf = { metrics: {}, history: [] } as unknown as ETF;
     const verdict = analyzeEtf(etf, { history });
     expect(verdict.volatility.label).not.toBe('Volatility Unknown');
     expect(verdict.volatility.description).toContain('realized volatility');
+  });
+
+  it('treats reported zero beta and sourced zero expense ratio as known values', () => {
+    const etf = { assetType: 'ETF', beta: 0, metrics: { mer: 0, merSource: 'Issuer factsheet' } } as ETF;
+    const verdict = analyzeEtf(etf);
+    expect(verdict.cost?.label).not.toBe('Fee Data Unavailable');
+    expect(verdict.volatility.label).not.toBe('Volatility Data Unavailable');
   });
 
   it('treats missing data as unknown, not as a judgement', () => {

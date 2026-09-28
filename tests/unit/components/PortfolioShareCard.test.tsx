@@ -21,8 +21,8 @@ describe('PortfolioShareCard', () => {
     });
 
     const mockPortfolio = [
-        { ticker: 'AAPL', name: 'Apple Inc', weight: 60, shares: 10, price: 150, value: 1500, logo: '/apple.png', allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { Technology: 1 } },
-        { ticker: 'MSFT', name: 'Microsoft', weight: 40, shares: 5, price: 300, value: 1500, logo: '/msft.png', allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { Technology: 1 } }
+        { ticker: 'AAPL', name: 'Apple Inc', weight: 60, shares: 10, price: 150, currency: 'USD', quoteAsOf: new Date().toISOString(), value: 1500, logo: '/apple.png', allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { Technology: 1 } },
+        { ticker: 'MSFT', name: 'Microsoft', weight: 40, shares: 5, price: 300, currency: 'USD', quoteAsOf: new Date().toISOString(), value: 1500, logo: '/msft.png', allocation: { equities: 100, bonds: 0, cash: 0 }, sectors: { Technology: 1 } }
     ];
 
     const mockMetrics = {
@@ -57,16 +57,17 @@ describe('PortfolioShareCard', () => {
     it('renders portfolio summary correctly', () => {
         render(<PortfolioShareCard {...defaultProps} />);
 
-        // Check Projected Value ($15,000)
-        expect(screen.getByText((content) => content.includes('$15,000'))).toBeInTheDocument();
+        // Check projected value with an explicit currency.
+        expect(screen.getByText((content) => content.includes('USD') && content.includes('15,000'))).toBeInTheDocument();
 
-        // Check Dividends ($500)
-        expect(screen.getByText((content) => content.includes('$500'))).toBeInTheDocument();
+        expect(screen.getByText((content) => content.includes('USD') && content.includes('500'))).toBeInTheDocument();
 
         // Check Return
         expect(screen.getByText((content) => content.includes('+155%'))).toBeInTheDocument();
 
-        expect(screen.getByText('Portfolio Snapshot')).toBeInTheDocument();
+        expect(screen.getByText('Illustrative Scenario')).toBeInTheDocument();
+        expect(screen.getByText('PORTFOLIO VALUE (USD)')).toBeInTheDocument();
+        expect(screen.getByText('Unavailable')).toBeInTheDocument();
     });
 
     it('renders top holdings list', () => {
@@ -76,6 +77,43 @@ describe('PortfolioShareCard', () => {
         expect(screen.getByText('MSFT')).toBeInTheDocument();
         // Check weight formatting (60.0%)
         expect(screen.getByText((content) => content.includes('60.0%'))).toBeInTheDocument();
+    });
+
+    it('shows a weighted expense ratio only when every holding has a sourced valid value', () => {
+        const sourced = [
+            { ...mockPortfolio[0], metrics: { mer: 0.1, merSource: 'Yahoo Finance' } },
+            { ...mockPortfolio[1], metrics: { mer: 0.2, merSource: 'StockAnalysis' } },
+        ];
+        const { rerender } = render(<PortfolioShareCard {...defaultProps} portfolio={sourced as any} />);
+        expect(screen.getByText('0.14%')).toBeInTheDocument();
+
+        rerender(<PortfolioShareCard {...defaultProps} portfolio={[sourced[0], mockPortfolio[1]] as any} />);
+        expect(screen.getByText('N/A')).toBeInTheDocument();
+        expect(screen.queryByText('0.14%')).toBeNull();
+    });
+
+    it('uses the projection base currency for mixed portfolio values', () => {
+        const mixed = [
+            { ...mockPortfolio[0], currency: 'USD' },
+            { ...mockPortfolio[1], currency: 'CAD' },
+        ];
+        render(<PortfolioShareCard {...defaultProps} portfolio={mixed as any} currency="CAD" fxProvenance={{ usdCad: 1.4, date: "2026-09-25" }} />);
+        expect(screen.getByText(/Bank of Canada 2026-09-25, 1.4 CAD\/USD. Future FX changes excluded/)).toBeInTheDocument();
+        expect(screen.getByText('PORTFOLIO VALUE (CAD)')).toBeInTheDocument();
+        expect(screen.getByText((content) => content.includes('CAD') && content.includes('15,000'))).toBeInTheDocument();
+    });
+
+    it('shows a modeled loss with a minus sign and loss styling', () => {
+        render(<PortfolioShareCard {...defaultProps} metrics={{ ...mockMetrics, percentageGrowth: -20 }} />);
+        const loss = screen.getByText('-20%');
+        expect(loss).toHaveClass('text-rose-400');
+    });
+
+    it('does not claim contributions in a Monte Carlo snapshot', () => {
+        render(<PortfolioShareCard {...defaultProps} metrics={{ ...mockMetrics, growthType: 'Monte Carlo', dividends: null }} />);
+        expect(screen.getByText('Starting Balance')).toBeInTheDocument();
+        expect(screen.getByText('No contributions modeled')).toBeInTheDocument();
+        expect(screen.queryByText('Starting balance plus contributions')).toBeNull();
     });
 
     it('renders chart svg elements', () => {

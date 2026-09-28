@@ -58,6 +58,11 @@ const entries = {
     what: "Annual income as a percentage of the investment's current price.",
     means: "A higher yield means more current income relative to price, but says nothing by itself about payout stability or total return.",
   },
+  "yahoo-reported yield": {
+    label: "Yahoo-reported yield",
+    what: "A yield value supplied in a Yahoo Finance quote. Yahoo describes its trailing annual yield as based on actual values from the previous year, but the ETF field's exact calculation and denominator are not specified in the source available to us.",
+    means: "Treat it as provider-reported and unverified. It may differ from an issuer's distribution yield, 12-month trailing yield, or 30-day SEC yield; these measures use different definitions and are not total return.",
+  },
   dividend: {
     label: "Dividend",
     what: "Cash a company or fund pays to shareholders, usually quarterly.",

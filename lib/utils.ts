@@ -12,12 +12,28 @@ export const safeDecimal = (val: any) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-export function formatCurrency(value: number | Decimal) {
+export function formatCurrency(value: number | Decimal, currency?: string) {
   const val = Decimal.isDecimal(value) ? value.toNumber() : value;
+  if (!currency || !/^[A-Z]{3}$/.test(currency)) {
+    const amount = new Intl.NumberFormat("en-CA", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val);
+    return `${amount} ${currency ?? "(currency unavailable)"}`;
+  }
   return new Intl.NumberFormat("en-CA", {
     style: "currency",
-    currency: "CAD",
+    currency,
+    currencyDisplay: "code",
   }).format(val);
+}
+
+/** "financial_services" -> "Financial Services" */
+export function formatSectorName(name: string): string {
+  return name
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 export function formatPercentage(value: number | Decimal) {
@@ -61,13 +77,12 @@ export function calculateRiskMetric(
     };
   }
 
-  // 1. Calculate daily percent changes using Decimal for precision in calc
+  // Daily percent changes, in Decimal to avoid float drift
   const changes: Decimal[] = [];
   for (let i = 1; i < history.length; i++) {
     const prev = new Decimal(history[i - 1].price);
     const curr = new Decimal(history[i].price);
     if (!prev.isZero()) {
-      // (curr - prev) / prev
       changes.push(curr.minus(prev).dividedBy(prev));
     }
   }
@@ -82,7 +97,7 @@ export function calculateRiskMetric(
     };
   }
 
-  // 2. Calculate Standard Deviation
+  // Standard deviation
   const count = new Decimal(changes.length);
   const sum = changes.reduce((acc, val) => acc.plus(val), new Decimal(0));
   const mean = sum.dividedBy(count);
@@ -96,7 +111,6 @@ export function calculateRiskMetric(
   const stdDev = variance.sqrt();
   const stdDevPercent = stdDev.times(100);
 
-  // Convert to number for comparison and return
   const stdDevVal = stdDev.toNumber();
   const stdDevPercentVal = stdDevPercent.toNumber();
 

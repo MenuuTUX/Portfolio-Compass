@@ -65,6 +65,22 @@ describe('GET /api/stock/info', () => {
     expect(mockGetStockProfile).toHaveBeenCalledWith('AAPL');
   });
 
+  it('does not expose scraped analyst targets without a dated currency contract', async () => {
+    mockGetStockProfile.mockResolvedValueOnce({
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      description: 'Company description',
+      analyst: { consensus: 'Buy', targetPrice: 999 },
+    });
+    const res = await GET(new Request('http://localhost/api/stock/info?ticker=AAPL'));
+    const json = await res.json();
+    expect(json).toEqual({
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      description: 'Company description',
+    });
+  });
+
   it('should try ETF.com if description is missing, then fallback to Yahoo', async () => {
     // 1. StockAnalysis returns no description
     mockGetStockProfile.mockResolvedValueOnce({

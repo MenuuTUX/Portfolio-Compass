@@ -1,5 +1,6 @@
 import { ETF } from "@/types";
 import { realizedAnnualVolatility } from "@/lib/asset-class";
+import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
 
 type Status = "good" | "neutral" | "warning";
 
@@ -17,20 +18,20 @@ export interface EtfVerdict {
 
 export interface AnalyzeEtfOptions {
   /** Price history used to estimate realized vol when beta is missing */
-  history?: { price: number }[];
+  history?: { date: string; price: number }[];
 }
 
 function volatilityFromBeta(beta: number): VerdictEntry {
   if (beta > 1.25) {
     return {
-      status: "warning",
+      status: "neutral",
       label: "Beta Above 1.25",
       description: `Beta ${beta.toFixed(2)} indicates greater historical sensitivity to the selected market benchmark.`,
     };
   }
   if (beta < 0.85) {
     return {
-      status: "good",
+      status: "neutral",
       label: "Beta Below 0.85",
       description: `Beta ${beta.toFixed(2)} indicates lower historical sensitivity to the selected market benchmark.`,
     };
@@ -50,14 +51,14 @@ function volatilityFromRealized(annVol: number): VerdictEntry {
   const pct = (annVol * 100).toFixed(0);
   if (annVol > 0.35) {
     return {
-      status: "warning",
+      status: "neutral",
       label: "Volatility Above 35%",
       description: `Annualized realized volatility is about ${pct}% for the available price history.`,
     };
   }
   if (annVol < 0.1) {
     return {
-      status: "good",
+      status: "neutral",
       label: "Volatility Below 10%",
       description: `Annualized realized volatility is about ${pct}% for the available price history.`,
     };
@@ -90,34 +91,25 @@ export function analyzeEtf(
 
   // Cost applies to funds only.
   if (etf.assetType !== "STOCK") {
-    const mer = etf.metrics?.mer;
-    if (!mer || mer <= 0) {
+    const expenseRatio = getSourcedExpenseRatio(etf.metrics);
+    if (expenseRatio == null) {
       verdict.cost = {
         status: "neutral",
         label: "Fee Data Unavailable",
-        description: "The market data response did not include an expense ratio or MER.",
+        description: "A sourced fund expense ratio is unavailable.",
       };
     } else {
-      const description = `Annual fee of ${mer.toFixed(2)}% (MER / expense ratio).`;
-      if (mer > 0.75) {
-        verdict.cost = {
-          status: "warning",
-          label: "MER Above 0.75%",
-          description,
-        };
-      } else if (mer > 0.4) {
-        verdict.cost = {
-          status: "neutral",
-          label: "MER from 0.40% to 0.75%",
-          description,
-        };
-      } else {
-        verdict.cost = {
-          status: "good",
-          label: "MER Below 0.40%",
-          description,
-        };
-      }
+      const source = etf.metrics?.merSource?.trim();
+      const field = etf.metrics?.merSourceField;
+      const retrievedAt = etf.metrics?.merRetrievedAt;
+      const retrievedDate = retrievedAt && Number.isFinite(Date.parse(retrievedAt))
+        ? new Date(retrievedAt).toISOString().slice(0, 10)
+        : null;
+      verdict.cost = {
+        status: "neutral",
+        label: `Provider expense ratio ${expenseRatio.toFixed(2)}%`,
+        description: `${source}${field ? ` · ${field}` : ""}${retrievedDate ? ` · retrieved ${retrievedDate}` : ""}. Measurement date and Canadian MER equivalence are unverified.`,
+      };
     }
   }
 
@@ -131,7 +123,7 @@ export function analyzeEtf(
     };
   } else if (volume > 1_000_000) {
     verdict.liquidity = {
-      status: "good",
+      status: "neutral",
       label: "Volume Above 1M",
       description: "Reported trading volume is above one million shares. Spread and order-book depth still matter.",
     };
@@ -143,7 +135,7 @@ export function analyzeEtf(
     };
   } else {
     verdict.liquidity = {
-      status: "warning",
+      status: "neutral",
       label: "Volume Below 100K",
       description: "Lower reported volume can coincide with wider spreads or more price impact.",
     };
@@ -151,7 +143,7 @@ export function analyzeEtf(
 
   // Use beta first, then realized volatility from price history.
   const beta = etf.beta;
-  if (beta !== undefined && beta !== null && beta !== 0) {
+  if (beta !== undefined && beta !== null && Number.isFinite(beta)) {
     verdict.volatility = volatilityFromBeta(beta);
   } else {
     const history = options.history?.length

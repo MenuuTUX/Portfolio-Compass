@@ -190,6 +190,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
         <div className="space-y-8">
           <div className="flex items-center justify-between gap-4">
             <button
+              type="button"
               onClick={goBack}
               className="text-sm text-muted hover:text-ink inline-flex items-center gap-1 transition-colors"
             >
@@ -200,6 +201,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               {index + 1} / {QUESTIONS.length}
             </span>
             <button
+              type="button"
               onClick={skip}
               className="text-sm text-muted hover:text-ink transition-colors"
             >
@@ -253,9 +255,18 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
               {result.profile} example
             </h2>
             <p className="text-body text-sm leading-relaxed">
-              This example matches the risk and time-horizon answers you
-              selected. Edit or replace any holding in the portfolio tab.
+              A simple score picked this preset for study. These US-listed
+              funds illustrate a stock/bond mix; the result does not account for
+              your full finances, currency, taxes, fees, or need for cash, and
+              does not establish a personal fit. Review the holdings and
+              overlap before using this example.
             </p>
+            {result.profile === "Growth" && (
+              <p className="text-sm text-muted">
+                VTI and QQQ have overlapping US large-company holdings, so the
+                two-fund mix is less diversified than the fund count suggests.
+              </p>
+            )}
           </div>
 
           <ul className="rounded-lg border border-hairline bg-surface-card divide-y divide-hairline">
@@ -273,11 +284,19 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
           </ul>
 
           <button
+            type="button"
             onClick={() => onComplete(result)}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
           >
             Open portfolio
             <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={skip}
+            className="ml-3 px-5 py-3 text-sm text-muted hover:text-ink"
+          >
+            Start empty
           </button>
         </div>
       )}

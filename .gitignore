@@ -4,8 +4,6 @@ out/
 .DS_Store
 *.log
 
-/lib/generated/prisma
-
 .env
 .env.production
 .env.local

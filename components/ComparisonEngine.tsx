@@ -30,6 +30,8 @@ import ETFDetailsDrawer from "./ETFDetailsDrawer";
 import MessageDrawer from "./MessageDrawer";
 import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
+import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
 import MarketFilters, {
   DEFAULT_MARKET_FILTERS,
   MarketFilterState,
@@ -40,22 +42,10 @@ interface ETFCardProps {
   etf: ETF;
   inPortfolio: boolean;
   flashState: "success" | "error" | null;
-  syncingTicker: string | null;
   onAdd: (etf: ETF) => void;
   onRemove: (ticker: string) => void;
   onView: (etf: ETF) => void;
 }
-
-// Stable pseudo-random for placeholder sparklines when history is missing.
-const seededNoise = (seed: string, i: number): number => {
-  let h = 2166136261;
-  const s = `${seed}:${i}`;
-  for (let j = 0; j < s.length; j++) {
-    h ^= s.charCodeAt(j);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0) / 4294967295 - 0.5;
-};
 
 // ETFCard component - Memoized to isolate state updates (like flash animations)
 const ETFCard = memo(
@@ -63,31 +53,19 @@ const ETFCard = memo(
     etf,
     inPortfolio,
     flashState,
-    syncingTicker,
     onAdd,
     onRemove,
     onView,
   }: ETFCardProps) => {
     const isPositive = etf.changePercent >= 0;
+    const yieldValue = getSourcedYield(etf.metrics, etf.dividendYield);
+    const yieldKnown = yieldValue != null;
+    const quoteUnavailable = etf.quoteStatus === "unavailable";
+    const quoteTime = etf.quoteAsOf && Number.isFinite(Date.parse(etf.quoteAsOf))
+      ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(etf.quoteAsOf))
+      : null;
 
-    const displayHistory = useMemo(() => {
-      if (etf.history && etf.history.length > 0) return etf.history;
-
-      const fakeData = [];
-      const now = new Date();
-      const basePrice = etf.price || 100;
-      for (let i = 30; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        const trend = isPositive ? (30 - i) * 0.002 : (30 - i) * -0.002;
-        const noise = seededNoise(etf.ticker, i) * 0.02;
-        fakeData.push({
-          date: date.toISOString(),
-          price: basePrice * (1 + trend + noise),
-        });
-      }
-      return fakeData;
-    }, [etf.history, etf.price, etf.ticker, isPositive]);
+    const displayHistory = etf.history ?? [];
 
     // Determine graph color based on history trend if available
     let isGraphPositive = isPositive;
@@ -100,61 +78,18 @@ const ETFCard = memo(
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
-        animate={
-          flashState
-            ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 }
-            : { opacity: 1, y: 0 }
-        }
+        animate={flashState ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className={cn(
           "glass-card rounded-xl relative overflow-hidden bg-surface-card border transition-all group flex flex-col",
-          inPortfolio
-            ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]"
-            : "border-hairline hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
+          inPortfolio ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]" : "border-hairline hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
         )}
       >
-        {/* Flash Overlay */}
-        <AnimatePresence>
-          {flashState && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className={cn(
-                "absolute inset-0 z-20 pointer-events-none backdrop-blur-[2px]",
-                flashState === "success"
-                  ? "bg-emerald-500/20"
-                  : "bg-rose-500/20",
-              )}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* Green Blur Overlay for Owned Items */}
-        {inPortfolio && (
-          <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />
-        )}
-
         <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
           <div className="flex justify-between items-start mb-4">
             <div className="flex gap-3">
               {/* Provider Logo */}
-              {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && (
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                  <Image
-                    src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!}
-                    alt={`${etf.ticker} logo`}
-                    width={40}
-                    height={40}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      // Hide the image container if loading fails
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.parentElement!.style.display = "none";
-                    }}
-                  />
-                </div>
-              )}
+              {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && <div className="w-10 h-10 flex items-center justify-center shrink-0"><Image src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!} alt={`${etf.ticker} logo`} width={40} height={40} className="w-full h-full object-contain" /></div>}
               <div>
                 <h3 className="text-2xl font-bold text-ink tracking-tight">
                   {etf.ticker}
@@ -178,17 +113,19 @@ const ETFCard = memo(
               <div
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
-                  isGraphPositive
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "bg-rose-500/10 text-rose-400",
+                  quoteUnavailable
+                    ? "bg-surface-soft text-muted"
+                    : isPositive
+                    ? "bg-surface-soft text-data-up"
+                    : "bg-surface-soft text-data-down",
                 )}
               >
-                {isPositive ? (
+                {!quoteUnavailable && (isPositive ? (
                   <ArrowUpRight className="w-4 h-4" />
                 ) : (
                   <ArrowDownRight className="w-4 h-4" />
-                )}
-                {Math.abs(etf.changePercent).toFixed(2)}%
+                ))}
+                {quoteUnavailable ? "Change unavailable" : `Daily ${etf.changePercent > 0 ? "+" : etf.changePercent < 0 ? "−" : ""}${Math.abs(etf.changePercent).toFixed(2)}%`}
               </div>
             </div>
           </div>
@@ -196,31 +133,42 @@ const ETFCard = memo(
           <div className="flex justify-between items-end mb-6">
             <div>
               <div className="text-3xl font-light text-ink">
-                {formatCurrency(etf.price)}
+                {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
               </div>
-              <div className="text-xs text-neutral-400 mt-1">
-                <HelpTip term="Closing Price" showIcon={false} />
+              <div className="text-xs text-muted mt-1">
+                {quoteUnavailable ? "Quote unavailable" : quoteTime ? `Quote as of ${quoteTime}` : "Quote time unavailable"}
               </div>
             </div>
             {displayHistory.length > 0 && (
               <Sparkline
                 data={displayHistory}
-                color={isGraphPositive ? "#10b981" : "#f43f5e"}
+                color={isGraphPositive ? "#5cb883" : "#ef7a72"}
                 name={etf.ticker}
               />
+            )}
+            {displayHistory.length === 0 && (
+              <span className="text-xs text-neutral-400">Chart unavailable</span>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline">
             <div>
               <div className="text-xs text-neutral-400 mb-1">
-                <HelpTip term="Yield" showIcon={false} />
+                <HelpTip term={etf.metrics?.yieldSource === "Yahoo Finance quote" ? "Unverified Yahoo dividend yield unavailable" : "Dividend yield"} showIcon={false} />
               </div>
-              <div className="text-sm font-medium text-emerald-400">
-                {(etf.metrics?.yield ?? etf.dividendYield ?? 0).toFixed(2)}%
+              <div
+                className="text-sm font-medium text-muted"
+                title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
+              >
+                {!yieldKnown
+                  ? "N/A"
+                  : `${yieldValue!.toFixed(2)}%`}
               </div>
+              {yieldKnown && etf.metrics?.yieldSource === "Yahoo Finance quote" && (
+                <div className="text-[10px] text-neutral-500 mt-0.5">Provider-reported · unverified</div>
+              )}
             </div>
-            {/* MER is a fund fee and does not apply to individual stocks. */}
+            {/* Expense ratios apply to funds and ETFs, not individual stocks. */}
             {etf.assetType === "STOCK" ? (
               <div>
                 <div className="text-xs text-neutral-400 mb-1">
@@ -235,11 +183,14 @@ const ETFCard = memo(
             ) : (
               <div>
                 <div className="text-xs text-neutral-400 mb-1">
-                  <HelpTip term="MER" showIcon={false} />
+                  <span>Expense ratio (provider-reported)</span>
                 </div>
-                <div className="text-sm font-medium text-neutral-300">
-                  {etf.metrics?.mer != null && etf.metrics.mer > 0
-                    ? `${etf.metrics.mer.toFixed(2)}%`
+                <div
+                  className="text-sm font-medium text-neutral-300"
+                  title={describeExpenseRatioProvenance(etf.metrics)}
+                >
+                  {getSourcedExpenseRatio(etf.metrics) != null
+                    ? `${getSourcedExpenseRatio(etf.metrics)!.toFixed(2)}%`
                     : "N/A"}
                 </div>
               </div>
@@ -247,68 +198,13 @@ const ETFCard = memo(
           </div>
         </div>
 
-        {/* Mobile Actions (Visible by default) */}
         <div className="flex md:hidden border-t border-hairline divide-x divide-hairline">
-          {inPortfolio ? (
-            <button
-              onClick={() => onRemove(etf.ticker)}
-              className="flex-1 py-3 bg-rose-500/10 text-rose-400 font-medium flex items-center justify-center gap-2 active:bg-rose-500/20"
-            >
-              <Trash2 className="w-4 h-4" /> Remove
-            </button>
-          ) : (
-            <button
-              onClick={() => onAdd(etf)}
-              className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"
-            >
-              <Plus className="w-4 h-4" /> Add
-            </button>
-          )}
-          <button
-            onClick={() => onView(etf)}
-            disabled={syncingTicker === etf.ticker}
-            className="flex-1 py-3 bg-surface-card text-ink font-medium flex items-center justify-center gap-2 active:bg-surface-soft disabled:opacity-50"
-          >
-            {syncingTicker === etf.ticker ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Maximize2 className="w-4 h-4" />
-            )}
-            View
-          </button>
+          {inPortfolio ? <button onClick={() => onRemove(etf.ticker)} className="flex-1 py-3 bg-rose-500/10 text-rose-400 font-medium flex items-center justify-center gap-2 active:bg-rose-500/20"><Trash2 className="w-4 h-4" /> Remove</button> : <button onClick={() => onAdd(etf)} className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"><Plus className="w-4 h-4" /> Add</button>}
+          <button onClick={() => onView(etf)} className="flex-1 py-3 bg-surface-card text-ink font-medium flex items-center justify-center gap-2 active:bg-surface-soft"><Maximize2 className="w-4 h-4" /> View</button>
         </div>
-
-        {/* Desktop Overlay (Hover only) */}
         <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-dune/40 backdrop-blur-sm">
-          {inPortfolio ? (
-            <button
-              onClick={() => onRemove(etf.ticker)}
-              className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-rose-500/20"
-            >
-              <Trash2 className="w-4 h-4" />
-              Remove
-            </button>
-          ) : (
-            <button
-              onClick={() => onAdd(etf)}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-75 shadow-lg shadow-emerald-500/20"
-            >
-              <Plus className="w-4 h-4" />
-              Add to Portfolio
-            </button>
-          )}
-          <button
-            onClick={() => onView(etf)}
-            disabled={syncingTicker === etf.ticker}
-            className="bg-surface-soft hover:bg-surface-soft text-ink font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-hairline transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 delay-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {syncingTicker === etf.ticker ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Maximize2 className="w-4 h-4" />
-            )}
-            {syncingTicker === etf.ticker ? "Syncing..." : "Advanced View"}
-          </button>
+          {inPortfolio ? <button onClick={() => onRemove(etf.ticker)} className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 shadow-lg shadow-rose-500/20"><Trash2 className="w-4 h-4" />Remove</button> : <button onClick={() => onAdd(etf)} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 shadow-lg shadow-emerald-500/20"><Plus className="w-4 h-4" />Add to Portfolio</button>}
+          <button onClick={() => onView(etf)} className="bg-surface-soft text-ink font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-hairline"><Maximize2 className="w-4 h-4" />Advanced View</button>
         </div>
       </motion.div>
     );
@@ -354,7 +250,6 @@ export default function ComparisonEngine({
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
-  const [syncingTicker, setSyncingTicker] = useState<string | null>(null);
   const [messageDrawer, setMessageDrawer] = useState<{
     isOpen: boolean;
     title: string;
@@ -596,9 +491,8 @@ export default function ComparisonEngine({
       etfs.length === 0 &&
       otherTypeEtfs.length === 0
     ) {
-      // Only open if not already open to avoid loop/spam
-      // But we can't check 'isOpen' inside the effect dependency easily without cause re-renders.
-      // We'll trust that debouncedSearch changes infrequently.
+      // debouncedSearch changes rarely enough to reopen without loop-guarding on isOpen,
+      // which would need isOpen in the dependency array and re-run on every close.
       setMessageDrawer({
         isOpen: true,
         title: "No results",
@@ -694,7 +588,7 @@ export default function ComparisonEngine({
           changePercent: 0,
           assetType: "STOCK",
           history: [],
-          metrics: { mer: 0, yield: 0 },
+          metrics: {},
           allocation: { equities: 0, bonds: 0, cash: 0 },
         };
         handleAdvancedView(placeholder);
@@ -753,11 +647,7 @@ export default function ComparisonEngine({
 
   const handleDrawerClose = () => {
     setMessageDrawer((prev) => ({ ...prev, isOpen: false }));
-    // Optionally clear search to reset view, "Allow users to go back"
-    // "Go Back" usually means return to previous state.
-    // If we leave search text, they see empty grid.
-    // If we clear search, they see the list again.
-    // Let's clear search.
+    // Clear the search so closing returns to the browse list, not an empty grid.
     if (messageDrawer.type === "info" && search) {
       setSearch("");
     }
@@ -860,13 +750,10 @@ export default function ComparisonEngine({
                         </div>
                         <div
                           className={cn(
-                            "text-xs font-medium",
-                            item.changePercent >= 0
-                              ? "text-emerald-400"
-                              : "text-rose-400",
+                            "text-xs font-medium text-ink",
                           )}
                         >
-                          {formatCurrency(item.price)}
+                          {formatCurrency(item.price, item.currency)}
                         </div>
                       </div>
                     </motion.li>
@@ -907,7 +794,6 @@ export default function ComparisonEngine({
                     etf={etf}
                     inPortfolio={isInPortfolio(etf.ticker)}
                     flashState={flashStates[etf.ticker]}
-                    syncingTicker={syncingTicker}
                     onAdd={handleAdd}
                     onRemove={handleRemove}
                     onView={handleAdvancedView}

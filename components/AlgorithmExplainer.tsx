@@ -13,8 +13,6 @@ import {
   Lock,
   Calculator,
   ChevronRight,
-  Plus,
-  Equal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +33,7 @@ const steps = [
       },
       {
         label: "Variance Proxy (Σ)",
-        text: "Beta-based diagonal variance; cross-asset correlation is zero",
+        text: "Annual covariance from aligned history, with a beta-based fallback",
         icon: ShieldCheck,
       },
       {
@@ -124,7 +122,6 @@ export default function AlgorithmExplainer() {
   return (
     <div className="w-full max-w-7xl mx-auto mt-12 mb-24 relative font-sans">
       {/* Ambient Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
       <div className="relative glass-panel border border-hairline bg-dune/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
         {/* Header */}
@@ -138,10 +135,12 @@ export default function AlgorithmExplainer() {
                 Allocation Heuristic
               </h2>
             </div>
-            <p className="text-neutral-400 max-w-2xl text-sm">
-              This whole-share allocator uses a greedy search to improve a
-              return-proxy-minus-variance score. It assumes zero cross-asset
-              correlation and does not guarantee the global optimum.
+            <p className="max-w-2xl text-sm leading-6 text-body">
+              This experimental, whole-share allocator uses a greedy search to
+              improve a return proxy minus a variance penalty. It uses
+              historical covariance when enough data overlaps, with a
+              beta-based fallback. It does not guarantee the best possible
+              allocation.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 bg-surface-card px-3 py-1.5 rounded-full border border-hairline">
@@ -154,7 +153,6 @@ export default function AlgorithmExplainer() {
           {/* LEFT: Interactive Visualizer (7 Columns) */}
           <div className="lg:col-span-7 bg-black/5 relative overflow-hidden flex flex-col border-r border-hairline">
             {/* Background Grid */}
-            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none" />
 
             {/* Content Area */}
             <div className="flex-1 p-8 lg:p-12 flex items-center justify-center relative w-full">
@@ -170,14 +168,13 @@ export default function AlgorithmExplainer() {
                     className="w-full flex flex-col items-center gap-10"
                   >
                     {/* The Equation */}
-                    <div className="relative group">
-                      <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative">
                       <div className="relative bg-dune/50 border border-hairline px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
                             hoveredTerm === "U"
-                              ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                              ? "text-ink"
                               : "text-ink",
                           )}
                           onMouseEnter={() => setHoveredTerm("U")}
@@ -193,7 +190,7 @@ export default function AlgorithmExplainer() {
                             className={cn(
                               "transition-colors cursor-help italic",
                               hoveredTerm === "mu"
-                                ? "text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]"
+                                ? "text-muted"
                                 : "text-neutral-200",
                             )}
                             onMouseEnter={() => setHoveredTerm("mu")}
@@ -210,8 +207,8 @@ export default function AlgorithmExplainer() {
                             className={cn(
                               "transition-colors cursor-help italic font-bold",
                               hoveredTerm === "lambda"
-                                ? "text-rose-400 scale-110 drop-shadow-[0_0_8px_rgba(251,113,133,0.5)]"
-                                : "text-rose-400",
+                                ? "text-ink scale-110"
+                                : "text-ink",
                             )}
                             onMouseEnter={() => setHoveredTerm("lambda")}
                             onMouseLeave={() => setHoveredTerm(null)}
@@ -222,7 +219,7 @@ export default function AlgorithmExplainer() {
                             className={cn(
                               "ml-3 transition-colors cursor-help italic",
                               hoveredTerm === "sigma"
-                                ? "text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                                ? "text-ink"
                                 : "text-neutral-200",
                             )}
                             onMouseEnter={() => setHoveredTerm("sigma")}
@@ -260,7 +257,7 @@ export default function AlgorithmExplainer() {
                                 {hoveredTerm === "lambda" &&
                                   "Penalty multiplier for volatility."}
                                 {hoveredTerm === "sigma" &&
-                                  "Beta-based variance with zero cross-asset correlation."}
+                                  "A beta-based estimate fills gaps in the historical data."}
                               </span>
                             </div>
                             {/* Triangle arrow */}
@@ -276,7 +273,7 @@ export default function AlgorithmExplainer() {
                         <span className="text-neutral-300 font-medium">
                           Risk Aversion (λ)
                         </span>
-                        <span className="font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
+                        <span className="font-mono text-ink bg-surface-soft px-2 py-1 rounded">
                           {lambda.toFixed(1)}
                         </span>
                       </div>
@@ -287,6 +284,7 @@ export default function AlgorithmExplainer() {
                         step="0.5"
                         value={lambda}
                         onChange={(e) => setLambda(parseFloat(e.target.value))}
+                        aria-label="Risk aversion example"
                         className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all"
                       />
 
@@ -298,7 +296,7 @@ export default function AlgorithmExplainer() {
                             name: "High Growth",
                             base: 80,
                             risk: 5,
-                            color: "bg-blue-500",
+                            color: "bg-purple-500",
                           },
                           {
                             name: "Balanced",
@@ -310,7 +308,7 @@ export default function AlgorithmExplainer() {
                             name: "Conservative",
                             base: 20,
                             risk: -4,
-                            color: "bg-emerald-500",
+                            color: "bg-purple-500",
                           },
                         ].map((asset, i) => (
                           <div
@@ -343,8 +341,9 @@ export default function AlgorithmExplainer() {
                           </div>
                         ))}
                       </div>
-                      <div className="text-xs text-neutral-500 text-center italic">
-                        As λ increases, risky assets lose utility score faster.
+                      <div className="text-sm leading-5 text-center text-body">
+                        Illustration only. Changing λ shows how a risk penalty
+                        can affect sample scores; these are not fund forecasts.
                       </div>
                     </div>
                   </motion.div>
@@ -359,10 +358,13 @@ export default function AlgorithmExplainer() {
                     exit={{ opacity: 0, y: -20 }}
                     className="w-full max-w-lg flex flex-col items-center gap-8"
                   >
-                    {/* The Formula */}
-                    <div className="bg-dune/40 border border-hairline px-6 py-4 rounded-xl flex items-center gap-3 text-lg font-serif text-neutral-300">
+                    <p className="text-sm leading-5 text-center text-body">
+                      Example values only. These score changes are not based on
+                      actual holdings or predictions.
+                    </p>
+                    <div className="flex items-center gap-3 rounded-card border border-hairline-strong bg-surface-card px-6 py-4 font-serif text-lg text-ink">
                       <span>Maximize</span>
-                      <span className="text-emerald-400 font-bold">ΔU</span>
+                      <span className="text-ink font-bold">ΔU</span>
                       <span>=</span>
                       <span>
                         U(w + δ<sub className="text-xs">i</sub>)
@@ -372,17 +374,16 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Simulation Stage */}
-                    <div className="w-full bg-surface-card rounded-2xl p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
+                    <div className="w-full bg-surface-card rounded-card p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
                       <div className="flex justify-between items-end gap-2 h-40 mb-6 relative">
                         {/* Baseline */}
                         <div className="absolute inset-x-0 bottom-[40%] border-t border-dashed border-hairline-strong flex items-end justify-end px-2">
-                          <span className="text-[10px] text-neutral-500 mb-1">
+                          <span className="text-xs text-neutral-500 mb-1">
                             Current U
                           </span>
                         </div>
 
                         {["A", "B", "C", "D", "E"].map((ticker, i) => {
-                          const baseH = 40;
                           const marginalGains = [15, 35, 5, 55, 20]; // D is winner
                           const gain = marginalGains[i];
                           const isWinner = i === 3;
@@ -395,17 +396,17 @@ export default function AlgorithmExplainer() {
                               {/* Bar Container */}
                               <div className="w-full max-w-[40px] flex flex-col justify-end h-full relative">
                                 {/* Base Utility (Existing) */}
-                                <div className="w-full bg-surface-soft h-[40%] rounded-b-sm border-t border-hairline" />
+                                <div className="w-full bg-surface-soft h-[40%] rounded-b-card border-t border-hairline" />
 
                                 {/* Marginal Utility (The Gain) */}
                                 <motion.div
                                   className={cn(
-                                    "w-full rounded-t-sm absolute bottom-[40%] border-b border-black/50 transition-colors duration-500",
+                                    "w-full rounded-t-card absolute bottom-[40%] border-b border-black/50 transition-colors duration-500",
                                     simulationState === "SELECTED" && isWinner
-                                      ? "bg-emerald-500"
+                                      ? "bg-accent"
                                       : simulationState === "SELECTED"
                                         ? "bg-surface-card opacity-20"
-                                        : "bg-blue-500",
+                                        : "bg-surface-soft",
                                   )}
                                   initial={{ height: 0, opacity: 0 }}
                                   animate={{
@@ -433,7 +434,7 @@ export default function AlgorithmExplainer() {
                                         "absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-mono font-bold",
                                         isWinner &&
                                           simulationState === "SELECTED"
-                                          ? "text-emerald-400 scale-125"
+                                          ? "text-ink scale-125"
                                           : "text-neutral-400",
                                       )}
                                     >
@@ -448,7 +449,7 @@ export default function AlgorithmExplainer() {
                                 className={cn(
                                   "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all duration-500",
                                   simulationState === "SELECTED" && isWinner
-                                    ? "bg-emerald-500 text-black border-emerald-400 scale-110 shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                                    ? "bg-accent text-[var(--on-accent)] border-accent scale-110"
                                     : "bg-surface-card border-hairline text-neutral-500",
                                 )}
                               >
@@ -464,11 +465,12 @@ export default function AlgorithmExplainer() {
                         <AnimatePresence mode="wait">
                           {simulationState === "IDLE" && (
                             <motion.button
+                              type="button"
                               initial={{ opacity: 0, y: 5 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
                               onClick={runSimulation}
-                              className="flex items-center gap-2 px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)]"
+                              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 flex items-center gap-2"
                             >
                               <Zap className="w-4 h-4" /> Run Example
                             </motion.button>
@@ -479,9 +481,9 @@ export default function AlgorithmExplainer() {
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              className="text-sm text-blue-400 font-mono flex items-center gap-2"
+                              className="text-sm text-muted font-mono flex items-center gap-2"
                             >
-                              <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                              <span className="w-2 h-2 bg-surface-soft rounded-full animate-pulse" />
                               Testing each candidate...
                             </motion.div>
                           )}
@@ -505,12 +507,13 @@ export default function AlgorithmExplainer() {
                               exit={{ opacity: 0 }}
                               className="flex flex-col items-center gap-3"
                             >
-                              <div className="text-sm text-emerald-400 font-medium">
-                                Asset D has the largest score increase (+55)
+                              <div className="text-sm text-ink font-medium">
+                                In this example, Asset D has the largest score increase (+55).
                               </div>
                               <button
+                                type="button"
                                 onClick={resetSimulation}
-                                className="text-xs text-neutral-500 hover:text-ink underline underline-offset-4"
+                                className="min-h-11 rounded px-3 text-sm text-muted underline underline-offset-4 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                               >
                                 Reset example
                               </button>
@@ -533,21 +536,21 @@ export default function AlgorithmExplainer() {
                   >
                     {/* Constraints Formula Block */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                      <div className="bg-surface-card border border-hairline p-4 rounded-xl flex flex-col items-center justify-center gap-2">
-                        <div className="text-xs text-neutral-400 uppercase tracking-widest font-bold">
+                      <div className="bg-surface-card border border-hairline p-4 rounded-card flex flex-col items-center justify-center gap-2">
+                        <div className="text-sm font-medium text-body">
                           Integer Shares
                         </div>
                         <div className="font-serif text-xl text-ink">
                           n<sub className="text-sm">i</sub> ∈ ℤ
                           <sup className="text-sm">≥0</sup>
                         </div>
-                        <div className="text-[10px] text-neutral-500 text-center">
+                        <div className="text-sm leading-5 text-center text-body">
                           Must be whole numbers {`{0, 1, 2...}`}
                         </div>
                       </div>
 
-                      <div className="bg-surface-card border border-hairline p-4 rounded-xl flex flex-col items-center justify-center gap-2">
-                        <div className="text-xs text-neutral-400 uppercase tracking-widest font-bold">
+                      <div className="bg-surface-card border border-hairline p-4 rounded-card flex flex-col items-center justify-center gap-2">
+                        <div className="text-sm font-medium text-body">
                           Budget Constraint
                         </div>
                         <div className="font-serif text-xl text-ink flex items-center gap-2">
@@ -557,17 +560,16 @@ export default function AlgorithmExplainer() {
                             <sub className="text-xs">i</sub>)
                           </span>
                           <span>≤</span>
-                          <span className="text-emerald-400">B</span>
+                          <span className="text-ink">B</span>
                         </div>
-                        <div className="text-[10px] text-neutral-500 text-center">
+                        <div className="text-sm leading-5 text-center text-body">
                           Total cost cannot exceed cash
                         </div>
                       </div>
                     </div>
 
                     {/* Visual Metaphor */}
-                    <div className="relative w-full max-w-sm aspect-video bg-dune/30 border border-hairline rounded-xl overflow-hidden p-6 flex items-center justify-center">
-                      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
+                    <div className="relative flex aspect-video w-full max-w-sm items-center justify-center overflow-hidden rounded-card border border-hairline bg-surface-card p-6">
 
                       <div className="flex items-end gap-1 h-32 w-full justify-center">
                         {/* Correct Stack */}
@@ -579,15 +581,15 @@ export default function AlgorithmExplainer() {
                                 initial={{ opacity: 0, scale: 0 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: i * 0.2 }}
-                                className="w-12 h-8 bg-emerald-500/20 border border-emerald-500/50 rounded flex items-center justify-center"
+                                className="w-12 h-8 bg-surface-soft border border-hairline rounded flex items-center justify-center"
                               >
-                                <span className="text-[10px] text-emerald-400">
+                                <span className="text-xs text-ink">
                                   1.0
                                 </span>
                               </motion.div>
                             ))}
                           </div>
-                          <div className="text-xs text-emerald-400 font-medium flex items-center gap-1">
+                          <div className="flex items-center gap-1 text-sm font-medium text-body">
                             <Target className="w-3 h-3" /> Valid
                           </div>
                         </div>
@@ -605,13 +607,13 @@ export default function AlgorithmExplainer() {
                               />
                             ))}
                             {/* Fractional Part */}
-                            <div className="absolute -top-5 w-12 h-4 bg-rose-500/20 border border-rose-500/50 rounded-t flex items-center justify-center">
-                              <span className="text-[9px] text-rose-400">
+                            <div className="absolute -top-5 w-12 h-4 bg-surface-soft border border-hairline rounded-t-card flex items-center justify-center">
+                              <span className="text-xs text-ink">
                                 0.42
                               </span>
                             </div>
                           </div>
-                          <div className="text-xs text-neutral-500 font-medium flex items-center gap-1">
+                          <div className="flex items-center gap-1 text-sm font-medium text-muted">
                             <Lock className="w-3 h-3" /> Invalid
                           </div>
                         </div>
@@ -629,7 +631,7 @@ export default function AlgorithmExplainer() {
                   key={i}
                   className={cn(
                     "w-2 h-2 rounded-full transition-colors",
-                    i === activeStep ? "bg-emerald-500" : "bg-surface-soft",
+                    i === activeStep ? "bg-emerald-500" : "bg-neutral-700",
                   )}
                 />
               ))}
@@ -637,7 +639,7 @@ export default function AlgorithmExplainer() {
           </div>
 
           {/* RIGHT: Navigation & Details (5 Columns) */}
-          <div className="lg:col-span-5 bg-white/[0.02] border-l border-hairline flex flex-col h-full overflow-y-auto custom-scrollbar">
+          <div className="lg:col-span-5 bg-canvas border-l border-hairline flex flex-col h-full overflow-y-auto custom-scrollbar">
             <div className="flex flex-col gap-0">
               {steps.map((step, index) => {
                 const Icon = step.icon;
@@ -645,7 +647,9 @@ export default function AlgorithmExplainer() {
 
                 return (
                   <button
+                    type="button"
                     key={step.id}
+                    aria-pressed={isActive}
                     onClick={() => {
                       setActiveStep(index);
                       setSimulationState("IDLE"); // Reset simulation state
@@ -654,13 +658,13 @@ export default function AlgorithmExplainer() {
                       "group text-left p-6 md:p-8 transition-all duration-300 border-b border-hairline relative",
                       isActive
                         ? "bg-surface-card"
-                        : "hover:bg-white/[0.02] opacity-60 hover:opacity-100",
+                      : "text-muted hover:bg-surface-soft hover:text-ink",
                     )}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="active-indicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"
+                        className="absolute left-0 top-0 bottom-0 w-1 bg-accent"
                         transition={{
                           type: "spring",
                           stiffness: 300,
@@ -672,9 +676,9 @@ export default function AlgorithmExplainer() {
                     <div className="flex gap-4">
                       <div
                         className={cn(
-                          "mt-1 p-2.5 rounded-xl h-fit transition-colors border",
+                          "mt-1 p-2.5 rounded-card h-fit transition-colors border",
                           isActive
-                            ? `bg-${step.color}-500/10 text-${step.color}-400 border-${step.color}-500/30`
+                            ? "bg-surface-soft text-ink border-hairline-strong"
                             : "bg-surface-card text-neutral-500 border-hairline group-hover:border-hairline-strong",
                         )}
                       >
@@ -692,10 +696,10 @@ export default function AlgorithmExplainer() {
                             {step.title}
                           </h3>
                           {isActive && (
-                            <ChevronRight className="w-4 h-4 text-emerald-500 animate-pulse" />
+                            <ChevronRight className="w-4 h-4 text-muted" />
                           )}
                         </div>
-                        <p className="text-xs font-mono text-emerald-500/70 mb-2 uppercase tracking-wide">
+                        <p className="mb-2 text-sm text-muted">
                           {step.subtitle}
                         </p>
                         <p className="text-sm text-neutral-400 leading-relaxed mb-4">
@@ -714,7 +718,7 @@ export default function AlgorithmExplainer() {
                                 {step.details.map((detail, i) => (
                                   <div
                                     key={i}
-                                    className="flex items-start gap-3 p-3 rounded-lg bg-black/5 border border-hairline"
+                                    className="flex items-start gap-3 rounded-card border border-hairline bg-surface-card p-3"
                                   >
                                     <detail.icon className="w-4 h-4 text-neutral-500 mt-0.5" />
                                     <div>

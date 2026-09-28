@@ -13,7 +13,7 @@ export const useUpdatePortfolioItem = () => {
 
   return useMutation({
     mutationFn: async ({ ticker, weight, shares }: UpdateParams) => {
-      // 1. Update Local Storage
+      // Update Local Storage
       const currentItems = loadPortfolio();
       const newItems = currentItems.map((item) => {
         if (item.ticker.toUpperCase() === ticker.toUpperCase()) {

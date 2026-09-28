@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { X, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface MessageDrawerProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export default function MessageDrawer({
   message,
   type = "info",
 }: MessageDrawerProps) {
+  const dialogRef = useDialogA11y<HTMLDivElement>(isOpen, onClose);
   const getColor = () => {
     switch (type) {
       case "error":
@@ -53,18 +55,22 @@ export default function MessageDrawer({
             className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-50"
           />
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="message-drawer-title"
             key="drawer"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 max-h-[50vh] bg-canvas border-t border-hairline rounded-t-3xl z-50 overflow-hidden shadow-2xl glass-panel pb-12"
+            className="app-sheet-safe fixed bottom-0 left-0 right-0 max-h-[50vh] bg-canvas border-t border-hairline rounded-t-3xl z-50 overflow-hidden shadow-2xl glass-panel pb-12"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-hairline bg-surface-card backdrop-blur-md">
               <div className="flex items-center gap-4">
                 {getIcon()}
-                <h2 className="text-xl font-bold text-ink tracking-tight">
+                <h2 id="message-drawer-title" className="text-xl font-bold text-ink tracking-tight">
                   {title}
                 </h2>
               </div>

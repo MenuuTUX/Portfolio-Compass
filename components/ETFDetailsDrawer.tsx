@@ -5,12 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   TrendingUp,
-  AlertTriangle,
   PieChart as PieIcon,
   Activity,
   ChevronLeft,
   Layers,
-  Landmark,
   Info,
   Scale,
   ExternalLink,
@@ -27,16 +25,18 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ETF } from "@/types";
-import { cn, formatCurrency, calculateRiskMetric } from "@/lib/utils";
-import { calculateTTMYield } from "@/lib/finance";
-import { getProviderLogo, getAssetIconUrl } from "@/lib/etf-providers";
+import { cn, formatCurrency, calculateRiskMetric, formatSectorName } from "@/lib/utils";
+import { getAssetIconUrl } from "@/lib/etf-providers";
 import SectorPieChart, { COLORS } from "./SectorPieChart";
 import AssetProfileCard from "./AssetProfileCard";
 import EtfVerdictCard from "./EtfVerdictCard";
 import ComparisonModal from "./ComparisonModal";
 import { HelpTip } from "./ui/HelpTip";
+import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
 import { useMemo, useState, useEffect } from "react";
 import { getRedditCommunities } from "@/config/tickers";
+import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface ETFDetailsDrawerProps {
   etf: ETF | null;
@@ -47,13 +47,6 @@ interface ETFDetailsDrawerProps {
 const TIME_RANGES = ["1D", "1W", "1M", "1Y", "5Y"];
 
 // Helper to format sector names (snake_case -> Title Case)
-const formatSectorName = (name: string) => {
-  return name
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
-
 function formatLargeNumber(num: number | undefined): string {
   if (num === undefined) return "n/a";
   if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
@@ -90,29 +83,32 @@ function volumeOrNull(num: number | undefined | null): string | null {
   return num > 1e6 ? (num / 1e6).toFixed(1) + "M" : num.toLocaleString();
 }
 
+function percentOrNA(num: number | null | undefined, source?: string | null): string {
+  return num == null || (num === 0 && !source) ? "N/A" : `${num.toFixed(2)}%`;
+}
+
+function metricProvenance(source?: string | null, retrievedAt?: string | null): string | undefined {
+  if (!source && !retrievedAt) return undefined;
+  const date = retrievedAt ? new Date(retrievedAt).toLocaleDateString() : undefined;
+  return [source, date ? `retrieved ${date}` : undefined].filter(Boolean).join(" · ");
+}
+
 // Compact card for the metrics grid. The label is hoverable for beginners.
 function MetricCard({
   label,
   value,
   subValue,
-  highlight,
 }: {
   label: string;
   value: string;
   subValue?: string;
-  highlight?: boolean;
 }) {
   return (
     <div className="bg-surface-card rounded-xl p-3 border border-hairline hover:bg-surface-soft transition-colors group">
       <div className="text-[10px] text-neutral-400 font-medium uppercase tracking-wider mb-1 group-hover:text-neutral-300 transition-colors">
         <HelpTip term={label} className="text-[10px] uppercase tracking-wider" />
       </div>
-      <div
-        className={cn(
-          "text-sm font-bold truncate font-mono",
-          highlight ? "text-emerald-400" : "text-ink",
-        )}
-      >
+      <div className="text-sm font-bold truncate font-mono text-ink">
         {value}
       </div>
       {subValue && (
@@ -126,7 +122,6 @@ interface MetricItem {
   label: string;
   value: string | null;
   subValue?: string;
-  highlight?: boolean;
 }
 
 // Titled metrics grid that drops missing values; renders nothing when the
@@ -152,7 +147,6 @@ function MetricSection({
             label={m.label}
             value={m.value!}
             subValue={m.subValue}
-            highlight={m.highlight}
           />
         ))}
       </div>
@@ -167,7 +161,7 @@ const deepSyncedThisSession = new Set<string>();
 type FastPoint = { date: string; price: number };
 
 // Merge fresh data into an asset without letting empty placeholder fields
-// (empty arrays/objects, zeroed metrics) clobber real values we already have
+// (empty arrays/objects) clobber real values we already have.
 function mergeAssetData(base: ETF, incoming: Partial<ETF>): ETF {
   const usableEntries = Object.entries(incoming).filter(([, value]) => {
     if (value === undefined || value === null) return false;
@@ -182,14 +176,6 @@ function mergeAssetData(base: ETF, incoming: Partial<ETF>): ETF {
     return true;
   });
   const merged: ETF = { ...base, ...Object.fromEntries(usableEntries) };
-  if (
-    incoming.metrics &&
-    !incoming.metrics.yield &&
-    !incoming.metrics.mer &&
-    (base.metrics?.yield || base.metrics?.mer)
-  ) {
-    merged.metrics = base.metrics;
-  }
   if (
     incoming.allocation &&
     !incoming.allocation.equities &&
@@ -231,6 +217,7 @@ export default function ETFDetailsDrawer({
 
   // Use fresh data if available, otherwise fall back to prop
   const displayEtf = freshEtf || etf;
+  const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(displayEtf), onClose);
 
   // Reset state when the etf prop changes (adjust-during-render pattern,
   // avoids a cascading setState-in-effect)
@@ -305,7 +292,7 @@ export default function ETFDetailsDrawer({
       })
       .catch(() => {});
 
-    // Fund technicals: Yahoo + gap-fill (US/CA MER, holdings, credit quality)
+    // Fund technicals: Yahoo + gap-fill (fee, holdings, credit quality)
     fetch(`/api/market/etf-details?ticker=${encodeURIComponent(etf.ticker)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((fund) => {
@@ -322,8 +309,14 @@ export default function ETFDetailsDrawer({
             bondDuration: fund.bondDuration,
             creditQuality: fund.creditQuality,
             metrics: {
-              yield: base.metrics?.yield ?? 0,
-              mer: fund.expenseRatio ?? base.metrics?.mer ?? 0,
+              ...base.metrics,
+              mer: fund.expenseRatio ?? base.metrics?.mer,
+              merSource: fund.expenseRatioSource ?? base.metrics?.merSource,
+              merRetrievedAt: fund.expenseRatioRetrievedAt ?? base.metrics?.merRetrievedAt,
+              merSourceField: fund.expenseRatioField ?? base.metrics?.merSourceField,
+              merInputUnit: fund.expenseRatioInputUnit ?? base.metrics?.merInputUnit,
+              merNormalization: fund.expenseRatioNormalization ?? base.metrics?.merNormalization,
+              merMeasurementDate: fund.expenseRatioMeasurementDate ?? base.metrics?.merMeasurementDate,
             },
           };
           if (fund.volume) patch.volume = fund.volume;
@@ -559,6 +552,7 @@ export default function ETFDetailsDrawer({
     if (!displayEtf) return [];
 
     if (displayEtf.assetType === "STOCK") {
+      const sourcedYield = getSourcedYield(displayEtf.metrics, displayEtf.dividendYield);
       return [
         {
           title: "Valuation",
@@ -576,16 +570,18 @@ export default function ETFDetailsDrawer({
           title: "Dividends",
           metrics: [
             {
-              label: "Div Yield",
-              value: displayEtf.dividendYield
-                ? `${displayEtf.dividendYield.toFixed(2)}%`
-                : null,
-              highlight: !!displayEtf.dividendYield,
+              label: displayEtf.metrics?.yieldSource === "Yahoo Finance quote"
+                ? "Yahoo yield unavailable · unverified"
+                : "Div Yield",
+              value: sourcedYield != null
+                ? `${sourcedYield.toFixed(2)}%`
+                : displayEtf.metrics?.yieldSource === "Yahoo Finance quote" ? "N/A" : null,
+              subValue: describeYieldProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt, displayEtf.metrics?.yieldSourceField, displayEtf.metrics?.yieldInputUnit, displayEtf.metrics?.yieldNormalization, displayEtf.metrics?.yieldMeasurementDate),
             },
             {
               label: "Dividend",
               value: displayEtf.dividend
-                ? formatCurrency(displayEtf.dividend)
+                ? formatCurrency(displayEtf.dividend, displayEtf.currency)
                 : null,
             },
             { label: "Ex-Div Date", value: displayEtf.exDividendDate || null },
@@ -630,6 +626,7 @@ export default function ETFDetailsDrawer({
     const isBond =
       displayEtf.fundClass === "bond" ||
       (displayEtf.allocation?.bonds ?? 0) > 50;
+    const sourcedYield = getSourcedYield(displayEtf.metrics, displayEtf.dividendYield);
 
     return [
       {
@@ -637,10 +634,9 @@ export default function ETFDetailsDrawer({
         metrics: [
           { label: "Assets", value: largeNumberOrNull(displayEtf.marketCap) },
           {
-            label: "Expense Ratio",
-            value: displayEtf.metrics?.mer
-              ? `${displayEtf.metrics.mer.toFixed(2)}%`
-              : null,
+            label: "Provider-reported expense ratio",
+            value: percentOrNA(getSourcedExpenseRatio(displayEtf.metrics), displayEtf.metrics?.merSource),
+            subValue: describeExpenseRatioProvenance(displayEtf.metrics),
           },
           // PE is equity-only noise for bond funds
           {
@@ -685,16 +681,16 @@ export default function ETFDetailsDrawer({
         title: "Dividends",
         metrics: [
           {
-            label: "Dividend Yield",
-            value: displayEtf.metrics?.yield
-              ? `${displayEtf.metrics.yield.toFixed(2)}%`
-              : null,
-            highlight: !!displayEtf.metrics?.yield,
+            label: displayEtf.metrics?.yieldSource === "Yahoo Finance quote"
+              ? "Yahoo yield unavailable · unverified"
+              : "Dividend Yield",
+            value: percentOrNA(sourcedYield, displayEtf.metrics?.yieldSource),
+            subValue: describeYieldProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt, displayEtf.metrics?.yieldSourceField, displayEtf.metrics?.yieldInputUnit, displayEtf.metrics?.yieldNormalization, displayEtf.metrics?.yieldMeasurementDate) ?? metricProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt),
           },
           {
             label: "Dividend (ttm)",
             value: displayEtf.dividend
-              ? formatCurrency(displayEtf.dividend)
+              ? formatCurrency(displayEtf.dividend, displayEtf.currency)
               : null,
           },
           {
@@ -752,6 +748,10 @@ export default function ETFDetailsDrawer({
             className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-40"
           />
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="etf-details-title"
             key="drawer"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
@@ -763,31 +763,7 @@ export default function ETFDetailsDrawer({
             <div className="flex items-center justify-between p-6 border-b border-hairline bg-surface-card backdrop-blur-md">
               <div className="flex items-center gap-4">
                 {/* Provider Logo */}
-                {getAssetIconUrl(
-                  displayEtf.ticker,
-                  displayEtf.name,
-                  displayEtf.assetType,
-                ) && (
-                  <div className="w-12 h-12 flex items-center justify-center shrink-0">
-                    <Image
-                      src={
-                        getAssetIconUrl(
-                          displayEtf.ticker,
-                          displayEtf.name,
-                          displayEtf.assetType,
-                        )!
-                      }
-                      alt={`${displayEtf.ticker} logo`}
-                      width={48}
-                      height={48}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        e.currentTarget.parentElement!.style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
+                {getAssetIconUrl(displayEtf.ticker, displayEtf.name, displayEtf.assetType) && <div className="w-12 h-12 flex items-center justify-center shrink-0"><Image src={getAssetIconUrl(displayEtf.ticker, displayEtf.name, displayEtf.assetType)!} alt={`${displayEtf.ticker} logo`} width={48} height={48} className="w-full h-full object-contain" /></div>}
                 <div>
                   <h2 className="text-3xl font-bold text-ink tracking-tight">
                     {displayEtf.ticker}
@@ -797,12 +773,12 @@ export default function ETFDetailsDrawer({
                 <div className="h-8 w-[1px] bg-surface-soft mx-2" />
                 <div>
                   <div className="text-2xl font-light text-ink">
-                    {formatCurrency(displayEtf.price)}
+                    {formatCurrency(displayEtf.price, displayEtf.currency)}
                   </div>
                   <div
                     className={cn(
                       "text-xs font-medium",
-                      isPositive ? "text-emerald-400" : "text-rose-400",
+                      isPositive ? "text-data-up" : "text-data-down",
                     )}
                   >
                     {isPositive ? "+" : ""}
@@ -815,7 +791,7 @@ export default function ETFDetailsDrawer({
                 {riskData && riskData.label !== "Unknown" && (
                   <div
                     className={cn(
-                      "hidden md:flex px-4 py-2 rounded-full border backdrop-blur-md items-center gap-2",
+                      "hidden md:flex px-4 py-2 rounded-button border items-center gap-2",
                       riskData.bgColor,
                       riskData.borderColor,
                     )}
@@ -944,69 +920,11 @@ export default function ETFDetailsDrawer({
                     <div
                       className={cn(
                         "flex-1 w-full h-full min-h-0 transition-all duration-500",
-                        isChartLoading
-                          ? "blur-sm opacity-50"
-                          : "blur-0 opacity-100",
+                        isChartLoading ? "opacity-60" : "opacity-100",
                       )}
                     >
                       <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={historyData}>
-                        <defs>
-                          <linearGradient
-                            id="colorPriceUp"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#10b981"
-                              stopOpacity={0.5}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#10b981"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                          <linearGradient
-                            id="colorPriceDown"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#f43f5e"
-                              stopOpacity={0.5}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#f43f5e"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                          <linearGradient
-                            id="colorSpy"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#94a3b8"
-                              stopOpacity={0.5}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#94a3b8"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                        </defs>
                         <CartesianGrid
                           strokeDasharray="3 3"
                           stroke="rgba(50,48,47,0.08)"
@@ -1020,7 +938,7 @@ export default function ETFDetailsDrawer({
                           tickFormatter={(value) =>
                             showComparison
                               ? `${value.toFixed(2)}%`
-                              : formatCurrency(value)
+                              : formatCurrency(value, displayEtf.currency)
                           }
                           axisLine={false}
                           tickLine={false}
@@ -1052,12 +970,12 @@ export default function ETFDetailsDrawer({
                             if (name === "spyPrice") {
                               const original = item.payload.originalSpyPrice;
                               return [
-                                original ? formatCurrency(original) : "N/A",
+                                original ? formatCurrency(original, "USD") : "N/A",
                                 "SPY",
                               ];
                             }
                             return [
-                              formatCurrency(numValue),
+                              formatCurrency(numValue, displayEtf.currency),
                               displayEtf.ticker,
                             ];
                           }}
@@ -1075,8 +993,8 @@ export default function ETFDetailsDrawer({
                           dataKey="price"
                           stroke={isPositive ? "#10b981" : "#f43f5e"}
                           strokeWidth={2}
-                          fillOpacity={1}
-                          fill={`url(#${isPositive ? "colorPriceUp" : "colorPriceDown"})`}
+                          fill="none"
+                          fillOpacity={0}
                         />
                         {showComparison && (
                           <Area
@@ -1108,7 +1026,7 @@ export default function ETFDetailsDrawer({
                             <td>
                               {showComparison
                                 ? `${item.price.toFixed(2)}%`
-                                : formatCurrency(item.price)}
+                                : formatCurrency(item.price, displayEtf.currency)}
                             </td>
                             {showComparison && (
                               <td>
@@ -1211,7 +1129,7 @@ export default function ETFDetailsDrawer({
                           <div
                             className={cn(
                               "text-xs bg-surface-soft px-2 py-0.5 rounded text-neutral-400 transition-colors",
-                              showLegend && "bg-blue-500/20 text-blue-300",
+                              showLegend && "bg-surface-soft text-muted",
                             )}
                           >
                             Legend
@@ -1266,47 +1184,21 @@ export default function ETFDetailsDrawer({
                                   <div
                                     key={i}
                                     className={cn(
-                                      "flex items-center justify-between p-2 rounded-lg bg-surface-card border border-hairline hover:bg-surface-soft transition-all",
+                                      "flex items-center justify-between p-2 rounded-card bg-surface-card border border-hairline hover:bg-surface-soft transition-all",
                                       onTickerSelect &&
-                                        "cursor-pointer hover:border-emerald-500/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.1)] group/item",
+                                        "cursor-pointer hover:border-hairline group/item",
                                     )}
                                     onClick={() =>
                                       onTickerSelect && onTickerSelect(h.ticker)
                                     }
                                   >
                                     <div className="flex items-center gap-3">
-                                      {getAssetIconUrl(
-                                        h.ticker,
-                                        h.name || "",
-                                        "ETF",
-                                      ) && (
-                                        <div className="w-6 h-6 shrink-0 flex items-center justify-center">
-                                          <Image
-                                            src={
-                                              getAssetIconUrl(
-                                                h.ticker,
-                                                h.name || "",
-                                                "ETF",
-                                              )!
-                                            }
-                                            alt={h.ticker}
-                                            width={24}
-                                            height={24}
-                                            className="w-full h-full object-contain"
-                                            onError={(e) => {
-                                              e.currentTarget.style.display =
-                                                "none";
-                                              e.currentTarget.parentElement!.style.display =
-                                                "none";
-                                            }}
-                                          />
-                                        </div>
-                                      )}
+                                      {getAssetIconUrl(h.ticker, h.name || "", "ETF") && <div className="w-6 h-6 shrink-0 flex items-center justify-center"><Image src={getAssetIconUrl(h.ticker, h.name || "", "ETF")!} alt={`${h.ticker} logo`} width={24} height={24} className="w-full h-full object-contain" /></div>}
                                       <div
                                         className={cn(
                                           "font-bold text-ink text-sm",
                                           onTickerSelect &&
-                                            "group-hover/item:text-emerald-400 transition-colors",
+                                            "group-hover/item:text-blue-500 transition-colors",
                                         )}
                                       >
                                         {h.ticker}
@@ -1448,7 +1340,7 @@ export default function ETFDetailsDrawer({
                                 <div
                                   key={i}
                                   className={cn(
-                                    "flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-surface-soft transition-colors group/row",
+                                    "flex items-center justify-between py-1.5 px-2 rounded-card hover:bg-surface-soft transition-colors group/row",
                                     onTickerSelect && "cursor-pointer",
                                   )}
                                   onClick={() =>
@@ -1456,38 +1348,12 @@ export default function ETFDetailsDrawer({
                                   }
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
-                                    {getAssetIconUrl(
-                                      h.ticker,
-                                      h.name || "",
-                                      "ETF",
-                                    ) && (
-                                      <div className="w-5 h-5 shrink-0 flex items-center justify-center">
-                                        <Image
-                                          src={
-                                            getAssetIconUrl(
-                                              h.ticker,
-                                              h.name || "",
-                                              "ETF",
-                                            )!
-                                          }
-                                          alt={h.ticker}
-                                          width={20}
-                                          height={20}
-                                          className="w-full h-full object-contain"
-                                          onError={(e) => {
-                                            e.currentTarget.style.display =
-                                              "none";
-                                            e.currentTarget.parentElement!.style.display =
-                                              "none";
-                                          }}
-                                        />
-                                      </div>
-                                    )}
+                                    {getAssetIconUrl(h.ticker, h.name || "", "ETF") && <div className="w-5 h-5 shrink-0 flex items-center justify-center"><Image src={getAssetIconUrl(h.ticker, h.name || "", "ETF")!} alt={`${h.ticker} logo`} width={20} height={20} className="w-full h-full object-contain" /></div>}
                                     <div
                                       className={cn(
                                         "font-medium text-ink text-sm truncate",
                                         onTickerSelect &&
-                                          "group-hover/row:text-emerald-400 transition-colors",
+                                          "group-hover/row:text-blue-500 transition-colors",
                                       )}
                                     >
                                       {h.ticker}
@@ -1551,7 +1417,7 @@ export default function ETFDetailsDrawer({
                         Key Metrics
                       </h3>
                       <p className="text-[11px] text-neutral-500 mt-1">
-                        Hover any dotted label for a plain-English explanation.
+                        Focus or hover any dotted label for a plain-English explanation.
                       </p>
                     </div>
 
