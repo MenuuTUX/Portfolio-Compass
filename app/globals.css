@@ -39,6 +39,10 @@
   --color-coral: #e05a4e;
   --color-teal-accent: #0d9488;
 
+  --color-compass: var(--compass);
+  --color-compass-action: #187a5c;
+  --color-compass-action-hover: #11654b;
+
   /* Growth Green */
   --color-emerald-400: var(--emerald-400);
   --color-emerald-500: #10b981;
@@ -127,6 +131,7 @@
 
   --gold-deep: #b08a28;
   --emerald-400: #059669;
+  --compass: #11745b;
 
   /* Intermediate rungs for the legacy stone/neutral scale */
   --scale-900: #f8f7f5;
@@ -156,6 +161,7 @@
 
   --gold-deep: #f0c868;
   --emerald-400: #34d399;
+  --compass: #6bccab;
 
   --scale-900: #18150f;
   --scale-800: #221e17;

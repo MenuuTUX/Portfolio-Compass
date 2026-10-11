@@ -17,6 +17,7 @@ import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
 import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePortfolio } from '@/lib/storage';
+import Link from 'next/link';
 
 type ViewMode = 'LANDING' | 'INTRO_QUIZ' | 'APP';
 type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS';
@@ -87,29 +88,23 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-canvas overflow-hidden relative">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="blob blob-1" />
-        <div className="blob blob-2" />
-        <div className="blob blob-3" />
-      </div>
-
       <AnimatePresence mode="wait">
         {viewMode === 'LANDING' ? (
-          <motion.div
+          <div
             key="landing"
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
+            id="top"
             className="overflow-y-auto h-screen custom-scrollbar"
           >
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
-            <footer className="relative w-full py-12 text-center text-stone-600 text-xs border-t border-stone-900 bg-stone-950">
+            <footer className="py-10 px-6 text-center text-body text-xs border-t border-hairline bg-canvas">
               <p>
                 &copy; {new Date().getFullYear()} PortfolioCompass. For research
                 and education, not financial advice.
               </p>
+              <nav aria-label="Legal" className="flex justify-center gap-6 mt-4"><Link href="/privacy" className="hover:text-ink underline underline-offset-4">Privacy</Link><Link href="/terms" className="hover:text-ink underline underline-offset-4">Terms</Link></nav>
             </footer>
-          </motion.div>
+          </div>
         ) : viewMode === 'INTRO_QUIZ' ? (
           <motion.div
             key="intro-quiz"

@@ -1,233 +1,73 @@
 "use client";
 
-import { motion, Variants } from "framer-motion";
-import {
-  Share2,
-  Github,
-  ExternalLink,
-  Building2,
-  TrendingUp,
-  LineChart,
-  HeartHandshake,
-} from "lucide-react";
-import Image from "next/image";
+import { useState } from "react";
 
-const cardVariants: Variants = {
-  hidden: { opacity: 0, y: 50 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: i * 0.2,
-      duration: 0.8,
-      ease: [0.215, 0.61, 0.355, 1.0],
-    },
-  }),
-};
+const tools = [
+  { title: "Model portfolios", description: "Review the model allocations included in the app and compare them with your own." },
+  { title: "Heuristic allocation", description: "Allocate whole shares under a cash limit using explicit return and variance proxies." },
+  { title: "Monte Carlo simulation", description: "Generate paths from historical estimates. The results are model scenarios, not forecasts." },
+];
 
-const PurposeSection = () => {
-  const cards = [
-    {
-      title: "Model Portfolios",
-      description:
-        "Review the model allocations included in the app and compare them with your own.",
-      image:
-        "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80",
-      icon: <Building2 className="w-5 h-5 text-emerald-400" />,
-      tag: "INSIGHTS",
-    },
-    {
-      title: "Heuristic Allocation",
-      description:
-        "Allocate whole shares under a cash limit using explicit return and variance proxies.",
-      image:
-        "https://images.unsplash.com/photo-1591696205602-2f950c417cb9?auto=format&fit=crop&w=800&q=80",
-      icon: <TrendingUp className="w-5 h-5 text-rose-400" />,
-      tag: "ALLOCATOR",
-    },
-    {
-      title: "Monte Carlo Simulation",
-      description:
-        "Generate paths from historical estimates. The results are model scenarios, not forecasts.",
-      image:
-        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
-      icon: <LineChart className="w-5 h-5 text-cyan-400" />,
-      tag: "SIMULATION",
-    },
-  ];
+export default function PurposeSection() {
+  const [shareStatus, setShareStatus] = useState("");
+
+  const share = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "PortfolioCompass", text: "PortfolioCompass: ETF comparison and portfolio tools", url: window.location.href });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setShareStatus("Link copied.");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setShareStatus("Could not share the link. Copy the address from your browser.");
+    }
+  };
 
   return (
-    <section className="relative py-24 bg-stone-950 overflow-hidden">
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-20">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/30 text-emerald-400 text-xs font-mono tracking-widest mb-6 backdrop-blur-md"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            WHAT YOU CAN DO
-          </motion.div>
-
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="text-4xl md:text-5xl font-display font-bold text-stone-100 mb-6"
-          >
-            Portfolio tools in{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-              one browser tab
-            </span>
-          </motion.h2>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.2 }}
-            className="text-lg text-stone-400 leading-relaxed"
-          >
-            Search market data, compare holdings, test allocations, and run
-            projections in the browser.
-          </motion.p>
+    <section id="tools" className="py-16 sm:py-24 bg-canvas">
+      <div className="max-w-7xl mx-auto px-6">
+        <div className="text-center mb-12 sm:mb-16">
+          <h2 className="text-3xl md:text-5xl font-display font-normal text-ink mb-6">
+            Portfolio tools in <span className="text-compass">one browser tab</span>
+          </h2>
+          <p className="text-base sm:text-lg text-body leading-relaxed">
+            Search market data, compare holdings, test allocations, and run projections in the browser.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-32">
-          {cards.map((card, i) => (
-            <motion.div
-              key={i}
-              custom={i}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={cardVariants}
-              whileHover={{ y: -10 }}
-              className="group relative bg-stone-900/50 border border-stone-800 hover:border-emerald-500/50 rounded-2xl overflow-hidden transition-colors duration-500"
-            >
-              {/* Image Container */}
-              <div className="h-48 overflow-hidden relative">
-                <div className="absolute inset-0 bg-stone-900/20 group-hover:bg-transparent transition-colors z-10" />
-                <div className="absolute inset-0 bg-gradient-to-t from-stone-900 to-transparent z-10" />
-                <Image
-                  src={card.image}
-                  alt={card.title}
-                  width={800}
-                  height={600}
-                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 grayscale group-hover:grayscale-0"
-                />
-                <div className="absolute top-4 right-4 z-20 bg-stone-950/80 backdrop-blur-md px-2 py-1 rounded text-[10px] font-mono tracking-wider text-emerald-400 border border-emerald-500/20">
-                  {card.tag}
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="p-6 relative">
-                <div className="w-10 h-10 rounded-lg bg-stone-800 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 border border-stone-700 group-hover:border-emerald-500/30">
-                  {card.icon}
-                </div>
-                <h3 className="text-xl font-display font-bold text-stone-100 mb-3 group-hover:text-emerald-400 transition-colors">
-                  {card.title}
-                </h3>
-                <p className="text-sm text-stone-400 leading-relaxed">
-                  {card.description}
-                </p>
-              </div>
-            </motion.div>
+        <dl className="divide-y divide-hairline border-y border-hairline mb-16 sm:mb-24">
+          {tools.map((tool) => (
+            <div key={tool.title} className="grid md:grid-cols-3 gap-3 md:gap-8 py-7 sm:py-9">
+              <dt className="text-xl md:text-2xl font-display text-ink">{tool.title}</dt>
+              <dd className="md:col-span-2 text-sm sm:text-base text-body leading-relaxed">{tool.description}</dd>
+            </div>
           ))}
+        </dl>
+
+        <div className="border-l-2 border-compass pl-6 md:pl-10 mb-16 sm:mb-24">
+          <h3 className="text-2xl font-display font-normal text-ink mb-5">Why this exists</h3>
+          <blockquote className="text-lg md:text-2xl text-body-strong leading-relaxed mb-5">
+            I wanted the portfolio math I kept rebuilding in spreadsheets:
+            allocation checks, side-by-side comparisons, and model projections.
+            I put them in one browser app and connected them to current market data.
+          </blockquote>
+          <p className="text-muted text-sm">Jim Cramer</p>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-32 relative"
-        >
-          <div className="absolute left-0 top-0 w-1 h-full bg-gradient-to-b from-emerald-500/50 to-transparent rounded-full" />
-          <div className="pl-8 md:pl-12">
-            <div className="flex items-center gap-3 mb-6">
-              <HeartHandshake className="text-emerald-400 w-6 h-6" />
-              <h3 className="text-2xl font-display font-bold text-stone-100">
-                Why this exists
-              </h3>
-            </div>
-            <p className="text-xl md:text-2xl text-stone-300 leading-relaxed font-light mb-6">
-              &ldquo;I wanted the portfolio math I kept rebuilding in
-              spreadsheets: allocation checks, side-by-side comparisons, and
-              model projections. I put them in one browser app and connected
-              them to current market data.&rdquo;
-            </p>
-            <div className="flex items-center gap-4">
-              <div className="h-px flex-1 bg-stone-800" />
-              <span className="text-stone-500 text-sm font-mono uppercase tracking-widest">
-                Jim Cramer
-              </span>
-            </div>
+        <div className="border-t border-hairline pt-12 text-center">
+          <h3 className="text-2xl sm:text-3xl font-display font-normal text-ink mb-4">Support the project</h3>
+          <p className="text-body text-sm sm:text-base">The code is open source. A GitHub star helps other people find the project.</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+            <a href="https://github.com/MenuuTUX/Portfolio-Compass" target="_blank" rel="noopener noreferrer" className="px-8 py-3.5 rounded-lg bg-ink text-canvas font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-compass">
+              Star on GitHub
+            </a>
+            <button onClick={share} className="px-8 py-3.5 rounded-lg bg-surface-card text-ink font-medium border border-hairline-strong hover:bg-surface-soft transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-compass">Share</button>
           </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          className="relative rounded-3xl overflow-hidden border border-stone-800 bg-stone-900/30 backdrop-blur-sm p-8 md:p-12 text-center"
-        >
-          <div className="absolute inset-0 bg-grid-pattern opacity-10" />
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none" />
-
-          <div className="relative z-10 max-w-2xl mx-auto space-y-8">
-            <h3 className="text-3xl font-display font-bold text-ink">
-              Support the <span className="text-emerald-400">Project</span>
-            </h3>
-            <p className="text-stone-400">
-              The code is open source. A GitHub star helps other people find
-              the project.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <a
-                href="https://github.com/MenuuTUX/Portfolio-Compass"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-100 text-stone-950 font-bold flex items-center justify-center gap-2 hover:bg-emerald-400 transition-colors group"
-              >
-                <Github className="w-5 h-5" />
-                <span>Star on GitHub</span>
-                <ExternalLink className="w-4 h-4 opacity-50 group-hover:opacity-100" />
-              </a>
-
-              <button
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator
-                      .share({
-                        title: "PortfolioCompass",
-                        text: "PortfolioCompass: ETF comparison and portfolio tools",
-                        url: window.location.href,
-                      })
-                      .catch(console.error);
-                  } else {
-                    navigator.clipboard.writeText(window.location.href);
-                    alert("Link copied.");
-                  }
-                }}
-                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-stone-800 text-ink font-medium border border-stone-700 hover:border-emerald-500/50 hover:bg-stone-800/80 flex items-center justify-center gap-2 transition-all"
-              >
-                <Share2 className="w-5 h-5 text-emerald-400" />
-                <span>Share</span>
-              </button>
-            </div>
-          </div>
-        </motion.div>
+          <p role="status" className="mt-4 text-sm text-body">{shareStatus}</p>
+        </div>
       </div>
     </section>
   );
-};
-
-export default PurposeSection;
+}
