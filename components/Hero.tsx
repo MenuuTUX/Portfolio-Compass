@@ -1,331 +1,110 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ArrowRight, Zap, Activity, Sprout, ChevronDown } from "lucide-react";
-import {
-  motion,
-  useMotionValue,
-  useSpring,
-  useTransform,
-} from "framer-motion";
+import { useState } from "react";
 import InteractiveSlider from "./InteractiveSlider";
-import AsciiBackground from "./AsciiBackground";
-
-const textVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: i * 0.1,
-      duration: 0.5,
-      ease: "easeOut" as const,
-    },
-  }),
-};
+import { projectContributionScenario } from "@/lib/math/scenario";
 
 interface HeroProps {
   onStart?: () => void;
   onViewMarket?: () => void;
 }
 
-interface Spore {
-  x: number;
-  y: number;
-  scale: number;
-  driftX: number;
-  driftY: number;
-  duration: number;
-  size: number;
-}
-
-// Spore positions are fixed on mount so title re-renders do not reshuffle them.
-const generateSpores = (): Spore[] =>
-  Array.from({ length: 15 }, () => ({
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * window.innerHeight,
-    scale: Math.random() * 0.5 + 0.2,
-    driftX: Math.random() * 50 - 25,
-    driftY: Math.random() * -50,
-    duration: Math.random() * 10 + 10,
-    size: Math.random() * 20 + 5,
-  }));
+const startingBalance = 10_000;
+const dollars = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  maximumFractionDigits: 0,
+});
+const axisNumbers = new Intl.NumberFormat("en-CA", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 export default function Hero({ onStart, onViewMarket }: HeroProps) {
-  // Empty until mounted on the client, which also acts as the SSR gate.
-  const [spores, setSpores] = useState<Spore[]>([]);
-  const [returnValue, setReturnValue] = useState(7);
-  const [yearsValue, setYearsValue] = useState(10);
-
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const mouseX = useSpring(x, { stiffness: 50, damping: 20 });
-  const mouseY = useSpring(y, { stiffness: 50, damping: 20 });
-
-  const rotateX = useTransform(mouseY, [-0.5, 0.5], ["7deg", "-7deg"]);
-  const rotateY = useTransform(mouseX, [-0.5, 0.5], ["-7deg", "7deg"]);
-
-  const y1 = useTransform(mouseY, [-0.5, 0.5], [-20, 20]);
-  const y2 = useTransform(mouseY, [-0.5, 0.5], [20, -20]);
-
-  useEffect(() => {
-    // Defer the update so the effect body does not set state synchronously.
-    const raf = requestAnimationFrame(() => setSpores(generateSpores()));
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseXFromCenter = e.clientX - rect.left - width / 2;
-    const mouseYFromCenter = e.clientY - rect.top - height / 2;
-    x.set(mouseXFromCenter / width);
-    y.set(mouseYFromCenter / height);
-  };
+  const [annualReturn, setAnnualReturn] = useState(7);
+  const [years, setYears] = useState(10);
+  const projection = projectContributionScenario(startingBalance, 0, years, annualReturn / 100);
+  const endingBalance = projection[projection.length - 1].balance;
+  const growth = (endingBalance / startingBalance - 1) * 100;
+  const chartMaximum = Math.ceil(Math.max(startingBalance, endingBalance) / 5_000) * 5_000;
+  const barWidth = Math.min(24, 328 / projection.length - 3);
+  const startingY = 150 - (startingBalance / chartMaximum) * 128;
 
   return (
-    <div
-      className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-canvas text-ink font-sans selection:bg-emerald-500/30"
-      onMouseMove={handleMouseMove}
-    >
-      <div
-        className="absolute inset-0 overflow-hidden pointer-events-none z-0"
-        style={{
-          maskImage:
-            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.15) 100%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse 90% 80% at 50% 45%, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.15) 100%)",
-        }}
-      >
-        <AsciiBackground className="absolute inset-0" opacity={0.34} />
-      </div>
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(var(--background-start-rgb),0.72)_0%,_rgba(var(--background-start-rgb),0.28)_60%,_transparent_100%)]" />
-
-        {spores.map((spore, i) => (
-          <motion.div
-            key={i}
-            className="absolute bg-emerald-500/10 rounded-full blur-sm"
-            initial={{
-              x: spore.x,
-              y: spore.y,
-              scale: spore.scale,
-            }}
-            animate={{
-              y: [null, spore.driftY],
-              x: [null, spore.driftX],
-              opacity: [0.2, 0.5, 0.2],
-            }}
-            transition={{
-              duration: spore.duration,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            style={{
-              width: spore.size,
-              height: spore.size,
-            }}
-          />
-        ))}
-      </div>
-
-      <div className="container relative z-10 px-4 mx-auto grid lg:grid-cols-2 gap-12 lg:gap-12 items-center pt-24 pb-12 lg:pt-20 lg:pb-0">
-        <div className="text-left space-y-6 lg:space-y-8 pointer-events-none">
-          <div className="pointer-events-auto">
-            <motion.h1
-              custom={1}
-              variants={textVariants}
-              className="text-4xl sm:text-5xl md:text-7xl font-display font-bold leading-tight"
-            >
-              Build a portfolio, then test the{" "}
-              <span className="text-emerald-400">assumptions behind it.</span>
-            </motion.h1>
-
-            <motion.p
-              custom={2}
-              variants={textVariants}
-              className="text-base sm:text-lg text-stone-400 max-w-xl leading-relaxed mt-6"
-            >
-              Compare funds and stocks, then test an allocation with historical
-              data and simulated paths.
-              <br />
-              <span className="text-xs text-stone-500 mt-2 block italic">
-                Not financial advice.
-              </span>
-            </motion.p>
-
-            <motion.div
-              custom={3}
-              variants={textVariants}
-              className="flex flex-col sm:flex-row gap-4 mt-8"
-            >
-              <button
-                onClick={onStart}
-                className="px-6 py-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer w-full sm:w-auto"
-              >
-                Get started
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={onViewMarket}
-                className="px-6 py-3.5 rounded-lg bg-surface-card border border-hairline-strong text-ink font-medium transition-colors cursor-pointer flex items-center justify-center gap-2 w-full sm:w-auto hover:bg-surface-soft"
-              >
-                Browse market
-              </button>
-            </motion.div>
-
-            <motion.div
-              custom={4}
-              variants={textVariants}
-              className="grid grid-cols-3 gap-4 sm:gap-6 pt-8 border-t border-stone-800/50 mt-12"
-            >
-              {[
-                { label: "Quotes", val: "Live", icon: Zap },
-                { label: "Coverage", val: "ETFs + Stocks", icon: Sprout },
-                { label: "Storage", val: "Local-first", icon: Activity },
-              ].map((item, i) => (
-                <div key={i} className="space-y-1">
-                  <item.icon className="w-5 h-5 text-emerald-500 mb-2" />
-                  <div className="text-xl sm:text-2xl font-display font-bold text-ink">
-                    {item.val}
-                  </div>
-                  <div className="text-[10px] sm:text-xs text-stone-500 uppercase tracking-wider">
-                    {item.label}
-                  </div>
-                </div>
-              ))}
-            </motion.div>
+    <section className="min-h-screen flex items-center bg-canvas text-ink selection:bg-compass/20" aria-labelledby="landing-title">
+      <div className="w-full max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center py-16 lg:py-12">
+        <div>
+          <h1 id="landing-title" className="text-4xl sm:text-5xl xl:text-6xl 2xl:text-7xl font-display font-bold leading-tight">
+            Build a portfolio, then test the{" "}
+            <span className="text-compass">assumptions behind it.</span>
+          </h1>
+          <p className="text-base sm:text-lg text-body max-w-xl leading-relaxed mt-6">
+            Compare funds and stocks, then test an allocation with historical
+            data and simulated paths.
+            <span className="text-xs text-muted mt-2 block">For research and education, not financial advice.</span>
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 mt-8">
+            <button onClick={onStart} className="px-6 py-3.5 rounded-lg bg-compass-action hover:bg-compass-action-hover text-white font-medium transition-colors cursor-pointer flex items-center justify-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-compass">
+              Get started <span aria-hidden="true">→</span>
+            </button>
+            <button onClick={onViewMarket} className="px-6 py-3.5 rounded-lg bg-surface-card border border-hairline-strong text-ink font-medium transition-colors cursor-pointer hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-compass">
+              Browse market
+            </button>
           </div>
+          <dl className="grid grid-cols-3 gap-4 sm:gap-6 pt-6 border-t border-hairline mt-10">
+            {[
+              { label: "Market data", value: "Quotes & history" },
+              { label: "Coverage", value: "ETFs + stocks" },
+              { label: "Storage", value: "Browser only" },
+            ].map((item) => (
+              <div key={item.label}>
+                <dt className="text-[10px] sm:text-xs text-muted uppercase tracking-wider mb-2">{item.label}</dt>
+                <dd className="text-sm sm:text-base text-ink">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
-        <div className="relative h-[400px] lg:h-[600px] flex items-center justify-center perspective-[1000px] w-full pointer-events-none">
-          <motion.div
-            style={{ y: y2 }}
-            className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent rounded-full blur-3xl"
-          />
-
-          <motion.div
-            style={{
-              y: y1,
-              rotateX,
-              rotateY,
-              transformStyle: "preserve-3d",
-            }}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.5 }}
-            className="relative w-full max-w-md bg-stone-900/80 border border-stone-700/50 backdrop-blur-xl rounded-2xl p-6 sm:p-8 shadow-2xl shadow-ink/10 overflow-hidden mx-auto pointer-events-auto"
-          >
-            <div
-              className="space-y-6 relative z-10"
-              style={{ transform: "translateZ(30px)" }}
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg sm:text-xl font-display font-bold text-ink">
-                  Illustrative compound growth
-                </h3>
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
-
-              <div
-                className="h-32 sm:h-40 bg-stone-950/50 rounded-lg border border-stone-800/50 p-4 relative overflow-hidden group"
-                style={{ transform: "translateZ(20px)" }}
-              >
-                {/* Illustrative chart */}
-                <div className="flex items-end justify-between h-full gap-2 px-2">
-                  {[...Array(12)].map((_, i) => {
-                    const rate = returnValue / 100;
-                    const maxYears = yearsValue;
-                    const yearForBar = (i / 11) * maxYears;
-                    const growth = Math.pow(1 + rate, yearForBar);
-                    const logGrowth = Math.log10(growth);
-                    const maxLogScale = 2.5;
-
-                    const barHeight = 10 + (logGrowth / maxLogScale) * 90;
-                    // Deterministic jitter keeps the bars still between renders.
-                    const jitter = ((i * 7919) % 100) / 50;
-                    const finalHeight = Math.min(100, barHeight + jitter);
-
-                    return (
-                      <motion.div
-                        key={i}
-                        className="w-full bg-emerald-500/80 rounded-t-sm"
-                        animate={{ height: `${finalHeight}%` }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 20,
-                        }}
-                        style={{ opacity: 0.3 + i / 12 }}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="absolute top-2 left-4 text-xs text-stone-500 font-mono">
-                  ILLUSTRATIVE GROWTH: +
-                  {(
-                    (Math.pow(1 + returnValue / 100, yearsValue) - 1) *
-                    100
-                  ).toFixed(0)}
-                  %
-                </div>
-              </div>
-
-              <div
-                className="space-y-4"
-                style={{ transform: "translateZ(40px)" }}
-              >
-                <InteractiveSlider
-                  label="Time Horizon"
-                  min={1}
-                  max={50}
-                  defaultValue={10}
-                  unit=" Years"
-                  onChange={(v) => setYearsValue(v)}
-                />
-
-                <InteractiveSlider
-                  label="Illustrative Annual Return"
-                  min={2}
-                  max={15}
-                  defaultValue={7}
-                  unit="%"
-                  className="pt-2"
-                  onChange={(v) => setReturnValue(v)}
-                />
-              </div>
-
-              <div
-                className="pt-4 flex gap-3 text-xs text-stone-500 border-t border-stone-800 flex-wrap"
-                style={{ transform: "translateZ(10px)" }}
-              >
-                <span>Constant return</span>
-                <span>No contributions</span>
-              </div>
-            </div>
-
-            {/* Glass Shine Effect */}
-            <div
-              className="absolute inset-0 bg-gradient-to-tr from-ink/5 to-transparent pointer-events-none"
-              style={{ transform: "translateZ(50px)" }}
-            />
-          </motion.div>
-        </div>
+        <section className="w-full max-w-md bg-surface-card border border-hairline-strong rounded-2xl p-6 sm:p-8 mx-auto" aria-labelledby="growth-title">
+          <h2 id="growth-title" className="text-lg sm:text-xl font-display font-normal text-ink">Illustrative compound growth</h2>
+          <p className="text-xs text-muted mt-2">Starting balance: {dollars.format(startingBalance)} CAD</p>
+          <div className="mt-5" aria-live="polite" aria-atomic="true">
+            <p className="text-xs text-body">Balance after {years} {years === 1 ? "year" : "years"}</p>
+            <p className="text-2xl sm:text-3xl tabular-nums mt-1">{dollars.format(endingBalance)} <span className="text-xs text-muted">CAD</span></p>
+          </div>
+          <figure className="mt-5 mb-6 bg-canvas rounded-lg border border-hairline p-3">
+            <svg viewBox="0 0 380 178" className="w-full h-auto" role="img" aria-labelledby="growth-chart-title growth-chart-description">
+              <title id="growth-chart-title">Illustrative compound growth chart</title>
+              <desc id="growth-chart-description">
+                {startingBalance} Canadian dollars becomes {Math.round(endingBalance)} after {years} years
+                at a constant {annualReturn} percent annual return, with no contributions.
+              </desc>
+              {[0, chartMaximum / 2, chartMaximum].map((value) => {
+                const y = 150 - (value / chartMaximum) * 128;
+                return (
+                  <g key={value}>
+                    <line x1="40" y1={y} x2="368" y2={y} className="stroke-hairline" />
+                    <text x="32" y={y + 3} textAnchor="end" className="fill-muted text-[9px]">{axisNumbers.format(value)}</text>
+                  </g>
+                );
+              })}
+              {projection.map((point, index) => {
+                const height = (point.balance / chartMaximum) * 128;
+                return <rect key={point.year} x={40 + ((index + 0.5) / projection.length) * 328 - barWidth / 2} y={150 - height} width={barWidth} height={height} rx="1" className="fill-compass" />;
+              })}
+              <line x1="40" y1={startingY} x2="368" y2={startingY} className="stroke-body" strokeDasharray="3 3" />
+              <text x="40" y="170" className="fill-muted text-[9px]">Year 0</text>
+              <text x="368" y="170" textAnchor="end" className="fill-muted text-[9px]">Year {years}</text>
+            </svg>
+            <figcaption className="text-[10px] text-body mt-2">Modeled change: {growth >= 0 ? "+" : ""}{growth.toFixed(0)}%. Dashed line marks the starting balance.</figcaption>
+          </figure>
+          <div className="space-y-4">
+            <InteractiveSlider label="Time horizon" min={1} max={50} defaultValue={10} unit=" years" onChange={setYears} />
+            <InteractiveSlider label="Assumed annual return" min={-10} max={15} defaultValue={7} onChange={setAnnualReturn} />
+          </div>
+          <p className="mt-5 pt-4 text-[10px] leading-relaxed text-muted border-t border-hairline">Constant return, no contributions, fees, taxes or inflation. This illustration does not model market volatility.</p>
+        </section>
       </div>
-
-      {/* Scroll Indicator - Bounding Arrow */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.5, duration: 0.8 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 pointer-events-none"
-      >
-        <span className="text-[10px] text-stone-500 uppercase tracking-[0.2em] font-mono">Explore</span>
-        <ChevronDown className="w-6 h-6 text-emerald-500/50 animate-bounce" />
-      </motion.div>
-    </div>
+    </section>
   );
 }
