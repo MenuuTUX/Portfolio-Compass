@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "Portfolio Compass — compare stocks and ETFs, build a portfolio locally.";
+  "PortfolioCompass: compare stocks and ETFs, build a portfolio locally.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -16,8 +16,8 @@ export default function OpengraphImage() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#0c0a09",
-          color: "#f5f3ef",
+          background: "#0d0d0d",
+          color: "#ffffff",
           padding: 80,
           fontFamily: "sans-serif",
         }}
@@ -28,24 +28,24 @@ export default function OpengraphImage() {
               width: 20,
               height: 20,
               borderRadius: 999,
-              background: "#f0c868",
+              background: "#ffffff",
             }}
           />
-          <div style={{ fontSize: 28, letterSpacing: 2, color: "#8a8782" }}>
-            PORTFOLIO COMPASS
+          <div style={{ fontSize: 28, color: "#8c8c8c" }}>
+            PortfolioCompass
           </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <div style={{ fontSize: 76, lineHeight: 1.05, fontWeight: 700 }}>
+          <div style={{ fontSize: 76, lineHeight: 1.05, fontWeight: 700, letterSpacing: -2 }}>
             Compare stocks and ETFs.
           </div>
-          <div style={{ fontSize: 76, lineHeight: 1.05, color: "#f0c868", fontWeight: 700 }}>
+          <div style={{ fontSize: 76, lineHeight: 1.05, color: "#8c8c8c", fontWeight: 700 }}>
             Build a portfolio locally.
           </div>
         </div>
 
-        <div style={{ fontSize: 30, color: "#b9b6b0" }}>
+        <div style={{ fontSize: 30, color: "#8c8c8c" }}>
           No account. No server database. Your holdings stay in your browser.
         </div>
       </div>

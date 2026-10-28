@@ -1,11 +1,12 @@
 import { memo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Trash2 } from "lucide-react";
+import { EASE } from "./motion/Reveal";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { getQuoteFreshness } from "@/lib/math/portfolio-returns";
 import { quoteSessionLabel } from "@/lib/quote-session";
+import { cn, formatCurrency } from "@/lib/utils";
 import { PortfolioItem } from "@/types";
-import { motion } from "framer-motion";
-import { VirtualItem } from "@tanstack/react-virtual";
 import Image from "next/image";
 import { HelpTip } from "./ui/HelpTip";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
@@ -14,22 +15,30 @@ import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fe
 interface PortfolioItemRowProps {
   item: PortfolioItem;
   now?: number;
-  virtualRow: VirtualItem;
-  measureElement: (element: Element | null) => void;
+  expanded: boolean;
+  onToggle: (ticker: string) => void;
+  onCollapse: () => void;
   onRemove: (ticker: string) => void;
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
+  /** Position in the list; drives the 30ms mount stagger. */
+  index?: number;
+  /** Masks the position value when the eye toggle is off. */
+  hideValues?: boolean;
 }
 
 const PortfolioItemRow = memo(
   ({
     item,
     now,
-    virtualRow,
-    measureElement,
+    expanded,
+    onToggle,
+    onCollapse,
     onRemove,
     onUpdateWeight,
     onUpdateShares,
+    index = 0,
+    hideValues = false,
   }: PortfolioItemRowProps) => {
     const [imgError, setImgError] = useState(false);
     const iconUrl = getAssetIconUrl(item.ticker, item.name, item.assetType);
@@ -54,166 +63,233 @@ const PortfolioItemRow = memo(
     );
     const expenseRatio = getSourcedExpenseRatio(item.metrics);
 
+    const weight = item.weight ?? 0;
+    const shares = item.shares || 0;
+    const hasValue = shares > 0 && item.price > 0 && !quoteMessage;
+    const valueText = hasValue
+      ? hideValues
+        ? "••••••"
+        : formatCurrency(item.price * shares, item.currency)
+      : `${weight.toFixed(1)}%`;
+    const hasChange = !quoteMessage && Number.isFinite(item.changePercent);
+    const change = hasChange ? item.changePercent : 0;
+
+    const editorId = `holding-editor-${item.ticker}`;
+
     return (
-      <tr
-        key={item.ticker}
-        data-index={virtualRow.index}
-        ref={measureElement}
-        className="group bg-surface-card border-b border-hairline hover:bg-surface-soft transition-colors"
-        // Removed transform and fixed height to allow dynamic sizing and correct positioning via spacer rows
+      <motion.li
+        layout="position"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE, delay: Math.min(index, 12) * 0.03 } }}
+        exit={{ opacity: 0, height: 0, transition: { duration: 0.24, ease: EASE } }}
+        className={cn("overflow-hidden transition-colors duration-150", expanded && "bg-surface-soft/40")}
+        onKeyDown={(e) => {
+          if (expanded && e.key === "Escape") {
+            e.stopPropagation();
+            onCollapse();
+          }
+        }}
       >
-        <td className="p-4 align-top">
-          <div className="flex gap-3 items-center">
-            {iconUrl && !imgError && (
-              <div className="w-8 h-8 flex items-center justify-center shrink-0 relative">
-                <Image
-                  src={iconUrl}
-                  alt={`${item.ticker} logo`}
-                  className="object-contain"
-                  width={32}
-                  height={32}
-                  onError={() => setImgError(true)}
+        <button
+          type="button"
+          onClick={() => onToggle(item.ticker)}
+          aria-expanded={expanded}
+          aria-controls={editorId}
+          aria-label={`Edit ${item.ticker}`}
+          className="flex w-full h-[42px] items-center gap-2.5 px-3 text-left transition-colors duration-75 hover:bg-surface-soft/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-compass cursor-pointer"
+        >
+          <div className="w-7 h-7 rounded-md bg-surface-soft flex items-center justify-center shrink-0 overflow-hidden">
+            {iconUrl && !imgError ? (
+              <Image
+                src={iconUrl}
+                alt={`${item.ticker} logo`}
+                className="object-contain"
+                width={20}
+                height={20}
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <span className="text-[10px] font-bold text-body-strong" aria-hidden="true">
+                {item.ticker.slice(0, 2)}
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-bold leading-4 text-ink">{item.ticker}</p>
+            <p className="truncate text-xs leading-4 text-muted" title={item.name}>
+              {item.name}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs font-bold leading-4 text-ink tabular-nums">{valueText}</p>
+            <p
+              className={cn(
+                "text-xs leading-4 tabular-nums",
+                hasChange
+                  ? change >= 0
+                    ? "text-compass"
+                    : "text-rose-400"
+                  : "text-muted",
+              )}
+            >
+              {hasChange
+                ? `${change >= 0 ? "+" : "-"}${Math.abs(change).toFixed(2)}%`
+                : hasValue
+                  ? "No change"
+                  : "target"}
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "w-3.5 h-3.5 shrink-0 text-muted transition-transform duration-200",
+              expanded && "rotate-180",
+            )}
+            aria-hidden="true"
+          />
+        </button>
+
+        <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            key="editor"
+            id={editorId}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.24, ease: EASE }}
+            className="overflow-hidden"
+          >
+          <div className="border-t border-hairline px-3 py-3 flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label
+                  htmlFor={`weight-range-${item.ticker}`}
+                  className="flex justify-between text-xs text-muted mb-2"
+                >
+                  <span>Target weight</span>
+                  <span className="tabular-nums">{weight.toFixed(2)}%</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id={`weight-range-${item.ticker}`}
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={weight}
+                    onChange={(e) =>
+                      onUpdateWeight(item.ticker, parseFloat(e.target.value))
+                    }
+                    className="w-full h-1.5 bg-surface-soft rounded-lg appearance-none cursor-pointer accent-[var(--compass)]"
+                    aria-label={`Weight for ${item.ticker}`}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    value={Number(weight.toFixed(2))}
+                    onChange={(e) => {
+                      const next = parseFloat(e.target.value);
+                      if (Number.isFinite(next)) {
+                        onUpdateWeight(item.ticker, Math.min(100, Math.max(0, next)));
+                      }
+                    }}
+                    className="w-20 shrink-0 bg-surface-soft ring-1 ring-hairline rounded-lg px-2 py-1 min-h-[44px] md:min-h-0 text-ink text-right focus-visible:ring-2 focus-visible:ring-compass focus:outline-none [color-scheme:dark] text-sm tabular-nums"
+                    aria-label={`Weight percent for ${item.ticker}`}
+                  />
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor={`shares-${item.ticker}`}
+                  className="block text-xs text-muted mb-2"
+                >
+                  Shares
+                </label>
+                <input
+                  id={`shares-${item.ticker}`}
+                  type="number"
+                  value={item.shares || 0}
+                  onChange={(e) =>
+                    onUpdateShares(item.ticker, parseFloat(e.target.value))
+                  }
+                  className="w-full bg-surface-soft ring-1 ring-hairline rounded-lg px-2 py-1 min-h-[44px] md:min-h-0 text-ink text-right focus-visible:ring-2 focus-visible:ring-compass focus:outline-none [color-scheme:dark] text-sm tabular-nums"
+                  aria-label={`Shares for ${item.ticker}`}
                 />
               </div>
-            )}
-            <div className="flex flex-col">
-              <span className="font-bold text-ink text-lg">
-                {item.ticker}
-              </span>
-              <span
-                className="text-xs text-neutral-400 truncate max-w-[150px]"
-                title={item.name}
-              >
-                {item.name}
-              </span>
-              {!quoteMessage && quoteLabel && (
-                <span className="text-[10px] text-muted">{quoteLabel}</span>
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs text-muted">
+              {quoteMessage ? (
+                <p>{quoteMessage}</p>
+              ) : (
+                quoteLabel && <p>{quoteLabel}</p>
               )}
-              {quoteMessage && <span className="text-xs text-amber-400">{quoteMessage}</span>}
-            </div>
-          </div>
-        </td>
-
-        <td className="p-4 align-top hidden md:table-cell">
-          <div className="flex flex-col gap-1 text-xs text-neutral-400">
-            {/* Expense ratios apply to funds and ETFs, not individual stocks. */}
-            {item.assetType !== "STOCK" && (
-              <div className="flex justify-between w-28 gap-2">
+              {/* Expense ratios apply to funds and ETFs, not individual stocks. */}
+              {item.assetType !== "STOCK" ? (
+                <p className="flex gap-2">
+                  <HelpTip
+                    term="Provider-reported expense ratio"
+                    showIcon={false}
+                    className="text-muted"
+                  >
+                    Expense ratio:
+                  </HelpTip>
+                  <span className="text-body-strong" title={describeExpenseRatioProvenance(item.metrics)}>
+                    {expenseRatio != null ? `${expenseRatio.toFixed(2)}%` : "N/A"}
+                  </span>
+                </p>
+              ) : (
+                <p className="flex gap-2">
+                  <HelpTip term="PE Ratio" showIcon={false} className="text-muted">
+                    P/E:
+                  </HelpTip>
+                  <span className="text-body-strong">
+                    {item.peRatio != null && item.peRatio > 0
+                      ? item.peRatio.toFixed(1)
+                      : "N/A"}
+                  </span>
+                </p>
+              )}
+              <p className="flex gap-2">
                 <HelpTip
-                  term="Provider-reported expense ratio"
+                  term={yieldUnverified ? "Unverified Yahoo yield unavailable" : "Yield"}
                   showIcon={false}
-                  className="text-neutral-400"
+                  className="text-muted"
                 >
-                  Expense ratio:
+                  {yieldUnverified ? "Yahoo yield unavailable:" : "Yield:"}
                 </HelpTip>
-                <span className="text-neutral-300" title={describeExpenseRatioProvenance(item.metrics)}>
-                  {expenseRatio != null ? `${expenseRatio.toFixed(2)}%` : "N/A"}
-                </span>
-              </div>
-            )}
-            {item.assetType === "STOCK" && (
-              <div className="flex justify-between w-28 gap-2">
-                <HelpTip
-                  term="PE Ratio"
-                  showIcon={false}
-                  className="text-neutral-400"
+                <span
+                  className={yieldUnverified ? "text-muted" : "text-body-strong"}
+                  title={yieldProvenance}
                 >
-                  P/E:
-                </HelpTip>
-                <span className="text-neutral-300">
-                  {item.peRatio != null && item.peRatio > 0
-                    ? item.peRatio.toFixed(1)
-                    : "N/A"}
+                  {item.quoteStatus === "unavailable" || yieldValue == null ? "N/A" : `${yieldValue.toFixed(2)}%`}
                 </span>
-              </div>
-            )}
-            <div className="flex justify-between w-28 gap-2">
-              <HelpTip
-                term={yieldUnverified ? "Unverified Yahoo yield unavailable" : "Yield"}
-                showIcon={false}
-                className="text-neutral-400"
-              >
-                {yieldUnverified ? "Yahoo yield unavailable:" : "Yield:"}
-              </HelpTip>
-              <span
-                className={yieldUnverified ? "text-neutral-400" : "text-emerald-400"}
-                title={yieldProvenance}
-              >
-                {item.quoteStatus === "unavailable" || yieldValue == null ? "N/A" : `${yieldValue.toFixed(2)}%`}
-              </span>
+              </p>
+              {yieldUnverified && yieldValue != null && (
+                <p className="text-muted-soft" title={yieldProvenance}>
+                  Yahoo-reported · unverified
+                </p>
+              )}
             </div>
-            {yieldUnverified && yieldValue != null && (
-              <span className="self-end text-[10px] text-neutral-500" title={yieldProvenance}>
-                Yahoo-reported · unverified
-              </span>
-            )}
-          </div>
-        </td>
 
-        <td className="p-4 align-top">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor={`shares-${item.ticker}`}
-                className="text-xs text-neutral-400 w-12 md:hidden"
+            <div>
+              <button
+                type="button"
+                onClick={() => onRemove(item.ticker)}
+                className="ws-pill gap-2"
+                aria-label={`Remove ${item.ticker}`}
               >
-                Shares
-              </label>
-              <input
-                id={`shares-${item.ticker}`}
-                type="number"
-                value={item.shares || 0}
-                onChange={(e) =>
-                  onUpdateShares(item.ticker, parseFloat(e.target.value))
-                }
-                className="w-24 bg-black/50 border border-hairline rounded px-2 py-1 text-ink text-right focus:border-emerald-500 focus:outline-none [color-scheme:dark] text-sm"
-                aria-label={`Shares for ${item.ticker}`}
-              />
-            </div>
-            <div className="flex items-center gap-2 md:hidden">
-              <span className="text-xs text-neutral-400 w-12">Weight</span>
-              <span className="text-xs text-ink">
-                {item.weight?.toFixed(2)}%
-              </span>
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
+                Remove
+              </button>
             </div>
           </div>
-        </td>
-
-        <td className="p-4 align-top hidden md:table-cell">
-          <div className="w-32">
-            <label
-              htmlFor={`weight-range-${item.ticker}`}
-              className="flex justify-between text-xs text-neutral-400 mb-1 w-full"
-            >
-              <span>Weight</span>
-              <span>{item.weight?.toFixed(2)}%</span>
-            </label>
-            <input
-              id={`weight-range-${item.ticker}`}
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              value={item.weight}
-              onChange={(e) =>
-                onUpdateWeight(item.ticker, parseFloat(e.target.value))
-              }
-              className="w-full h-1.5 bg-surface-soft rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              aria-label={`Weight for ${item.ticker}`}
-            />
-          </div>
-        </td>
-
-        <td className="p-4 align-middle text-right">
-          <button
-            onClick={() => onRemove(item.ticker)}
-            className="p-2 text-neutral-400 hover:text-rose-500 transition-colors cursor-pointer rounded-full hover:bg-rose-500/10"
-            aria-label={`Remove ${item.ticker}`}
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
-        </td>
-      </tr>
+          </motion.div>
+        )}
+        </AnimatePresence>
+      </motion.li>
     );
   },
   (prevProps, nextProps) => {
@@ -224,6 +300,8 @@ const PortfolioItemRow = memo(
       prevProps.item.shares === nextProps.item.shares &&
       prevProps.item.weight === nextProps.item.weight &&
       prevProps.item.price === nextProps.item.price &&
+      prevProps.item.currency === nextProps.item.currency &&
+      prevProps.item.changePercent === nextProps.item.changePercent &&
       prevProps.item.dividendYield === nextProps.item.dividendYield &&
       prevProps.item.peRatio === nextProps.item.peRatio &&
       prevProps.item.metrics === nextProps.item.metrics &&
@@ -231,10 +309,14 @@ const PortfolioItemRow = memo(
       prevProps.item.quoteSession === nextProps.item.quoteSession &&
       prevProps.item.quoteStatus === nextProps.item.quoteStatus &&
       prevProps.now === nextProps.now &&
-      // Check virtualRow properties relevant for rendering/sizing
-      prevProps.virtualRow.index === nextProps.virtualRow.index &&
-      prevProps.virtualRow.size === nextProps.virtualRow.size &&
-      prevProps.virtualRow.start === nextProps.virtualRow.start
+      prevProps.index === nextProps.index &&
+      prevProps.hideValues === nextProps.hideValues &&
+      prevProps.expanded === nextProps.expanded &&
+      prevProps.onToggle === nextProps.onToggle &&
+      prevProps.onCollapse === nextProps.onCollapse &&
+      prevProps.onRemove === nextProps.onRemove &&
+      prevProps.onUpdateWeight === nextProps.onUpdateWeight &&
+      prevProps.onUpdateShares === nextProps.onUpdateShares
     );
   },
 );

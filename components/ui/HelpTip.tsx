@@ -100,14 +100,14 @@ export function HelpTip({
           className={cn(
             "truncate",
             underline &&
-              "border-b border-dotted border-neutral-500/60 group-hover:border-neutral-400",
+              "border-b border-dotted border-muted/60",
           )}
         >
           {children ?? entry.label}
         </span>
         {showIcon && (
           <Info
-            className="w-3 h-3 shrink-0 text-neutral-500 opacity-60 hover:opacity-100 transition-opacity"
+            className="w-3 h-3 shrink-0 text-muted opacity-70"
             aria-hidden
           />
         )}
@@ -127,18 +127,18 @@ export function HelpTip({
               zIndex: 9999,
               transform: coords.placeAbove ? "translateY(-100%)" : undefined,
             }}
-            className="pointer-events-none rounded-xl border border-hairline bg-stone-950/95 backdrop-blur-md shadow-2xl p-3.5"
+            className="pointer-events-none rounded-lg bg-surface-card ring-1 ring-hairline shadow-[0_12px_32px_rgba(0,0,0,0.4)] p-3.5"
             onMouseEnter={show}
             onMouseLeave={hide}
           >
-            <div className="text-xs font-bold text-ink tracking-wide mb-1.5">
+            <div className="text-sm font-semibold text-ink mb-1.5">
               {entry.label}
             </div>
-            <p className="text-[11px] text-neutral-300 leading-relaxed mb-2">
+            <p className="text-xs text-body-strong leading-relaxed mb-2">
               {entry.what}
             </p>
-            <p className="text-[11px] text-emerald-400/90 leading-relaxed border-t border-hairline pt-2">
-              <span className="font-semibold text-emerald-400">
+            <p className="text-xs text-body leading-relaxed border-t border-hairline pt-2">
+              <span className="font-semibold text-ink">
                 What it means:{" "}
               </span>
               {entry.means}

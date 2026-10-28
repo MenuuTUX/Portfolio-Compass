@@ -52,7 +52,7 @@ export default function OptimizationDiffChart({
 
   return (
     <div className="w-full h-[250px] glass-panel p-4 rounded-xl flex flex-col mb-4">
-      <h3 className="text-xs font-medium text-neutral-400 mb-2 uppercase tracking-wider">
+      <h3 className="text-xs font-medium text-muted mb-2">
         Proposed Changes (Shares)
       </h3>
       <div className="flex-1 min-h-0">
@@ -66,7 +66,7 @@ export default function OptimizationDiffChart({
             <YAxis
               type="category"
               dataKey="ticker"
-              tick={{ fill: "#a3a3a3", fontSize: 11 }}
+              tick={{ fill: "#a3a3a3", fontSize: 12 }}
               tickLine={false}
               axisLine={false}
               width={40}
@@ -78,7 +78,7 @@ export default function OptimizationDiffChart({
                   const d = payload[0].payload;
                   const isBuy = d.delta > 0;
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-hairline p-2 rounded-lg text-xs">
+                    <div className="bg-surface-card border border-hairline p-2 rounded-lg text-xs">
                       <span className="font-bold text-ink">{d.ticker}: </span>
                       <span
                         className={isBuy ? "text-emerald-400" : "text-rose-400"}
@@ -93,7 +93,7 @@ export default function OptimizationDiffChart({
               }}
             />
             <ReferenceLine x={0} stroke="#525252" />
-            <Bar dataKey="delta" radius={[2, 2, 2, 2]}>
+            <Bar dataKey="delta" radius={[2, 2, 2, 2]} animationDuration={700} animationEasing="ease-out">
               {data.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}

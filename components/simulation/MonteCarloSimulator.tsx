@@ -397,20 +397,20 @@ export default function MonteCarloSimulator({
           {onBack && (
             <button
               onClick={onBack}
-              className="p-2 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-ink transition-colors"
+              className="w-11 h-11 md:w-9 md:h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-colors"
               title="Back to Portfolio"
             >
               <ArrowLeft className="w-6 h-6" />
             </button>
           )}
           <div>
-            <h2 className="text-2xl font-bold text-ink flex items-center gap-2">
+            <h2 className="text-base font-semibold text-ink flex items-center gap-2">
               Monte Carlo Simulation{" "}
-              <span className="text-xs px-2 py-1 bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/30">
+              <span className="text-xs px-2 py-0.5 bg-surface-soft text-body-strong rounded-full">
                 BETA
               </span>
             </h2>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-muted">
               Runs {numSimulations} illustrative paths from observed daily price returns, volatility, and correlations. Results depend on this historical sample and the assumptions below.
             </p>
           </div>
@@ -452,7 +452,7 @@ export default function MonteCarloSimulator({
             <button
               onClick={prepareSimulation}
               disabled={isLoadingHistory}
-              className="flex items-center gap-2 px-6 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-600/50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors shadow-lg shadow-emerald-900/20"
+              className="flex items-center gap-2 px-6 py-2 bg-surface-soft hover:bg-hairline-strong text-ink disabled:cursor-not-allowed rounded-full font-medium transition-colors duration-75 min-h-[44px] md:min-h-0 "
             >
               {isLoadingHistory ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -473,16 +473,16 @@ export default function MonteCarloSimulator({
 
       {/* Parameters */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="glass-panel p-4 rounded-xl bg-surface-card border border-hairline">
+        <div className="p-4 rounded-2xl bg-surface-card ring-1 ring-hairline">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold block">
+            <label className="text-xs text-muted font-semibold block">
               Investment
             </label>
             {currentPortfolioValue > 0 &&
               initialInvestment !== currentPortfolioValue && (
                 <button
                   onClick={() => setInitialInvestment(currentPortfolioValue)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  className="text-xs text-emerald-400 hover:text-emerald-400 flex items-center gap-1"
                   title="Reset to current portfolio value"
                 >
                   <RefreshCw className="w-3 h-3" />
@@ -491,7 +491,7 @@ export default function MonteCarloSimulator({
               )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-neutral-500">$</span>
+            <span className="text-muted">$</span>
             <input
               type="number"
               aria-label={`Starting balance (${currency ?? "currency"})`}
@@ -501,8 +501,8 @@ export default function MonteCarloSimulator({
             />
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-xl bg-surface-card border border-hairline">
-          <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold mb-2 block">
+        <div className="p-4 rounded-2xl bg-surface-card ring-1 ring-hairline">
+          <label className="text-xs text-muted font-semibold mb-2 block">
             Time Horizon
           </label>
           <div className="flex items-center gap-2">
@@ -512,21 +512,21 @@ export default function MonteCarloSimulator({
               max="30"
               value={timeHorizonYears}
               onChange={(e) => setTimeHorizonYears(Number(e.target.value))}
-              className="flex-1 accent-emerald-500"
+              className="flex-1 accent-[var(--compass)]"
             />
             <span className="text-xl font-mono text-ink w-12 text-right">
               {timeHorizonYears}y
             </span>
           </div>
         </div>
-        <div className="glass-panel p-4 rounded-xl bg-surface-card border border-hairline">
-          <label className="text-xs text-neutral-400 uppercase tracking-wider font-semibold mb-2 block">
+        <div className="p-4 rounded-2xl bg-surface-card ring-1 ring-hairline">
+          <label className="text-xs text-muted font-semibold mb-2 block">
             Simulations
           </label>
           <select
             value={numSimulations}
             onChange={(e) => setNumSimulations(Number(e.target.value))}
-            className="bg-black/50 border border-hairline text-ink rounded px-2 py-1 w-full focus:outline-none"
+            className="bg-surface-soft border border-hairline text-ink rounded px-2 py-1 w-full focus:outline-none"
           >
             <option value={20}>20 paths</option>
             <option value={50}>50 paths</option>
@@ -535,11 +535,11 @@ export default function MonteCarloSimulator({
         </div>
       </div>
 
-      <p className="text-xs text-neutral-500 leading-relaxed">
+      <p className="text-xs text-muted leading-relaxed">
         Illustrative price-only scenarios, not forecasts or calibrated probabilities. Each simulated step applies a random daily price return using the historical average, volatility, and co-movement between holdings. It assumes a buy-and-hold portfolio. Recurring contributions, withdrawals, rebalancing, distributions, fees, and extreme events are excluded.
       </p>
       {mixedCurrency && fxProvenance && (
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted">
           Historical USD/CAD moves are included in the converted CAD return samples. Current USD quotes use {fxProvenance.usdCad} CAD/USD ({fxProvenance.date}); future FX is not modeled as a separate process or forecast.
         </p>
       )}
@@ -553,7 +553,7 @@ export default function MonteCarloSimulator({
       )}
 
       {simulationComplete && modelStats && (
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-hairline bg-hairline text-xs text-muted sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-hairline bg-hairline text-xs text-muted sm:grid-cols-3">
           <div className="bg-surface-card px-3 py-2">
               <span className="block">Historical annualized log drift</span>
             <strong className="mt-1 block font-mono text-sm text-ink">
@@ -588,12 +588,12 @@ export default function MonteCarloSimulator({
       )}
 
       {/* Chart */}
-      <div className="flex-1 min-h-[400px] glass-panel p-6 rounded-xl bg-dune/30 border border-hairline relative overflow-hidden">
+      <div className="flex-1 min-h-[400px] p-6 rounded-2xl bg-surface-card ring-1 ring-hairline relative overflow-hidden">
         {!isSimulating &&
           !simulationComplete &&
           !error &&
           !isLoadingHistory && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-500 z-10">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted z-10">
               <Info className="w-12 h-12 mb-4 opacity-50" />
               <p>Run the simulation to generate model paths.</p>
             </div>
@@ -727,7 +727,9 @@ export default function MonteCarloSimulator({
                   stroke="none"
                   fill="#10b981"
                   fillOpacity={1}
-                  isAnimationActive={false}
+                  animationBegin={0}
+                  animationDuration={900}
+                  animationEasing="ease-out"
                 />
                 <Line
                   type="monotone"
@@ -737,6 +739,9 @@ export default function MonteCarloSimulator({
                   strokeWidth={2}
                   dot={false}
                   strokeDasharray="4 4"
+                  animationBegin={180}
+                  animationDuration={900}
+                  animationEasing="ease-out"
                 />
                 <Area
                   type="monotone"
@@ -745,6 +750,9 @@ export default function MonteCarloSimulator({
                   stroke="#10b981"
                   strokeWidth={3}
                   fill="none"
+                  animationBegin={120}
+                  animationDuration={1000}
+                  animationEasing="ease-out"
                 />
                 <Line
                   type="monotone"
@@ -753,6 +761,9 @@ export default function MonteCarloSimulator({
                   stroke="#10b981"
                   strokeWidth={2}
                   dot={false}
+                  animationBegin={240}
+                  animationDuration={900}
+                  animationEasing="ease-out"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -768,29 +779,29 @@ export default function MonteCarloSimulator({
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"
           >
-            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">Median</div>
+            <div className="p-4 rounded-2xl  border-hairline bg-surface-card">
+              <div className="text-xs text-muted">Median</div>
               <div className="text-xl font-bold text-ink">
                 {formatCurrency(riskMetrics.medianOutcome, currency)}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-emerald-300 bg-surface-card">
-              <div className="text-xs text-neutral-400">95th Percentile</div>
-              <div className="text-lg font-bold text-emerald-300">
+            <div className="p-4 rounded-2xl  border-hairline bg-surface-card">
+              <div className="text-xs text-muted">95th Percentile</div>
+              <div className="text-lg font-bold text-emerald-400">
                 {formatCurrency(riskMetrics.p95Outcome, currency)}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-rose-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">5th Percentile</div>
+            <div className="p-4 rounded-2xl  bg-surface-card">
+              <div className="text-xs text-muted">5th Percentile</div>
               <div className="text-lg font-bold text-rose-400">
                 {formatCurrency(riskMetrics.p05Outcome, currency)}
               </div>
             </div>
-            <div className="glass-card p-4 rounded-xl border-l-4 border-yellow-500 bg-surface-card">
-              <div className="text-xs text-neutral-400">
+            <div className="p-4 rounded-2xl  bg-surface-card">
+              <div className="text-xs text-muted">
                 Modeled Loss at 5th Percentile
               </div>
-              <div className="text-lg font-bold text-yellow-400">
+              <div className="text-lg font-bold text-body-strong">
                 {formatCurrency(
                   riskMetrics.modeledLossAtP05 > 0
                     ? riskMetrics.modeledLossAtP05

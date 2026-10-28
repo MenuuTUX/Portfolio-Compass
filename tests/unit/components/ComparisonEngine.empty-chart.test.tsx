@@ -34,8 +34,8 @@ describe("ComparisonEngine empty history", () => {
 
     render(<ComparisonEngine onAddToPortfolio={async () => {}} onRemoveFromPortfolio={() => {}} portfolio={[]} />);
 
-    expect(await screen.findByText("No History Fund", {}, { timeout: 3000 })).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("Chart unavailable")).toBeTruthy());
+    expect((await screen.findAllByText("No History Fund", {}, { timeout: 3000 })).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByText("Chart unavailable").length).toBeGreaterThan(0));
     expect(screen.queryByTestId("sparkline")).toBeNull();
   });
 });

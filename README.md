@@ -39,7 +39,7 @@ The allocation score is a heuristic, not a Sharpe optimizer. It uses a provider-
 | `/opengraph-image` | 1200×630 social card, generated at build time |
 
 The `/api` routes are rate-limited to 120 requests per minute per IP in
-`middleware.ts`, since each one proxies an upstream data provider.
+`proxy.ts`, since each one proxies an upstream data provider.
 
 ## Getting started
 

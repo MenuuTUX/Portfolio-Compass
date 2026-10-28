@@ -2,6 +2,8 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { EASE } from "@/components/motion/Reveal";
 
 const DISMISS_KEY = "storage_notice_dismissed_v1";
 
@@ -63,33 +65,39 @@ export default function StorageNotice() {
     for (const listener of listeners) listener();
   }, []);
 
-  if (dismissed) return null;
-
   return (
-    <div
-      role="region"
-      aria-label="Data storage notice"
-      className="app-bottom-safe fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-surface-card/95 backdrop-blur-sm"
-    >
-      <div className="mx-auto flex max-w-4xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-body">
-          Your portfolio is saved in this browser only. No account, no cookies,
-          no cross-site tracking.{" "}
-          <Link
-            href="/privacy"
-            className="underline underline-offset-4 hover:text-ink"
-          >
-            How this works
-          </Link>
-          .
-        </p>
-        <button
-          onClick={dismiss}
-          className="shrink-0 rounded-full bg-ink px-5 py-2 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-signal-mint focus:ring-offset-2 focus:ring-offset-surface-card"
+    <AnimatePresence>
+      {!dismissed && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 24 }}
+          transition={{ duration: 0.4, ease: EASE }}
+          role="region"
+          aria-label="Data storage notice"
+          className="app-bottom-safe fixed inset-x-0 bottom-0 z-50 border-t border-hairline bg-surface-card"
         >
-          Got it
-        </button>
-      </div>
-    </div>
+          <div className="mx-auto flex max-w-4xl flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-body">
+              Your portfolio is saved in this browser only. No account, no
+              cookies, no cross-site tracking.{" "}
+              <Link
+                href="/privacy"
+                className="text-compass underline underline-offset-4"
+              >
+                How this works
+              </Link>
+              .
+            </p>
+            <button
+              onClick={dismiss}
+              className="ws-pill ws-pill-primary shrink-0 min-h-11"
+            >
+              Got it
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

@@ -2,20 +2,18 @@ import "./globals.css";
 import React from "react";
 import Providers from "@/components/Providers";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Inter, Libre_Caslon_Text } from 'next/font/google';
+import localFont from 'next/font/local';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const libreCaslon = Libre_Caslon_Text({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-caslon',
+const openaiSans = localFont({
+  src: [
+    { path: './fonts/OpenAISans-Regular.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/OpenAISans-Medium.ttf', weight: '500', style: 'normal' },
+    { path: './fonts/OpenAISans-Semibold.ttf', weight: '600', style: 'normal' },
+    { path: './fonts/OpenAISans-Bold.ttf', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-openai-sans',
   display: 'swap',
 });
 
@@ -30,9 +28,9 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${libreCaslon.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${openaiSans.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased bg-canvas text-ink" suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme-system-only">
           <Providers>
             {children}
           </Providers>

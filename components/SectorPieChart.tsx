@@ -13,18 +13,18 @@ interface SectorPieChartProps {
 
 // Extended color palette to cover all 11 GICS sectors + others
 export const COLORS = [
-  "#10b981", // Emerald
-  "#3b82f6", // Blue
-  "#f59e0b", // Amber
-  "#ef4444", // Red
-  "#8b5cf6", // Violet
-  "#ec4899", // Pink
-  "#6366f1", // Indigo
-  "#06b6d4", // Cyan
-  "#84cc16", // Lime
-  "#d946ef", // Fuchsia
-  "#f97316", // Orange
-  "#14b8a6", // Teal
+  "#e5e5e5",
+  "#a3a3a3",
+  "#737373",
+  "#d4d4d4",
+  "#8a8f98",
+  "#5f6368",
+  "#bfc3c9",
+  "#9ca3af",
+  "#6b7280",
+  "#cfd2d6",
+  "#4b5057",
+  "#b4b8bd",
 ];
 
 interface ActiveSectorRenderProps {
@@ -51,7 +51,7 @@ const renderActiveSector = (props: ActiveSectorRenderProps) => {
         startAngle={startAngle}
         endAngle={endAngle}
         fill={fill}
-        className="drop-shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+        className=""
       />
       <Sector
         cx={cx}
@@ -113,7 +113,7 @@ export default function SectorPieChart({
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2">
           <div className="w-32 h-32 rounded-full bg-surface-card" />
           <div className="w-24 h-4 rounded bg-surface-card" />
         </div>
@@ -123,7 +123,7 @@ export default function SectorPieChart({
 
   if (processedData.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-neutral-400 text-sm">
+      <div className="h-full flex items-center justify-center text-muted text-sm">
         No sector data available
       </div>
     );
@@ -138,9 +138,9 @@ export default function SectorPieChart({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.5 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
       className="w-full h-full min-h-[250px] relative"
     >
       <ResponsiveContainer width="100%" height="100%">
@@ -151,7 +151,7 @@ export default function SectorPieChart({
             cy="50%"
             innerRadius={65}
             outerRadius={90}
-            paddingAngle={4}
+            paddingAngle={2}
             dataKey="value"
             cornerRadius={6}
             {...interactivePieProps}
@@ -174,7 +174,7 @@ export default function SectorPieChart({
                 fillOpacity={
                   activeIndex === undefined || activeIndex === index ? 1 : 0.3
                 }
-                className="transition-all duration-300"
+                className="transition-opacity duration-75"
               />
             ))}
           </Pie>
@@ -187,30 +187,30 @@ export default function SectorPieChart({
           {activeItem ? (
             <motion.div
               key="active"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="text-center flex flex-col items-center max-w-[120px]"
             >
               <span
-                className="text-xs text-neutral-400 font-medium truncate w-full px-2"
+                className="text-xs text-muted font-medium truncate w-full px-2"
                 title={activeItem.name}
               >
                 {activeItem.name}
               </span>
-              <span className="text-xl font-bold text-ink tracking-tight">
+              <span className="text-base font-bold text-ink">
                 {activeItem.value.toFixed(1)}%
               </span>
             </motion.div>
           ) : (
             <motion.div
               key="default"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="text-center"
             >
-              <span className="text-xs text-neutral-500 uppercase tracking-widest font-semibold">
+              <span className="text-xs text-muted font-semibold">
                 Sectors
               </span>
             </motion.div>

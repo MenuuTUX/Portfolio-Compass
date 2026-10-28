@@ -1,7 +1,8 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface MessageDrawerProps {
@@ -20,27 +21,10 @@ export default function MessageDrawer({
   type = "info",
 }: MessageDrawerProps) {
   const dialogRef = useDialogA11y<HTMLDivElement>(isOpen, onClose);
-  const getColor = () => {
-    switch (type) {
-      case "error":
-        return "text-rose-400";
-      case "success":
-        return "text-emerald-400";
-      default:
-        return "text-blue-400";
-    }
-  };
-
-  const getIcon = () => {
-    switch (type) {
-      case "error":
-        return <AlertTriangle className={`w-6 h-6 ${getColor()}`} />;
-      case "success":
-        return <CheckCircle className={`w-6 h-6 ${getColor()}`} />;
-      default:
-        return <Info className={`w-6 h-6 ${getColor()}`} />;
-    }
-  };
+  const reduceMotion = useReducedMotion();
+  const tone =
+    type === "error" ? "text-rose-400" : type === "success" ? "text-emerald-400" : "text-muted";
+  const Icon = type === "error" ? AlertTriangle : type === "success" ? CheckCircle : Info;
 
   return (
     <AnimatePresence>
@@ -51,8 +35,9 @@ export default function MessageDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/60 z-50"
           />
           <motion.div
             ref={dialogRef}
@@ -60,41 +45,41 @@ export default function MessageDrawer({
             aria-modal="true"
             aria-labelledby="message-drawer-title"
             key="drawer"
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="app-sheet-safe fixed bottom-0 left-0 right-0 max-h-[50vh] bg-canvas border-t border-hairline rounded-t-3xl z-50 overflow-hidden shadow-2xl glass-panel pb-12"
+            initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
+            animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}
+            transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
+            className="app-sheet-safe fixed bottom-0 left-0 right-0 mx-auto max-w-lg max-h-[70vh] bg-surface-card ring-1 ring-hairline rounded-t-2xl z-50 overflow-y-auto shadow-[0_-24px_64px_rgba(0,0,0,0.45)]"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-hairline bg-surface-card backdrop-blur-md">
-              <div className="flex items-center gap-4">
-                {getIcon()}
-                <h2 id="message-drawer-title" className="text-xl font-bold text-ink tracking-tight">
+            <RevealGroup stagger={0.05} delay={0.08} onMount>
+            <RevealItem y={8} duration={0.4}>
+            <div className="flex items-center justify-between gap-3 px-6 pt-5 pb-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Icon className={`w-5 h-5 shrink-0 ${tone}`} aria-hidden />
+                <h2 id="message-drawer-title" className="text-base font-semibold text-ink">
                   {title}
                 </h2>
               </div>
               <button
+                type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="p-2 rounded-full hover:bg-surface-soft transition-colors text-neutral-400 hover:text-ink"
+                className="ws-icon-btn -mr-2"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
+            </RevealItem>
 
-            <div className="p-8 flex flex-col items-center text-center">
-              <p className="text-neutral-300 text-lg mb-8 max-w-md">
-                {message}
-              </p>
-
-              <button
-                onClick={onClose}
-                className="bg-surface-soft hover:bg-surface-soft text-ink font-medium py-3 px-8 rounded-full transition-all duration-300 border border-hairline"
-              >
-                Go Back
+            <RevealItem y={8} duration={0.4}>
+            <div className="px-6 pb-2">
+              <p className="text-sm leading-6 text-body mb-6">{message}</p>
+              <button type="button" onClick={onClose} className="ws-pill ws-pill-primary w-full">
+                Go back
               </button>
             </div>
+            </RevealItem>
+            </RevealGroup>
           </motion.div>
         </>
       )}

@@ -1,17 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import {
-  ArrowUpDown,
-  Filter,
+  ChevronDown,
   RotateCcw,
   TrendingUp,
   TrendingDown,
-  Coins,
-  Building2,
-  Percent,
-  CircleDollarSign,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HelpTip } from "./ui/HelpTip";
@@ -62,6 +56,8 @@ interface MarketFiltersProps {
   onChange: (next: MarketFilterState) => void;
   resultCount?: number;
   className?: string;
+  /** Always-open body with no toggle; the parent controls visibility. */
+  embedded?: boolean;
 }
 
 function Chip({
@@ -82,10 +78,10 @@ function Chip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all",
+        "rounded-full px-3 py-1.5 max-lg:min-h-11 text-xs font-medium transition-colors duration-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass",
         active
-          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300 shadow-[0_0_12px_-4px_rgba(16,185,129,0.5)]"
-          : "bg-surface-card border-hairline text-neutral-400 hover:text-ink hover:border-hairline-strong",
+          ? "bg-surface-soft text-ink ring-1 ring-hairline-strong"
+          : "text-muted ring-1 ring-hairline hover:bg-surface-soft hover:text-ink",
       )}
     >
       {children}
@@ -94,22 +90,19 @@ function Chip({
 }
 
 function Section({
-  icon: Icon,
   title,
   tip,
   children,
 }: {
-  icon: React.ElementType;
   title: string;
   tip?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2.5">
-      <div className="flex items-center gap-2 text-xs font-semibold text-neutral-400 uppercase tracking-wider">
-        <Icon className="w-3.5 h-3.5 text-neutral-500" />
+    <div className="space-y-2">
+      <div className="text-xs font-medium text-muted">
         {tip ? (
-          <HelpTip term={tip} showIcon underline className="text-neutral-400">
+          <HelpTip term={tip} showIcon={false} underline className="text-muted">
             {title}
           </HelpTip>
         ) : (
@@ -127,8 +120,11 @@ export default function MarketFilters({
   onChange,
   resultCount,
   className,
+  embedded = false,
 }: MarketFiltersProps) {
   const isStock = assetType === "STOCK";
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
 
   const sortOptions = useMemo(() => {
     const base: { key: SortKey; label: string }[] = [
@@ -177,213 +173,178 @@ export default function MarketFilters({
   const reset = () => onChange({ ...DEFAULT_MARKET_FILTERS });
 
   return (
-    <aside
-      className={cn(
-        "w-full lg:w-64 shrink-0 rounded-2xl border border-hairline bg-surface-card/80 backdrop-blur-md p-5 space-y-6 h-fit lg:sticky lg:top-20",
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2 text-ink font-bold text-sm">
-            <Filter className="w-4 h-4 text-emerald-400" />
-            Sort & Filter
-          </div>
-          <p className="text-[11px] text-neutral-500 mt-1 leading-snug">
-            Narrow {isStock ? "stocks" : "ETFs"} to what matches your goals.
-          </p>
-        </div>
+    <aside className={cn("w-full", className)} aria-label="Sort and filter">
+      <div className="flex items-center justify-between gap-2 px-4 min-h-11">
+        {embedded ? (
+          <span className="flex items-center gap-2 min-h-11 text-sm font-bold text-ink">
+            Sort & filter
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-surface-soft px-2 py-0.5 text-xs font-medium text-body-strong">
+                {activeFilterCount}
+              </span>
+            )}
+          </span>
+        ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex items-center gap-2 min-h-11 text-sm font-bold text-ink lg:pointer-events-none lg:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass rounded-lg"
+        >
+          Sort & filter
+          {activeFilterCount > 0 && (
+            <span className="rounded-full bg-surface-soft px-2 py-0.5 text-xs font-medium text-body-strong">
+              {activeFilterCount}
+            </span>
+          )}
+          <ChevronDown
+            className={cn(
+              "w-4 h-4 text-muted lg:hidden transition-transform duration-75",
+              open && "rotate-180",
+            )}
+            aria-hidden="true"
+          />
+        </button>
+        )}
         {activeFilterCount > 0 && (
           <button
             type="button"
             onClick={reset}
-            className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-emerald-400 transition-colors"
+            className="flex items-center gap-1 min-h-11 px-2 text-xs font-medium text-muted hover:text-ink transition-colors duration-75"
             title="Clear all filters"
           >
-            <RotateCcw className="w-3 h-3" />
+            <RotateCcw className="w-3 h-3" aria-hidden="true" />
             Reset
           </button>
         )}
       </div>
 
-      {resultCount !== undefined && (
-        <div className="text-[11px] text-neutral-400 bg-black/20 rounded-lg px-3 py-2 border border-hairline">
-          Showing{" "}
-          <span className="text-ink font-semibold font-mono">{resultCount}</span>{" "}
-          {resultCount === 1 ? "result" : "results"}
-          {activeFilterCount > 0 && (
-            <span className="text-emerald-400/80">
-              {" "}
-              · {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Sort */}
-      <Section icon={ArrowUpDown} title="Sort by">
-        {sortOptions.map((opt) => (
-          <Chip
-            key={opt.key}
-            active={value.sort === opt.key}
-            onClick={() => set("sort", opt.key)}
-          >
-            {opt.label}
-          </Chip>
-        ))}
-      </Section>
-
-      {/* Today's move */}
-      <Section icon={TrendingUp} title="Today's move" tip="Change Percent">
-        <Chip
-          active={value.performance === "all"}
-          onClick={() => set("performance", "all")}
-        >
-          All
-        </Chip>
-        <Chip
-          active={value.performance === "gainers"}
-          onClick={() => set("performance", "gainers")}
-        >
-          <span className="inline-flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> Up today
-          </span>
-        </Chip>
-        <Chip
-          active={value.performance === "losers"}
-          onClick={() => set("performance", "losers")}
-        >
-          <span className="inline-flex items-center gap-1">
-            <TrendingDown className="w-3 h-3" /> Down today
-          </span>
-        </Chip>
-        <Chip
-          active={value.performance === "flat"}
-          onClick={() => set("performance", "flat")}
-        >
-          Flat (±0.5%)
-        </Chip>
-      </Section>
-
-      {/* Dividends */}
-      <Section icon={Coins} title="Dividends" tip="Dividend Yield">
-        <Chip
-          active={value.yieldFilter === "all"}
-          onClick={() => set("yieldFilter", "all")}
-        >
-          Any
-        </Chip>
-        <Chip
-          active={value.yieldFilter === "any"}
-          onClick={() => set("yieldFilter", "any")}
-        >
-          Pays dividend (sourced)
-        </Chip>
-        <Chip
-          active={value.yieldFilter === "high"}
-          onClick={() => set("yieldFilter", "high")}
-        >
-          High sourced yield (3%+)
-        </Chip>
-        <Chip
-          active={value.yieldFilter === "none"}
-          onClick={() => set("yieldFilter", "none")}
-        >
-          Sourced zero yield
-        </Chip>
-      </Section>
-
-      {/* Size */}
-      <Section
-        icon={Building2}
-        title={isStock ? "Company size" : "Fund size"}
-        tip="Market Cap"
+      <div
+        id={panelId}
+        className={cn(
+          "px-4 pb-4 space-y-4",
+          embedded || open ? "block" : "hidden lg:block",
+        )}
       >
-        <Chip active={value.size === "all"} onClick={() => set("size", "all")}>
-          Any size
-        </Chip>
-        <Chip
-          active={value.size === "mega"}
-          onClick={() => set("size", "mega")}
-        >
-          Mega ($200B+)
-        </Chip>
-        <Chip
-          active={value.size === "large"}
-          onClick={() => set("size", "large")}
-        >
-          Large ($10B to $200B)
-        </Chip>
-        <Chip active={value.size === "mid"} onClick={() => set("size", "mid")}>
-          Mid ($2B to $10B)
-        </Chip>
-        <Chip
-          active={value.size === "small"}
-          onClick={() => set("size", "small")}
-        >
-          Small (&lt;$2B)
-        </Chip>
-      </Section>
-
-      {/* Stock valuation */}
-      {isStock && (
-        <Section icon={Percent} title="Valuation" tip="PE Ratio">
-          <Chip active={value.pe === "all"} onClick={() => set("pe", "all")}>
-            Any P/E
-          </Chip>
-          <Chip
-            active={value.pe === "value"}
-            onClick={() => set("pe", "value")}
-          >
-            Value (P/E &lt; 20)
-          </Chip>
-          <Chip
-            active={value.pe === "growth"}
-            onClick={() => set("pe", "growth")}
-          >
-            Growth (P/E ≥ 20)
-          </Chip>
-          <Chip active={value.pe === "none"} onClick={() => set("pe", "none")}>
-            No P/E data
-          </Chip>
-        </Section>
-      )}
-
-      {/* ETF fees */}
-      {!isStock && (
-        <Section icon={CircleDollarSign} title="Fees">
-          <Chip active={value.mer === "all"} onClick={() => set("mer", "all")}>
-            Any fee
-          </Chip>
-          <Chip
-            active={value.mer === "ultra_low"}
-            onClick={() => set("mer", "ultra_low")}
-          >
-            Under 0.10%
-          </Chip>
-          <Chip
-            active={value.mer === "low"}
-            onClick={() => set("mer", "low")}
-          >
-            Under 0.25%
-          </Chip>
-          <Chip active={value.mer === "any"} onClick={() => set("mer", "any")}>
-            Has fee data
-          </Chip>
-        </Section>
-      )}
-
-      <div className="pt-2 border-t border-hairline">
-        <div className="flex items-start gap-2 text-[10px] text-neutral-500 leading-relaxed">
-          <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-500/70" />
-          <p>
-            Hover any dotted label (like{" "}
-            <HelpTip term="PE Ratio" showIcon={false} className="text-neutral-400">
-              P/E
-            </HelpTip>
-            ) for a plain-English explanation.
+        {resultCount !== undefined && (
+          <p className="text-xs text-muted" aria-live="polite">
+            <span className="text-ink font-medium font-mono">{resultCount}</span>{" "}
+            {resultCount === 1 ? "result" : "results"}
           </p>
+        )}
+
+        <div className="space-y-2">
+          <label htmlFor={`${panelId}-sort`} className="block text-xs font-medium text-muted">
+            Sort by
+          </label>
+          <select
+            id={`${panelId}-sort`}
+            value={value.sort}
+            onChange={(e) => set("sort", e.target.value as SortKey)}
+            className="w-full h-11 lg:h-9 rounded-lg bg-surface-soft px-3 text-xs text-ink ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-compass"
+          >
+            {sortOptions.map((opt) => (
+              <option key={opt.key} value={opt.key}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
+
+        <Section title="Today's move" tip="Change Percent">
+          <Chip active={value.performance === "all"} onClick={() => set("performance", "all")}>
+            All
+          </Chip>
+          <Chip active={value.performance === "gainers"} onClick={() => set("performance", "gainers")}>
+            <span className="inline-flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" aria-hidden="true" /> Up today
+            </span>
+          </Chip>
+          <Chip active={value.performance === "losers"} onClick={() => set("performance", "losers")}>
+            <span className="inline-flex items-center gap-1">
+              <TrendingDown className="w-3 h-3" aria-hidden="true" /> Down today
+            </span>
+          </Chip>
+          <Chip active={value.performance === "flat"} onClick={() => set("performance", "flat")}>
+            Flat (±0.5%)
+          </Chip>
+        </Section>
+
+        <Section title="Dividends" tip="Dividend Yield">
+          <Chip active={value.yieldFilter === "all"} onClick={() => set("yieldFilter", "all")}>
+            Any
+          </Chip>
+          <Chip active={value.yieldFilter === "any"} onClick={() => set("yieldFilter", "any")}>
+            Pays dividend (sourced)
+          </Chip>
+          <Chip active={value.yieldFilter === "high"} onClick={() => set("yieldFilter", "high")}>
+            High sourced yield (3%+)
+          </Chip>
+          <Chip active={value.yieldFilter === "none"} onClick={() => set("yieldFilter", "none")}>
+            Sourced zero yield
+          </Chip>
+        </Section>
+
+        <Section title={isStock ? "Company size" : "Fund size"} tip="Market Cap">
+          <Chip active={value.size === "all"} onClick={() => set("size", "all")}>
+            Any size
+          </Chip>
+          <Chip active={value.size === "mega"} onClick={() => set("size", "mega")}>
+            Mega ($200B+)
+          </Chip>
+          <Chip active={value.size === "large"} onClick={() => set("size", "large")}>
+            Large ($10B to $200B)
+          </Chip>
+          <Chip active={value.size === "mid"} onClick={() => set("size", "mid")}>
+            Mid ($2B to $10B)
+          </Chip>
+          <Chip active={value.size === "small"} onClick={() => set("size", "small")}>
+            Small (&lt;$2B)
+          </Chip>
+        </Section>
+
+        {isStock && (
+          <Section title="Valuation" tip="PE Ratio">
+            <Chip active={value.pe === "all"} onClick={() => set("pe", "all")}>
+              Any P/E
+            </Chip>
+            <Chip active={value.pe === "value"} onClick={() => set("pe", "value")}>
+              Value (P/E &lt; 20)
+            </Chip>
+            <Chip active={value.pe === "growth"} onClick={() => set("pe", "growth")}>
+              Growth (P/E ≥ 20)
+            </Chip>
+            <Chip active={value.pe === "none"} onClick={() => set("pe", "none")}>
+              No P/E data
+            </Chip>
+          </Section>
+        )}
+
+        {!isStock && (
+          <Section title="Fees">
+            <Chip active={value.mer === "all"} onClick={() => set("mer", "all")}>
+              Any fee
+            </Chip>
+            <Chip active={value.mer === "ultra_low"} onClick={() => set("mer", "ultra_low")}>
+              Under 0.10%
+            </Chip>
+            <Chip active={value.mer === "low"} onClick={() => set("mer", "low")}>
+              Under 0.25%
+            </Chip>
+            <Chip active={value.mer === "any"} onClick={() => set("mer", "any")}>
+              Has fee data
+            </Chip>
+          </Section>
+        )}
+
+        <p className="text-xs text-muted-soft leading-relaxed">
+          Hover any dotted label (like{" "}
+          <HelpTip term="PE Ratio" showIcon={false} className="text-muted">
+            P/E
+          </HelpTip>
+          ) for a plain-English explanation.
+        </p>
       </div>
     </aside>
   );

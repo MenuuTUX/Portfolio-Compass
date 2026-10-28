@@ -265,7 +265,7 @@ export default function PortfolioBarChart({
 
   if (portfolio.length === 0) {
     return (
-      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-neutral-500 glass-panel rounded-card">
+      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-muted glass-panel rounded-lg">
         No assets in portfolio
       </div>
     );
@@ -275,9 +275,9 @@ export default function PortfolioBarChart({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="w-full h-full glass-panel p-6 rounded-card flex flex-col border border-hairline bg-surface-card"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="w-full h-full glass-panel p-6 rounded-lg flex flex-col border border-hairline bg-surface-card"
     >
       <div className="flex flex-col gap-1 mb-8">
         <div className="flex items-center justify-between">
@@ -293,7 +293,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.UNDER_5}80`,
                 }}
               />
-              <span className="text-neutral-400">Up to 5%</span>
+              <span className="text-muted">Up to 5%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -303,7 +303,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.FIVE_TO_10}80`,
                 }}
               />
-              <span className="text-neutral-400">5% to 10%</span>
+              <span className="text-muted">5% to 10%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -313,7 +313,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.TEN_TO_20}80`,
                 }}
               />
-              <span className="text-neutral-400">10% to 20%</span>
+              <span className="text-muted">10% to 20%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -323,11 +323,11 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.ABOVE_20}80`,
                 }}
               />
-              <span className="text-neutral-400">Above 20%</span>
+              <span className="text-muted">Above 20%</span>
             </div>
           </div>
         </div>
-        <p className="text-sm text-neutral-500 font-light">
+        <p className="text-sm text-muted font-light">
           Uses target weights and disclosed fund holdings. Incomplete
           fund data is grouped under the source ticker or Other.
         </p>
@@ -429,7 +429,7 @@ export default function PortfolioBarChart({
                 domain={[0, maxWeight]}
                 stroke="#525252"
                 tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
-                tick={{ fill: "#737373", fontSize: 11 }}
+                tick={{ fill: "#737373", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -454,16 +454,16 @@ export default function PortfolioBarChart({
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="bg-stone-950/95 backdrop-blur-xl border border-hairline p-4 rounded-card text-xs z-50 min-w-[220px]">
+                      <div className="bg-surface-card ring-1 ring-hairline p-4 rounded-lg text-xs z-50 min-w-[220px]">
                         <div className="font-bold text-ink mb-0.5 text-base tracking-tight">
                           {d.name}
                         </div>
-                        <div className="text-neutral-500 mb-3 font-medium">
+                        <div className="text-muted mb-3 font-medium">
                           {d.fullName}
                         </div>
 
                         <div className="flex justify-between gap-6 border-t border-hairline pt-3 mb-3">
-                          <span className="text-neutral-400 font-medium">
+                          <span className="text-muted font-medium">
                             Target Weight
                           </span>
                           <span
@@ -475,8 +475,8 @@ export default function PortfolioBarChart({
                         </div>
 
                         {d.totalWeight > 10 && (
-                          <div className="flex items-start gap-2 mb-4 bg-surface-soft border border-hairline p-2.5 rounded-card text-rose-200">
-                            <AlertTriangle className="w-4 h-4 text-data-down flex-shrink-0 mt-0.5" />
+                          <div className="flex items-start gap-2 mb-4 bg-surface-soft border border-hairline p-2.5 rounded-lg text-rose-200">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
                             <span className="leading-snug">
                               This holding represents more than{" "}
                               {d.totalWeight > 20 ? "20%" : "10%"} of the
@@ -486,7 +486,7 @@ export default function PortfolioBarChart({
                         )}
 
                         <div className="flex flex-col gap-2 border-t border-hairline pt-3">
-                          <span className="text-[10px] uppercase tracking-wider text-neutral-600 font-bold mb-1">
+                          <span className="text-xs text-muted font-bold mb-1">
                             Source Breakdown
                           </span>
                           {[...payload]
@@ -508,7 +508,7 @@ export default function PortfolioBarChart({
                                     {entry.name}
                                   </span>
                                 </div>
-                                <span className="text-neutral-400 font-mono font-medium">
+                                <span className="text-muted font-mono font-medium">
                                   {Number(entry.value).toFixed(2)}%
                                 </span>
                               </div>

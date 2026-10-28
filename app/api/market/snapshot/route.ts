@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFastQuotes, getFastHistory, getFastDividendHistories, quoteToAsset } from "@/lib/fast-market";
+import { parseTickers } from "@/lib/tickers";
 
 export const maxDuration = 30;
 
@@ -11,11 +12,7 @@ export async function GET(request: NextRequest) {
   const tickersParam = searchParams.get("tickers") || "";
   const includeHistory = searchParams.get("history") !== "false";
 
-  const tickers = tickersParam
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, MAX_TICKERS);
+  const tickers = parseTickers(tickersParam.split(","), MAX_TICKERS);
 
   if (tickers.length === 0) {
     return NextResponse.json({ error: "No tickers provided" }, { status: 400 });

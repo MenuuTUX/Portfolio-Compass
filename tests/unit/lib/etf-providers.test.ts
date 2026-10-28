@@ -4,13 +4,13 @@ import { getAssetIconUrl } from '@/lib/etf-providers';
 describe('getAssetIconUrl', () => {
   describe('STOCKS', () => {
     it('should return ticker icon for stocks', () => {
-      expect(getAssetIconUrl('AAPL', 'Apple Inc', 'STOCK')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/AAPL.png');
+      expect(getAssetIconUrl('AAPL', 'Apple Inc', 'STOCK')).toBe('/api/logo/AAPL');
     });
   });
 
   describe('ETFs', () => {
     it('falls back to the CDN ticker icon for unknown providers', () => {
-      expect(getAssetIconUrl('UNKNOWN', 'Unknown ETF', 'ETF')).toBe('https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/UNKNOWN.png');
+      expect(getAssetIconUrl('UNKNOWN', 'Unknown ETF', 'ETF')).toBe('/api/logo/UNKNOWN');
     });
 
     it('falls back to the CDN when a matched provider has no local art', () => {

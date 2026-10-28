@@ -19,10 +19,53 @@ const YahooProfileSchema = z.object({
     industry: z.string().optional(),
   }).optional(),
   fundProfile: z.object({
-    categoryName: z.string().optional(),
-    family: z.string().optional(),
+    categoryName: z.string().nullish(),
+    family: z.string().nullish(),
+  }).optional(),
+  price: z.object({
+    longName: z.string().nullish(),
+    shortName: z.string().nullish(),
+    quoteType: z.string().nullish(),
   }).optional(),
 });
+
+/** Last-resort About text so every ticker has one: built only from facts Yahoo returned. */
+function describeFromFacts(
+  summary: z.infer<typeof YahooProfileSchema>,
+  fallbackTicker: string,
+): string | undefined {
+  const name = summary.price?.longName || summary.price?.shortName;
+  if (!name) return undefined;
+  const type = summary.price?.quoteType;
+  const family = summary.fundProfile?.family;
+  const category = summary.fundProfile?.categoryName;
+  const sector = summary.summaryProfile?.sector;
+  const industry = summary.summaryProfile?.industry;
+  if (type === "ETF" || type === "MUTUALFUND") {
+    const parts = [`${name} (${fallbackTicker}) is an exchange-traded fund`];
+    if (family) parts[0] += ` managed by ${family}`;
+    if (category) parts.push(`It is classified in the ${category} category.`);
+    return parts[0] + "." + (parts[1] ? ` ${parts[1]}` : "");
+  }
+  if (sector || industry) {
+    return `${name} (${fallbackTicker}) is a publicly traded company${industry ? ` in the ${industry} industry` : ""}${sector ? `, part of the ${sector} sector` : ""}.`;
+  }
+  return undefined;
+}
+
+/** Scrapers can throw (redirects, blocks); the Yahoo fallback below must still run. */
+async function safely<T>(task: () => Promise<T>): Promise<T | null> {
+  try {
+    return await task();
+  } catch (error) {
+    console.warn("Profile source failed:", error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+// stockanalysis.com falls back to a generic page blurb when it has no real business summary
+const isBoilerplateDescription = (text?: string) =>
+  !text || /^A detailed overview of .* stock, including real-time price/i.test(text.trim());
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -39,10 +82,10 @@ export async function GET(request: Request) {
 
   try {
     // Primary profile source
-    let profile: Partial<StockProfile> | null = await getStockProfile(ticker);
+    let profile: Partial<StockProfile> | null = await safely(() => getStockProfile(ticker));
 
     // ETF.com descriptions are richer than Yahoo's, so they win when present
-    const etfDesc = await getEtfDescription(ticker);
+    const etfDesc = await safely(() => getEtfDescription(ticker));
     if (etfDesc) {
       profile = profile
         ? { ...profile, description: etfDesc }
@@ -50,7 +93,7 @@ export async function GET(request: Request) {
     }
 
     // Fall back to Yahoo when description or basic info is still missing
-    if (!profile || !profile.description) {
+    if (!profile || isBoilerplateDescription(profile.description)) {
       try {
         // Fetch summaryProfile (stocks) and fundProfile (ETFs)
         const rawSummary = await yahooFinance.quoteSummary(ticker, {
@@ -61,7 +104,9 @@ export async function GET(request: Request) {
         const summaryProfile = summary.summaryProfile || {};
         const fundProfile = summary.fundProfile || {};
 
-        const description = summaryProfile.longBusinessSummary;
+        const description =
+          summaryProfile.longBusinessSummary ||
+          describeFromFacts(summary, validation.data.toUpperCase());
 
         // Determine sector/industry/family
         const sector =
@@ -78,7 +123,7 @@ export async function GET(request: Request) {
         if (profile) {
           profile = {
             ...profile,
-            description: profile.description || description,
+            description: isBoilerplateDescription(profile.description) ? description : profile.description,
             sector,
             industry,
           };

@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
 import {
   X,
   Trash2,
@@ -41,6 +42,7 @@ export default function SettingsDrawer({
   } | null>(null);
   const queryClient = useQueryClient();
   const dialogRef = useDialogA11y<HTMLDivElement>(isOpen, onClose);
+  const reduceMotion = useReducedMotion();
 
   const handleExportPortfolio = () => {
     setStatus(null);
@@ -192,6 +194,9 @@ export default function SettingsDrawer({
     }
   };
 
+  const rowBtn =
+    "ws-pill w-full sm:w-auto shrink-0 disabled:opacity-50";
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -200,76 +205,78 @@ export default function SettingsDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 bg-dune/40 backdrop-blur-sm z-[60]"
+            className="fixed inset-0 bg-black/60 z-[60]"
           />
           <motion.div
             ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-drawer-title"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="app-panel-safe fixed right-0 top-0 h-[100dvh] w-full overflow-y-auto sm:w-96 bg-neutral-900 border-l border-hairline z-[70] p-6 shadow-2xl"
+            initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+            animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+            transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
+            className="app-panel-safe fixed right-0 top-0 h-[100dvh] w-full overflow-y-auto sm:w-[420px] bg-surface-card ring-1 ring-hairline z-[70] px-6 sm:rounded-l-2xl shadow-[-24px_0_64px_rgba(0,0,0,0.45)]"
           >
-            <div className="flex items-center justify-between mb-8">
-              <h2 id="settings-drawer-title" className="text-2xl font-bold text-ink">Settings</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 id="settings-drawer-title" className="text-xl font-semibold text-ink">Settings</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close settings"
-                className="p-2 hover:bg-surface-soft rounded-full transition-colors"
+                className="ws-icon-btn -mr-2"
               >
-                <X className="w-6 h-6 text-neutral-400" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-8">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-neutral-200 flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-emerald-400" />
+            <RevealGroup className="space-y-8" stagger={0.06} delay={0.1} onMount>
+              <RevealItem y={12}>
+              <section aria-labelledby="settings-backup">
+                <h3 id="settings-backup" className="ws-section-title mb-3 flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-muted" aria-hidden />
                   Portfolio backup
                 </h3>
-                <div className="p-4 rounded-lg bg-neutral-800/50 border border-hairline space-y-4">
-                  <p className="text-sm leading-6 text-body">
-                    Save or restore tickers, target weights, and share counts.
-                    The backup stays on your device until you choose where to save it.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleExportPortfolio}
-                    className="w-full py-2 px-4 bg-surface-soft hover:bg-surface-soft text-white rounded-button font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Export backup
-                  </button>
-                  <label htmlFor="portfolio-backup-file" className="inline-flex min-h-11 items-center text-sm font-medium text-ink">
-                    Choose a backup file
-                  </label>
-                  <input
-                    id="portfolio-backup-file"
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      event.currentTarget.value = "";
-                      void handleBackupSelected(file);
-                    }}
-                    className="block w-full text-sm text-neutral-400 file:mr-3 file:rounded-button file:border-0 file:bg-surface-soft file:px-3 file:py-2 file:text-white"
-                  />
+                <div className="rounded-2xl ring-1 ring-hairline divide-y divide-hairline overflow-hidden">
+                  <div className="p-4 space-y-3">
+                    <p className="text-sm leading-6 text-body">
+                      Save or restore tickers, target weights, and share counts.
+                      The backup stays on your device until you choose where to save it.
+                    </p>
+                    <button type="button" onClick={handleExportPortfolio} className={rowBtn}>
+                      <Download className="w-4 h-4" aria-hidden />
+                      Export backup
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <label htmlFor="portfolio-backup-file" className="block text-sm font-medium text-ink">
+                      Choose a backup file
+                    </label>
+                    <input
+                      id="portfolio-backup-file"
+                      type="file"
+                      accept=".json,application/json"
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        event.currentTarget.value = "";
+                        void handleBackupSelected(file);
+                      }}
+                      className="block w-full text-sm text-body file:mr-3 file:h-10 file:cursor-pointer file:rounded-full file:border-0 file:bg-hairline-strong file:px-4 file:text-sm file:font-medium file:text-ink"
+                    />
+                  </div>
                   {importPreview && (
-                    <div className="space-y-3 rounded-card border border-hairline bg-black/20 p-3">
+                    <div className="p-4 space-y-3">
                       <div>
-                        <h4 className="font-medium text-ink">Preview · {importPreview.length} holding{importPreview.length === 1 ? "" : "s"}</h4>
+                        <h4 className="text-sm font-medium text-ink">Preview · {importPreview.length} holding{importPreview.length === 1 ? "" : "s"}</h4>
                         <p className="text-sm leading-5 text-body">Merge updates matching tickers and keeps other holdings. Replace removes all current holdings.</p>
                       </div>
                       {importPreview.length > 0 ? (
                         <ul className="max-h-40 space-y-1 overflow-y-auto text-sm text-body" aria-label="Backup holdings preview">
                           {importPreview.map((item) => (
                             <li key={item.ticker} className="flex justify-between gap-3">
-                              <span>{item.ticker}</span>
+                              <span className="text-ink">{item.ticker}</span>
                               <span>{item.shares} shares · {item.weight}% target</span>
                             </li>
                           ))}
@@ -279,16 +286,18 @@ export default function SettingsDrawer({
                       )}
                       <div className="grid grid-cols-2 gap-2">
                         <button
+                          type="button"
                           onClick={() => void handleImportPortfolio(false)}
                           disabled={isImporting}
-                          className="min-h-11 rounded-button border border-hairline-strong px-3 text-sm font-medium text-ink transition-colors hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+                          className="ws-pill disabled:opacity-50"
                         >
                           Merge import
                         </button>
                         <button
+                          type="button"
                           onClick={() => void handleImportPortfolio(true)}
                           disabled={isImporting}
-                          className="min-h-11 rounded-button bg-accent px-3 text-sm font-medium text-[var(--on-accent)] transition-colors hover:bg-accent/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50"
+                          className="ws-pill ws-pill-primary disabled:opacity-50"
                         >
                           Replace portfolio
                         </button>
@@ -296,106 +305,108 @@ export default function SettingsDrawer({
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
+              </RevealItem>
 
-              {/* Data Management Section */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-neutral-200 flex items-center gap-2">
-                  <RefreshCw className="w-5 h-5 text-emerald-400" />
-                  Market Data
+              <RevealItem y={12}>
+
+              <section aria-labelledby="settings-market">
+                <h3 id="settings-market" className="ws-section-title mb-3 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-muted" aria-hidden />
+                  Market data
                 </h3>
-
-                <div className="p-4 rounded-lg bg-neutral-800/50 border border-hairline space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-ink font-medium">
-                        Refresh market data
-                      </h4>
-                      <p className="text-sm text-neutral-400">
-                        Clear cached quotes and request current data for your
-                        portfolio tickers.
-                      </p>
-                    </div>
+                <div className="rounded-2xl ring-1 ring-hairline p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-medium text-ink">Refresh market data</h4>
+                    <p className="text-sm text-body">
+                      Clear cached quotes and request current data for your portfolio tickers.
+                    </p>
                   </div>
                   <button
+                    type="button"
                     onClick={handleRefreshData}
                     disabled={isRefreshing}
-                    className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white rounded-md font-medium transition-colors flex items-center justify-center gap-2"
+                    className={rowBtn}
                   >
                     {isRefreshing ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                         Refreshing...
                       </>
                     ) : (
                       <>
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="w-4 h-4" aria-hidden />
                         Refresh data
                       </>
                     )}
                   </button>
                 </div>
-              </div>
+              </section>
+              </RevealItem>
 
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-red-400 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5" />
-                  Delete Local Data
+              <RevealItem y={12}>
+
+              <section aria-labelledby="settings-delete">
+                <h3 id="settings-delete" className="ws-section-title mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" aria-hidden />
+                  Delete local data
                 </h3>
-
-                <div className="p-4 rounded-lg bg-red-900/10 border border-red-500/20 space-y-4">
+                <div className="rounded-2xl ring-1 ring-hairline p-4 space-y-3">
                   <div>
-                    <h4 className="text-ink font-medium">Clear portfolio</h4>
+                    <h4 className="text-sm font-medium text-ink">Clear portfolio</h4>
                     <p className="text-sm leading-6 text-body">
                       Remove all holdings saved in this browser. You will be
                       asked to confirm before they are cleared.
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={handleClearPortfolio}
                     disabled={isClearing}
-                    className="w-full py-2 px-4 bg-red-600 hover:bg-red-500 disabled:bg-red-600/50 text-white rounded-md font-medium transition-colors flex items-center justify-center gap-2"
+                    className="ws-pill w-full sm:w-auto text-red-400 disabled:opacity-50"
                   >
                     {isClearing ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                         Clearing...
                       </>
                     ) : (
                       <>
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" aria-hidden />
                         Clear portfolio
                       </>
                     )}
                   </button>
                 </div>
-              </div>
+              </section>
+              </RevealItem>
 
-              {/* Status Message */}
               <AnimatePresence>
                 {status && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
                     role={status.type === "error" ? "alert" : "status"}
                     aria-live={status.type === "error" ? "assertive" : "polite"}
-                    className={`p-4 rounded-lg flex items-start gap-3 ${
-                      status.type === "success"
-                        ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                        : "bg-red-500/10 border border-red-500/20 text-red-400"
-                    }`}
+                    className="rounded-2xl ring-1 ring-hairline p-4 flex items-start gap-3"
                   >
                     {status.type === "success" ? (
-                      <CheckCircle className="w-5 h-5 shrink-0" />
+                      <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" aria-hidden />
                     ) : (
-                      <AlertTriangle className="w-5 h-5 shrink-0" />
+                      <AlertTriangle className="w-5 h-5 shrink-0 text-red-400" aria-hidden />
                     )}
-                    <p className="text-sm font-medium">{status.message}</p>
+                    <p className="text-sm font-medium text-ink">
+                      <span className={status.type === "success" ? "text-emerald-400" : "text-red-400"}>
+                        {status.type === "success" ? "Done. " : "Error. "}
+                      </span>
+                      {status.message}
+                    </p>
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </RevealGroup>
           </motion.div>
         </>
       )}

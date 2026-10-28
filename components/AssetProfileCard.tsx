@@ -2,15 +2,10 @@
 
 import * as React from "react";
 import {
-  Layers,
-  Factory,
-  BookOpen,
   Info,
 } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface StockInfo {
@@ -31,13 +26,13 @@ function DescriptionText({ text }: { text: string }) {
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <p className="text-sm text-stone-300 leading-relaxed whitespace-pre-wrap font-sans">
+      <p className="text-xs text-body-strong leading-relaxed whitespace-pre-wrap">
         {displayText}
       </p>
       {shouldTruncate && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="text-xs font-medium text-emerald-400 hover:text-emerald-300 hover:underline focus:outline-none transition-colors"
+          className="min-h-8 text-xs font-medium text-compass hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass rounded"
         >
           {isExpanded ? "Read less" : "Read more"}
         </button>
@@ -102,12 +97,7 @@ export default function AssetProfileCard({
 
   if (loading) {
     return (
-      <Card
-        className={cn(
-          "w-full h-full bg-transparent border-none shadow-none p-0",
-          className,
-        )}
-      >
+      <div className={cn("w-full", className)}>
         <div className="flex flex-col gap-4">
           <div className="flex gap-2">
             <Skeleton className="h-6 w-16 rounded-full" />
@@ -119,12 +109,12 @@ export default function AssetProfileCard({
             <Skeleton className="h-4 w-3/4" />
           </div>
           {assetType === "STOCK" && (
-            <div className="mt-4 p-4 border border-hairline rounded-xl bg-surface-card">
+            <div className="mt-4 p-4 rounded-lg bg-surface-soft">
               <Skeleton className="h-20 w-full" />
             </div>
           )}
         </div>
-      </Card>
+      </div>
     );
   }
 
@@ -134,50 +124,33 @@ export default function AssetProfileCard({
   const industry = info?.industry;
 
   return (
-    <div className={cn("w-full h-full flex flex-col gap-4", className)}>
-      <div className="flex items-center gap-2 text-ink mb-1">
-        <BookOpen className="w-5 h-5 text-emerald-400" />
-        <h3 className="text-lg font-bold">About {ticker}</h3>
-      </div>
+    <section className={cn("w-full flex flex-col gap-3", className)} aria-label={`About ${ticker}`}>
+      <h3 className="text-sm font-bold text-ink">About {ticker}</h3>
 
-      {/* Header Badges */}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge
-          variant="secondary"
-          className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 px-2 py-0.5 rounded-md"
-        >
-          {assetType === "ETF" ? "ETF" : "STOCK"}
-        </Badge>
+        <span className="rounded-full bg-surface-soft px-3 py-1 text-xs font-medium text-body-strong">
+          {assetType === "ETF" ? "ETF" : "Stock"}
+        </span>
         {sector && sector !== "Unknown" && (
-          <Badge
-            variant="outline"
-            className="border-hairline text-neutral-300 gap-1.5 px-2 py-0.5 font-normal"
-          >
-            <Layers className="w-3 h-3 text-neutral-400" />
+          <span className="rounded-full bg-surface-soft px-3 py-1 text-xs text-body-strong">
             {sector}
-          </Badge>
+          </span>
         )}
         {industry && industry !== "Unknown" && (
-          <Badge
-            variant="outline"
-            className="border-hairline text-neutral-300 gap-1.5 px-2 py-0.5 font-normal"
-          >
-            <Factory className="w-3 h-3 text-neutral-400" />
+          <span className="rounded-full bg-surface-soft px-3 py-1 text-xs text-body-strong">
             {industry}
-          </Badge>
+          </span>
         )}
       </div>
 
-      {/* Description */}
       {description ? (
         <DescriptionText text={description} />
       ) : (
-        <div className="flex items-center gap-2 py-4 text-neutral-500 text-sm italic">
-          <Info className="w-4 h-4" />
+        <div className="flex items-center gap-2 text-muted text-xs">
+          <Info className="w-4 h-4" aria-hidden="true" />
           <span>Asset description not available.</span>
         </div>
       )}
-
-    </div>
+    </section>
   );
 }

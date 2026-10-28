@@ -14,8 +14,8 @@ const { default: InstitutionalPortfolios } = await import("@/components/Institut
 
 function openFirstExample(onBatchAdd: (items: BatchAddItem[]) => Promise<void>) {
   render(<InstitutionalPortfolios onBatchAdd={onBatchAdd} />);
-  fireEvent.click(screen.getByAltText("Wealthsimple"));
-  return screen.getByRole("button", { name: "Load this allocation example" });
+  fireEvent.click(screen.getByRole("button", { name: /Wealthsimple/ }));
+  return screen.getAllByRole("button", { name: "Load this allocation example" })[0];
 }
 
 describe("InstitutionalPortfolios load status", () => {

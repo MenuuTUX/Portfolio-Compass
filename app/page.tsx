@@ -17,7 +17,8 @@ import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
 import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
 import { savePortfolio } from '@/lib/storage';
-import Link from 'next/link';
+import Footer from '@/components/Footer';
+import { EASE } from '@/components/motion/Reveal';
 
 type ViewMode = 'LANDING' | 'INTRO_QUIZ' | 'APP';
 type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS';
@@ -86,97 +87,116 @@ export default function Home() {
     startTransition(() => setActiveTab('PORTFOLIO'));
   };
 
+  const switchTab = (tab: Tab) => startTransition(() => setActiveTab(tab));
+
   return (
     <main className="min-h-screen bg-canvas overflow-hidden relative">
       <AnimatePresence mode="wait">
         {viewMode === 'LANDING' ? (
-          <div
+          <motion.div
             key="landing"
             id="top"
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.985 }}
+            transition={{ duration: 0.4, ease: EASE }}
             className="overflow-y-auto h-screen custom-scrollbar"
           >
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
-            <footer className="py-10 px-6 text-center text-body text-xs border-t border-hairline bg-canvas">
-              <p>
-                &copy; {new Date().getFullYear()} PortfolioCompass. For research
-                and education, not financial advice.
-              </p>
-              <nav aria-label="Legal" className="flex justify-center gap-6 mt-4"><Link href="/privacy" className="hover:text-ink underline underline-offset-4">Privacy</Link><Link href="/terms" className="hover:text-ink underline underline-offset-4">Terms</Link></nav>
-            </footer>
-          </div>
+            <Footer />
+          </motion.div>
         ) : viewMode === 'INTRO_QUIZ' ? (
           <motion.div
             key="intro-quiz"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.5 }}
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.985 }}
+            transition={{ duration: 0.4, ease: EASE }}
             className="h-screen flex items-center justify-center overflow-hidden"
           >
-             <IntroQuiz onComplete={handleQuizComplete} />
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1, ease: EASE }}
+              className="w-full flex items-center justify-center"
+            >
+              <IntroQuiz onComplete={handleQuizComplete} />
+            </motion.div>
           </motion.div>
         ) : (
           <motion.div
             key="app"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col h-screen"
+            initial={{ opacity: 0, scale: 0.985 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.985 }}
+            transition={{ duration: 0.4, ease: EASE }}
+            className="h-screen flex flex-col bg-canvas p-2 gap-2"
           >
-            <Navigation
-              activeTab={activeTab}
-              onTabChange={(tab) => startTransition(() => setActiveTab(tab))}
-              onBackToLanding={() => setViewMode('LANDING')}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-            />
-
             <SettingsDrawer
               isOpen={isSettingsOpen}
               onClose={() => setIsSettingsOpen(false)}
             />
 
-            <div className="flex-1 pt-16 relative overflow-y-auto custom-scrollbar scroll-smooth">
-              <AnimatePresence mode="wait">
-                {activeTab === 'TRENDING' && (
-                  <TrendingTab
-                    key="trending"
-                    onAddToPortfolio={handleAddToPortfolio}
-                    portfolio={portfolio}
-                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                    onImportPortfolio={handleImportPortfolio}
-                  />
-                )}
-                {activeTab === 'PORTFOLIO' && (
-                  <PortfolioBuilder
-                    key="portfolio"
-                    portfolio={portfolio}
-                    onRemove={handleRemoveFromPortfolio}
-                    onUpdateWeight={handleUpdateWeight}
-                    onUpdateShares={handleUpdateShares}
-                    onClear={handleClearPortfolio}
-                  />
-                )}
-                {activeTab === 'ETFS' && (
-                  <ComparisonEngine
-                    key="etfs"
-                    onAddToPortfolio={handleAddToPortfolio}
-                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                    portfolio={portfolio}
-                    assetType="ETF"
-                  />
-                )}
-                {activeTab === 'STOCKS' && (
-                  <ComparisonEngine
-                    key="stocks"
-                    onAddToPortfolio={handleAddToPortfolio}
-                    onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                    portfolio={portfolio}
-                    assetType="STOCK"
-                  />
-                )}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.05, ease: EASE }}
+              className="flex-1 min-h-0 relative max-lg:overflow-y-auto max-lg:pb-16 custom-scrollbar"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE } }}
+                  exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                  className="lg:h-full min-h-0"
+                >
+                  {activeTab === 'TRENDING' && (
+                    <TrendingTab
+                      onAddToPortfolio={handleAddToPortfolio}
+                      portfolio={portfolio}
+                      onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                      onImportPortfolio={handleImportPortfolio}
+                      onNavigate={switchTab}
+                    />
+                  )}
+                  {activeTab === 'PORTFOLIO' && (
+                    <PortfolioBuilder
+                      portfolio={portfolio}
+                      onRemove={handleRemoveFromPortfolio}
+                      onUpdateWeight={handleUpdateWeight}
+                      onUpdateShares={handleUpdateShares}
+                      onClear={handleClearPortfolio}
+                      onNavigate={switchTab}
+                    />
+                  )}
+                  {activeTab === 'ETFS' && (
+                    <ComparisonEngine
+                      onAddToPortfolio={handleAddToPortfolio}
+                      onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                      portfolio={portfolio}
+                      assetType="ETF"
+                    />
+                  )}
+                  {activeTab === 'STOCKS' && (
+                    <ComparisonEngine
+                      onAddToPortfolio={handleAddToPortfolio}
+                      onRemoveFromPortfolio={handleRemoveFromPortfolio}
+                      portfolio={portfolio}
+                      assetType="STOCK"
+                    />
+                  )}
+                </motion.div>
               </AnimatePresence>
-            </div>
+            </motion.div>
+
+            <Navigation
+              activeTab={activeTab}
+              onTabChange={switchTab}
+              onBackToLanding={() => setViewMode('LANDING')}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
           </motion.div>
         )}
       </AnimatePresence>

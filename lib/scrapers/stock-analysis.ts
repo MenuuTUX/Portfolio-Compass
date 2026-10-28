@@ -249,7 +249,9 @@ function profileUrlsForTicker(ticker: string): string[] {
   }
 
   // US / plain symbols
-  const base = upper.includes(".") ? upper.split(".")[0] : upper;
+  let base = upper.includes(".") ? upper.split(".")[0] : upper;
+  // Share classes: Yahoo says BRK-B, stockanalysis.com says brk.b (the dashed URL redirects away)
+  if (/^[A-Z]{1,5}-[A-Z]$/.test(base)) base = base.replace("-", ".");
   urls.push(`https://stockanalysis.com/stocks/${base.toLowerCase()}/`);
   urls.push(`https://stockanalysis.com/etf/${base.toLowerCase()}/`);
   if (mapped?.kind === "etf") {
@@ -275,7 +277,13 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
 
   let response: Response | null = null;
   for (const url of urls) {
-    response = await fetchWithUserAgent(url);
+    try {
+      response = await fetchWithUserAgent(url);
+    } catch (error) {
+      // A redirect (e.g. /stocks/vea -> /etf/vea) is refused by fetchWithUserAgent; try the next URL
+      response = null;
+      continue;
+    }
     if (response.ok) {
       break;
     }

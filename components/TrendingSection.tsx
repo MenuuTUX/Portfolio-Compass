@@ -2,23 +2,8 @@
 
 import Image from "next/image";
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Plus,
-  ArrowUpRight,
-  ArrowDownRight,
-  Trash2,
-  Check,
-  ChevronDown,
-  MessageCircle,
-  TrendingUp,
-  TrendingDown,
-  ShoppingBag,
-  Tag,
-  Zap,
-  Sprout,
-  Pickaxe,
-} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Plus, Trash2, Check, ChevronRight } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
@@ -26,6 +11,7 @@ import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
 import { quoteSessionLabel } from "@/lib/quote-session";
+import { EASE } from "./motion/Reveal";
 
 interface TrendingSectionProps {
   title: string;
@@ -40,18 +26,29 @@ interface TrendingSectionProps {
     ticker: string,
     assetType?: string,
   ) => { name: string; url: string }[];
+  /** "watchlist" renders compact 42px rows for the Advanced workspace left panel. */
+  variant?: "card" | "watchlist";
+  /** Ticker highlighted with the sliding indicator (watchlist variant). */
+  selectedTicker?: string | null;
+  /** Rows rendered before this group, so the entrance stagger runs across groups. */
+  startIndex?: number;
 }
+
+/** Shared by every watchlist row so the indicator slides between groups. */
+const SELECTED_INDICATOR_ID = "markets-watchlist-selected";
+const STAGGER_ROWS = 14;
 
 export default function TrendingSection({
   title,
   items,
   Icon,
-  theme = "emerald",
   onAddToPortfolio,
   portfolio = [],
   onRemoveFromPortfolio,
   onSelectItem,
-  communityLookup,
+  variant = "card",
+  selectedTicker = null,
+  startIndex = 0,
 }: TrendingSectionProps) {
   const [visibleCount, setVisibleCount] = useState(8);
   const [flashStates, setFlashStates] = useState<
@@ -97,305 +94,289 @@ export default function TrendingSection({
     );
   };
 
-  const getThemeStyles = () => {
-    switch (theme) {
-      case "rose": return { bg: "bg-rose-500/20", text: "text-rose-400", border: "hover:border-rose-500/30", shadow: "hover:shadow-rose-500/20", tagBg: "bg-rose-500", tagText: "SALE", tagIcon: Tag };
-      case "purple": return { bg: "bg-purple-500/20", text: "text-purple-400", border: "hover:border-purple-500/30", shadow: "hover:shadow-purple-500/20", tagBg: "bg-purple-500", tagText: "ELITE", tagIcon: Zap };
-      case "orange": return { bg: "bg-[#FF5700]/20", text: "text-[#FF5700]", border: "hover:border-[#FF5700]/30", shadow: "hover:shadow-[#FF5700]/20", tagBg: "bg-[#FF5700]", tagText: "REDDIT", tagIcon: Sprout };
-      case "amber": return { bg: "bg-amber-500/20", text: "text-amber-400", border: "hover:border-amber-500/30", shadow: "hover:shadow-amber-500/20", tagBg: "bg-amber-500", tagText: "RESOURCE", tagIcon: Pickaxe };
-      default: return { bg: "bg-emerald-500/20", text: "text-emerald-400", border: "hover:border-hairline-strong", shadow: "hover:shadow-emerald-500/10", tagBg: "bg-emerald-500", tagText: "HOT", tagIcon: TrendingUp };
-    }
-  };
-  const styles = getThemeStyles();
+  if (variant === "watchlist") {
+    return (
+      <section aria-label={title} className="pb-2">
+        <h2 className="px-3 pt-3 pb-1 text-xs font-bold text-ink">{title}</h2>
+        {items.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-muted">Loading {title}...</p>
+        ) : (
+          <ul>
+            {items.map((etf, i) => {
+              const inPortfolio = isItemInPortfolio(etf.ticker);
+              const flashState = flashStates[etf.ticker];
+              const iconUrl = getAssetIconUrl(etf.ticker, etf.name, etf.assetType);
+              const unavailable = etf.quoteStatus === "unavailable";
+              const selected = selectedTicker === etf.ticker;
+              const rowIndex = startIndex + i;
+              const sign = etf.changePercent > 0 ? "+" : etf.changePercent < 0 ? "-" : "";
+              return (
+                <motion.li
+                  key={etf.ticker}
+                  initial={rowIndex < STAGGER_ROWS ? { opacity: 0, y: 8 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: rowIndex < STAGGER_ROWS ? rowIndex * 0.03 : 0, ease: EASE }}
+                  className={cn(
+                    "relative mx-1 flex items-center rounded-md h-[42px] transition-colors duration-75 hover:bg-white/5",
+                    flashState === "success" && "bg-emerald-500/10",
+                    flashState === "error" && "bg-rose-500/10",
+                  )}
+                >
+                  {selected && (
+                    <motion.span
+                      layoutId={SELECTED_INDICATOR_ID}
+                      aria-hidden="true"
+                      className="absolute inset-0 rounded-md bg-white/10"
+                      transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleView(etf)}
+                    aria-label={`View details for ${etf.ticker}`}
+                    aria-current={selected ? "true" : undefined}
+                    className="relative flex flex-1 min-w-0 items-center gap-2 pl-2 pr-1 h-full text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-compass"
+                  >
+                    <span className="w-7 h-7 rounded-full bg-surface-soft flex items-center justify-center shrink-0 overflow-hidden">
+                      {iconUrl ? (
+                        <Image src={iconUrl} alt={`${etf.ticker} logo`} width={20} height={20} className="w-5 h-5 object-contain" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-muted">{etf.ticker.slice(0, 2)}</span>
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-bold text-ink leading-4">{etf.ticker}</span>
+                      <span className="block truncate text-xs text-muted leading-4">{etf.name}</span>
+                    </span>
+                    <span className="text-right shrink-0 tabular-nums">
+                      <span className="block text-xs font-bold text-ink leading-4">
+                        {unavailable ? "N/A" : formatCurrency(etf.price, etf.currency)}
+                      </span>
+                      <span
+                        className={cn(
+                          "block text-xs font-medium leading-4",
+                          unavailable ? "text-muted" : etf.changePercent >= 0 ? "text-emerald-400" : "text-rose-400",
+                        )}
+                      >
+                        {unavailable ? "N/A" : `${sign}${Math.abs(etf.changePercent).toFixed(2)}%`}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (inPortfolio ? handleRemove(etf.ticker) : handleAdd(etf))}
+                    aria-label={inPortfolio ? `Remove ${etf.ticker} from portfolio` : `Add ${etf.ticker} to portfolio`}
+                    title={inPortfolio ? "Remove from Portfolio" : "Add to Portfolio"}
+                    className={cn(
+                      "relative mr-1 w-7 h-7 pointer-coarse:w-11 pointer-coarse:h-11 shrink-0 inline-flex items-center justify-center rounded-full transition-colors duration-75 hover:bg-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass",
+                      inPortfolio ? "text-emerald-400" : "text-muted hover:text-ink",
+                    )}
+                  >
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.span
+                        key={inPortfolio ? "check" : "plus"}
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.5, opacity: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className="inline-flex"
+                      >
+                        {inPortfolio ? (
+                          <Check className="w-4 h-4" aria-hidden="true" />
+                        ) : (
+                          <Plus className="w-4 h-4" aria-hidden="true" />
+                        )}
+                      </motion.span>
+                    </AnimatePresence>
+                  </button>
+                </motion.li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    );
+  }
 
   const visibleItems = items.slice(0, visibleCount);
   const hasMore = visibleCount < items.length;
 
-  const handleLoadMore = () => {
-    setVisibleCount((prev) => prev + 8);
-  };
-
-  // Calculate how many items are owned in this section
   const ownedCount = items.filter((item) =>
     portfolio.some((p) => p.ticker === item.ticker),
   ).length;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="mb-12"
-    >
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <motion.div whileHover={{ scale: 1.1, rotate: 5 }} className={cn("p-3 rounded-xl", styles.bg)}>
-            <Icon className={cn("w-6 h-6", styles.text)} aria-hidden="true" />
-          </motion.div>
-          <div>
-            <h2 className="text-3xl font-bold text-ink tracking-tight leading-tight">
-              {title}
-            </h2>
-            <div className={cn("h-[3px] w-10 rounded-full mt-1.5 mb-1.5", styles.tagBg)} />
-            <div className="flex items-center gap-3">
-              <span className="text-neutral-500 text-xs">
-                {visibleItems.length} of {items.length} assets
-              </span>
-              {ownedCount > 0 && (
-                <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-400 text-xs font-medium px-2 py-0.5 rounded-full">
-                  <Check className="w-3 h-3" />
-                  {ownedCount} owned
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-        {items.length > 8 && (
-          <div className="hidden md:flex items-center gap-2 text-sm text-muted">
-            <span className="px-3 py-1 bg-surface-card rounded-full border border-hairline">
-              {Math.min(visibleItems.length, items.length)}/{items.length}
-            </span>
-          </div>
-        )}
+    <section className="mb-8" aria-label={title}>
+      <div className="flex items-baseline justify-between mb-3 px-1">
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        <span className="text-xs text-muted">
+          {items.length > 0 && `${visibleItems.length} of ${items.length}`}
+          {ownedCount > 0 && ` · ${ownedCount} owned`}
+        </span>
       </div>
 
-      {/* Empty State */}
       {items.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="bg-surface-card border border-hairline border-dashed rounded-2xl p-8 text-center"
-        >
-          <div className={cn("w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4", styles.bg)}>
-            <Icon className={cn("w-8 h-8", styles.text)} />
+        <div className="bg-surface-card ring-1 ring-hairline rounded-2xl p-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-surface-soft flex items-center justify-center shrink-0">
+            <Icon className="w-5 h-5 text-muted" aria-hidden="true" />
           </div>
-          <h3 className="text-ink font-medium mb-2">Loading {title}...</h3>
-          <p className="text-neutral-400 text-sm max-w-md mx-auto">
-            Fetching the latest data. This may take a moment if the market data is being synced.
-          </p>
-        </motion.div>
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Loading {title}</h3>
+            <p className="text-xs text-muted">
+              Fetching the latest data. This may take a moment if the market data is being synced.
+            </p>
+          </div>
+        </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {visibleItems.map((etf) => {
-          const inPortfolio = isItemInPortfolio(etf.ticker);
-          const flashState = flashStates[etf.ticker];
-          const yieldValue = getSourcedYield(etf.metrics, etf.dividendYield);
-          const yieldKnown = yieldValue != null;
-          const yieldUnverified = isUnverifiedProviderYield(etf.metrics?.yieldSource);
-          const communityLinks = communityLookup
-            ? communityLookup(etf.ticker, etf.assetType)
-            : [];
-          const quoteTime = etf.quoteAsOf
-            ? new Intl.DateTimeFormat(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }).format(new Date(etf.quoteAsOf))
-            : null;
-          const quoteUnavailable = etf.quoteStatus === "unavailable";
-          const quoteLabel = quoteSessionLabel(etf.quoteSession);
+      {items.length > 0 && (
+        <ul className="bg-surface-card ring-1 ring-hairline rounded-2xl divide-y divide-hairline overflow-hidden">
+          {visibleItems.map((etf) => {
+            const inPortfolio = isItemInPortfolio(etf.ticker);
+            const flashState = flashStates[etf.ticker];
+            const yieldValue = getSourcedYield(etf.metrics, etf.dividendYield);
+            const yieldKnown = yieldValue != null;
+            const yieldUnverified = isUnverifiedProviderYield(etf.metrics?.yieldSource);
+            const quoteTime = etf.quoteAsOf
+              ? new Intl.DateTimeFormat(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(new Date(etf.quoteAsOf))
+              : null;
+            const quoteUnavailable = etf.quoteStatus === "unavailable";
+            const quoteLabel = quoteSessionLabel(etf.quoteSession);
+            const iconUrl = getAssetIconUrl(etf.ticker, etf.name, etf.assetType);
 
-          // Determine graph color based on history trend if available
-          let isGraphPositive = etf.changePercent >= 0;
-          if (etf.history && etf.history.length > 0) {
-            const firstPrice = etf.history[0].price;
-            const lastPrice = etf.history[etf.history.length - 1].price;
-            isGraphPositive = lastPrice >= firstPrice;
-          }
+            let isGraphPositive = etf.changePercent >= 0;
+            if (etf.history && etf.history.length > 0) {
+              const firstPrice = etf.history[0].price;
+              const lastPrice = etf.history[etf.history.length - 1].price;
+              isGraphPositive = lastPrice >= firstPrice;
+            }
 
-          return (
-            <motion.div
-              key={etf.ticker}
-              initial={{ opacity: 0, y: 20 }}
-              animate={
-                flashState
-                  ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 }
-                  : { opacity: 1, y: 0 }
-              }
-              transition={{ duration: 0.4 }}
-              className={cn(
-                "glass-card rounded-xl relative overflow-hidden bg-surface-card border transition-all group flex flex-col",
-                styles.border, styles.shadow,
-                inPortfolio &&
-                  "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]",
-              )}
-            >
-              {/* Flash Overlay */}
-              <AnimatePresence>
-                {flashState && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className={cn(
-                      "absolute inset-0 z-20 pointer-events-none backdrop-blur-[2px]",
-                      flashState === "success"
-                        ? "bg-emerald-500/20"
-                        : "bg-rose-500/20",
-                    )}
-                  />
+            const sign = etf.changePercent > 0 ? "+" : etf.changePercent < 0 ? "−" : "";
+
+            return (
+              <li
+                key={etf.ticker}
+                className={cn(
+                  "flex items-center transition-colors duration-75 hover:bg-surface-soft/60",
+                  flashState === "success" && "bg-emerald-500/10",
+                  flashState === "error" && "bg-rose-500/10",
                 )}
-              </AnimatePresence>
-
-              <div className={cn("absolute top-3 right-3 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-lg z-10", styles.tagBg)}>
-                <styles.tagIcon className="w-3 h-3" />
-                {styles.tagText}
-              </div>
-
-              {/* Green Blur Overlay for Owned Items */}
-              {inPortfolio && (
-                <div className="absolute inset-0 bg-emerald-500/5 pointer-events-none" />
-              )}
-
-              <div className="p-5">
-                {/* Portfolio Indicator */}
-                {inPortfolio && (
-                  <div className="inline-flex items-center gap-1 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-xs font-bold px-2 py-1 rounded-full mb-3 shadow-sm">
-                    <Check className="w-3 h-3" />
-                    OWNED
-                  </div>
-                )}
-
-                <div className="flex items-start gap-3 mb-4">
-                  {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && <div className="w-10 h-10 flex items-center justify-center shrink-0"><Image src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!} alt={`${etf.ticker} logo`} width={40} height={40} className="w-full h-full object-contain" /></div>}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-ink mb-1">
-                      {etf.ticker}
-                    </h3>
-                    <p className="text-xs text-neutral-400 line-clamp-1">
-                      {etf.name}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-end mb-4">
-                  <div>
-                    <span className="block text-xl font-semibold text-ink mb-1 tabular-nums">
-                      {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
-                    </span>
-                    <span className="block text-[11px] text-muted mb-1">
-                      {quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
-                    </span>
-                    <span
-                      className={cn(
-                        "flex items-center text-sm font-medium tabular-nums",
-                        quoteUnavailable
-                          ? "text-muted"
-                          : etf.changePercent >= 0
-                          ? "text-data-up"
-                          : "text-data-down",
-                      )}
-                    >
-                      {!quoteUnavailable && (etf.changePercent >= 0 ? (
-                        <ArrowUpRight className="w-4 h-4" />
-                      ) : (
-                        <ArrowDownRight className="w-4 h-4" />
-                      ))}
-                      {quoteUnavailable ? "Change unavailable" : `Daily change ${etf.changePercent > 0 ? "+" : etf.changePercent < 0 ? "−" : ""}${Math.abs(etf.changePercent).toFixed(2)}%`}
-                    </span>
-                  </div>
-                  {etf.history && etf.history.length > 0 && (
-                    <div className="pb-1 pr-1 rounded-lg bg-surface-soft/60">
-                      <Sparkline
-                        data={etf.history}
-                        color={isGraphPositive ? "#5cb883" : "#ef7a72"}
-                        name={etf.ticker}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 border-t border-hairline pt-4">
-                  <span className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium text-muted bg-surface-soft rounded-lg py-1.5">
-                    {etf.assetType || "ETF"}
-                  </span>
-                  <span
-                    className={cn("flex-1 inline-flex flex-col items-center justify-center gap-0.5 text-xs font-medium bg-surface-soft rounded-card py-1.5", yieldUnverified ? "text-neutral-400" : "text-muted")}
-                    title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {!yieldKnown ? "N/A" : `${yieldValue!.toFixed(2)}%`}{" "}
-                    <HelpTip term={yieldUnverified ? "Unverified Yahoo yield unavailable" : "Dividend yield"} showIcon={false} className="text-muted">
-                        dividend yield
-                      </HelpTip>
-                    </span>
-                    {yieldUnverified && (
-                      <span className="text-[9px] text-neutral-500">Unverified yield unavailable</span>
-                    )}
-                  </span>
-                </div>
-
-                {/* Reddit Communities */}
-                {communityLinks.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-hairline">
-                    {communityLinks.slice(0, 2).map((community) => (
-                      <a
-                        key={`${etf.ticker}-${community.name}`}
-                        href={community.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1 bg-[#FF5700]/10 hover:bg-[#FF5700]/20 border border-[#FF5700]/30 text-[#FF5700] text-[10px] font-medium px-2 py-0.5 rounded-full transition-colors"
-                      >
-                        <MessageCircle className="w-2.5 h-2.5" />
-                        {community.name}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="absolute inset-0 bg-dune/40 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
-                {inPortfolio ? (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(etf.ticker)}
-                    aria-label={`Remove ${etf.ticker} from portfolio`}
-                    className="bg-surface-card border border-hairline text-ink p-3 rounded-full transform scale-0 group-hover:scale-100 group-focus-within:scale-100 transition-all duration-300 delay-75"
-                    title="Remove from Portfolio"
-                  >
-                    <Trash2 className="w-6 h-6" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleAdd(etf)}
-                    aria-label={`Add ${etf.ticker} to portfolio`}
-                    className="bg-surface-card border border-hairline text-ink p-3 rounded-full transform scale-0 group-hover:scale-100 group-focus-within:scale-100 transition-all duration-300 delay-75"
-                    title="Add to Portfolio"
-                  >
-                    <Plus className="w-6 h-6" />
-                  </button>
-                )}
-
+              >
                 <button
                   type="button"
                   onClick={() => handleView(etf)}
                   aria-label={`View details for ${etf.ticker}`}
-                  className="bg-white text-black hover:bg-neutral-200 p-3 rounded-full transform scale-0 group-hover:scale-100 group-focus-within:scale-100 transition-all duration-300 delay-100"
-                  title="View Details"
+                  className="flex flex-1 min-w-0 items-center gap-3 px-4 py-3 min-h-[60px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-compass"
                 >
-                  <ArrowUpRight className="w-6 h-6" />
+                  <div className="w-10 h-10 rounded-xl bg-surface-soft flex items-center justify-center shrink-0 overflow-hidden">
+                    {iconUrl ? (
+                      <Image src={iconUrl} alt={`${etf.ticker} logo`} width={28} height={28} className="w-7 h-7 object-contain" />
+                    ) : (
+                      <span className="text-xs font-semibold text-muted">{etf.ticker.slice(0, 3)}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-ink">{etf.ticker}</span>
+                      {inPortfolio && (
+                        <span className="inline-flex items-center gap-1 bg-surface-soft text-body-strong text-xs font-medium px-2 py-0.5 rounded-full">
+                          <Check className="w-3 h-3" aria-hidden="true" />
+                          Owned
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted line-clamp-1">{etf.name}</p>
+                  </div>
+                  {etf.history && etf.history.length > 0 && (
+                    <div className="hidden sm:block shrink-0">
+                      <Sparkline
+                        data={etf.history}
+                        color={isGraphPositive ? "#6dc382" : "#ef7a72"}
+                        name={etf.ticker}
+                      />
+                    </div>
+                  )}
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-bold text-ink tabular-nums">
+                      {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
+                    </div>
+                    <div
+                      className={cn(
+                        "text-xs font-medium tabular-nums",
+                        quoteUnavailable
+                          ? "text-muted"
+                          : etf.changePercent >= 0
+                          ? "text-emerald-400"
+                          : "text-rose-400",
+                      )}
+                    >
+                      {quoteUnavailable ? "Change unavailable" : `${sign}${Math.abs(etf.changePercent).toFixed(2)}%`}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-soft shrink-0 hidden sm:block" aria-hidden="true" />
                 </button>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+
+                <div
+                  className="hidden xl:flex flex-col items-end text-right text-xs text-muted w-36 shrink-0 pr-2"
+                  title={quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
+                >
+                  <span
+                    title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
+                    className={cn("inline-flex items-center gap-1", yieldUnverified && "text-muted-soft")}
+                  >
+                    {!yieldKnown ? "N/A" : `${yieldValue!.toFixed(2)}%`}{" "}
+                    <HelpTip term={yieldUnverified ? "Unverified Yahoo yield unavailable" : "Dividend yield"} showIcon={false} className="text-muted">
+                      yield
+                    </HelpTip>
+                  </span>
+                  {yieldUnverified && (
+                    <span className="text-xs text-muted-soft">Unverified yield unavailable</span>
+                  )}
+                </div>
+
+                <div className="pr-3 shrink-0">
+                  {inPortfolio ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(etf.ticker)}
+                      aria-label={`Remove ${etf.ticker} from portfolio`}
+                      title="Remove from Portfolio"
+                      className="w-11 h-11 md:w-9 md:h-9 inline-flex items-center justify-center rounded-full bg-surface-soft text-body-strong hover:bg-hairline-strong transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass"
+                    >
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleAdd(etf)}
+                      aria-label={`Add ${etf.ticker} to portfolio`}
+                      title="Add to Portfolio"
+                      className="w-11 h-11 md:w-9 md:h-9 inline-flex items-center justify-center rounded-full bg-surface-soft text-body-strong hover:bg-hairline-strong transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass"
+                    >
+                      <Plus className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {hasMore && (
-        <div className="flex justify-center mt-8">
-          <motion.button
-            onClick={handleLoadMore}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="group flex items-center gap-2 px-6 py-3 bg-surface-card hover:bg-surface-soft border border-hairline hover:border-hairline-strong rounded-full text-ink font-medium transition-all duration-300"
+        <div className="flex justify-center mt-4">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((prev) => prev + 8)}
+            className="px-4 h-11 md:h-9 bg-surface-soft hover:bg-hairline-strong rounded-full text-sm font-medium text-ink transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass"
           >
-            <span>Load More</span>
-            <ChevronDown className="w-4 h-4 group-hover:translate-y-1 transition-transform" />
-          </motion.button>
+            Show more
+          </button>
         </div>
       )}
-    </motion.div>
+    </section>
   );
 }
