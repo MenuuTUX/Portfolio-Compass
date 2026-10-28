@@ -90,21 +90,20 @@ export default function SimulatorExplainer({
   return (
     <div className="w-full mt-12 mb-8 relative font-sans">
       {/* Ambient Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 blur-3xl rounded-full opacity-30 pointer-events-none" />
 
-      <div className="relative glass-panel border border-hairline bg-dune/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+      <div className="relative glass-panel border border-hairline bg-surface-card rounded-2xl overflow-hidden ">
         {/* Header */}
         <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+              <div className="p-2 rounded-lg bg-surface-soft border border-hairline">
                 <Binary className="w-6 h-6 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-ink tracking-tight">
                 How the <span className="text-emerald-400">projection works</span>
               </h2>
             </div>
-            <p className="text-neutral-400 max-w-2xl text-sm">
+            <p className="text-muted max-w-2xl text-sm">
               Review the assumptions and equations behind each chart.
             </p>
           </div>
@@ -112,7 +111,7 @@ export default function SimulatorExplainer({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 min-h-[500px]">
           {/* LEFT: Interactive Visualizer (7 Columns) */}
-          <div className="lg:col-span-7 bg-black/5 relative overflow-hidden flex flex-col border-r border-hairline">
+          <div className="lg:col-span-7 bg-surface-card relative overflow-hidden flex flex-col border-r border-hairline">
             {/* Background Grid */}
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none" />
 
@@ -131,13 +130,12 @@ export default function SimulatorExplainer({
                   >
                     {/* The Formula */}
                     <div className="relative group">
-                      <div className="absolute -inset-6 bg-blue-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative bg-dune/50 border border-hairline px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex flex-wrap justify-center items-center gap-4 text-2xl md:text-3xl font-serif text-white">
+                      <div className="relative bg-surface-card ring-1 ring-hairline px-8 py-6 rounded-2xl flex flex-wrap justify-center items-center gap-4 text-2xl md:text-3xl text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
                             hoveredTerm === "A"
-                              ? "text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]"
+                              ? "text-body-strong "
                               : "text-ink",
                           )}
                           onMouseEnter={() => setHoveredTerm("A")}
@@ -145,13 +143,13 @@ export default function SimulatorExplainer({
                         >
                           FV
                         </span>
-                        <span className="text-neutral-600 text-xl mx-1">=</span>
+                        <span className="text-muted text-xl mx-1">=</span>
                         <div className="flex items-center group/principal">
                           <span
                             className={cn(
                               "transition-colors cursor-help italic",
                               hoveredTerm === "P"
-                                ? "text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]"
+                                ? "text-emerald-400 "
                                 : "text-neutral-200",
                             )}
                             onMouseEnter={() => setHoveredTerm("P")}
@@ -159,16 +157,16 @@ export default function SimulatorExplainer({
                           >
                             P(1+r)
                           </span>
-                          <sup className="text-lg text-neutral-400">t</sup>
+                          <sup className="text-lg text-muted">t</sup>
                         </div>
-                        <span className="text-neutral-600 text-xl mx-1">+</span>
+                        <span className="text-muted text-xl mx-1">+</span>
                         <div className="flex items-center group/contribution">
                           <span
                             className={cn(
                               "transition-colors cursor-help italic",
                               hoveredTerm === "PMT"
-                                ? "text-purple-400 drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]"
-                                : "text-purple-400",
+                                ? "text-body-strong "
+                                : "text-body-strong",
                             )}
                             onMouseEnter={() => setHoveredTerm("PMT")}
                             onMouseLeave={() => setHoveredTerm(null)}
@@ -192,16 +190,16 @@ export default function SimulatorExplainer({
                             initial={{ opacity: 0, y: 10, x: "-50%" }}
                             animate={{ opacity: 1, y: 0, x: "-50%" }}
                             exit={{ opacity: 0, y: 5, x: "-50%" }}
-                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-hairline-strong rounded-xl shadow-2xl whitespace-nowrap z-20 backdrop-blur-xl"
+                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-hairline-strong rounded-xl whitespace-nowrap z-20 "
                           >
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-sm font-bold text-ink tracking-wide uppercase">
+                              <span className="text-sm font-bold text-ink">
                                 {hoveredTerm === "A" && "Future Value"}
                                 {hoveredTerm === "P" && "Principal Investment"}
                                 {hoveredTerm === "PMT" &&
                                   "Monthly Contribution"}
                               </span>
-                              <span className="text-xs text-neutral-400">
+                              <span className="text-xs text-muted">
                                 {hoveredTerm === "A" &&
                                   "Total account balance after t years."}
                                 {hoveredTerm === "P" &&
@@ -217,8 +215,8 @@ export default function SimulatorExplainer({
                     </div>
 
                     {/* Visual Metaphor: Smooth Chart */}
-                    <div className="w-full max-w-sm h-40 bg-surface-card border border-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
-                      <div className="absolute top-4 left-4 text-xs text-neutral-400 font-mono">
+                    <div className="w-full max-w-sm h-40 bg-surface-card ring-1 ring-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
+                      <div className="absolute top-4 left-4 text-xs text-muted font-mono">
                         Constant-return path
                       </div>
                       <svg
@@ -250,7 +248,7 @@ export default function SimulatorExplainer({
                           </linearGradient>
                         </defs>
                       </svg>
-                      <div className="absolute bottom-4 right-4 text-xs text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
+                      <div className="absolute bottom-4 right-4 text-xs text-body-strong font-bold bg-surface-soft px-2 py-1 rounded border border-hairline">
                         Deterministic
                       </div>
                     </div>
@@ -268,19 +266,18 @@ export default function SimulatorExplainer({
                   >
                     {/* The Formula */}
                     <div className="relative group">
-                      <div className="absolute -inset-6 bg-emerald-500/10 blur-2xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative bg-dune/50 border border-hairline px-8 py-6 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-2xl md:text-3xl font-serif text-white">
+                      <div className="relative bg-surface-card ring-1 ring-hairline px-8 py-6 rounded-2xl flex items-center gap-4 text-2xl md:text-3xl text-white">
                         <span className="text-ink">dS</span>
-                        <span className="text-neutral-600 text-xl mx-1">=</span>
+                        <span className="text-muted text-xl mx-1">=</span>
                         <div className="flex items-center group/drift cursor-help">
                           <span className="text-emerald-400">μS dt</span>
                         </div>
-                        <span className="text-neutral-600 text-xl mx-1">+</span>
+                        <span className="text-muted text-xl mx-1">+</span>
                         <div className="flex items-center group/shock cursor-help">
                           <span className="text-rose-400">σS dW</span>
                         </div>
                       </div>
-                      <div className="mt-4 flex gap-4 justify-center text-xs text-neutral-500 font-mono">
+                      <div className="mt-4 flex gap-4 justify-center text-xs text-muted font-mono">
                         <span className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-emerald-400" />{" "}
                           Drift (Trend)
@@ -293,8 +290,8 @@ export default function SimulatorExplainer({
                     </div>
 
                     {/* Visual Metaphor: Random Paths */}
-                    <div className="w-full max-w-sm h-40 bg-surface-card border border-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
-                      <div className="absolute top-4 left-4 text-xs text-neutral-400 font-mono">
+                    <div className="w-full max-w-sm h-40 bg-surface-card ring-1 ring-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
+                      <div className="absolute top-4 left-4 text-xs text-muted font-mono">
                         Simulated paths
                       </div>
                       <svg
@@ -335,7 +332,7 @@ export default function SimulatorExplainer({
                           opacity="0.8"
                         />
                       </svg>
-                      <div className="absolute bottom-4 right-4 text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                      <div className="absolute bottom-4 right-4 text-xs text-emerald-400 font-bold bg-surface-soft px-2 py-1 rounded border border-hairline">
                         Assumption-based
                       </div>
                     </div>
@@ -381,7 +378,7 @@ export default function SimulatorExplainer({
                           "mt-1 p-2.5 rounded-xl h-fit transition-colors border",
                           isActive
                             ? `bg-${step.color}-500/10 text-${step.color}-400 border-${step.color}-500/30`
-                            : "bg-surface-card text-neutral-500 border-hairline group-hover:border-hairline-strong",
+                            : "bg-surface-card text-muted border-hairline group-hover:border-hairline-strong",
                         )}
                       >
                         <Icon className="w-5 h-5" />
@@ -398,13 +395,13 @@ export default function SimulatorExplainer({
                             {step.title}
                           </h3>
                           {isActive && (
-                            <ChevronRight className="w-4 h-4 text-emerald-500 animate-pulse" />
+                            <ChevronRight className="w-4 h-4 text-body-strong" />
                           )}
                         </div>
-                        <p className="text-xs font-mono text-emerald-500/70 mb-2 uppercase tracking-wide">
+                        <p className="text-xs font-mono text-muted mb-2">
                           {step.subtitle}
                         </p>
-                        <p className="text-sm text-neutral-400 leading-relaxed mb-4">
+                        <p className="text-sm text-muted leading-relaxed mb-4">
                           {step.description}
                         </p>
 
@@ -420,14 +417,14 @@ export default function SimulatorExplainer({
                                 {step.details.map((detail, i) => (
                                   <div
                                     key={i}
-                                    className="flex items-start gap-3 p-3 rounded-lg bg-black/5 border border-hairline"
+                                    className="flex items-start gap-3 p-3 rounded-lg bg-surface-card ring-1 ring-hairline"
                                   >
-                                    <detail.icon className="w-4 h-4 text-neutral-500 mt-0.5" />
+                                    <detail.icon className="w-4 h-4 text-muted mt-0.5" />
                                     <div>
                                       <div className="text-xs text-neutral-200 font-medium mb-0.5">
                                         {detail.label}
                                       </div>
-                                      <div className="text-xs text-neutral-500 leading-snug">
+                                      <div className="text-xs text-muted leading-snug">
                                         {detail.text}
                                       </div>
                                     </div>

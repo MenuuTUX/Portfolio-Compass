@@ -13,19 +13,17 @@ export default function ImportPortfolioCard({
   return (
     <div
       className={cn(
-        "w-full h-full bg-stone-950/80 border border-hairline rounded-2xl p-6 flex flex-col items-center justify-center gap-4 text-center",
+        "w-full bg-surface-card ring-1 ring-hairline rounded-2xl px-4 py-3 flex items-center gap-3",
         className,
       )}
       aria-disabled="true"
     >
-      <div className="w-16 h-16 rounded-2xl bg-stone-900 border border-hairline flex items-center justify-center">
-        <ImageOff className="w-8 h-8 text-stone-500" />
+      <div className="w-10 h-10 rounded-xl bg-surface-soft flex items-center justify-center shrink-0">
+        <ImageOff className="w-5 h-5 text-muted" aria-hidden="true" />
       </div>
-      <div className="space-y-1">
-        <h3 className="text-lg font-bold text-ink">
-          Image Import Unavailable
-        </h3>
-        <p className="text-xs text-stone-500 leading-relaxed max-w-[220px] mx-auto">
+      <div className="min-w-0">
+        <h3 className="text-sm font-bold text-ink">Image import unavailable</h3>
+        <p className="text-xs text-muted leading-relaxed">
           Portfolio images can be exported, but importing them is not
           implemented.
         </p>

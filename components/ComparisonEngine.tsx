@@ -8,218 +8,212 @@ import {
   useRef,
   useMemo,
   memo,
+  useSyncExternalStore,
 } from "react";
-import {
-  Search,
-  ArrowUpRight,
-  ArrowDownRight,
-  Maximize2,
-  Plus,
-  Check,
-  Trash2,
-  ChevronDown,
-  Filter,
-} from "lucide-react";
+import { Search, ChevronDown, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, ListFilter } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { ETF, PortfolioItem } from "@/types";
 import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+import Reveal, { EASE } from "./motion/Reveal";
+import HoldingIcon from "./workspace/HoldingIcon";
+import Shimmer from "./workspace/Shimmer";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
 import MessageDrawer from "./MessageDrawer";
 import Sparkline from "./Sparkline";
-import { HelpTip } from "./ui/HelpTip";
-import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
-import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
-import { quoteSessionLabel } from "@/lib/quote-session";
+import AssetWorkspace from "./workspace/AssetWorkspace";
+import {
+  LEFT_PANE,
+  RIGHT_PANE,
+  maxLeftPane,
+  maxRightPane,
+  PaneResizer,
+  useResizableWidth,
+} from "./workspace/PaneResizer";
+import { useAssetChart } from "./workspace/useAssetChart";
+import { useAssetDetails } from "./workspace/useAssetDetails";
 import MarketFilters, {
   DEFAULT_MARKET_FILTERS,
   MarketFilterState,
   applyMarketFilters,
 } from "./MarketFilters";
 
-interface ETFCardProps {
+interface ETFRowProps {
   etf: ETF;
+  /** Position in the visible list; the first 14 stagger in on first paint. */
+  index: number;
   inPortfolio: boolean;
+  selected: boolean;
   flashState: "success" | "error" | null;
   onAdd: (etf: ETF) => void;
   onRemove: (ticker: string) => void;
   onView: (etf: ETF) => void;
 }
 
-// ETFCard component - Memoized to isolate state updates (like flash animations)
-const ETFCard = memo(
+const GAIN_HEX = "#6dc382";
+const LOSS_HEX = "#f87171";
+
+// One dense list row. Memoized to isolate state updates (like flash animations)
+const ETFRow = memo(
   ({
     etf,
+    index,
     inPortfolio,
+    selected,
     flashState,
     onAdd,
     onRemove,
     onView,
-  }: ETFCardProps) => {
-    const isPositive = etf.changePercent >= 0;
-    const yieldValue = getSourcedYield(etf.metrics, etf.dividendYield);
-    const yieldKnown = yieldValue != null;
+  }: ETFRowProps) => {
+    const reduceMotion = useReducedMotion();
     const quoteUnavailable = etf.quoteStatus === "unavailable";
-    const quoteTime = etf.quoteAsOf && Number.isFinite(Date.parse(etf.quoteAsOf))
-      ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(etf.quoteAsOf))
-      : null;
-    const quoteLabel = quoteSessionLabel(etf.quoteSession);
-
+    const change = etf.changePercent;
+    const iconUrl = getAssetIconUrl(etf.ticker, etf.name, etf.assetType);
     const displayHistory = etf.history ?? [];
 
-    // Determine graph color based on history trend if available
-    let isGraphPositive = isPositive;
-    if (displayHistory && displayHistory.length > 0) {
-      const firstPrice = displayHistory[0].price;
-      const lastPrice = displayHistory[displayHistory.length - 1].price;
-      isGraphPositive = lastPrice >= firstPrice;
+    let isGraphPositive = change >= 0;
+    if (displayHistory.length > 0) {
+      isGraphPositive =
+        displayHistory[displayHistory.length - 1].price >= displayHistory[0].price;
     }
 
+    const deltaText = quoteUnavailable
+      ? "Unavailable"
+      : `${change > 0 ? "+" : change < 0 ? "−" : ""}${Math.abs(change).toFixed(2)}%`;
+
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={flashState ? { x: [0, -5, 5, -5, 5, 0], opacity: 1, y: 0 } : { opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+      <motion.li
+        initial={{ opacity: 0, y: 8 }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          x: flashState && !reduceMotion ? [0, -4, 4, -4, 4, 0] : 0,
+        }}
+        transition={{
+          opacity: { duration: 0.3, ease: EASE, delay: index < 14 ? index * 0.03 : 0 },
+          y: { duration: 0.3, ease: EASE, delay: index < 14 ? index * 0.03 : 0 },
+          x: { duration: 0.4 },
+        }}
         className={cn(
-          "glass-card rounded-xl relative overflow-hidden bg-surface-card border transition-all group flex flex-col",
-          inPortfolio ? "border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]" : "border-hairline hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)]",
+          "relative flex items-center gap-1 pr-2 lg:pr-1.5 transition-colors duration-75",
+          flashState === "success" && "bg-emerald-400/10",
+          flashState === "error" && "bg-rose-400/10",
+          !flashState && !selected && "hover:bg-surface-soft/60",
         )}
       >
-        <div className="p-6 transition-all duration-300 md:group-hover:blur-sm md:group-hover:opacity-30 flex-1">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex gap-3">
-              {/* Provider Logo */}
-              {getAssetIconUrl(etf.ticker, etf.name, etf.assetType) && <div className="w-10 h-10 flex items-center justify-center shrink-0"><Image src={getAssetIconUrl(etf.ticker, etf.name, etf.assetType)!} alt={`${etf.ticker} logo`} width={40} height={40} className="w-full h-full object-contain" /></div>}
-              <div>
-                <h3 className="text-2xl font-bold text-ink tracking-tight">
-                  {etf.ticker}
-                </h3>
-                <p
-                  className="text-sm text-neutral-400 line-clamp-1"
-                  title={etf.name}
-                >
-                  {etf.name}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-2">
-              {/* Owned Indicator */}
-              {inPortfolio && (
-                <div className="flex items-center gap-1 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-                  <Check className="w-3 h-3" />
-                  OWNED
-                </div>
-              )}
-              <div
-                className={cn(
-                  "flex items-center gap-1 px-2 py-1 rounded text-sm font-medium",
-                  quoteUnavailable
-                    ? "bg-surface-soft text-muted"
-                    : isPositive
-                    ? "bg-surface-soft text-data-up"
-                    : "bg-surface-soft text-data-down",
-                )}
-              >
-                {!quoteUnavailable && (isPositive ? (
-                  <ArrowUpRight className="w-4 h-4" />
-                ) : (
-                  <ArrowDownRight className="w-4 h-4" />
-                ))}
-                {quoteUnavailable ? "Change unavailable" : `Daily ${etf.changePercent > 0 ? "+" : etf.changePercent < 0 ? "−" : ""}${Math.abs(etf.changePercent).toFixed(2)}%`}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-end mb-6">
-            <div>
-              <div className="text-3xl font-light text-ink">
-                {quoteUnavailable ? "Unavailable" : formatCurrency(etf.price, etf.currency)}
-              </div>
-              <div className="text-xs text-muted mt-1">
-                {quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
-              </div>
-            </div>
-            {displayHistory.length > 0 && (
+        {selected && (
+          <motion.span
+            layoutId="watchlist-active-row"
+            aria-hidden="true"
+            className="absolute inset-0 bg-surface-soft"
+            transition={{ duration: 0.28, ease: EASE }}
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => onView(etf)}
+          aria-pressed={selected}
+          className="relative flex flex-1 min-w-0 items-center gap-3 lg:gap-2.5 pl-4 lg:pl-3 py-3 lg:py-0 min-h-14 lg:min-h-0 lg:h-[42px] text-left rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-compass"
+        >
+          <span className="w-10 h-10 rounded-lg lg:w-7 lg:h-7 lg:rounded-full bg-surface-soft flex items-center justify-center shrink-0 overflow-hidden">
+            {iconUrl ? (
+              <Image
+                src={iconUrl}
+                alt={`${etf.ticker} logo`}
+                width={28}
+                height={28}
+                className="w-7 h-7 lg:w-5 lg:h-5 object-contain"
+              />
+            ) : (
+              <span className="text-sm lg:text-xs font-bold text-ink">
+                {etf.ticker.slice(0, 1)}
+              </span>
+            )}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm lg:text-xs font-bold text-ink truncate">
+              {etf.ticker}
+            </span>
+            <span className="block text-xs text-muted truncate" title={etf.name}>
+              {etf.name}
+            </span>
+          </span>
+          {displayHistory.length > 0 ? (
+            <span className="hidden sm:block lg:hidden shrink-0">
               <Sparkline
                 data={displayHistory}
-                color={isGraphPositive ? "#5cb883" : "#ef7a72"}
+                color={isGraphPositive ? GAIN_HEX : LOSS_HEX}
                 name={etf.ticker}
               />
-            )}
-            {displayHistory.length === 0 && (
-              <span className="text-xs text-neutral-400">Chart unavailable</span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-hairline">
-            <div>
-              <div className="text-xs text-neutral-400 mb-1">
-                <HelpTip term={etf.metrics?.yieldSource === "Yahoo Finance quote" ? "Unverified Yahoo dividend yield unavailable" : "Dividend yield"} showIcon={false} />
-              </div>
-              <div
-                className="text-sm font-medium text-muted"
-                title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
-              >
-                {!yieldKnown
-                  ? "N/A"
-                  : `${yieldValue!.toFixed(2)}%`}
-              </div>
-              {yieldKnown && etf.metrics?.yieldSource === "Yahoo Finance quote" && (
-                <div className="text-[10px] text-neutral-500 mt-0.5">Provider-reported · unverified</div>
+            </span>
+          ) : (
+            <span className="hidden sm:block lg:hidden shrink-0 text-xs text-muted-soft">
+              Chart unavailable
+            </span>
+          )}
+          <span className="text-right shrink-0 min-w-[84px] lg:min-w-0">
+            <span className="block text-sm lg:text-xs font-bold text-ink font-mono">
+              {quoteUnavailable ? "N/A" : formatCurrency(etf.price, etf.currency)}
+            </span>
+            <span
+              className={cn(
+                "block text-xs font-medium font-mono",
+                quoteUnavailable || change === 0
+                  ? "text-muted"
+                  : change > 0
+                    ? "text-emerald-400"
+                    : "text-rose-400",
               )}
-            </div>
-            {/* Expense ratios apply to funds and ETFs, not individual stocks. */}
-            {etf.assetType === "STOCK" ? (
-              <div>
-                <div className="text-xs text-neutral-400 mb-1">
-                  <HelpTip term="PE Ratio" showIcon={false} />
-                </div>
-                <div className="text-sm font-medium text-neutral-300">
-                  {etf.peRatio != null && etf.peRatio > 0
-                    ? etf.peRatio.toFixed(1)
-                    : "N/A"}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="text-xs text-neutral-400 mb-1">
-                  <span>Expense ratio (provider-reported)</span>
-                </div>
-                <div
-                  className="text-sm font-medium text-neutral-300"
-                  title={describeExpenseRatioProvenance(etf.metrics)}
-                >
-                  {getSourcedExpenseRatio(etf.metrics) != null
-                    ? `${getSourcedExpenseRatio(etf.metrics)!.toFixed(2)}%`
-                    : "N/A"}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex md:hidden border-t border-hairline divide-x divide-hairline">
-          {inPortfolio ? <button onClick={() => onRemove(etf.ticker)} className="flex-1 py-3 bg-rose-500/10 text-rose-400 font-medium flex items-center justify-center gap-2 active:bg-rose-500/20"><Trash2 className="w-4 h-4" /> Remove</button> : <button onClick={() => onAdd(etf)} className="flex-1 py-3 bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2 active:bg-emerald-500/20"><Plus className="w-4 h-4" /> Add</button>}
-          <button onClick={() => onView(etf)} className="flex-1 py-3 bg-surface-card text-ink font-medium flex items-center justify-center gap-2 active:bg-surface-soft"><Maximize2 className="w-4 h-4" /> View</button>
-        </div>
-        <div className="hidden md:flex absolute inset-0 flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none group-hover:pointer-events-auto bg-dune/40 backdrop-blur-sm">
-          {inPortfolio ? <button onClick={() => onRemove(etf.ticker)} className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 shadow-lg shadow-rose-500/20"><Trash2 className="w-4 h-4" />Remove</button> : <button onClick={() => onAdd(etf)} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-6 rounded-full flex items-center gap-2 shadow-lg shadow-emerald-500/20"><Plus className="w-4 h-4" />Add to Portfolio</button>}
-          <button onClick={() => onView(etf)} className="bg-surface-soft text-ink font-medium py-2 px-6 rounded-full flex items-center gap-2 backdrop-blur-md border border-hairline"><Maximize2 className="w-4 h-4" />Advanced View</button>
-        </div>
-      </motion.div>
+            >
+              {deltaText}
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => (inPortfolio ? onRemove(etf.ticker) : onAdd(etf))}
+          aria-label={
+            inPortfolio
+              ? `Remove ${etf.ticker} from portfolio`
+              : `Add ${etf.ticker} to portfolio`
+          }
+          title={inPortfolio ? "In portfolio. Click to remove" : "Add to portfolio"}
+          className={cn(
+            "relative w-11 h-11 lg:w-7 lg:h-7 shrink-0 rounded-xl lg:rounded-md flex items-center justify-center transition-colors duration-75 hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-compass",
+            inPortfolio ? "text-emerald-400" : "text-body-strong",
+          )}
+        >
+          <HoldingIcon inPortfolio={inPortfolio} className="w-5 h-5 lg:w-4 lg:h-4" />
+        </button>
+      </motion.li>
     );
   },
 );
 
-ETFCard.displayName = "ETFCard";
+ETFRow.displayName = "ETFRow";
 
 interface ComparisonEngineProps {
   onAddToPortfolio: (etf: ETF) => Promise<void>;
   onRemoveFromPortfolio: (ticker: string) => void;
   portfolio: PortfolioItem[];
   assetType?: string;
+}
+
+// True at the lg breakpoint (1024px) and up; false during SSR.
+const LG_QUERY = "(min-width: 1024px)";
+function subscribeLg(callback: () => void) {
+  const mq = window.matchMedia(LG_QUERY);
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+function useIsLg() {
+  return useSyncExternalStore(
+    subscribeLg,
+    () => window.matchMedia(LG_QUERY).matches,
+    () => false,
+  );
 }
 
 // Debounce helper
@@ -245,6 +239,7 @@ export default function ComparisonEngine({
   portfolio = [],
   assetType,
 }: ComparisonEngineProps) {
+  const isLg = useIsLg();
   const [etfs, setEtfs] = useState<ETF[]>([]);
   const [otherTypeEtfs, setOtherTypeEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState("");
@@ -252,6 +247,11 @@ export default function ComparisonEngine({
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [listCollapsed, setListCollapsed] = useState(false);
+  const left = useResizableWidth("left", LEFT_PANE.initial, LEFT_PANE.min, maxLeftPane);
+  const right = useResizableWidth("right", RIGHT_PANE.initial, RIGHT_PANE.min, maxRightPane);
   const [messageDrawer, setMessageDrawer] = useState<{
     isOpen: boolean;
     title: string;
@@ -347,6 +347,14 @@ export default function ComparisonEngine({
     portfolio.some(
       (item) => item.ticker.toUpperCase() === ticker.toUpperCase(),
     );
+
+  // lg+ workspace: hydrate the selected asset and own its chart once, then
+  // share both with the center chart and the right details panel
+  const selectedDisplay = useAssetDetails(isLg ? selectedETF : null);
+  const chart = useAssetChart(
+    isLg ? (selectedDisplay?.ticker ?? null) : null,
+    selectedDisplay?.changePercent ?? 0,
+  );
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -625,16 +633,16 @@ export default function ComparisonEngine({
           : "";
 
       return (
-        <div className="col-span-full text-center text-neutral-400 py-12 flex flex-col items-center">
-          <Search className="h-12 w-12 text-emerald-400 mb-4" />
-          <p className="text-lg text-ink mb-2">
+        <div className="text-center text-muted py-12 px-4 flex flex-col items-center">
+          <Search className="h-6 w-6 text-muted-soft mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-ink mb-1">
             Found matches in {otherSection}
           </p>
-          <p className="text-neutral-400">
+          <p className="text-xs text-muted">
             We found &ldquo;{sample}&rdquo;{othersText ? ` ${othersText}` : ""} in the{" "}
             {otherSection} section.
           </p>
-          <p className="text-sm text-neutral-400 mt-2">
+          <p className="text-xs text-muted mt-1">
             Please switch to the {otherSection} tab to view these assets.
           </p>
         </div>
@@ -676,42 +684,216 @@ export default function ComparisonEngine({
   }, [etfs, recentTickers, filters]);
 
   const displayedEtfs = sortedEtfs.slice(0, visibleCount);
+
+  // Never leave the lg+ workspace empty: select the first result once loaded
+  const firstResult = displayedEtfs[0];
+  useEffect(() => {
+    if (isLg && !loading && !selectedETF && firstResult) {
+      setSelectedETF(firstResult);
+    }
+  }, [isLg, loading, selectedETF, firstResult]);
   const resolvedAssetType: "STOCK" | "ETF" =
     assetType === "STOCK" ? "STOCK" : "ETF";
 
+  const resultsList = loading ? (
+    <ul className="divide-y divide-hairline" aria-busy="true" aria-label="Loading results">
+      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+        <li key={i} className="flex items-center gap-3 px-4 py-3 min-h-14 lg:px-3 lg:py-0 lg:min-h-0 lg:h-[42px]">
+          <Shimmer className="w-10 h-10 lg:w-7 lg:h-7 rounded-lg lg:rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Shimmer className="h-3 w-16" />
+            <Shimmer className="h-3 w-32" />
+          </div>
+          <Shimmer className="h-8 w-20" />
+        </li>
+      ))}
+    </ul>
+  ) : (
+    <>
+      <ul className="divide-y divide-hairline" aria-label={resolvedAssetType === "STOCK" ? "Stocks" : "ETFs"}>
+        {displayedEtfs.map((etf, index) => (
+          <ETFRow
+            key={etf.ticker}
+            index={index}
+            etf={etf}
+            inPortfolio={isInPortfolio(etf.ticker)}
+            selected={selectedETF?.ticker === etf.ticker}
+            flashState={flashStates[etf.ticker]}
+            onAdd={handleAdd}
+            onRemove={handleRemove}
+            onView={handleAdvancedView}
+          />
+        ))}
+      </ul>
+      {renderNoResults()}
+
+      {!loading && sortedEtfs.length === 0 && etfs.length > 0 && (
+        <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-2">
+          <Filter className="w-6 h-6 text-muted-soft" aria-hidden="true" />
+          <p className="text-sm font-semibold text-ink">No matches</p>
+          <p className="text-xs text-muted max-w-sm">
+            Nothing fits these filters. Try clearing a filter or resetting.
+          </p>
+          <button
+            type="button"
+            onClick={() => setFilters({ ...DEFAULT_MARKET_FILTERS })}
+            className="mt-2 min-h-11 px-4 text-sm font-medium text-compass hover:underline"
+          >
+            Reset filters
+          </button>
+        </div>
+      )}
+
+      {(displayedEtfs.length < sortedEtfs.length ||
+        (hasMoreServer && filters.sort === "relevance")) &&
+        sortedEtfs.length > 0 && (
+          <div className="flex justify-center p-4">
+            <button
+              type="button"
+              onClick={handleLoadMore}
+              className="inline-flex items-center gap-2 px-5 min-h-11 rounded-full bg-surface-soft hover:bg-hairline-strong text-sm font-semibold text-ink transition-colors duration-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass"
+            >
+              <ChevronDown className="w-4 h-4" aria-hidden="true" />
+              Load more{" "}
+              {displayedEtfs.length < sortedEtfs.length &&
+                `(${sortedEtfs.length - displayedEtfs.length} more)`}
+            </button>
+          </div>
+        )}
+    </>
+  );
+
+  const panel = "ws-panel bg-surface-card rounded-lg ring-1 ring-hairline";
+  const collapsedList = isLg && listCollapsed;
+  const sectionTitle = resolvedAssetType === "STOCK" ? "Stocks" : "ETFs";
+  const filtersId = "market-filters-panel";
+  const activeFilters = filters.sort !== DEFAULT_MARKET_FILTERS.sort ||
+    filters.performance !== DEFAULT_MARKET_FILTERS.performance ||
+    filters.yieldFilter !== DEFAULT_MARKET_FILTERS.yieldFilter ||
+    filters.size !== DEFAULT_MARKET_FILTERS.size ||
+    filters.pe !== DEFAULT_MARKET_FILTERS.pe ||
+    filters.mer !== DEFAULT_MARKET_FILTERS.mer;
+
   return (
-    <section className="py-12 md:py-24 px-4 max-w-7xl mx-auto min-h-full">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex flex-col md:flex-row justify-between items-end mb-8 md:mb-10 gap-6">
-          <div className="w-full md:w-auto">
-            <h2 className="text-2xl md:text-3xl font-bold text-ink mb-2">
-              Market Browser
+    <section
+      className="flex flex-col gap-2 px-4 py-4 lg:p-0 lg:h-full lg:min-h-0"
+      aria-label={`${sectionTitle} market browser`}
+    >
+      <span className="sr-only" aria-live="polite">
+        {loading
+          ? "Loading"
+          : `${sortedEtfs.length} ${sortedEtfs.length === 1 ? "result" : "results"}`}
+      </span>
+      <div className="flex flex-col gap-2 lg:gap-0 lg:flex-row lg:flex-1 lg:min-h-0 lg:h-full">
+        {/* Left: watchlist-style list (collapses to a 48px strip at lg+) */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            ...(isLg ? { width: collapsedList ? "3rem" : `${left.width}px` } : {}),
+          }}
+          transition={{
+            opacity: { duration: 0.5, ease: EASE },
+            y: { duration: 0.5, ease: EASE },
+            width: { duration: left.dragging ? 0 : 0.28, ease: EASE },
+          }}
+          className={cn(
+            panel,
+            "relative flex flex-col lg:shrink-0 lg:min-h-0 lg:h-full lg:overflow-hidden",
+          )}
+        >
+          {collapsedList && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center gap-2 pt-2 bg-surface-card">
+              <button
+                type="button"
+                onClick={() => setListCollapsed(false)}
+                aria-label={`Expand ${sectionTitle} list`}
+                title={`Expand ${sectionTitle} list`}
+                className="w-8 h-8 rounded-md flex items-center justify-center text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-compass"
+              >
+                <ChevronRight className="w-4 h-4" aria-hidden="true" />
+              </button>
+              <ListFilter className="w-4 h-4 text-muted-soft" aria-hidden="true" />
+            </div>
+          )}
+          <div
+            inert={collapsedList}
+            className="flex flex-col flex-1 min-h-0 min-w-0"
+          >
+          <div className="flex items-center justify-between gap-3 pl-4 pr-2 pt-2 shrink-0">
+            <h2 className="flex items-baseline gap-2 text-sm font-bold text-ink">
+              {sectionTitle}
+              {!loading && (
+                <span className="text-xs font-normal text-muted">
+                  {sortedEtfs.length}
+                </span>
+              )}
             </h2>
-            <p className="text-sm md:text-base text-neutral-400">
-              Browse live quotes and available market data for{" "}
-              {resolvedAssetType === "STOCK" ? "stocks" : "ETFs"}. Filter the
-              list, then open a card for details.
-            </p>
+            <div className="flex items-center">
+            {isLg && (
+              <button
+                type="button"
+                onClick={() => setListCollapsed(true)}
+                aria-label={`Collapse ${sectionTitle} list`}
+                title={`Collapse ${sectionTitle} list`}
+                className="w-8 h-8 rounded-md flex items-center justify-center text-muted hover:bg-surface-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-compass"
+              >
+                <ChevronLeft className="w-4 h-4" aria-hidden="true" />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              aria-expanded={filtersOpen}
+              aria-controls={filtersId}
+              aria-label="Sort and filter"
+              title="Sort and filter"
+              className={cn(
+                "relative w-11 h-11 lg:w-8 lg:h-8 rounded-md flex items-center justify-center transition-colors duration-75 hover:bg-surface-soft focus-visible:outline-2 focus-visible:outline-compass",
+                filtersOpen ? "bg-surface-soft text-ink" : "text-muted hover:text-ink",
+              )}
+            >
+              <SlidersHorizontal className="w-4 h-4" aria-hidden="true" />
+              {activeFilters && (
+                <span
+                  className="absolute top-2 right-2 lg:top-1.5 lg:right-1.5 w-1.5 h-1.5 rounded-full bg-compass"
+                  aria-hidden="true"
+                />
+              )}
+            </button>
+            </div>
           </div>
 
-          {/* Search Bar with Smart Autocomplete */}
-          <div className="relative w-full md:w-96" ref={searchContainerRef}>
+          {filtersOpen && (
+            <div
+              id={filtersId}
+              className="border-y border-hairline max-h-[55%] overflow-y-auto custom-scrollbar shrink-0"
+            >
+              <MarketFilters
+                embedded
+                assetType={resolvedAssetType}
+                value={filters}
+                onChange={(next) => {
+                  setFilters(next);
+                  setVisibleCount(24);
+                }}
+                resultCount={loading ? undefined : sortedEtfs.length}
+              />
+            </div>
+          )}
+
+          <div className="relative px-3 pb-2 shrink-0" ref={searchContainerRef}>
             <div className="relative">
-              <div
-                className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none z-10"
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted pointer-events-none"
                 aria-hidden="true"
-              >
-                <Search className="h-6 w-6 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all" />
-              </div>
+              />
               <input
                 type="text"
                 aria-label="Search tickers"
-                placeholder="Search ticker or name..."
-                className="block w-full pl-12 pr-3 py-4 border border-hairline rounded-xl bg-surface-card text-ink placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 backdrop-blur-md transition-all text-lg shadow-lg"
+                placeholder="Search ticker or name"
+                className="block w-full h-11 lg:h-8 pl-9 pr-3 rounded-lg bg-surface-soft text-sm lg:text-xs text-ink placeholder:text-muted ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-compass"
                 value={search}
                 onChange={(e) => {
                   const value = e.target.value
@@ -725,132 +907,129 @@ export default function ComparisonEngine({
               />
             </div>
 
-            {/* Suggestions Dropdown */}
-            <AnimatePresence>
-              {showSuggestions && suggestions.length > 0 && (
-                <motion.ul
-                  role="listbox"
-                  aria-label="Search suggestions"
-                  initial={{ opacity: 0, y: -10, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -10, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute z-50 w-full mt-2 bg-canvas border border-hairline rounded-xl shadow-2xl overflow-hidden backdrop-blur-xl"
-                >
-                  {suggestions.slice(0, 5).map((item) => (
-                    <motion.li
-                      key={item.ticker}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="cursor-pointer hover:bg-surface-soft transition-colors"
-                      onClick={() => handleSuggestionClick(item)}
-                    >
-                      <div className="flex items-center justify-between px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-ink text-sm">
-                            {item.ticker}
-                          </span>
-                          <span className="text-xs text-neutral-400 truncate max-w-[200px]">
-                            {item.name}
-                          </span>
-                        </div>
-                        <div
-                          className={cn(
-                            "text-xs font-medium text-ink",
-                          )}
-                        >
-                          {formatCurrency(item.price, item.currency)}
-                        </div>
+            {showSuggestions && suggestions.length > 0 && (
+              <ul
+                role="listbox"
+                aria-label="Search suggestions"
+                className="absolute left-3 right-3 top-full -mt-1 z-30 bg-surface-card ring-1 ring-hairline-strong rounded-lg shadow-2xl overflow-hidden"
+              >
+                {suggestions.slice(0, 5).map((item) => (
+                  <li
+                    key={item.ticker}
+                    role="option"
+                    aria-selected={false}
+                    className="cursor-pointer hover:bg-surface-soft transition-colors duration-75"
+                    onClick={() => handleSuggestionClick(item)}
+                  >
+                    <div className="flex items-center justify-between gap-3 px-3 py-2 min-h-11">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-ink text-xs">{item.ticker}</span>
+                        <span className="text-xs text-muted truncate">{item.name}</span>
                       </div>
-                    </motion.li>
-                  ))}
-                </motion.ul>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Left filters + right grid */}
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start pb-20">
-          <MarketFilters
-            assetType={resolvedAssetType}
-            value={filters}
-            onChange={(next) => {
-              setFilters(next);
-              setVisibleCount(24);
-            }}
-            resultCount={loading ? undefined : sortedEtfs.length}
-          />
-
-          <div className="flex-1 min-w-0 w-full">
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="h-64 rounded-xl bg-surface-card animate-pulse"
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {displayedEtfs.map((etf) => (
-                  <ETFCard
-                    key={etf.ticker}
-                    etf={etf}
-                    inPortfolio={isInPortfolio(etf.ticker)}
-                    flashState={flashStates[etf.ticker]}
-                    onAdd={handleAdd}
-                    onRemove={handleRemove}
-                    onView={handleAdvancedView}
-                  />
-                ))}
-                {renderNoResults()}
-
-                {!loading && sortedEtfs.length === 0 && etfs.length > 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center py-16 text-center gap-3">
-                    <Filter className="w-10 h-10 text-neutral-600" />
-                    <p className="text-ink font-medium">No matches</p>
-                    <p className="text-sm text-neutral-500 max-w-sm">
-                      Nothing fits these filters. Try clearing a filter or
-                      resetting on the left.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setFilters({ ...DEFAULT_MARKET_FILTERS })}
-                      className="mt-2 text-sm text-emerald-400 hover:text-emerald-300 underline"
-                    >
-                      Reset filters
-                    </button>
-                  </div>
-                )}
-
-                {/* Load More Button */}
-                {(displayedEtfs.length < sortedEtfs.length ||
-                  (hasMoreServer && filters.sort === "relevance")) &&
-                  sortedEtfs.length > 0 && (
-                    <div className="col-span-full flex justify-center mt-8">
-                      <button
-                        onClick={handleLoadMore}
-                        className="flex items-center gap-2 px-6 py-3 bg-surface-card hover:bg-surface-soft text-ink rounded-full transition-all border border-hairline hover:border-emerald-500/50"
-                      >
-                        <ChevronDown className="w-4 h-4" />
-                        Load More{" "}
-                        {displayedEtfs.length < sortedEtfs.length &&
-                          `(${sortedEtfs.length - displayedEtfs.length} more)`}
-                      </button>
+                      <div className="text-xs font-bold text-ink font-mono shrink-0">
+                        {formatCurrency(item.price, item.currency)}
+                      </div>
                     </div>
-                  )}
-              </div>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        </div>
-      </motion.div>
-      <ETFDetailsDrawer
-        etf={selectedETF}
-        onClose={() => setSelectedETF(null)}
-        onTickerSelect={handleTickerSelect}
-      />
+
+          <div className="flex-1 min-h-0 lg:overflow-y-auto custom-scrollbar">
+            {resultsList}
+          </div>
+          </div>
+        </motion.div>
+
+        {isLg && (
+          collapsedList ? (
+            <div className="w-2 shrink-0" aria-hidden="true" />
+          ) : (
+            <PaneResizer
+              label="Resize markets list"
+              width={left.width}
+              direction={1}
+              onResize={left.setWidth}
+              onCommit={left.persist}
+              onDraggingChange={left.setDragging}
+              onReset={left.reset}
+            />
+          )
+        )}
+
+        {/* Center: instrument header, chart, bottom drawer (lg+) */}
+        {isLg && (
+          <Reveal
+            onMount
+            y={12}
+            duration={0.5}
+            delay={0.06}
+            className={cn(panel, "flex flex-col flex-1 min-w-0 min-h-0 h-full overflow-hidden")}
+          >
+            <AssetWorkspace
+              etf={selectedDisplay}
+              chart={chart}
+              portfolio={portfolio}
+              inPortfolio={
+                selectedDisplay ? isInPortfolio(selectedDisplay.ticker) : false
+              }
+              onAdd={handleAdd}
+              onRemove={handleRemove}
+              detailsOpen={detailsOpen}
+              onToggleDetails={() => setDetailsOpen((o) => !o)}
+            />
+          </Reveal>
+        )}
+
+        {isLg && detailsOpen && (
+          <PaneResizer
+            label="Resize details panel"
+            width={right.width}
+            direction={-1}
+            onResize={right.setWidth}
+            onCommit={right.persist}
+            onDraggingChange={right.setDragging}
+            onReset={right.reset}
+          />
+        )}
+
+        {/* Right: details (lg+ docked; below lg opens as bottom sheet) */}
+        {isLg && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{
+              opacity: detailsOpen ? 1 : 0,
+              y: 0,
+              width: detailsOpen ? right.width : 0,
+            }}
+            transition={{
+              opacity: { duration: detailsOpen ? 0.5 : 0.2, ease: EASE, delay: detailsOpen ? 0.12 : 0 },
+              y: { duration: 0.5, ease: EASE, delay: 0.12 },
+              width: { duration: right.dragging ? 0 : 0.28, ease: EASE },
+            }}
+            className={cn(panel, "shrink-0 min-h-0 h-full overflow-hidden")}
+          >
+            <div inert={!detailsOpen} className="h-full w-full min-w-0">
+              <ETFDetailsDrawer
+                docked
+                etf={selectedDisplay}
+                chart={chart}
+                onClose={() => setDetailsOpen(false)}
+                onTickerSelect={handleTickerSelect}
+              />
+            </div>
+          </motion.div>
+        )}
+        {!isLg && (
+          <ETFDetailsDrawer
+            etf={selectedETF}
+            onClose={() => setSelectedETF(null)}
+            onTickerSelect={handleTickerSelect}
+          />
+        )}
+      </div>
+
       <MessageDrawer
         isOpen={messageDrawer.isOpen}
         onClose={handleDrawerClose}

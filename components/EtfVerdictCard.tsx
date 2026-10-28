@@ -8,7 +8,6 @@ import {
 import { analyzeEtf, VerdictEntry } from "@/lib/etf-analysis";
 import { ETF } from "@/types";
 import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
 interface Explanation {
@@ -45,22 +44,11 @@ const EXPLANATIONS = {
 const getIcon = (status: string) => {
   switch (status) {
     case "good":
-      return <CheckCircle className="w-5 h-5 text-emerald-400" />;
+      return <CheckCircle className="w-4 h-4 text-emerald-400" aria-hidden="true" />;
     case "warning":
-      return <AlertTriangle className="w-5 h-5 text-rose-400" />;
+      return <AlertTriangle className="w-4 h-4 text-rose-400" aria-hidden="true" />;
     default:
-      return <Info className="w-5 h-5 text-blue-400" />;
-  }
-};
-
-const getColor = (status: string) => {
-  switch (status) {
-    case "good":
-      return "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10";
-    case "warning":
-      return "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10";
-    default:
-      return "border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10";
+      return <Info className="w-4 h-4 text-muted" aria-hidden="true" />;
   }
 };
 
@@ -82,76 +70,64 @@ export default function EtfVerdictCard({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   return (
-    <div className={cn("grid grid-cols-1 gap-4", className)}>
+    <section
+      aria-label="Quick take"
+      className={cn("rounded-2xl bg-surface-soft divide-y divide-hairline", className)}
+    >
       {Object.entries(verdict)
         .filter((entry): entry is [string, VerdictEntry] => !!entry[1])
         .map(([key, data]) => {
-        const isExpanded = expandedKey === key;
-        const explanation = explanationsByKey.get(key);
+          const isExpanded = expandedKey === key;
+          const explanation = explanationsByKey.get(key);
 
-        return (
-          <motion.div
-            key={key}
-            layout
-            className={cn(
-              "p-4 rounded-xl border flex flex-col gap-2 cursor-pointer transition-colors relative overflow-hidden",
-              getColor(data.status),
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => setExpandedKey(isExpanded ? null : key)}
-              aria-expanded={isExpanded}
-              className="w-full text-left rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-            >
-              <span className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
-                  {key}
+          return (
+            <div key={key} className="px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setExpandedKey(isExpanded ? null : key)}
+                aria-expanded={isExpanded}
+                className="w-full min-h-11 text-left rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass"
+              >
+                <span className="flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block text-xs text-muted capitalize">
+                      {key}
+                    </span>
+                    <span className="block text-sm font-bold text-ink">
+                      {data.label}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2 shrink-0">
+                    {getIcon(data.status)}
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-muted" aria-hidden="true" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted" aria-hidden="true" />
+                    )}
+                  </span>
                 </span>
-                <span className="flex items-center gap-2">
-                  {getIcon(data.status)}
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-neutral-500" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-neutral-500" />
-                  )}
-                </span>
-              </span>
-              <span className="block mt-2 font-bold text-ink text-lg">
-                {data.label}
-              </span>
-            </button>
+              </button>
 
-            <motion.p
-              layout
-              className="text-xs text-neutral-400 leading-relaxed"
-            >
-              {data.description}
-            </motion.p>
+              <p className="text-xs text-muted leading-relaxed">
+                {data.description}
+              </p>
 
-            <AnimatePresence>
               {isExpanded && explanation && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="pt-3 mt-1 border-t border-hairline text-xs"
-                >
+                <div className="pt-3 mt-3 border-t border-hairline text-xs">
                   <div className="font-semibold text-ink mb-1">
                     {explanation.title}
                   </div>
-                  <p className="text-neutral-400 mb-2 leading-relaxed">
+                  <p className="text-muted mb-2 leading-relaxed">
                     {explanation.meaning}
                   </p>
-                  <div className="text-[10px] font-mono text-neutral-500 bg-black/5 p-1.5 rounded">
+                  <div className="text-xs font-mono text-muted-soft">
                     {explanation.thresholds}
                   </div>
-                </motion.div>
+                </div>
               )}
-            </AnimatePresence>
-          </motion.div>
-        );
-      })}
-    </div>
+            </div>
+          );
+        })}
+    </section>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import {
   Activity,
@@ -72,6 +73,7 @@ export default function CommandPalette(props: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useDialogA11y<HTMLDivElement>(props.isOpen, props.onClose);
+  const reduceMotion = useReducedMotion();
 
   const filteredActions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -104,10 +106,11 @@ export default function CommandPalette(props: CommandPaletteProps) {
           <motion.button
             type="button"
             aria-label="Close command menu"
-            className="fixed inset-0 z-[80] cursor-default bg-black/70"
+            className="fixed inset-0 z-[80] cursor-default bg-black/60"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.2 }}
             onClick={props.onClose}
           />
 
@@ -116,10 +119,11 @@ export default function CommandPalette(props: CommandPaletteProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Command menu"
-            className="fixed left-1/2 top-[15vh] z-[90] w-[min(92vw,560px)] -translate-x-1/2 overflow-hidden rounded-card border border-hairline bg-canvas"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            className="fixed left-1/2 top-[15vh] z-[90] w-[min(92vw,560px)] -translate-x-1/2 overflow-hidden rounded-2xl bg-surface-card ring-1 ring-hairline shadow-[0_24px_64px_rgba(0,0,0,0.45)]"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : -8, scale: reduceMotion ? 1 : 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.98 }}
+            transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="flex items-center gap-3 border-b border-hairline px-4 py-3">
               <Search className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
@@ -138,23 +142,24 @@ export default function CommandPalette(props: CommandPaletteProps) {
                 className="min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted"
                 aria-label="Search commands"
               />
-              <kbd className="hidden rounded border border-hairline px-1.5 py-0.5 text-xs text-muted sm:inline">
+              <kbd className="hidden rounded-md bg-surface-soft px-1.5 py-0.5 text-xs text-muted sm:inline">
                 ESC
               </kbd>
             </div>
 
             <div className="max-h-[min(60vh,420px)] overflow-y-auto p-2">
               {filteredActions.length > 0 ? (
-                filteredActions.map((action) => {
+                <RevealGroup stagger={0.03} delay={0.06} onMount>
+                {filteredActions.map((action) => {
                   const Icon = action.icon;
                   return (
+                    <RevealItem key={action.id} y={8} duration={0.4}>
                     <button
-                      key={action.id}
                       type="button"
                       onClick={() => runAction(action)}
-                      className="group flex w-full items-center gap-3 rounded-button px-3 py-3 text-left transition-colors hover:bg-surface-soft"
+                      className="group flex w-full items-center gap-3 min-h-11 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-surface-soft focus-visible:bg-surface-soft"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-card border border-hairline bg-surface-card text-muted transition-colors group-hover:border-hairline-strong group-hover:text-ink">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-soft text-muted transition-colors group-hover:text-ink">
                         <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -166,8 +171,10 @@ export default function CommandPalette(props: CommandPaletteProps) {
                         </span>
                       </span>
                     </button>
+                    </RevealItem>
                   );
-                })
+                })}
+                </RevealGroup>
               ) : (
                 <p className="px-3 py-8 text-center text-sm text-muted">
                   No commands match. Try portfolio, funds, stocks, or settings.

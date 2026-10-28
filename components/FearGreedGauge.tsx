@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { animate, useReducedMotion } from "framer-motion";
+import { EASE } from "./motion/Reveal";
 import { cn } from "@/lib/utils";
 import { HelpTip } from "./ui/HelpTip";
 
@@ -13,6 +14,8 @@ interface FearGreedData {
 
 interface FearGreedGaugeProps {
   className?: string;
+  /** Panel-friendly form: no card chrome, tighter spacing, smaller dial. */
+  compact?: boolean;
 }
 
 interface Point {
@@ -61,22 +64,10 @@ function describeArc(
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
 }
 
-const ZONES = [
-  { label: "Extreme Fear", min: 0, max: 25, color: "#f43f5e" },
-  { label: "Fear", min: 25, max: 45, color: "#f97316" },
-  { label: "Neutral", min: 45, max: 55, color: "#eab308" },
-  { label: "Greed", min: 55, max: 75, color: "#84cc16" },
-  { label: "Extreme Greed", min: 75, max: 100, color: "#10b981" },
-] as const;
+/** Fear (red) through neutral (amber) to greed (green), shared with the watchlist mini bar. */
+export const FEAR_GREED_GRADIENT = ["#ed4f3c", "#e8a93a", "#6dc382"] as const;
 
-function zoneForScore(score: number) {
-  return (
-    ZONES.find((z) => score >= z.min && score < z.max) ??
-    ZONES[ZONES.length - 1]
-  );
-}
-
-export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
+export default function FearGreedGauge({ className, compact = false }: FearGreedGaugeProps) {
   const [data, setData] = useState<FearGreedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -98,6 +89,24 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
     fetchData();
   }, []);
 
+  // Dial and number sweep up from 0 to the score
+  const target = data?.score ?? null;
+  const [shown, setShown] = useState(0);
+  const reduce = useReducedMotion();
+  useEffect(() => {
+    if (target === null) return;
+    if (reduce) {
+      setShown(target);
+      return;
+    }
+    const controls = animate(0, target, {
+      duration: 0.9,
+      ease: EASE,
+      onUpdate: (v) => setShown(v),
+    });
+    return () => controls.stop();
+  }, [target, reduce]);
+
   // Geometry
   const cx = 100;
   const cy = 100;
@@ -106,25 +115,9 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   const trackRadius = radius;
 
   const score = data?.score ?? 50;
-  const indicator = polarToCartesian(cx, cy, trackRadius, scoreToAngle(score));
-  // Rest position (neutral / top of arc) for entrance animation
-  const rest = polarToCartesian(cx, cy, trackRadius, 90);
-  const zone = zoneForScore(score);
-  const activeColor = zone.color;
+  const indicator = polarToCartesian(cx, cy, trackRadius, scoreToAngle(shown));
 
-  // Continuous colored segments with a tiny overlap so butt caps don't show hairlines
-  const segments = useMemo(() => {
-    const overlapDeg = 0.4;
-    return ZONES.map((z, i) => {
-      const startAngle = scoreToAngle(z.min) + (i === 0 ? 0 : overlapDeg);
-      const endAngle =
-        scoreToAngle(z.max) - (i === ZONES.length - 1 ? 0 : overlapDeg);
-      return {
-        ...z,
-        path: describeArc(cx, cy, trackRadius, startAngle, endAngle),
-      };
-    });
-  }, [trackRadius]);
+  const valuePath = describeArc(cx, cy, trackRadius, 180, scoreToAngle(shown));
 
   // Background full arc (track)
   const trackPath = describeArc(cx, cy, trackRadius, 180, 0);
@@ -133,11 +126,11 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
     return (
       <div
         className={cn(
-          "w-full min-h-[300px] bg-surface-card rounded-2xl animate-pulse flex items-center justify-center",
+          "w-full min-h-[300px] bg-surface-card ring-1 ring-hairline rounded-2xl flex items-center justify-center",
           className,
         )}
       >
-        <span className="text-ink/20">Loading market sentiment...</span>
+        <span className="text-sm text-muted">Loading market sentiment...</span>
       </div>
     );
   }
@@ -146,14 +139,14 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
     return (
       <div
         className={cn(
-          "w-full min-h-[300px] bg-surface-card rounded-2xl flex flex-col items-center justify-center gap-2",
+          "w-full min-h-[300px] bg-surface-card ring-1 ring-hairline rounded-2xl flex flex-col items-center justify-center gap-2",
           className,
         )}
       >
-        <span className="text-ink/40">Sentiment data unavailable</span>
+        <span className="text-sm text-muted">Sentiment data unavailable</span>
         <button
           onClick={() => window.location.reload()}
-          className="text-xs text-primary hover:underline"
+          className="text-xs text-compass hover:underline min-h-[44px] md:min-h-0 px-3"
         >
           Retry
         </button>
@@ -164,172 +157,84 @@ export default function FearGreedGauge({ className }: FearGreedGaugeProps) {
   return (
     <div
       className={cn(
-        "w-full bg-stone-950 border border-hairline rounded-2xl p-8 flex flex-col items-center justify-between relative overflow-hidden group",
+        "w-full flex flex-col items-center",
+        compact ? "p-3" : "bg-surface-card ring-1 ring-hairline rounded-2xl p-6",
         className,
       )}
     >
-      {/* Background Texture */}
-      <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 2px 2px, #32302F 1px, transparent 0)",
-          backgroundSize: "32px 32px",
-        }}
-      />
-
-      {/* Bottom Gradient Glow */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-2/3 opacity-20 pointer-events-none transition-colors duration-500"
-        style={{
-          background: `linear-gradient(to top, ${activeColor}, transparent)`,
-        }}
-      />
-
-      <div className="flex items-center gap-2 mb-2 z-10 w-full justify-center mt-2">
-        <h3 className="text-ink/90 font-bold text-lg">
-          <HelpTip term="Fear & Greed" showIcon className="text-ink/90 text-lg font-bold">
+      <div className={cn("w-full", compact ? "mb-1" : "mb-2")}>
+        <h3 className={cn("font-semibold text-ink", compact ? "text-sm" : "text-base")}>
+          <HelpTip term="Fear & Greed" showIcon className={cn("text-ink font-semibold", compact ? "text-sm" : "text-base")}>
             Fear & Greed
           </HelpTip>
         </h3>
+        <p className="text-xs text-muted">Market sentiment, 0 to 100</p>
       </div>
 
-      {/* Gauge Container */}
-      <div className="relative w-full max-w-[280px] aspect-[2/1.1] z-10 flex justify-center mb-2">
+      <div className={cn("relative w-full aspect-[2/1.1] flex justify-center mb-2", compact ? "max-w-[200px]" : "max-w-[280px]")}>
         <svg
           viewBox="0 0 200 118"
           className="w-full h-full overflow-visible"
+          role="img"
           aria-label={`Fear and Greed Index: ${score}, ${data.rating}`}
         >
-          {/* Muted track underlay */}
+          <defs>
+            {/* Spans the arc's x extent so each position keeps its colour as the dial fills */}
+            <linearGradient
+              id="fear-greed-scale"
+              gradientUnits="userSpaceOnUse"
+              x1={cx - trackRadius}
+              x2={cx + trackRadius}
+              y1={0}
+              y2={0}
+            >
+              <stop offset="0%" stopColor={FEAR_GREED_GRADIENT[0]} />
+              <stop offset="50%" stopColor={FEAR_GREED_GRADIENT[1]} />
+              <stop offset="100%" stopColor={FEAR_GREED_GRADIENT[2]} />
+            </linearGradient>
+          </defs>
           <path
             d={trackPath}
             fill="none"
-            stroke="currentColor"
+            stroke="url(#fear-greed-scale)"
+            strokeOpacity={0.3}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
-            className="text-stone-800"
           />
-
-          {/* Colored zone segments use butt caps so they meet flush. */}
-          {segments.map((seg) => (
+          {shown > 0.5 && (
             <path
-              key={seg.label}
-              d={seg.path}
+              d={valuePath}
               fill="none"
-              stroke={seg.color}
+              stroke="url(#fear-greed-scale)"
               strokeWidth={strokeWidth}
-              strokeLinecap="butt"
-              className="opacity-90"
+              strokeLinecap="round"
             />
-          ))}
-
-          {/* Rounded end-caps so the arc tips stay pill-shaped */}
-          <path
-            d={describeArc(cx, cy, trackRadius, 180, 178)}
-            fill="none"
-            stroke={ZONES[0].color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-          <path
-            d={describeArc(cx, cy, trackRadius, 2, 0)}
-            fill="none"
-            stroke={ZONES[ZONES.length - 1].color}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-
-          {/* Tick marks at zone boundaries */}
-          {ZONES.slice(1).map((z) => {
-            const a = scoreToAngle(z.min);
-            const outer = polarToCartesian(
-              cx,
-              cy,
-              trackRadius + strokeWidth / 2 + 2,
-              a,
-            );
-            const inner = polarToCartesian(
-              cx,
-              cy,
-              trackRadius - strokeWidth / 2 - 2,
-              a,
-            );
-            return (
-              <line
-                key={`tick-${z.min}`}
-                x1={inner.x}
-                y1={inner.y}
-                x2={outer.x}
-                y2={outer.y}
-                stroke="#1c1917"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-              />
-            );
-          })}
-
-          {/* The arc knob leaves the score readable without a center needle. */}
-          <motion.circle
+          )}
+          <circle
+            cx={indicator.x}
+            cy={indicator.y}
             r={7}
             fill="#FFFFFF"
-            stroke={activeColor}
-            strokeWidth={2.5}
-            initial={{ cx: rest.x, cy: rest.y, opacity: 0 }}
-            animate={{ cx: indicator.x, cy: indicator.y, opacity: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 45,
-              damping: 16,
-              delay: 0.2,
-            }}
-            style={{
-              filter: `drop-shadow(0 0 6px ${activeColor}88)`,
-            }}
+            stroke="#0D0D0D"
+            strokeWidth={2}
           />
-
-          {/* Fear / Greed end labels */}
-          <text
-            x={20}
-            y={114}
-            textAnchor="middle"
-            className="fill-stone-500 text-[8px] font-medium uppercase tracking-wide"
-          >
+          <text x={20} y={114} textAnchor="middle" className="fill-muted text-xs font-medium" fontSize={12}>
             Fear
           </text>
-          <text
-            x={180}
-            y={114}
-            textAnchor="middle"
-            className="fill-stone-500 text-[8px] font-medium uppercase tracking-wide"
-          >
+          <text x={180} y={114} textAnchor="middle" className="fill-muted text-xs font-medium" fontSize={12}>
             Greed
           </text>
         </svg>
 
-        {/* Score & rating sit inside the semicircle */}
         <div className="absolute left-0 right-0 top-[42%] flex flex-col items-center pointer-events-none">
-          <motion.div
-            className="text-5xl font-bold font-space text-ink tracking-tight leading-none drop-shadow-xl"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.35 }}
-          >
-            {score}
-          </motion.div>
-          <motion.div
-            className="text-sm font-semibold capitalize mt-1.5 transition-colors duration-300"
-            style={{ color: activeColor }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.35 }}
-          >
+          <div className={cn("font-bold text-ink leading-none tabular-nums", compact ? "text-2xl" : "text-[32px]")}>{Math.round(shown)}</div>
+          <div className="text-sm font-semibold capitalize mt-1.5 text-body-strong">
             {data.rating}
-          </motion.div>
+          </div>
         </div>
       </div>
 
-      <div className="text-xs font-mono text-ink/30 z-10">
+      <div className="text-xs text-muted">
         Updated: {new Date(data.updatedAt).toLocaleDateString()}
       </div>
     </div>

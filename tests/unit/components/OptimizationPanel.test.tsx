@@ -48,7 +48,7 @@ describe("OptimizationPanel", () => {
 
     render(<OptimizationPanel portfolio={portfolio} />);
 
-    expect(await screen.findByText("Current portfolio")).toBeTruthy();
+    expect(await screen.findByText("Current score")).toBeTruthy();
     expect(screen.getByText("Model candidate score")).toBeTruthy();
     expect(screen.getByText(/Experimental score only/)).toBeTruthy();
     expect(screen.getByText("Maximum portfolio value for this comparison")).toBeTruthy();

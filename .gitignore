@@ -27,3 +27,5 @@ yarn.lock
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+.vercel
+.env*

@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import WealthProjector from "@/components/WealthProjector";
 import type { Portfolio } from "@/types";
+import { mockModule } from "@/tests/helpers/mock-module";
+
+// Logo URLs are same-origin paths; next/image can't resolve them without a browser origin
+await mockModule("next/image", () => ({
+  default: ({ alt }: { alt?: string }) => <img alt={alt} />,
+}));
+const { default: WealthProjector } = await import("@/components/WealthProjector");
 
 const portfolio = [{
   ticker: "XIC.TO",

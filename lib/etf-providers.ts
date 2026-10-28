@@ -182,8 +182,9 @@ export function getProviderLogo(etfName: string): string | null {
   return null;
 }
 
-// Using jsDelivr for faster, cached delivery
-const ICON_BASE_URL = "https://cdn.jsdelivr.net/gh/nvstly/icons@main";
+// Same-origin logo endpoint: tries several sources and always answers with an
+// image (a letter monogram when no real logo exists).
+const logoUrl = (ticker: string) => `/api/logo/${encodeURIComponent(ticker)}`;
 
 export function getAssetIconUrl(
   ticker: string,
@@ -194,7 +195,7 @@ export function getAssetIconUrl(
 
   // STOCK logic
   if (assetType === "STOCK") {
-    return `${ICON_BASE_URL}/ticker_icons/${upperTicker}.png`;
+    return logoUrl(upperTicker);
   }
 
   // ETF logic
@@ -205,7 +206,7 @@ export function getAssetIconUrl(
       if (match.stockTicker) {
         // Exclude WT if known missing, but try CDN anyway
         if (match.stockTicker === "WT") return `/logos/${match.slug}.png`;
-        return `${ICON_BASE_URL}/ticker_icons/${match.stockTicker}.png`;
+        return logoUrl(match.stockTicker);
       }
 
       const missing = [
@@ -221,7 +222,7 @@ export function getAssetIconUrl(
 
     // Fallback: If no provider matched, assume it might be a stock or an ETF with a ticker icon.
     // This supports mixed lists where stocks are present, or ETFs without a known provider but with a ticker icon.
-    return `${ICON_BASE_URL}/ticker_icons/${upperTicker}.png`;
+    return logoUrl(upperTicker);
   }
 
   return null;

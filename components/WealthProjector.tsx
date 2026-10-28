@@ -103,7 +103,7 @@ export default function WealthProjector({
     return (
       <section className="max-w-3xl mx-auto px-4 py-12" role="status">
         <h2 className="text-2xl font-semibold text-ink">Scenario unavailable</h2>
-        <p className="mt-3 text-neutral-400">
+        <p className="mt-3 text-muted">
           {mixedCurrency
             ? "A mixed-currency starting balance needs a fresh, dated USD/CAD rate and valid quotes for every held asset."
             : "Add a holding with a valid price and currency. Every held asset needs a valid quote before its value can be used as the starting balance."}
@@ -118,7 +118,7 @@ export default function WealthProjector({
         <div className="flex justify-end mb-4">
           <button
             onClick={() => setMode("SIMPLE")}
-            className="text-sm text-neutral-400 hover:text-ink underline"
+            className="text-sm text-muted hover:text-ink underline"
           >
             Switch to Simple Projection
           </button>
@@ -135,18 +135,18 @@ export default function WealthProjector({
   }
 
   return (
-    <section className="py-24 px-4 max-w-7xl mx-auto h-[calc(100vh-64px)] overflow-y-auto">
+    <section className="w-full ws-panel bg-surface-card rounded-lg ring-1 ring-hairline px-4 md:px-8 py-6">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="flex items-center justify-between mb-12">
           <div className="flex items-center gap-4">
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-2 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-ink transition-colors"
+                className="w-11 h-11 md:w-9 md:h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-colors"
                 title="Back to Portfolio"
                 aria-label="Back to Portfolio"
               >
@@ -154,10 +154,10 @@ export default function WealthProjector({
               </button>
             )}
             <div>
-              <h2 className="text-3xl font-bold text-ink mb-2">
+              <h2 className="text-[32px] font-bold text-ink mb-2">
                 Growth Projection
               </h2>
-              <p className="text-neutral-400">
+              <p className="text-muted">
                 See how a starting balance and monthly contributions compound
                 under a return assumption you choose. The starting balance uses
                 the current value of held shares when available.
@@ -189,7 +189,7 @@ export default function WealthProjector({
 
             <button
               onClick={() => setMode("MONTE_CARLO")}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 border border-hairline"
+              className="flex items-center gap-2 px-4 py-2 bg-surface-soft hover:bg-hairline-strong rounded-full font-medium transition-colors duration-75 min-h-[44px] md:min-h-0"
             >
               <Sparkles className="w-4 h-4" />
               Use Monte Carlo model
@@ -197,24 +197,24 @@ export default function WealthProjector({
           </div>
         </div>
         {fxProvenance && mixedCurrency && (
-          <p className="mb-6 text-xs text-neutral-500">
+          <p className="mb-6 text-xs text-muted">
             Starting value converted to {currency} using Bank of Canada FXUSDCAD daily average dated {fxProvenance.date} ({fxProvenance.usdCad} CAD per USD). Future FX changes are not modeled.
           </p>
         )}
         {mixedCurrency && (
-          <p className="mb-6 text-xs text-neutral-500">
+          <p className="mb-6 text-xs text-muted">
             Monte Carlo converts historical USD prices to CAD using dated Bank of Canada daily FX averages. Future exchange rate changes are excluded; simulated results remain illustrative price-only model assumptions.
           </p>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
           {/* Controls */}
-          <div className="glass-panel p-6 rounded-xl space-y-6 h-fit bg-surface-card border border-hairline">
+          <div className="p-6 rounded-2xl space-y-6 h-fit bg-surface-card ring-1 ring-hairline">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label
                   htmlFor="initial-investment"
-                  className="text-sm text-neutral-400 block"
+                  className="text-sm text-muted block"
                 >
                   Starting Balance ({currency})
                 </label>
@@ -225,7 +225,7 @@ export default function WealthProjector({
                         setInitialInvestment(currentPortfolioValue);
                         setStartingBalanceEdited(false);
                       }}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                      className="text-xs text-emerald-400 hover:text-emerald-400 flex items-center gap-1"
                       title="Reset to current portfolio value"
                     >
                       <RefreshCw className="w-3 h-3" />
@@ -234,7 +234,7 @@ export default function WealthProjector({
                   )}
               </div>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-neutral-400">
+                <span className="absolute left-3 top-2.5 text-muted">
                   {currency}
                 </span>
                 <input
@@ -248,7 +248,7 @@ export default function WealthProjector({
                     setInitialInvestment(Math.max(0, Number(e.target.value) || 0));
                     setStartingBalanceEdited(true);
                   }}
-                  className="w-full bg-black/50 border border-hairline rounded-lg pl-8 pr-4 py-2 text-ink focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-surface-soft border border-hairline rounded-lg pl-14 pr-4 py-2 text-ink focus:border-hairline focus:outline-none"
                 />
               </div>
             </div>
@@ -256,12 +256,12 @@ export default function WealthProjector({
             <div>
               <label
                 htmlFor="monthly-contribution"
-                className="text-sm text-neutral-400 block mb-2"
+                className="text-sm text-muted block mb-2"
               >
                 Monthly Contribution ({currency})
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-neutral-400">
+                <span className="absolute left-3 top-2.5 text-muted">
                   {currency}
                 </span>
                 <input
@@ -274,7 +274,7 @@ export default function WealthProjector({
                   onChange={(e) =>
                     setMonthlyContribution(Math.max(0, Number(e.target.value) || 0))
                   }
-                  className="w-full bg-black/50 border border-hairline rounded-lg pl-8 pr-4 py-2 text-ink focus:border-emerald-500 focus:outline-none"
+                  className="w-full bg-surface-soft border border-hairline rounded-lg pl-14 pr-4 py-2 text-ink focus:border-hairline focus:outline-none"
                 />
               </div>
             </div>
@@ -282,7 +282,7 @@ export default function WealthProjector({
             <div>
               <label
                 htmlFor="time-horizon"
-                className="text-sm text-neutral-400 block mb-2"
+                className="text-sm text-muted block mb-2"
               >
                 Time Horizon (Years): {years}
               </label>
@@ -293,14 +293,14 @@ export default function WealthProjector({
                 max="50"
                 value={years}
                 onChange={(e) => setYears(Number(e.target.value))}
-                className="w-full accent-emerald-500"
+                className="w-full accent-[var(--compass)]"
               />
             </div>
 
             <div>
               <label
                 htmlFor="annual-return-assumption"
-                className="text-sm text-neutral-400 block mb-2"
+                className="text-sm text-muted block mb-2"
               >
                 Assumed Annual Total Return (%)
               </label>
@@ -313,20 +313,20 @@ export default function WealthProjector({
                 value={annualReturnInput}
                 onChange={(e) => setAnnualReturnInput(e.target.value)}
                 onBlur={() => setAnnualReturnInput(String(annualReturnAssumption * 100))}
-                className="w-full bg-black/50 border border-hairline rounded-lg px-3 py-2 text-ink focus:border-emerald-500 focus:outline-none"
+                className="w-full bg-surface-soft border border-hairline rounded-lg px-3 py-2 text-ink focus:border-hairline focus:outline-none"
               />
             </div>
 
             <div className="pt-6 border-t border-hairline space-y-4">
               <div>
-                <div className="text-sm text-neutral-400 mb-1">
+                <div className="text-sm text-muted mb-1">
                   Assumed Annual Total Return
                 </div>
-                <div className="text-2xl font-bold text-emerald-400">
+                <div className="text-base font-bold text-ink tabular-nums">
                   {(annualReturnAssumption * 100).toFixed(2)}%
                 </div>
               </div>
-              <p className="text-xs text-neutral-500 leading-relaxed">
+              <p className="text-xs text-muted leading-relaxed">
                 This is a constant nominal total-return assumption, not a
                 forecast. Contributions are added at the start of each month.
                 Enter a return after fees if you want fees included. Inflation,
@@ -336,10 +336,10 @@ export default function WealthProjector({
           </div>
 
           {/* Chart */}
-          <div className="lg:col-span-3 glass-panel p-6 rounded-xl flex flex-col bg-surface-card border border-hairline">
+          <div className="lg:col-span-3 p-6 rounded-2xl flex flex-col bg-surface-card ring-1 ring-hairline">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div>
-                <div className="text-sm text-neutral-400">
+                <div className="text-sm text-muted">
                   Ending Balance Under Assumptions
                 </div>
                 <div className="text-3xl font-bold text-ink">
@@ -347,18 +347,18 @@ export default function WealthProjector({
                 </div>
               </div>
               <div>
-                <div className="text-sm text-neutral-400">
+                <div className="text-sm text-muted">
                   Modeled Gain or Loss
                 </div>
-                <div className="text-3xl font-bold text-blue-400">
+                <div className="text-3xl font-bold text-body-strong">
                   {formatCurrency(modeledGain, currency)}
                 </div>
-                <div className="text-[11px] text-neutral-500 mt-0.5">
+                <div className="text-xs text-muted mt-0.5">
                   Ending balance minus starting balance and contributions
                 </div>
               </div>
               <div className="text-left sm:text-right">
-                <div className="text-sm text-neutral-400">Total Invested</div>
+                <div className="text-sm text-muted">Total Invested</div>
                 <div className="text-xl font-medium text-neutral-300">
                   {formatCurrency(totalInvested, currency)}
                 </div>
@@ -370,8 +370,8 @@ export default function WealthProjector({
                 <AreaChart data={projectionData}>
                   <defs>
                     <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#6dc382" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6dc382" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -405,9 +405,11 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="balance"
                     name="Balance Under Assumptions"
-                    stroke="#10b981"
+                    stroke="#6dc382"
                     fillOpacity={1}
                     fill="url(#colorBalance)"
+                    animationDuration={1100}
+                    animationEasing="ease-out"
                   />
                   <Area
                     type="monotone"
@@ -416,6 +418,9 @@ export default function WealthProjector({
                     stroke="#525252"
                     strokeDasharray="5 5"
                     fill="transparent"
+                    animationBegin={200}
+                    animationDuration={900}
+                    animationEasing="ease-out"
                   />
                 </AreaChart>
               </ResponsiveContainer>

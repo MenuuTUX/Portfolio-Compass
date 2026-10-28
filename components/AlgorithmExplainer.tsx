@@ -123,12 +123,12 @@ export default function AlgorithmExplainer() {
     <div className="w-full max-w-7xl mx-auto mt-12 mb-24 relative font-sans">
       {/* Ambient Background */}
 
-      <div className="relative glass-panel border border-hairline bg-dune/30 backdrop-blur-md rounded-2xl overflow-hidden shadow-2xl">
+      <div className="relative glass-panel border border-hairline bg-surface-card rounded-2xl overflow-hidden ">
         {/* Header */}
         <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+              <div className="p-2 rounded-lg bg-surface-soft border border-hairline">
                 <BrainCircuit className="w-6 h-6 text-emerald-400" />
               </div>
               <h2 className="text-2xl font-bold text-ink tracking-tight">
@@ -143,7 +143,7 @@ export default function AlgorithmExplainer() {
               allocation.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono text-neutral-500 bg-surface-card px-3 py-1.5 rounded-full border border-hairline">
+          <div className="flex items-center gap-2 text-xs font-mono text-muted bg-surface-card px-3 py-1.5 rounded-full border border-hairline">
             <Calculator className="w-3 h-3" />
             <span>GREEDY HEURISTIC</span>
           </div>
@@ -151,7 +151,7 @@ export default function AlgorithmExplainer() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 min-h-[600px]">
           {/* LEFT: Interactive Visualizer (7 Columns) */}
-          <div className="lg:col-span-7 bg-black/5 relative overflow-hidden flex flex-col border-r border-hairline">
+          <div className="lg:col-span-7 bg-surface-card relative overflow-hidden flex flex-col border-r border-hairline">
             {/* Background Grid */}
 
             {/* Content Area */}
@@ -169,7 +169,7 @@ export default function AlgorithmExplainer() {
                   >
                     {/* The Equation */}
                     <div className="relative">
-                      <div className="relative bg-dune/50 border border-hairline px-10 py-8 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 text-3xl md:text-4xl font-serif text-white">
+                      <div className="relative bg-surface-card ring-1 ring-hairline px-10 py-8 rounded-2xl flex items-center gap-4 text-3xl md:text-4xl text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
@@ -182,7 +182,7 @@ export default function AlgorithmExplainer() {
                         >
                           U
                         </span>
-                        <span className="text-neutral-600 text-2xl mx-1">
+                        <span className="text-muted text-2xl mx-1">
                           =
                         </span>
                         <div className="flex items-center group/return">
@@ -199,7 +199,7 @@ export default function AlgorithmExplainer() {
                             w<sup className="text-lg">T</sup>μ
                           </span>
                         </div>
-                        <span className="text-neutral-600 text-2xl mx-2">
+                        <span className="text-muted text-2xl mx-2">
                           -
                         </span>
                         <div className="flex items-center group/risk">
@@ -237,10 +237,10 @@ export default function AlgorithmExplainer() {
                             initial={{ opacity: 0, y: 10, x: "-50%" }}
                             animate={{ opacity: 1, y: 0, x: "-50%" }}
                             exit={{ opacity: 0, y: 5, x: "-50%" }}
-                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-hairline-strong rounded-xl shadow-2xl whitespace-nowrap z-20 backdrop-blur-xl"
+                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-hairline-strong rounded-xl whitespace-nowrap z-20 "
                           >
                             <div className="flex flex-col items-center gap-1">
-                              <span className="text-sm font-bold text-ink tracking-wide uppercase">
+                              <span className="text-sm font-bold text-ink">
                                 {hoveredTerm === "U" && "Total Utility (Score)"}
                                 {hoveredTerm === "mu" &&
                                   "Portfolio Return Proxy"}
@@ -249,7 +249,7 @@ export default function AlgorithmExplainer() {
                                 {hoveredTerm === "sigma" &&
                                   "Portfolio Variance (Risk)"}
                               </span>
-                              <span className="text-xs text-neutral-400">
+                              <span className="text-xs text-muted">
                                 {hoveredTerm === "U" &&
                                   "Estimated return minus a variance penalty."}
                                 {hoveredTerm === "mu" &&
@@ -268,7 +268,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Interactive Slider Demo */}
-                    <div className="w-full max-w-sm bg-surface-card border border-hairline rounded-xl p-6 flex flex-col gap-6 backdrop-blur-sm">
+                    <div className="w-full max-w-sm bg-surface-card ring-1 ring-hairline rounded-xl p-6 flex flex-col gap-6 ">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-neutral-300 font-medium">
                           Risk Aversion (λ)
@@ -285,7 +285,7 @@ export default function AlgorithmExplainer() {
                         value={lambda}
                         onChange={(e) => setLambda(parseFloat(e.target.value))}
                         aria-label="Risk aversion example"
-                        className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all"
+                        className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-[var(--compass)] hover:accent-emerald-400 transition-all"
                       />
 
                       {/* Mini Graph Visual */}
@@ -296,19 +296,19 @@ export default function AlgorithmExplainer() {
                             name: "High Growth",
                             base: 80,
                             risk: 5,
-                            color: "bg-purple-500",
+                            color: "bg-surface-soft",
                           },
                           {
                             name: "Balanced",
                             base: 50,
                             risk: 0.5,
-                            color: "bg-purple-500",
+                            color: "bg-surface-soft",
                           },
                           {
                             name: "Conservative",
                             base: 20,
                             risk: -4,
-                            color: "bg-purple-500",
+                            color: "bg-surface-soft",
                           },
                         ].map((asset, i) => (
                           <div
@@ -325,7 +325,7 @@ export default function AlgorithmExplainer() {
                               }}
                               transition={{ type: "spring", stiffness: 100 }}
                             >
-                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-dune/50 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
+                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-card text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
                                 Score:{" "}
                                 {Math.max(
                                   0,
@@ -335,7 +335,7 @@ export default function AlgorithmExplainer() {
                                 )}
                               </div>
                             </motion.div>
-                            <div className="text-[10px] text-neutral-500 text-center font-medium truncate w-full">
+                            <div className="text-xs text-muted text-center font-medium truncate w-full">
                               {asset.name}
                             </div>
                           </div>
@@ -362,7 +362,7 @@ export default function AlgorithmExplainer() {
                       Example values only. These score changes are not based on
                       actual holdings or predictions.
                     </p>
-                    <div className="flex items-center gap-3 rounded-card border border-hairline-strong bg-surface-card px-6 py-4 font-serif text-lg text-ink">
+                    <div className="flex items-center gap-3 rounded-lg border border-hairline-strong bg-surface-card px-6 py-4 text-lg text-ink">
                       <span>Maximize</span>
                       <span className="text-ink font-bold">ΔU</span>
                       <span>=</span>
@@ -374,11 +374,11 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Simulation Stage */}
-                    <div className="w-full bg-surface-card rounded-card p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
+                    <div className="w-full bg-surface-card rounded-lg p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
                       <div className="flex justify-between items-end gap-2 h-40 mb-6 relative">
                         {/* Baseline */}
                         <div className="absolute inset-x-0 bottom-[40%] border-t border-dashed border-hairline-strong flex items-end justify-end px-2">
-                          <span className="text-xs text-neutral-500 mb-1">
+                          <span className="text-xs text-muted mb-1">
                             Current U
                           </span>
                         </div>
@@ -435,7 +435,7 @@ export default function AlgorithmExplainer() {
                                         isWinner &&
                                           simulationState === "SELECTED"
                                           ? "text-ink scale-125"
-                                          : "text-neutral-400",
+                                          : "text-muted",
                                       )}
                                     >
                                       +{gain}
@@ -450,7 +450,7 @@ export default function AlgorithmExplainer() {
                                   "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all duration-500",
                                   simulationState === "SELECTED" && isWinner
                                     ? "bg-accent text-[var(--on-accent)] border-accent scale-110"
-                                    : "bg-surface-card border-hairline text-neutral-500",
+                                    : "bg-surface-card border-hairline text-muted",
                                 )}
                               >
                                 {ticker}
@@ -470,7 +470,7 @@ export default function AlgorithmExplainer() {
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
                               onClick={runSimulation}
-                              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 flex items-center gap-2"
+                              className="px-8 py-3 bg-surface-soft hover:bg-hairline-strong text-ink rounded-lg font-bold transition-all hover:flex items-center gap-2"
                             >
                               <Zap className="w-4 h-4" /> Run Example
                             </motion.button>
@@ -483,7 +483,7 @@ export default function AlgorithmExplainer() {
                               exit={{ opacity: 0 }}
                               className="text-sm text-muted font-mono flex items-center gap-2"
                             >
-                              <span className="w-2 h-2 bg-surface-soft rounded-full animate-pulse" />
+                              <span className="w-2 h-2 bg-surface-soft rounded-full" />
                               Testing each candidate...
                             </motion.div>
                           )}
@@ -493,7 +493,7 @@ export default function AlgorithmExplainer() {
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              className="text-sm text-neutral-400 font-mono flex items-center gap-2"
+                              className="text-sm text-muted font-mono flex items-center gap-2"
                             >
                               <Calculator className="w-4 h-4" />
                               Comparing score changes...
@@ -536,11 +536,11 @@ export default function AlgorithmExplainer() {
                   >
                     {/* Constraints Formula Block */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                      <div className="bg-surface-card border border-hairline p-4 rounded-card flex flex-col items-center justify-center gap-2">
+                      <div className="bg-surface-card ring-1 ring-hairline p-4 rounded-lg flex flex-col items-center justify-center gap-2">
                         <div className="text-sm font-medium text-body">
                           Integer Shares
                         </div>
-                        <div className="font-serif text-xl text-ink">
+                        <div className="text-xl text-ink">
                           n<sub className="text-sm">i</sub> ∈ ℤ
                           <sup className="text-sm">≥0</sup>
                         </div>
@@ -549,11 +549,11 @@ export default function AlgorithmExplainer() {
                         </div>
                       </div>
 
-                      <div className="bg-surface-card border border-hairline p-4 rounded-card flex flex-col items-center justify-center gap-2">
+                      <div className="bg-surface-card ring-1 ring-hairline p-4 rounded-lg flex flex-col items-center justify-center gap-2">
                         <div className="text-sm font-medium text-body">
                           Budget Constraint
                         </div>
-                        <div className="font-serif text-xl text-ink flex items-center gap-2">
+                        <div className="text-xl text-ink flex items-center gap-2">
                           <span>Σ</span>
                           <span className="text-base">
                             (n<sub className="text-xs">i</sub> × p
@@ -569,7 +569,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Visual Metaphor */}
-                    <div className="relative flex aspect-video w-full max-w-sm items-center justify-center overflow-hidden rounded-card border border-hairline bg-surface-card p-6">
+                    <div className="relative flex aspect-video w-full max-w-sm items-center justify-center overflow-hidden rounded-lg border border-hairline bg-surface-card p-6">
 
                       <div className="flex items-end gap-1 h-32 w-full justify-center">
                         {/* Correct Stack */}
@@ -676,10 +676,10 @@ export default function AlgorithmExplainer() {
                     <div className="flex gap-4">
                       <div
                         className={cn(
-                          "mt-1 p-2.5 rounded-card h-fit transition-colors border",
+                          "mt-1 p-2.5 rounded-lg h-fit transition-colors border",
                           isActive
                             ? "bg-surface-soft text-ink border-hairline-strong"
-                            : "bg-surface-card text-neutral-500 border-hairline group-hover:border-hairline-strong",
+                            : "bg-surface-card text-muted border-hairline group-hover:border-hairline-strong",
                         )}
                       >
                         <Icon className="w-5 h-5" />
@@ -702,7 +702,7 @@ export default function AlgorithmExplainer() {
                         <p className="mb-2 text-sm text-muted">
                           {step.subtitle}
                         </p>
-                        <p className="text-sm text-neutral-400 leading-relaxed mb-4">
+                        <p className="text-sm text-muted leading-relaxed mb-4">
                           {step.description}
                         </p>
 
@@ -718,14 +718,14 @@ export default function AlgorithmExplainer() {
                                 {step.details.map((detail, i) => (
                                   <div
                                     key={i}
-                                    className="flex items-start gap-3 rounded-card border border-hairline bg-surface-card p-3"
+                                    className="flex items-start gap-3 rounded-lg border border-hairline bg-surface-card p-3"
                                   >
-                                    <detail.icon className="w-4 h-4 text-neutral-500 mt-0.5" />
+                                    <detail.icon className="w-4 h-4 text-muted mt-0.5" />
                                     <div>
                                       <div className="text-xs text-neutral-200 font-medium mb-0.5">
                                         {detail.label}
                                       </div>
-                                      <div className="text-xs text-neutral-500 leading-snug">
+                                      <div className="text-xs text-muted leading-snug">
                                         {detail.text}
                                       </div>
                                     </div>

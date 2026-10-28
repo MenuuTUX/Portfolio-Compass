@@ -154,152 +154,146 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
     setIndex((i) => i - 1);
   };
 
+  const pill =
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-6 text-sm font-medium transition-colors duration-[70ms] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass";
+  const primary = `${pill} bg-ink text-canvas hover:bg-body-strong`;
+  const ghost = `${pill} text-muted hover:text-ink`;
+
   return (
-    <div className="w-full max-w-lg mx-auto p-6 flex flex-col justify-center min-h-[480px]">
-      {step === "intro" && (
-        <div className="space-y-8">
-          <div className="space-y-3">
-            <h2 className="text-2xl md:text-3xl font-display font-bold text-ink">
-              A few questions first
-            </h2>
-            <p className="text-body leading-relaxed">
-              Five short questions to load an example allocation. It is not a
-              recommendation, and you can edit it or start empty.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => setStep("quiz")}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
-            >
-              Continue
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={skip}
-              className="px-5 py-3 rounded-lg text-muted hover:text-ink transition-colors text-sm"
-            >
-              Skip
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === "quiz" && (
-        <div className="space-y-8">
-          <div className="flex items-center justify-between gap-4">
-            <button
-              type="button"
-              onClick={goBack}
-              className="text-sm text-muted hover:text-ink inline-flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back
-            </button>
-            <span className="text-xs text-muted tabular-nums">
-              {index + 1} / {QUESTIONS.length}
-            </span>
-            <button
-              type="button"
-              onClick={skip}
-              className="text-sm text-muted hover:text-ink transition-colors"
-            >
-              Skip
-            </button>
-          </div>
-
-          <div className="h-1 w-full rounded-full bg-surface-soft overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="text-xl font-display font-bold text-ink">
-              {question.title}
-            </h3>
-            <p className="text-body text-sm">{question.description}</p>
-          </div>
-
-          <div className="grid gap-2">
-            {question.options.map((option) => {
-              const selected = answers[question.id] === option.value;
-              return (
-                <button
-                  key={option.label}
-                  onClick={() => pick(option.value)}
-                  className={`w-full text-left px-4 py-3.5 rounded-lg border transition-colors ${
-                    selected
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-ink"
-                      : "border-hairline bg-surface-card text-ink hover:border-emerald-500/30 hover:bg-surface-soft"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {step === "done" && result && (
-        <div className="space-y-8">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 text-emerald-500 text-sm font-medium">
-              <Check className="w-4 h-4" />
-              Example allocation
-            </div>
-            <h2 className="text-2xl font-display font-bold text-ink">
-              {result.profile} example
-            </h2>
-            <p className="text-body text-sm leading-relaxed">
-              A simple score picked this preset for study. These US-listed
-              funds illustrate a stock/bond mix; the result does not account for
-              your full finances, currency, taxes, fees, or need for cash, and
-              does not establish a personal fit. Review the holdings and
-              overlap before using this example.
-            </p>
-            {result.profile === "Growth" && (
-              <p className="text-sm text-muted">
-                VTI and QQQ have overlapping US large-company holdings, so the
-                two-fund mix is less diversified than the fund count suggests.
+    <div className="mx-auto w-full max-w-lg p-4 sm:p-6">
+      <div className="rounded-2xl bg-surface-card p-6 ring-1 ring-hairline sm:p-8">
+        {step === "intro" && (
+          <div className="space-y-8">
+            <div className="space-y-3">
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-ink md:text-3xl">
+                A few questions first
+              </h2>
+              <p className="leading-relaxed text-body">
+                Five short questions to load an example allocation. It is not a
+                recommendation, and you can edit it or start empty.
               </p>
-            )}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button onClick={() => setStep("quiz")} className={primary}>
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button onClick={skip} className={ghost}>
+                Skip
+              </button>
+            </div>
           </div>
+        )}
 
-          <ul className="rounded-lg border border-hairline bg-surface-card divide-y divide-hairline">
-            {result.suggestedPortfolio.map((item) => (
-              <li
-                key={item.ticker}
-                className="flex items-center justify-between px-4 py-3"
+        {step === "quiz" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={goBack}
+                className="inline-flex min-h-11 items-center gap-1 rounded-full text-sm text-muted transition-colors duration-[70ms] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass"
               >
-                <span className="font-medium text-ink">{item.ticker}</span>
-                <span className="text-sm text-muted tabular-nums">
-                  {item.weight}%
-                </span>
-              </li>
-            ))}
-          </ul>
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <span className="text-xs tabular-nums text-muted">
+                {index + 1} of {QUESTIONS.length}
+              </span>
+              <button
+                type="button"
+                onClick={skip}
+                className="inline-flex min-h-11 items-center rounded-full text-sm text-muted transition-colors duration-[70ms] hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass"
+              >
+                Skip
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => onComplete(result)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
-          >
-            Open portfolio
-            <ArrowRight className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={skip}
-            className="ml-3 px-5 py-3 text-sm text-muted hover:text-ink"
-          >
-            Start empty
-          </button>
-        </div>
-      )}
+            <div
+              className="h-0.5 w-full overflow-hidden rounded-full bg-surface-soft"
+              role="progressbar"
+              aria-label="Quiz progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(progress)}
+            >
+              <div className="h-full bg-ink transition-[width] duration-300 ease-out" style={{ width: `${progress}%` }} />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-display text-xl font-semibold tracking-tight text-ink">
+                {question.title}
+              </h3>
+              <p className="text-sm text-body">{question.description}</p>
+            </div>
+
+            <div className="divide-y divide-hairline overflow-hidden rounded-xl ring-1 ring-hairline">
+              {question.options.map((option) => {
+                const selected = answers[question.id] === option.value;
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => pick(option.value)}
+                    className={`flex min-h-12 w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition-colors duration-[70ms] cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-compass ${
+                      selected ? "bg-surface-soft text-ink" : "bg-transparent text-body-strong hover:bg-surface-soft"
+                    }`}
+                  >
+                    <span>{option.label}</span>
+                    {selected && <Check className="h-4 w-4 shrink-0 text-ink" aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === "done" && result && (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 text-sm font-medium text-muted">
+                <Check className="h-4 w-4" />
+                Example allocation
+              </div>
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-ink">
+                {result.profile} example
+              </h2>
+              <p className="text-sm leading-relaxed text-body">
+                A simple score picked this preset for study. These US-listed
+                funds illustrate a stock/bond mix; the result does not account for
+                your full finances, currency, taxes, fees, or need for cash, and
+                does not establish a personal fit. Review the holdings and
+                overlap before using this example.
+              </p>
+              {result.profile === "Growth" && (
+                <p className="text-sm text-muted">
+                  VTI and QQQ have overlapping US large-company holdings, so the
+                  two-fund mix is less diversified than the fund count suggests.
+                </p>
+              )}
+            </div>
+
+            <ul className="divide-y divide-hairline overflow-hidden rounded-xl ring-1 ring-hairline">
+              {result.suggestedPortfolio.map((item) => (
+                <li key={item.ticker} className="flex items-center justify-between px-4 py-3">
+                  <span className="font-medium text-ink">{item.ticker}</span>
+                  <span className="text-sm tabular-nums text-muted">{item.weight}%</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button type="button" onClick={() => onComplete(result)} className={primary}>
+                Open portfolio
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button type="button" onClick={skip} className={ghost}>
+                Start empty
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

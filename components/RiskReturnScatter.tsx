@@ -42,20 +42,20 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
   });
 
   return (
-    <div className="w-full h-full min-h-[400px] glass-panel p-4 rounded-card flex flex-col relative group">
+    <div className="w-full h-full min-h-[200px] glass-panel p-4 rounded-lg flex flex-col relative group">
       <div className="flex justify-between items-start mb-4 z-10">
         <div>
           <h3 className="text-sm font-medium text-neutral-200">
             Beta and sourced yield
           </h3>
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-muted">
             Reported beta vs sourced yield; Yahoo quote yields are excluded
             {data.length < items.length && ` · ${items.length - data.length} unavailable`}
           </p>
         </div>
         <button
           onClick={() => setShowInfo(!showInfo)}
-          className="p-1.5 rounded-full hover:bg-surface-soft text-neutral-400 hover:text-ink transition-colors"
+          className="p-1.5 rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-colors"
           aria-label="What does this mean?"
         >
           <Info className="w-4 h-4" />
@@ -68,15 +68,15 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-4 z-20 bg-stone-950/95 backdrop-blur-md border border-hairline rounded-card p-5 flex flex-col gap-3"
+            className="absolute inset-4 z-20 bg-surface-card border border-hairline rounded-lg p-5 flex flex-col gap-3"
           >
             <div className="flex justify-between items-start">
-              <h4 className="text-sm font-bold text-data-up">
+              <h4 className="text-sm font-bold text-emerald-400">
                 Reading this chart
               </h4>
               <button
                 onClick={() => setShowInfo(false)}
-                className="text-neutral-500 hover:text-ink"
+                className="text-muted hover:text-ink"
                 aria-label="Close chart explanation"
               >
                 <X className="w-4 h-4" />
@@ -89,7 +89,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 field are omitted. Beta depends on the provider&apos;s benchmark
                 and lookback period.
               </p>
-              <ul className="list-disc pl-4 space-y-1 text-neutral-400">
+              <ul className="list-disc pl-4 space-y-1 text-muted">
                 <li>
                   <strong className="text-ink">
                     Vertical axis:
@@ -120,7 +120,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               type="number"
               dataKey="x"
               name="Reported Beta"
-              tick={{ fill: "#737373", fontSize: 11 }}
+              tick={{ fill: "#737373", fontSize: 12 }}
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               domain={["dataMin - 0.2", "dataMax + 0.2"]}
@@ -130,14 +130,14 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 offset={0}
                 position="bottom"
                 fill="#525252"
-                fontSize={10}
+                fontSize={12}
               />
             </XAxis>
             <YAxis
               type="number"
               dataKey="y"
               name="Sourced Yield (%)"
-              tick={{ fill: "#737373", fontSize: 11 }}
+              tick={{ fill: "#737373", fontSize: 12 }}
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               unit="%"
@@ -147,7 +147,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 angle={-90}
                 position="insideLeft"
                 fill="#525252"
-                fontSize={10}
+                fontSize={12}
               />
             </YAxis>
             <ZAxis type="number" dataKey="z" range={[60, 500]} name="Weight" />
@@ -157,19 +157,19 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
                   return (
-                    <div className="bg-stone-950/90 backdrop-blur-md border border-hairline p-3 rounded-card min-w-[150px]">
+                    <div className="bg-surface-card border border-hairline p-3 rounded-lg min-w-[150px]">
                       <p className="font-bold text-ink mb-2 border-b border-hairline pb-1">
                         {d.ticker}
                       </p>
                       <div className="text-xs space-y-1.5">
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">Reported Beta:</span>
+                          <span className="text-muted">Reported Beta:</span>
                           <span className="text-ink">
                             {d.x.toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">
+                          <span className="text-muted">
                             Sourced Yield:
                           </span>
                           <span className="text-ink">
@@ -177,7 +177,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
-                          <span className="text-neutral-400">Target Weight:</span>
+                          <span className="text-muted">Target Weight:</span>
                           <span className="text-ink">{d.z.toFixed(2)}%</span>
                         </div>
                       </div>
@@ -193,7 +193,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 value="Beta 1.0"
                 position="insideTopRight"
                 fill="#525252"
-                fontSize={10}
+                fontSize={12}
                 offset={10}
                 className="hidden sm:block"
               />
@@ -204,7 +204,7 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
         </ResponsiveContainer>
 
         {data.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-neutral-400">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">
             {excludedYahooYieldCount > 0
               ? "No sourced yield and beta are available. Yahoo quote yields are excluded because their definition is unverified."
               : "Sourced beta and yield are unavailable for these holdings."}

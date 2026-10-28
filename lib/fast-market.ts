@@ -15,6 +15,14 @@ export interface HistoryPoint {
   price: number;
 }
 
+export interface Candle {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface FastQuote {
   ticker: string;
   name: string;
@@ -88,6 +96,19 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<unknown>>();
 const inFlight = new Map<string, Promise<unknown>>();
+const MAX_CACHE_ENTRIES = 2000;
+
+function setCache<T>(key: string, entry: CacheEntry<T>): void {
+  cache.set(key, entry);
+  if (cache.size <= MAX_CACHE_ENTRIES) return;
+  const now = Date.now();
+  for (const [k, v] of cache) if (v.expires < now) cache.delete(k);
+  // Still over the cap: Map iterates in insertion order, so drop the oldest.
+  for (const k of cache.keys()) {
+    if (cache.size <= MAX_CACHE_ENTRIES) break;
+    cache.delete(k);
+  }
+}
 
 function isFiniteNumber(value: any): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -112,11 +133,7 @@ async function cached<T>(
 
   const promise = fn()
     .then((value) => {
-      cache.set(key, { value, expires: Date.now() + ttlMs });
-      if (cache.size > 2000) {
-        const now = Date.now();
-        for (const [k, v] of cache) if (v.expires < now) cache.delete(k);
-      }
+      setCache(key, { value, expires: Date.now() + ttlMs });
       return value;
     })
     .finally(() => inFlight.delete(key));
@@ -241,11 +258,36 @@ export function mapQuote(q: any): FastQuote {
     fiftyTwoWeekRange: fmtRange(yearLow, yearHigh),
     fiftyTwoWeekHigh: yearHigh,
     fiftyTwoWeekLow: yearLow,
-    earningsDate: q.earningsTimestamp
-      ? new Date(q.earningsTimestamp).toISOString().split("T")[0]
-      : undefined,
+    earningsDate: nextEarningsDate(q),
     sharesOutstanding: q.sharesOutstanding,
   };
+}
+
+/**
+ * Next upcoming earnings date. Yahoo's `earningsTimestamp` is often the last
+ * report until the next one is scheduled, so look at the start/end window too
+ * and never return a date that has already passed.
+ */
+export function nextEarningsDate(
+  q: {
+    earningsTimestamp?: unknown;
+    earningsTimestampStart?: unknown;
+    earningsTimestampEnd?: unknown;
+  },
+  now: number = Date.now(),
+): string | undefined {
+  const startOfToday = new Date(now);
+  startOfToday.setUTCHours(0, 0, 0, 0);
+  const upcoming = [q.earningsTimestampStart, q.earningsTimestamp, q.earningsTimestampEnd]
+    .map((v) => {
+      if (v instanceof Date) return v.getTime();
+      return isFiniteNumber(v) ? v * (v < 1e12 ? 1000 : 1) : NaN;
+    })
+    .filter((t) => Number.isFinite(t) && t >= startOfToday.getTime())
+    .sort((a, b) => a - b)[0];
+  return upcoming === undefined
+    ? undefined
+    : new Date(upcoming).toISOString().split("T")[0];
 }
 
 export async function getFastQuotes(
@@ -278,7 +320,7 @@ export async function getFastQuotes(
       for (const q of quotes) {
         if (!q?.symbol || !isFiniteNumber(q.regularMarketPrice)) continue;
         const mapped = mapQuote(q);
-        cache.set(`q:${mapped.ticker}`, {
+        setCache(`q:${mapped.ticker}`, {
           value: mapped,
           expires: Date.now() + QUOTE_TTL_MS,
         });
@@ -372,7 +414,7 @@ export async function getFastProfiles(
             sector: sector || undefined,
             industry: industry || undefined,
           };
-          cache.set(`profile:${ticker}`, {
+          setCache(`profile:${ticker}`, {
             value: profile,
             expires: Date.now() + PROFILE_TTL_MS,
           });
@@ -380,7 +422,7 @@ export async function getFastProfiles(
         } catch {
           // Sparse listings often lack profile modules, so leave this empty.
           const empty: FastProfile = { ticker };
-          cache.set(`profile:${ticker}`, {
+          setCache(`profile:${ticker}`, {
             value: empty,
             expires: Date.now() + 30 * 60_000,
           });
@@ -482,12 +524,8 @@ async function fetchSparkChunk(
   return out;
 }
 
-async function fetchChartFallback(
-  ticker: string,
-  range: ChartRange,
-): Promise<HistoryPoint[]> {
-  const { range: yfRange, interval } = RANGE_CONFIG[range];
-  const now = new Date();
+function rangeStart(range: ChartRange, now: Date): Date {
+  const { range: yfRange } = RANGE_CONFIG[range];
   const period1 = new Date(now);
   switch (yfRange) {
     case "1d":
@@ -508,6 +546,16 @@ async function fetchChartFallback(
     default:
       period1.setTime(0);
   }
+  return period1;
+}
+
+async function fetchChartFallback(
+  ticker: string,
+  range: ChartRange,
+): Promise<HistoryPoint[]> {
+  const { interval } = RANGE_CONFIG[range];
+  const now = new Date();
+  const period1 = rangeStart(range, now);
 
   const res = await yf.chart(ticker, {
     period1,
@@ -521,6 +569,69 @@ async function fetchChartFallback(
       date: new Date(q.date).toISOString(),
       price: q.close ?? 0,
     }));
+}
+
+function isFiniteOhlc(q: {
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+}): q is Record<"open" | "high" | "low" | "close", number> {
+  return [q.open, q.high, q.low, q.close].every(
+    (v) => typeof v === "number" && Number.isFinite(v),
+  );
+}
+
+/** OHLC bars for one ticker; spark only returns closes, so this uses chart(). */
+export async function getFastCandles(
+  ticker: string,
+  range: ChartRange,
+): Promise<Candle[]> {
+  const [symbol] = normalizeTickers([ticker]);
+  if (!symbol) return [];
+  const { interval, ttlMs } = RANGE_CONFIG[range];
+  return cached(`candles:${range}:${symbol}`, ttlMs, async () => {
+    const now = new Date();
+    const res = await yf.chart(symbol, {
+      period1: rangeStart(range, now),
+      period2: now,
+      interval,
+    });
+    const out: Candle[] = [];
+    for (const q of res?.quotes ?? []) {
+      if (!isFiniteOhlc(q)) continue;
+      out.push({
+        date: new Date(q.date).toISOString(),
+        open: q.open,
+        high: q.high,
+        low: q.low,
+        close: q.close,
+      });
+    }
+    return out;
+  });
+}
+
+const WEBSITE_TTL_MS = 24 * 60 * 60_000;
+
+/** Company website hostname from Yahoo's asset profile, for logo lookups. */
+export async function getFastWebsiteDomain(ticker: string): Promise<string | null> {
+  const [symbol] = normalizeTickers([ticker]);
+  if (!symbol) return null;
+  try {
+    return await cached(`website:${symbol}`, WEBSITE_TTL_MS, async () => {
+      const data = await yf.quoteSummary(symbol, { modules: ["summaryProfile"] });
+      const site = data.summaryProfile?.website;
+      if (!site) return null;
+      try {
+        return new URL(site).hostname.replace(/^www\./, "") || null;
+      } catch {
+        return null;
+      }
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function getFastHistory(
@@ -562,7 +673,7 @@ export async function getFastHistory(
         );
         for (const [ticker, points] of series) {
           if (points.length === 0) continue;
-          cache.set(`h:${range}:${ticker}`, {
+          setCache(`h:${range}:${ticker}`, {
             value: points,
             expires: Date.now() + ttlMs,
           });
@@ -586,7 +697,7 @@ export async function getFastHistory(
               fetchChartFallback(ticker, range),
             );
             if (points.length > 0) {
-              cache.set(`h:${range}:${ticker}`, {
+              setCache(`h:${range}:${ticker}`, {
                 value: points,
                 expires: Date.now() + ttlMs,
               });

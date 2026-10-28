@@ -7,6 +7,7 @@ import {
   quoteToAsset,
 } from "@/lib/fast-market";
 import { z } from "zod";
+import { parseTickers } from "@/lib/tickers";
 
 export const maxDuration = 30;
 
@@ -18,8 +19,7 @@ const RefreshRequestSchema = z.object({
 /**
  * User-facing market refresh (Settings → Refresh data).
  *
- * Unlike /api/etfs/sync/all (cron-only, CRON_SECRET, deep DB hydrate), this
- * busts the in-memory quote cache and returns fresh prices for the tickers
+ * This busts the in-memory quote cache and returns fresh prices for the tickers
  * used by the portfolio and visible market cards.
  */
 export async function POST(request: NextRequest) {
@@ -28,10 +28,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = RefreshRequestSchema.safeParse(await request.json());
       if (result.success) {
-        tickers = result.data.tickers
-          .map((ticker) => ticker.trim())
-          .filter(Boolean)
-          .slice(0, MAX_TICKERS);
+        tickers = parseTickers(result.data.tickers, MAX_TICKERS);
       }
     } catch {
       // An empty body clears the full cache without returning a snapshot.

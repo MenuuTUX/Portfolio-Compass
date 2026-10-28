@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Star, X, Github } from "lucide-react";
 import { useEffect } from "react";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
@@ -11,6 +11,7 @@ interface ContributePopupProps {
 
 export default function ContributePopup({ onClose }: ContributePopupProps) {
   const dialogRef = useDialogA11y<HTMLDivElement>(true, onClose);
+  const reduceMotion = useReducedMotion();
   // Prevent scrolling when popup is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -20,70 +21,63 @@ export default function ContributePopup({ onClose }: ContributePopupProps) {
   }, []);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dune/40 backdrop-blur-sm"
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduceMotion ? 0 : 0.2 }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="contribute-popup-title"
     >
       <motion.div
         ref={dialogRef}
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        transition={{ type: "spring", damping: 20, stiffness: 300 }}
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-canvas border border-emerald-500/30 shadow-[0_0_50px_-12px_rgba(16,185,129,0.3)]"
+        initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.97 }}
+        transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-surface-card ring-1 ring-hairline shadow-[0_24px_64px_rgba(0,0,0,0.45)]"
       >
-        {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
-
         <div className="relative p-6 md:p-8 flex flex-col items-center text-center">
-          {/* Close button */}
           <button
+            type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full text-neutral-500 hover:text-ink hover:bg-surface-soft transition-colors cursor-pointer"
+            className="ws-icon-btn absolute top-3 right-3"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
 
-          {/* Icon */}
-          <div className="mb-6 relative">
-            <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full" />
-            <div className="relative w-16 h-16 rounded-full bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-center">
-              <Star className="w-8 h-8 text-emerald-400 fill-emerald-400/20" />
-            </div>
+          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-surface-soft">
+            <Star className="w-6 h-6 text-ink" aria-hidden />
           </div>
 
-          <h3 id="contribute-popup-title" className="text-2xl font-bold text-ink mb-2 font-space">
+          <h3 id="contribute-popup-title" className="text-xl font-semibold text-ink mb-2">
             Using Portfolio Compass?
           </h3>
-          <p className="text-neutral-400 mb-8 max-w-xs mx-auto">
+          <p className="text-sm text-body mb-8 max-w-xs mx-auto">
             A GitHub star helps more people find the project.
           </p>
 
-          <div className="flex flex-col gap-3 w-full">
+          <div className="flex flex-col gap-2 w-full">
             <a
               href="https://github.com/MenuuTUX/Portfolio-Compass"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-all shadow-[0_0_20px_-5px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_-5px_rgba(16,185,129,0.5)] group"
+              className="ws-pill ws-pill-primary w-full"
               onClick={onClose}
             >
-              <Github className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <Github className="w-4 h-4" aria-hidden />
               <span>Star on GitHub</span>
             </a>
 
-            <button
-              onClick={onClose}
-              className="flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-surface-card hover:bg-surface-soft border border-hairline text-neutral-300 font-medium transition-colors cursor-pointer"
-            >
-              <span>Not now</span>
+            <button type="button" onClick={onClose} className="ws-pill w-full">
+              Not now
             </button>
           </div>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

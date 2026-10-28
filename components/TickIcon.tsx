@@ -23,16 +23,16 @@ export const TickIcon = ({
     // Fallback: Circle with First Letter
     return (
       <g transform={`translate(${x - 80}, ${y - 10})`}>
-        <circle cx={10} cy={10} r={10} fill="#333" />
+        <circle cx={10} cy={10} r={10} className="fill-surface-soft" />
         <text
           x={10}
           y={14}
           textAnchor="middle"
-          fill="#fff"
-          fontSize={10}
+          className="fill-ink"
+          fontSize={ticker.length > 3 ? 7 : 9}
           fontWeight="bold"
         >
-          {ticker.substring(0, 1)}
+          {ticker.slice(0, 5)}
         </text>
       </g>
     );

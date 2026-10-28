@@ -28,14 +28,15 @@ describe("PortfolioItemRow memoization", () => {
       weight: 100,
     } as unknown as PortfolioItem;
     const props = {
-      virtualRow: { index: 0 } as any,
-      measureElement: () => {},
+      expanded: true,
+      onToggle: () => {},
+      onCollapse: () => {},
       onRemove: () => {},
       onUpdateWeight: () => {},
       onUpdateShares: () => {},
     };
 
-    const view = render(<table><tbody><PortfolioItemRow item={original} {...props} /></tbody></table>);
+    const view = render(<ul><PortfolioItemRow item={original} {...props} /></ul>);
     expect(screen.getByText("Old fund name")).toBeTruthy();
     expect(screen.getByText("1.25%")).toBeTruthy();
 
@@ -44,7 +45,7 @@ describe("PortfolioItemRow memoization", () => {
       name: "Updated fund name",
       metrics: { yield: 2.75, yieldSource: "Issuer factsheet" },
     };
-    view.rerender(<table><tbody><PortfolioItemRow item={refreshed} {...props} /></tbody></table>);
+    view.rerender(<ul><PortfolioItemRow item={refreshed} {...props} /></ul>);
 
     expect(screen.getByText("Updated fund name")).toBeTruthy();
     expect(screen.getByText("2.75%")).toBeTruthy();

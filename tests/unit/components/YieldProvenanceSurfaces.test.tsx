@@ -70,14 +70,15 @@ afterEach(cleanup);
 describe("Yahoo yield provenance surfaces", () => {
   it("withholds Yahoo yield from portfolio rows while retaining provenance", () => {
     render(
-      <table><tbody><PortfolioItemRow
+      <ul><PortfolioItemRow
         item={{ ...yahooFund, shares: 1, weight: 100 } as unknown as PortfolioItem}
-        virtualRow={{ index: 0 } as any}
-        measureElement={() => {}}
+        expanded
+        onToggle={() => {}}
+        onCollapse={() => {}}
         onRemove={() => {}}
         onUpdateWeight={() => {}}
         onUpdateShares={() => {}}
-      /></tbody></table>,
+      /></ul>,
     );
 
     expect(screen.getByText("Yahoo yield unavailable:")).toBeTruthy();
@@ -89,14 +90,15 @@ describe("Yahoo yield provenance surfaces", () => {
 
   it("withholds a source-free positive yield from the portfolio row", () => {
     render(
-      <table><tbody><PortfolioItemRow
+      <ul><PortfolioItemRow
         item={{ ...unattributedFund, shares: 1, weight: 100 } as unknown as PortfolioItem}
-        virtualRow={{ index: 0 } as any}
-        measureElement={() => {}}
+        expanded
+        onToggle={() => {}}
+        onCollapse={() => {}}
         onRemove={() => {}}
         onUpdateWeight={() => {}}
         onUpdateShares={() => {}}
-      /></tbody></table>,
+      /></ul>,
     );
 
     expect(screen.getByText("Yield:")).toBeTruthy();
@@ -188,14 +190,15 @@ describe("Portfolio holding edits", () => {
   it("lets users change the target weight", () => {
     let updated: { ticker: string; weight: number } | undefined;
     render(
-      <table><tbody><PortfolioItemRow
+      <ul><PortfolioItemRow
         item={{ ...yahooFund, shares: 1, weight: 100 } as unknown as PortfolioItem}
-        virtualRow={{ index: 0 } as any}
-        measureElement={() => {}}
+        expanded
+        onToggle={() => {}}
+        onCollapse={() => {}}
         onRemove={() => {}}
         onUpdateWeight={(ticker, weight) => { updated = { ticker, weight }; }}
         onUpdateShares={() => {}}
-      /></tbody></table>,
+      /></ul>,
     );
 
     const allocationControl = screen.getByRole("slider", { name: "Weight for XIC.TO" });

@@ -21,6 +21,10 @@ const securityHeaders = [
 
 const nextConfig = {
     images: {
+        // /api/logo falls back to an SVG monogram; the CSP/attachment pair is Next's recommended hardening
+        dangerouslyAllowSVG: true,
+        contentDispositionType: 'attachment',
+        contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
         remotePatterns: [
             {
                 protocol: 'https',
