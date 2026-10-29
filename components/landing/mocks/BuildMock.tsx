@@ -222,7 +222,7 @@ export default function BuildMock() {
   const shown = ASSETS.find((a) => a.key === selected);
 
   return (
-    <RevealGroup stagger={0.08} className="grid items-start gap-4 sm:grid-cols-[minmax(0,260px)_1fr]">
+    <RevealGroup stagger={0.08} className="grid items-center gap-4 sm:grid-cols-[minmax(0,280px)_1fr]">
       <p className="sr-only" aria-live="polite">{summary}</p>
 
       <RevealItem>
