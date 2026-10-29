@@ -111,8 +111,8 @@ export default function PhoneMock({
         className="relative flex min-h-[520px] flex-col overflow-hidden rounded-[38px] bg-surface-card"
         style={screenHeight ? { height: screenHeight } : undefined}
       >
-        <div className="absolute left-1/2 top-2.5 z-10 h-[26px] w-[88px] -translate-x-1/2 rounded-full bg-[#111]" />
-        <div className="flex items-center justify-between px-6 pb-1 pt-3.5 text-[12px] font-semibold leading-none text-ink">
+        <div className="absolute left-1/2 top-2.5 z-10 h-[22px] w-[64px] -translate-x-1/2 rounded-full bg-[#111]" />
+        <div className="flex items-center justify-between px-5 pb-1 pt-3.5 text-[12px] font-semibold leading-none text-ink">
           <span className="tabular-nums">9:41</span>
           <StatusGlyphs />
         </div>

@@ -65,6 +65,7 @@ function Band({
   next,
   flip,
   overlap,
+  contain,
   wide,
   tint,
   children,
@@ -77,6 +78,8 @@ function Band({
   flip?: boolean;
   /** Lets the mock poke above the tinted band. */
   overlap?: boolean;
+  /** Keeps the mock fully inside the tinted card: no poke-out, no scroll drift. */
+  contain?: boolean;
   /** Gives the mock column more room than the text column. */
   wide?: boolean;
   /** Tailwind gradient classes for the tinted card. */
@@ -86,7 +89,7 @@ function Band({
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
   const progress = useElementProgress(ref);
-  const drift = useTransform(progress, [0, 1], reduce ? [0, 0] : [40, -40]);
+  const drift = useTransform(progress, [0, 1], reduce || contain ? [0, 0] : [40, -40]);
   return (
     <section id={id} className="scroll-mt-20 py-16 sm:py-32">
       <div
@@ -111,9 +114,9 @@ function Band({
             <ArrowIcon />
           </motion.button>
         </Reveal>
-        <Reveal delay={0.1} className={`rounded-3xl bg-surface-soft ${tint} p-6 sm:p-12 ${flip ? "lg:order-1" : ""}`}>
+        <Reveal delay={0.1} className={`rounded-3xl bg-surface-soft ${tint} ${contain ? "p-6 sm:p-10" : "p-6 sm:p-12"} ${flip ? "lg:order-1" : ""}`}>
           <motion.div ref={ref} style={{ y: drift }}>
-            <div className={overlap ? "sm:-mt-20" : ""}>{children}</div>
+            <div className={overlap && !contain ? "sm:-mt-20" : ""}>{children}</div>
           </motion.div>
         </Reveal>
       </div>
@@ -170,7 +173,7 @@ export default function PurposeSection() {
         next="test"
         tint="bg-[linear-gradient(135deg,rgba(132,197,138,0.12),rgba(224,184,74,0.14))]"
         flip
-        overlap
+        contain
         wide
       >
         <BuildMock />
