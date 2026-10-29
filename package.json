@@ -37,6 +37,7 @@
     "@vercel/analytics"
   ],
   "dependencies": {
+    "@monaco-editor/react": "4.7.0",
     "@tanstack/react-query": "^5.105.0",
     "@tanstack/react-virtual": "^3.14.23",
     "@vercel/analytics": "^1.6.1",
@@ -54,6 +55,7 @@
     "react-dom": "^19.3.1",
     "react-is": "^19.3.1",
     "recharts": "~3.6.0",
+    "sucrase": "3.35.1",
     "tailwind-merge": "^3.7.0",
     "yahoo-finance2": "3.11.2",
     "zod": "^4.6.7"

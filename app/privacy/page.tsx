@@ -41,7 +41,19 @@ export default function PrivacyPage() {
           <li>
             <code>theme</code> — your light/dark preference.
           </li>
+          <li>
+            <code>pc:lab-ack:v1</code> and <code>pc:lab-form:v1</code>: that you
+            read the Compass Lab notice, and your Lab strategy draft.
+          </li>
         </ul>
+        <p>
+          Compass Lab also uses an IndexedDB database named{" "}
+          <code>compass-lab</code>: a cache of daily price history for the
+          tickers you backtest (public market data, not your holdings), and the
+          code strategies you save. Your strategy code runs in your browser and
+          is never sent to our server. Settings &rarr; Compass Lab &rarr; Delete
+          Lab data removes the database and both keys.
+        </p>
         <p>
           Share counts and target weights stay on your device. The app sends
           ticker symbols to its server to retrieve market data, as described
@@ -97,6 +109,13 @@ export default function PrivacyPage() {
             USD/CAD daily exchange rate when the portfolio view is open. The
             request contains no tickers, shares, or portfolio value, but the
             Bank of Canada can see your IP address as the recipient.
+          </li>
+          <li>
+            <strong>jsDelivr</strong>: only in Compass Lab&rsquo;s code mode,
+            your browser downloads the code editor and, for Python strategies,
+            the Python runtime from this public CDN. The requests contain no
+            tickers, code, or portfolio data, but jsDelivr can see your IP
+            address.
           </li>
           <li>
             <strong>Google Fonts</strong> — typefaces, self-hosted at build time
