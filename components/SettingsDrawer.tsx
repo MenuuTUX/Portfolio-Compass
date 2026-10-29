@@ -11,8 +11,10 @@ import {
   Loader2,
   Download,
   Upload,
+  FlaskConical,
 } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   loadPortfolioBackup,
@@ -22,6 +24,8 @@ import {
   type LocalPortfolioItem,
 } from "@/lib/storage";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { deleteLabDb } from "@/lib/lab/db";
+import { LAB_ACK_KEY, LAB_FORM_KEY } from "@/lib/lab/lab-form";
 
 interface SettingsDrawerProps {
   isOpen: boolean;
@@ -114,6 +118,20 @@ export default function SettingsDrawer({
       });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleClearLab = async () => {
+    if (!confirm("Delete your Compass Lab draft, saved strategies, notice acknowledgment, and cached price history?")) return;
+    setStatus(null);
+    try {
+      localStorage.removeItem(LAB_ACK_KEY);
+      localStorage.removeItem(LAB_FORM_KEY);
+      await deleteLabDb();
+      setStatus({ type: "success", message: "Compass Lab data deleted." });
+    } catch (error) {
+      console.error(error);
+      setStatus({ type: "error", message: "Could not delete Compass Lab data." });
     }
   };
 
@@ -340,6 +358,34 @@ export default function SettingsDrawer({
                       </>
                     )}
                   </button>
+                </div>
+              </section>
+              </RevealItem>
+
+              <RevealItem y={12}>
+
+              <section aria-labelledby="settings-lab">
+                <h3 id="settings-lab" className="ws-section-title mb-3 flex items-center gap-2">
+                  <FlaskConical className="w-4 h-4 text-muted" aria-hidden />
+                  Compass Lab
+                </h3>
+                <div className="rounded-2xl ring-1 ring-hairline p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-medium text-ink">Backtest strategies (advanced)</h4>
+                    <p className="text-sm text-body">
+                      Replay allocations, trend filters and momentum rules over past prices, with costs, dividends and contributions. Results are hypothetical.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Link href="/lab" className={rowBtn}>
+                      <FlaskConical className="w-4 h-4" aria-hidden />
+                      Open the Lab
+                    </Link>
+                    <button type="button" onClick={() => void handleClearLab()} className={rowBtn}>
+                      <Trash2 className="w-4 h-4" aria-hidden />
+                      Delete Lab data
+                    </button>
+                  </div>
                 </div>
               </section>
               </RevealItem>

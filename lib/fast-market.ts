@@ -215,7 +215,7 @@ export function mapQuote(q: any): FastQuote {
 
   return {
     ticker: q.symbol,
-    name: q.shortName || q.longName || q.symbol,
+    name: q.longName || q.shortName || q.symbol,
     price: hasPreMarketQuote
       ? q.preMarketPrice
       : hasPostMarketQuote
@@ -980,10 +980,10 @@ export async function getFastEtfDetails(
       const otherPosition = th?.otherPosition ?? undefined;
 
       const name =
-        quote?.shortName ||
         quote?.longName ||
-        data.price?.shortName ||
+        quote?.shortName ||
         data.price?.longName ||
+        data.price?.shortName ||
         ticker;
       const description =
         data.summaryProfile?.longBusinessSummary ?? undefined;

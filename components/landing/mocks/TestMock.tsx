@@ -97,7 +97,7 @@ function Chips<T extends string | number>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o)}
-            className="relative min-h-11 rounded-full bg-surface-soft px-3 text-xs font-medium text-body outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-compass"
+            className="relative min-h-11 min-w-0 whitespace-nowrap rounded-full bg-surface-soft px-2 text-xs font-medium text-body outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-compass"
           >
             {active && (
               <motion.span
@@ -207,8 +207,8 @@ export default function TestMock() {
   );
 
   return (
-    <div ref={rootRef} className="grid items-start gap-4 sm:grid-cols-[minmax(0,260px)_1fr]">
-      <PhoneMock interactive tilt={-3} maxWidth={260} screenHeight={520}>
+    <div ref={rootRef} className="grid items-start gap-4 sm:grid-cols-[minmax(0,280px)_1fr]">
+      <PhoneMock interactive tilt={-3} maxWidth={280} screenHeight={520}>
         <p className="text-xs font-bold text-ink">Simulated paths</p>
         <p className="mt-1 text-xs text-muted">
           {running ? (
@@ -340,7 +340,7 @@ export default function TestMock() {
             { name: "Years", node: <Chips options={YEARS} value={years} onChange={setYears} group="years" label="Years" render={(y) => `${y} yrs`} /> },
             { name: "Volatility", node: <Chips options={SPREADS} value={spread} onChange={setSpread} group="spread" label="Volatility" /> },
           ].map((row) => (
-            <div key={row.name} className="grid items-center gap-2 sm:grid-cols-[5.5rem_1fr]">
+            <div key={row.name} className="grid items-center gap-1.5">
               <p className="text-xs text-muted">{row.name}</p>
               {row.node}
             </div>
