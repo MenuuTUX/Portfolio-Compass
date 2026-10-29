@@ -40,6 +40,17 @@ export default function TermsPage() {
         </p>
       </Section>
 
+      <Section heading="Compass Lab backtests">
+        <p>
+          Compass Lab replays strategies over past prices. Its results are
+          hypothetical: they assume fills at modeled prices and costs, use
+          adjusted data that a provider can revise, and include only the tickers
+          you chose, which can overstate past returns. A backtest does not
+          predict future performance, is not a recommendation, and never places
+          a trade.
+        </p>
+      </Section>
+
       <Section heading="Market data">
         <p>
           Quotes, fundamentals, and fund details come from third-party sources
