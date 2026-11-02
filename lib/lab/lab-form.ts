@@ -1,6 +1,7 @@
 import { parseTickers } from "@/lib/tickers";
 import type { BacktestConfig, Period } from "@/lib/lab/engine/simulate";
 import { strategyTickers, type NoCodeStrategy } from "@/lib/lab/no-code";
+import { extractTickers, LESSONS, type Lesson } from "@/lib/lab/lessons";
 import { CODE_TEMPLATES } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyLanguage } from "@/lib/lab/strategy/types";
 
@@ -33,6 +34,8 @@ export interface LabForm {
   universe: string[];
   paramOverrides: Params;
   strategyId: string | null;
+  /** Set while the guided lessons drive the code editor; null in plain code mode. */
+  lessonId: string | null;
   kind: StrategyKind;
   rows: AllocationRow[];
   smaDays: number;
@@ -68,6 +71,7 @@ export const BLANK_FORM: LabForm = {
   universe: CODE_TEMPLATES[0].universe,
   paramOverrides: {},
   strategyId: null,
+  lessonId: null,
   kind: "fixed",
   rows: [{ ticker: "SPY", weight: 100 }],
   smaDays: 200,
@@ -90,6 +94,45 @@ export const BLANK_FORM: LabForm = {
   dividends: "reinvest",
   fill: "next-open",
 };
+
+/** Guided mode: Python code driven by a lesson. */
+export const isGuided = (form: LabForm) => form.mode === "code" && form.lessonId !== null;
+
+/**
+ * Load a lesson with every setting it depends on, so a run matches what the
+ * lesson says. Leftovers from earlier sessions (costs, contributions, a
+ * different rebalance schedule) are reset to the defaults.
+ */
+export function applyLesson(form: LabForm, lesson: Lesson): LabForm {
+  return {
+    ...form,
+    name: lesson.title,
+    mode: "code",
+    language: "python",
+    code: lesson.code,
+    universe: extractTickers(lesson.code),
+    paramOverrides: {},
+    strategyId: null,
+    lessonId: lesson.id,
+    start: lesson.start,
+    end: today(),
+    benchmark: lesson.benchmark,
+    rebalance: lesson.rebalance,
+    initialCash: BLANK_FORM.initialCash,
+    band: BLANK_FORM.band,
+    contribution: BLANK_FORM.contribution,
+    contributionEvery: BLANK_FORM.contributionEvery,
+    slippageBps: BLANK_FORM.slippageBps,
+    commissionBps: BLANK_FORM.commissionBps,
+    minCommission: BLANK_FORM.minCommission,
+    shares: BLANK_FORM.shares,
+    dividends: BLANK_FORM.dividends,
+    fill: BLANK_FORM.fill,
+  };
+}
+
+/** What a first-time visitor sees: the first lesson, loaded. */
+export const startGuided = (): LabForm => applyLesson(BLANK_FORM, LESSONS[0]);
 
 export interface Template {
   id: string;
@@ -217,7 +260,8 @@ export function toRequest(form: LabForm): { request: LabRequest } | { errors: st
   if (rows.length === 0) errors.push("Add at least one ticker.");
   if (rows.length > MAX_UNIVERSE) errors.push(`Use at most ${MAX_UNIVERSE} tickers. Each one is a separate price download.`);
 
-  if (code && !form.code.trim()) errors.push("Write a weights() function, or start from a template.");
+  if (code && !form.code.trim()) errors.push(isGuided(form) ? "Write a decide(day) function, or pick a lesson." : "Write a weights() function, or start from a template.");
+  if (isGuided(form) && rows.length === 0) errors.splice(errors.indexOf("Add at least one ticker."), 1, 'Put a ticker in your code as quoted text, like "SPY".');
 
   if (!code && form.kind !== "momentum") {
     if (rows.some((r) => !(r.weight >= 0))) errors.push("Weights must be 0% or more.");

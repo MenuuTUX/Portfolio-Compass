@@ -72,7 +72,7 @@ function LogoTile({ ticker, width }: { ticker: string; width: string }) {
         loading="lazy"
         draggable={false}
         onLoad={(e) => setFlip(isMostlyDark(e.currentTarget))}
-        className={cn("h-full w-full object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]", flip && "brightness-0 invert")}
+        className={cn("h-full w-full object-contain", flip && "brightness-0 invert")}
       />
     </span>
   );

@@ -3,12 +3,16 @@
 import { useState, useTransition } from 'react';
 import Navigation from '@/components/Navigation';
 import Hero from '@/components/Hero';
+import dynamic from 'next/dynamic';
 import PurposeSection from '@/components/PurposeSection';
-import ComparisonEngine from '@/components/ComparisonEngine';
-import PortfolioBuilder from '@/components/PortfolioBuilder';
-import TrendingTab from '@/components/TrendingTab';
-import SettingsDrawer from '@/components/SettingsDrawer';
-import IntroQuiz, { QuizResult } from '@/components/IntroQuiz';
+import type { QuizResult } from '@/components/IntroQuiz';
+
+// The app views only render after "Browse market" / "Get started", so keep them out of the landing bundle.
+const ComparisonEngine = dynamic(() => import('@/components/ComparisonEngine'));
+const PortfolioBuilder = dynamic(() => import('@/components/PortfolioBuilder'));
+const TrendingTab = dynamic(() => import('@/components/TrendingTab'));
+const SettingsDrawer = dynamic(() => import('@/components/SettingsDrawer'));
+const IntroQuiz = dynamic(() => import('@/components/IntroQuiz'));
 import { ETF, PortfolioItem } from '@/types';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePortfolio } from '@/hooks/usePortfolio';

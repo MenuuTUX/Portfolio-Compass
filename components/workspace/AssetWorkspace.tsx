@@ -78,6 +78,7 @@ export default function AssetWorkspace({
   onBack,
 }: AssetWorkspaceProps) {
   const [kind, setKind] = useState<"area" | "candles">("area");
+  const [showAverage, setShowAverage] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [drawerH, setDrawerH] = useState(MIN_DRAWER);
   const [dragging, setDragging] = useState(false);
@@ -261,6 +262,18 @@ export default function AssetWorkspace({
           >
             vs SPY
           </button>
+          <button
+            type="button"
+            aria-pressed={showAverage}
+            onClick={() => setShowAverage((v) => !v)}
+            title="Overlay a moving average to smooth out day-to-day noise"
+            className={cn(
+              pill,
+              showAverage && "ring-1 ring-hairline-strong bg-hairline-strong",
+            )}
+          >
+            Avg
+          </button>
           <div
             role="group"
             aria-label="Chart style"
@@ -302,6 +315,8 @@ export default function AssetWorkspace({
             ticker={etf.ticker}
             currency={etf.currency}
             kind={kind}
+            advanced
+            showAverage={showAverage}
           />
         </div>
 

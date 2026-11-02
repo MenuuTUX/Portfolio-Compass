@@ -20,6 +20,8 @@ interface CodeEditorProps {
   onChange: (code: string) => void;
   error: StrategyError | null;
   onRun: () => void;
+  /** 1-based lines to mark, used by the guided lessons. */
+  highlightLines?: number[];
 }
 
 const beforeMount: BeforeMount = (monaco) => {
@@ -35,7 +37,7 @@ const beforeMount: BeforeMount = (monaco) => {
   ts.addExtraLib(STRATEGY_API_DTS, "file:///compass-lab.d.ts");
 };
 
-export default function CodeEditor({ language, value, onChange, error, onRun }: CodeEditorProps) {
+export default function CodeEditor({ language, value, onChange, error, onRun, highlightLines }: CodeEditorProps) {
   const { resolvedTheme } = useTheme();
   const refs = useRef<{ editor: EditorInstance; monaco: Monaco } | null>(null);
   const runRef = useRef(onRun);
@@ -62,6 +64,23 @@ export default function CodeEditor({ language, value, onChange, error, onRun }: 
     if (markers.length) r.editor.revealLineInCenterIfOutsideViewport(error!.line!);
   }, [error, value]);
 
+  // Lesson notes point at lines; mark them so the code and the explanation line up.
+  const marks = useRef<ReturnType<EditorInstance["createDecorationsCollection"]> | null>(null);
+  const lineKey = (highlightLines ?? []).join(",");
+  useEffect(() => {
+    const r = refs.current;
+    if (!r) return;
+    marks.current?.clear();
+    marks.current = r.editor.createDecorationsCollection(
+      lineKey
+        ? lineKey.split(",").map((n) => ({
+            range: new r.monaco.Range(Number(n), 1, Number(n), 1),
+            options: { isWholeLine: true, className: "lab-note-line", linesDecorationsClassName: "lab-note-bar" },
+          }))
+        : [],
+    );
+  }, [lineKey, value]);
+
   return (
     <Editor
       height="100%"
@@ -72,6 +91,12 @@ export default function CodeEditor({ language, value, onChange, error, onRun }: 
       beforeMount={beforeMount}
       onMount={(editor, monaco) => {
         refs.current = { editor, monaco };
+        marks.current = editor.createDecorationsCollection(
+          (highlightLines ?? []).map((n) => ({
+            range: new monaco.Range(n, 1, n, 1),
+            options: { isWholeLine: true, className: "lab-note-line", linesDecorationsClassName: "lab-note-bar" },
+          })),
+        );
         // Monaco swallows key presses, so ⌘/Ctrl+Enter is bound inside it too.
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => runRef.current());
       }}
