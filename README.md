@@ -4,6 +4,10 @@
 
 **Live demo: [portfolio-compass.vercel.app](https://portfolio-compass.vercel.app)**
 
+**Demo video (60 s, recorded from the live site): [watch or download](docs/media/promo.mp4)**
+
+[![Portfolio Compass demo video](docs/media/promo-poster.png)](docs/media/promo.mp4)
+
 A free planning tool for people who have just opened a TFSA. Check your contribution room, compare funds, build a portfolio, and test how it would have held up. It never places trades and gives no investment advice.
 
 I built it for people my age who open a TFSA and then have to decide what to do with it. The aim is to make a long-term, diversified plan easier to work out than a guess on a hot tip. Every figure shows its assumptions, and every projection says what it is not.
