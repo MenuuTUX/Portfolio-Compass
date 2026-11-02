@@ -5,9 +5,12 @@ import { isUnverifiedProviderYield } from "@/lib/yield-provenance";
  * Shared portfolio return / weight / dividend helpers used by
  * Wealth Projector, Monte Carlo, and historical stats.
  *
- * Price history in this app comes from unadjusted closes, so historical
- * log-returns are price returns. A current yield estimate does not reconstruct
- * historical total return; that requires dated distributions or adjusted prices.
+ * History points carry Yahoo's split-adjusted `close` as `price` and, where the
+ * provider returned one, its split- and dividend-adjusted `adjclose` as
+ * `adjPrice` (see lib/math/history.ts). Historical returns are total returns
+ * when every holding has `adjPrice`, and price returns otherwise, and callers
+ * label which. A current yield estimate is never added on top of a total-return
+ * history; it would count distributions twice.
  */
 
 /** Resolve dividend yield as a fraction (e.g. 0.015 for 1.5%). */

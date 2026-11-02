@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     const [quotes, histories, dividendHistory, details] = await Promise.all([
       getFastQuotes([normalizedTicker], { includeProfiles: true }),
-      getFastHistory([normalizedTicker], "1Y"),
+      getFastHistory([normalizedTicker], "1Y", { adjusted: true }),
       getFastDividendHistory(normalizedTicker),
       getFastEtfDetails(normalizedTicker).then((d) =>
         d ? enrichEtfDetailsGaps(d) : null,

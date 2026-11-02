@@ -156,13 +156,14 @@ function multiplyMatrixVector(matrix: number[][], vector: number[]): number[] {
  * Generates Monte Carlo simulation paths for a multi-asset portfolio.
  *
  * Price dynamics use geometric Brownian motion with correlated shocks
- * (via Cholesky). `meanReturns` are daily log-price-return drifts. The
- * simulation uses observed price returns only; it does not estimate or
- * include distributions.
+ * (via Cholesky). `meanReturns` are daily log-return drifts exactly as the
+ * caller measured them: total return when built from dividend-adjusted closes,
+ * price return otherwise. The simulation never adds a separate distribution
+ * or yield term, so a total-return drift does not count dividends twice.
  *
  * @param currentPrices         Spot prices per asset
  * @param weights               Portfolio weights (sum ≈ 1)
- * @param meanReturns           Daily log-price-return drifts
+ * @param meanReturns           Daily log-return drifts
  * @param choleskyMatrix        L such that L Lᵀ = covariance of daily log returns
  * @param numSimulations        Number of independent paths
  * @param numDays               Trading days to simulate
@@ -235,7 +236,7 @@ export function generateMonteCarloPaths(
       // 2. Correlate: shock = L · Z
       const R_shock = multiplyMatrixVector(choleskyMatrix, Z);
 
-      // 3. Evolve price-only paths and mark portfolio.
+      // 3. Evolve paths with the caller's drift and mark portfolio.
       let totalValue = 0;
       for (let i = 0; i < numAssets; i++) {
         const logRet = meanReturns[i] + R_shock[i];

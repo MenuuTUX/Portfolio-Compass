@@ -39,8 +39,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const series = await getFastHistory(tickers, rangeParam);
-    const payload: Record<string, { date: string; price: number }[]> = {};
+    const series = await getFastHistory(tickers, rangeParam, {
+      adjusted: searchParams.get("adjusted") === "1",
+    });
+    const payload: Record<string, { date: string; price: number; adjPrice?: number }[]> = {};
     for (const [ticker, points] of series) payload[ticker] = points;
 
     return NextResponse.json(

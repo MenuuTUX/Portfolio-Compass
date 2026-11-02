@@ -9,6 +9,8 @@ const DateString = z.string();
 export const EtfHistoryItemSchema = z.object({
   date: DateString,
   price: z.number(),
+  /** Dividend-adjusted close; absent when the provider returned none. */
+  adjPrice: z.number().optional(),
   interval: z.string().optional(),
 });
 

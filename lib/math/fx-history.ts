@@ -44,6 +44,11 @@ export function convertPriceHistoryToCad(
   if (normalizedPoints.some(({ date, price }) =>
     !date || !Number.isFinite(price) || price <= 0
   )) return null;
+  // An adjusted close is optional, but a present one must be usable: it is
+  // converted with the same rate as the price so both stay in one currency.
+  if (points.some((point) =>
+    point.adjPrice != null && !(Number.isFinite(point.adjPrice) && point.adjPrice > 0)
+  )) return null;
   if (normalizedPoints.some(({ date }, index) =>
     index > 0 && normalizedPoints[index - 1].date! >= date!
   )) return null;
@@ -76,7 +81,12 @@ export function convertPriceHistoryToCad(
     if (!latestRate || calendarDaysBetween(latestRate.date, date!) > 7) return null;
     const cadPrice = price * latestRate.usdCad;
     if (!Number.isFinite(cadPrice) || cadPrice <= 0) return null;
-    converted.push({ ...point, price: cadPrice });
+    const cadAdjPrice = point.adjPrice != null ? point.adjPrice * latestRate.usdCad : undefined;
+    converted.push({
+      ...point,
+      price: cadPrice,
+      ...(cadAdjPrice !== undefined ? { adjPrice: cadAdjPrice } : {}),
+    });
   }
   return converted;
 }

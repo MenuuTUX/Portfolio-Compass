@@ -1,13 +1,15 @@
 import { Portfolio } from "@/types";
-import { alignPriceHistories } from "@/lib/math/history";
+import { alignPriceHistories, type ReturnBasis } from "@/lib/math/history";
 
 export interface PortfolioHistoricalStats {
-  /** Annualized change in the market value of the same held shares. Price only. */
+  /** Annualized change in the market value of the same held shares, on `basis`. */
   annualizedReturn: number | null;
   annualizedVolatility: number | null;
+  /** "total" reinvests distributions via adjusted closes; "price" leaves them out. Absent when unavailable. */
+  basis?: ReturnBasis;
 }
 
-/** Historical price statistics for a buy-and-hold portfolio without cash flows. */
+/** Historical statistics for a buy-and-hold portfolio without cash flows. Total return when every holding has adjusted closes, else price return. */
 export function calculatePortfolioHistoricalStats(
   portfolio: Portfolio,
 ): PortfolioHistoricalStats {
@@ -52,7 +54,7 @@ export function calculatePortfolioHistoricalStats(
   // produces a number with unjustified precision. Keep the observed price CAGR
   // but withhold volatility until the common series is sufficiently dense.
   if (gapsInDays.length < 100 || gapsInDays.some((gap) => gap > 10)) {
-    return { annualizedReturn, annualizedVolatility: null };
+    return { annualizedReturn, annualizedVolatility: null, basis: aligned.basis };
   }
   const logReturns = values.slice(1).map((value, index) =>
     Math.log(value / values[index]),
@@ -64,5 +66,5 @@ export function calculatePortfolioHistoricalStats(
   ) / (logReturns.length - 1);
   const annualizedVolatility = Math.sqrt(variance * (logReturns.length / years));
 
-  return { annualizedReturn, annualizedVolatility };
+  return { annualizedReturn, annualizedVolatility, basis: aligned.basis };
 }

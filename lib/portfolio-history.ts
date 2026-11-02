@@ -1,37 +1,61 @@
 import type { PortfolioItem } from "@/types";
+import { selectReturnBasis, validAdjusted, type ReturnBasis } from "@/lib/math/history";
 
 export interface IndexPoint {
   t: string;
   v: number;
 }
 
+export interface PortfolioIndex {
+  points: IndexPoint[];
+  /** "total" uses dividend-adjusted closes; "price" is the labelled fallback. */
+  basis: ReturnBasis;
+}
+
 /**
  * Buy-and-hold index (starts at 100) of the current target weights applied to
- * each holding's past prices. Uses only dates every holding has a price for,
- * and returns [] when any holding has no usable history or weights sum to 0.
+ * each holding's past returns. Uses only dates every holding has a price for,
+ * and returns no points when any holding has no usable history or weights sum
+ * to 0. The basis is total return when every holding has adjusted closes,
+ * otherwise price return for all of them.
  */
-export function buildPortfolioIndex(portfolio: PortfolioItem[]): IndexPoint[] {
+export function buildPortfolioIndexWithBasis(portfolio: PortfolioItem[]): PortfolioIndex {
   const held = portfolio.filter((item) => item.weight > 0);
   const totalWeight = held.reduce((sum, item) => sum + item.weight, 0);
-  if (held.length === 0 || totalWeight <= 0) return [];
+  const none: PortfolioIndex = { points: [], basis: "price" };
+  if (held.length === 0 || totalWeight <= 0) return none;
 
+  const basis = selectReturnBasis(held.map((item) => item.history ?? []));
   const series = held.map((item) => {
     const byDate = new Map<string, number>();
     for (const point of item.history ?? []) {
-      if (Number.isFinite(point.price) && point.price > 0) byDate.set(point.date, point.price);
+      if (!Number.isFinite(point.price) || point.price <= 0) continue;
+      if (basis === "price") byDate.set(point.date, point.price);
+      else {
+        // A date without an adjusted close is dropped for every holding.
+        const adj = validAdjusted(point);
+        if (adj !== null) byDate.set(point.date, adj);
+      }
     }
     return byDate;
   });
-  if (series.some((byDate) => byDate.size < 2)) return [];
+  if (series.some((byDate) => byDate.size < 2)) return none;
 
   const dates = [...series[0].keys()].filter((date) => series.every((byDate) => byDate.has(date))).sort();
-  if (dates.length < 2) return [];
+  if (dates.length < 2) return none;
 
   const first = series.map((byDate) => byDate.get(dates[0])!);
-  return dates.map((date) => ({
-    t: date,
-    v: 100 * held.reduce((sum, item, i) => sum + (item.weight / totalWeight) * (series[i].get(date)! / first[i]), 0),
-  }));
+  return {
+    basis,
+    points: dates.map((date) => ({
+      t: date,
+      v: 100 * held.reduce((sum, item, i) => sum + (item.weight / totalWeight) * (series[i].get(date)! / first[i]), 0),
+    })),
+  };
+}
+
+export function buildPortfolioIndex(portfolio: PortfolioItem[]): IndexPoint[] {
+  return buildPortfolioIndexWithBasis(portfolio).points;
 }
 
 export type IndexRange = "1M" | "3M" | "6M" | "1Y" | "ALL";
