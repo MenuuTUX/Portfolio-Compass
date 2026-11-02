@@ -205,7 +205,7 @@ export default function PurposeSection() {
               allocation checks, side-by-side comparisons, and model projections.
               I put them in one browser app and connected them to current market data.
             </blockquote>
-            <p className="mt-4 text-sm text-muted">Jim Cramer</p>
+            <p className="mt-4 text-sm text-muted">MenuuTUX</p>
           </div>
 
           <div className="mt-24 border-t border-hairline pt-12 sm:mt-32">

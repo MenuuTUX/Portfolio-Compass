@@ -1,53 +1,68 @@
 # Portfolio Compass
 
-Portfolio Compass is a local-first browser app for comparing stocks and ETFs, assembling a portfolio, and testing allocation assumptions.
+A browser app for comparing stocks and ETFs, building a portfolio, and backtesting allocation rules. Built by MenuuTUX as a research tool. It never places trades and gives no investment advice.
 
-Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CSS.
+**Live demo: [portfolio-compass.vercel.app](https://portfolio-compass.vercel.app)**
 
-## Architecture (local-first)
+![Portfolio Compass landing page](docs/screenshots/01-landing.png)
 
-**No server database.** Nothing user-specific is stored in Postgres/Prisma.
+| Market workspace | Portfolio builder |
+|---|---|
+| ![Asset workspace with a price chart and valuation panel](docs/screenshots/02-workspace.png) | ![Portfolio builder with target allocation](docs/screenshots/03-portfolio.png) |
+
+![Compass Lab guided lesson with backtest results](docs/screenshots/04-lab.png)
+
+## What it does
+
+- **Compare.** Search stocks and ETFs, view quotes and price charts, and put funds side by side without automatic winner labels.
+- **Build.** Hold a portfolio in the browser with no login. Check position sizes, sector exposure and overlap. Totals and projections are withheld when a quote is stale or currencies differ and dated FX is unavailable.
+- **Test.** Project a portfolio with constant-return and Monte Carlo paths, or backtest a strategy in Compass Lab.
+
+## Compass Lab
+
+Lab is a backtesting workspace at `/lab` with a guided mode, a no-code mode and a code mode (Python through Pyodide, or TypeScript).
+
+- Strategy code only returns target weights. A TypeScript engine in `lib/lab/engine/` handles fills, costs, dividends, rebalancing and metrics, so every mode produces comparable numbers.
+- Orders fill at the next bar's open, never on the bar that produced the signal.
+- Metrics: CAGR, volatility, Sharpe, Sortino, Calmar, maximum drawdown, beta and alpha, turnover and costs.
+- Each run stores a hash of the code, parameters, data and engine version, so a run can be reproduced.
+- Daily bars are cached in the browser (IndexedDB) and fetched through `/api/market/bars`.
+
+Not built yet: parameter sweeps, walk-forward tests and a multiple-testing warning. See the limitations below.
+
+### Example
+
+[docs/example-backtest.md](docs/example-backtest.md) tests a 200-day trend filter on SPY from 2005 to 2026. The filter cut maximum drawdown from 55% to 26% over the full period. On a hold-out period starting in 2020 the benefit disappeared. The note covers what could be wrong with that result.
+
+## Architecture
+
+**No server database.** Nothing user-specific is stored on a server.
 
 | Data | Where |
 |------|--------|
-| Portfolio holdings (tickers, weights, shares) | Browser **LocalStorage** |
-| Quotes, charts, search, fund details | **Live** Yahoo / scrapers via API routes |
-| Reddit community links | Static config in repo |
+| Portfolio holdings (tickers, weights, shares) | Browser LocalStorage |
+| Lab strategies, runs and cached price bars | Browser IndexedDB |
+| Quotes, charts, search, fund details | Live Yahoo and scraper data through API routes |
 | Fear & Greed gauge | Live CNN index |
 
-Hosting, such as Vercel, runs the Next.js app and its API proxies. Clearing site data also clears the portfolio. Export a JSON backup before clearing browser data.
+Hosting runs the Next.js app and its API proxies. Clearing site data clears the portfolio, so export a JSON backup first. The `/api` routes are limited to 120 requests per minute per IP in `proxy.ts`.
 
-## Features
+Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CSS, Recharts, Pyodide and Monaco (Lab only).
 
-- Stock and ETF search with current quotes and price charts
-- Side-by-side comparison without automatic winner labels
-- Portfolio storage in the browser, with no login
-- An experimental whole-share allocation score using explicit return and variance proxies; its candidates cannot be applied from the panel
-- Constant-return projections and Monte Carlo model paths
-- Fund holdings, sector, credit-quality, and market-data views when sources provide them
+## Known limitations
 
-The allocation score is a heuristic, not a Sharpe optimizer. It uses a provider-reported yield and beta-based return proxy, with covariance estimated from overlapping price history when sufficient data exists or from a single-index fallback otherwise. Reported yield has not been independently reconciled for every fund, so the panel does not apply trades. Monte Carlo uses historical **price** returns and geometric Brownian motion for illustrative paths, not calibrated forecasts or investment advice. Portfolio totals and projections are withheld when a held quote is stale or unavailable, or when held currencies differ and dated FX conversion is unavailable.
+- The main site shows price returns, not total returns. Dividends are not included. The Lab models dividends.
+- The allocation score is a heuristic, not a Sharpe optimizer. It uses a provider-reported yield and a beta-based return proxy, and it cannot apply trades.
+- Monte Carlo uses historical price returns and geometric Brownian motion. The paths are illustrative, not forecasts.
+- Lookahead in strategy code is detected heuristically, not prevented by construction.
+- Market data comes from Yahoo Finance and scrapers and has not been cross-checked against a second source.
+- Lab results depend on one data source and one cost model, and ignore taxes.
 
-## Pages
-
-| Route | Purpose |
-|-------|---------|
-| `/` | The app |
-| `/privacy` | What is stored locally, what reaches the server, which third parties see requests |
-| `/terms` | Terms of use, including what the projections are and are not |
-| `/robots.txt`, `/sitemap.xml` | Generated at build time |
-| `/opengraph-image` | 1200×630 social card, generated at build time |
-
-The `/api` routes are rate-limited to 120 requests per minute per IP in
-`proxy.ts`, since each one proxies an upstream data provider.
+More detail is in [docs/interview-notes.md](docs/interview-notes.md), including the places where design docs and code disagree.
 
 ## Getting started
 
-### Prerequisites
-
-- [Bun](https://bun.sh/)
-
-### Setup
+Requires [Bun](https://bun.sh/).
 
 ```bash
 git clone https://github.com/MenuuTUX/Portfolio-Compass.git
@@ -56,11 +71,7 @@ bun install
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
-No environment variables are required.
-
-## Scripts
+Open [http://localhost:3000](http://localhost:3000). No environment variables are required.
 
 | Command | Purpose |
 |---------|---------|
@@ -68,7 +79,6 @@ No environment variables are required.
 | `bun run build` | Production build |
 | `bun test` | Unit tests |
 | `bun run lint` | ESLint |
-| `bun run lint:oxlint` | Oxlint |
 | `bun run typecheck` | `tsc --noEmit` |
 
 ## License
