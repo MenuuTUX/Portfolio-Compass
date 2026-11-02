@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { indexedDbBarStore, loadBars, memoryBarStore, type BarStore } from "@/lib/lab/bar-cache";
 import type { BacktestReport, BacktestRequest, Targets } from "@/lib/lab/engine/backtest";
+import { DEFAULT_SMA_VALUES, sweepValues, type RobustnessRequest, type RobustnessResult, type TrendStrategy } from "@/lib/lab/engine/sweep";
 import type { WorkerRequest, WorkerResponse } from "@/lib/lab/engine/worker";
 import type { LabRequest } from "@/lib/lab/lab-form";
 import { createStrategyClient, type StrategyClient } from "@/lib/lab/strategy/client";
@@ -138,6 +139,7 @@ export function useLabEngine() {
         w.postMessage({ id, request: body } satisfies WorkerRequest);
       });
       if (!response.ok) throw new Error(response.error);
+      if (!("report" in response)) throw new Error("The backtest engine sent an unexpected reply.");
 
       setStatus("ready");
       const fetched = bars.series.map((s) => s.source.fetchedAt).sort();
@@ -161,10 +163,36 @@ export function useLabEngine() {
     }
   }, []);
 
+  /** Sweeps the moving-average length of a finished no-code trend run, and walk-forward tests the sweep, in the engine worker. */
+  const robustness = useCallback(async (run: LabRun): Promise<RobustnessResult> => {
+    const w = worker.current;
+    const strategy = run.request.strategy;
+    if (!w || !store.current) throw new Error("The engine is still starting.");
+    if (strategy.kind !== "trend") throw new Error("Only the no-code trend rule can be swept.");
+    const bars = await loadBars(run.request.tickers, run.request.start, run.request.end, { store: store.current });
+    if (bars.failed.length || bars.missing.length) throw new Error("The price data for this run could not be loaded again. Try again in a minute.");
+    const id = nextId.current++;
+    const body: RobustnessRequest = {
+      series: bars.series,
+      config: run.request.config,
+      baseCurrency: "USD",
+      strategy: strategy as TrendStrategy,
+      values: sweepValues(strategy.smaDays, DEFAULT_SMA_VALUES),
+      benchmark: run.request.benchmark,
+    };
+    const response = await new Promise<WorkerResponse>((resolve) => {
+      pending.current.set(id, resolve);
+      w.postMessage({ id, robustness: body } satisfies WorkerRequest);
+    });
+    if (!response.ok) throw new Error(response.error);
+    if (!("robustness" in response)) throw new Error("The backtest engine sent an unexpected reply.");
+    return response.robustness;
+  }, []);
+
   const inspect = useCallback(
     (language: StrategyLanguage, code: string): Promise<{ params: Params | null; error?: StrategyError }> =>
       strategies.current?.inspect(language, code) ?? Promise.resolve({ params: null }),
     [],
   );
-  return { status, pythonStatus, run, inspect };
+  return { status, pythonStatus, run, robustness, inspect };
 }
