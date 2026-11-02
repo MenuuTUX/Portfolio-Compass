@@ -7,6 +7,7 @@ import type { LabRun } from "./useLabEngine";
 import LabChart, { type ChartSeries } from "./LabChart";
 import { compactMoney, money, pct, signedPct } from "./format";
 import { cn } from "@/lib/utils";
+import { splitMetrics, type SliceStats } from "@/lib/lab/engine/holdout";
 
 const TABS = ["Overview", "Drawdown", "Monthly", "Holdings", "Trades", "Compare"] as const;
 type Tab = (typeof TABS)[number];
@@ -273,6 +274,47 @@ function PlainSummary({ run, hasFlows }: { run: LabRun; hasFlows: boolean }) {
   );
 }
 
+/** The same run in two pieces, so a rule that only worked early on shows up. */
+function HoldoutCheck({ run }: { run: LabRun }) {
+  const { report } = run;
+  const split = useMemo(() => splitMetrics(report.dates, report.sim), [report]);
+  if (!split) return null;
+  const rows: [string, (s: SliceStats) => string][] = [
+    ["Growth per year", (s) => signedPct(s.cagr)],
+    ["Sharpe", (s) => (s.sharpe === null ? "n/a" : s.sharpe.toFixed(2))],
+    ["Worst drop", (s) => (s.maxDrawdown ? pct(-Math.abs(s.maxDrawdown.depth)) : "n/a")],
+  ];
+  const weaker = split.holdout.cagr < split.inSample.cagr - 0.03;
+  return (
+    <section aria-label="In-sample and hold-out" className="space-y-3 rounded-xl p-4 ring-1 ring-hairline">
+      <h3 className="text-sm font-medium text-ink">Does it hold up on newer data?</h3>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs text-muted">
+            <th scope="col" className="py-1 font-normal">&nbsp;</th>
+            <th scope="col" className="py-1 font-normal">First 70%<br />{split.inSample.startDate} to {split.inSample.endDate}</th>
+            <th scope="col" className="py-1 font-normal">Last 30%<br />{split.holdout.startDate} to {split.holdout.endDate}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, f]) => (
+            <tr key={label} className="border-t border-hairline">
+              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted">{label}</th>
+              <td className="py-1.5 font-mono text-ink">{f(split.inSample)}</td>
+              <td className="py-1.5 font-mono text-ink">{f(split.holdout)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-xs text-muted">
+        {weaker
+          ? "The newer stretch did noticeably worse than the older one. Either the idea weakened or the older years were unusually good, so treat the full-period number with caution."
+          : "Both pieces come from one run, and the rule was not refit between them. A similar result on both is a good sign, not proof."}
+      </p>
+    </section>
+  );
+}
+
 interface ResultsPanelProps {
   run: LabRun | null;
   compare: LabRun[];
@@ -353,6 +395,7 @@ export default function ResultsPanel({ run, compare, guided }: ResultsPanelProps
               </label>
             </div>
             <PlainSummary run={run} hasFlows={hasFlows} />
+            <HoldoutCheck run={run} />
             <LabChart
               dates={report.dates}
               series={series.lines}
