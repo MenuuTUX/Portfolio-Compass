@@ -315,7 +315,7 @@ export default function OptimizationPanel({
             annual covariance. These inputs are proxies, not forecasts or a
             recommendation.{" "}
             {covariance.source === "history"
-              ? `The covariance uses ${covariance.samples} overlapping daily returns.`
+              ? `The covariance uses ${covariance.samples} overlapping daily ${covariance.basis === "total" ? "total returns (dividend-adjusted closes)" : "price returns (adjusted closes unavailable for at least one holding)"}.`
               : "The covariance uses a beta-based estimate because the holdings lack enough overlapping price history."}
           </p>
           <p>

@@ -12,7 +12,14 @@ export type ChartRange = "1D" | "1W" | "1M" | "1Y" | "5Y" | "MAX";
 
 export interface HistoryPoint {
   date: string;
+  /** Split-adjusted close, the price a quote shows. Charts read this. */
   price: number;
+  /**
+   * Split- and dividend-adjusted close (Yahoo `adjclose`). Present only when
+   * the provider returned one for this bar; performance math reads it, and
+   * falls back to `price` with a visible label when it is absent.
+   */
+  adjPrice?: number;
 }
 
 export interface Candle {
@@ -565,9 +572,13 @@ async function fetchChartFallback(
 
   return (res?.quotes || [])
     .filter((q) => q.close !== null && q.close !== undefined)
-    .map((q) => ({
+    .map((q): HistoryPoint => ({
       date: new Date(q.date).toISOString(),
       price: q.close ?? 0,
+      // Intraday bars carry no adjclose; a missing value stays absent, never 0.
+      ...(typeof q.adjclose === "number" && Number.isFinite(q.adjclose) && q.adjclose > 0
+        ? { adjPrice: q.adjclose }
+        : {}),
     }));
 }
 
@@ -634,15 +645,49 @@ export async function getFastWebsiteDomain(ticker: string): Promise<string | nul
   }
 }
 
+export interface HistoryOptions {
+  /**
+   * Include `adjPrice` (dividend-adjusted close). The spark endpoint returns
+   * closes only, so this fetches each ticker through chart() instead: slower,
+   * so only the paths feeding performance math ask for it. Intraday ranges
+   * have no adjusted close and return price-only points either way.
+   */
+  adjusted?: boolean;
+}
+
 export async function getFastHistory(
   tickers: string[],
   range: ChartRange,
+  options: HistoryOptions = {},
 ): Promise<Map<string, HistoryPoint[]>> {
   const clean = normalizeTickers(tickers);
   const result = new Map<string, HistoryPoint[]>();
   if (clean.length === 0) return result;
 
   const { ttlMs } = RANGE_CONFIG[range];
+
+  if (options.adjusted && range !== "1D" && range !== "1W") {
+    const limit = pLimit(4);
+    await Promise.all(
+      clean.map((ticker) =>
+        limit(async () => {
+          try {
+            const points = await cached(`chart:${range}:${ticker}`, ttlMs, () =>
+              fetchChartFallback(ticker, range),
+            );
+            if (points.length > 0) result.set(ticker, points);
+          } catch (e) {
+            console.warn(`[FastMarket] Adjusted chart failed for ${ticker}:`, e);
+          }
+        }),
+      ),
+    );
+    // A ticker chart() could not serve falls back to spark's price-only series.
+    const missing = clean.filter((t) => !result.has(t));
+    if (missing.length === 0) return result;
+    for (const [t, points] of await getFastHistory(missing, range)) result.set(t, points);
+    return result;
+  }
   const misses: string[] = [];
   for (const t of clean) {
     const hit = cache.get(`h:${range}:${t}`);

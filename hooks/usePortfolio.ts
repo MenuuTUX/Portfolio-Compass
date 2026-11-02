@@ -3,7 +3,20 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, type LocalPortfolioItem } from "@/lib/storage";
 import { normalizeTicker, toPortfolioEtf } from "./normalize";
+import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
+
+const hasAdjusted = (history: ETF["history"]) => selectReturnBasis([history]) === "total";
+
+/**
+ * A quote's short history normally wins, but a detail history with adjusted
+ * closes replaces one without, so stored portfolios gain total-return math.
+ */
+export function pickHistory(current: ETF["history"], details: ETF["history"]): ETF["history"] {
+  if (current.length === 0) return details;
+  if (details.length >= current.length && hasAdjusted(details) && !hasAdjusted(current)) return details;
+  return current;
+}
 
 function mergeQuoteWithDetails(current: ETF, details?: ETF): ETF {
   if (!details) return current;
@@ -14,7 +27,7 @@ function mergeQuoteWithDetails(current: ETF, details?: ETF): ETF {
   return {
     ...details,
     ...quoteFields,
-    history: current.history.length > 0 ? current.history : details.history,
+    history: pickHistory(current.history, details.history),
     metrics: {
       ...details.metrics,
       ...Object.fromEntries(
@@ -143,7 +156,7 @@ export const usePortfolio = (refreshEnabled = false) => {
     if (!tickersKey) return;
     let cancelled = false;
 
-    fetch(`/api/etfs/search?tickers=${encodeURIComponent(tickersKey)}&includeHistory=true&profiles=true`)
+    fetch(`/api/etfs/search?tickers=${encodeURIComponent(tickersKey)}&includeHistory=true&adjusted=true&profiles=true`)
       .then((response) => response.ok ? response.json() : [])
       .then((assets: ETF[]) => {
         if (cancelled || !Array.isArray(assets)) return;

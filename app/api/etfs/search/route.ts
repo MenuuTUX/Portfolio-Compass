@@ -50,6 +50,9 @@ export async function GET(request: NextRequest) {
   const includeHistory =
     searchParams.get("includeHistory") === "true" || isFullHistoryRequested;
   const includeProfiles = searchParams.get("profiles") !== "false";
+  // Portfolio math needs dividend-adjusted closes; display-only callers skip them
+  // because that path fetches each ticker separately instead of one spark call.
+  const adjustedHistory = searchParams.get("adjusted") === "true";
 
   try {
     let tickers: string[] = [];
@@ -102,7 +105,9 @@ export async function GET(request: NextRequest) {
     const [quotes, histories] = await Promise.all([
       getFastQuotes(tickers, { includeProfiles }),
       includeHistory
-        ? getFastHistory(tickers, isFullHistoryRequested ? "1Y" : "1M")
+        ? getFastHistory(tickers, isFullHistoryRequested ? "1Y" : "1M", {
+            adjusted: isFullHistoryRequested || adjustedHistory,
+          })
         : Promise.resolve(new Map<string, HistoryPoint[]>()),
     ]);
     const dividendHistories = await getFastDividendHistories([...quotes.keys()]);

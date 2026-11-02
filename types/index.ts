@@ -12,7 +12,7 @@ export interface ETF {
   changePercent: number;
   assetType?: string;
   isDeepAnalysisLoaded?: boolean;
-  history: { date: string; price: number; interval?: string }[];
+  history: { date: string; price: number; adjPrice?: number; interval?: string }[];
   dividendHistory?: { date: string; amount: number; exDate?: string }[];
   metrics: {
     mer?: number | null;

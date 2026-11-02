@@ -264,4 +264,40 @@ describe('MonteCarloSimulator', () => {
         await waitFor(() => expect(capturedSimulation).not.toBeNull());
         expect(capturedReturnPrices[2]).toEqual(Array(220).fill(200));
     });
+
+    describe('return basis', () => {
+        const dates = Array.from({ length: 220 }, (_, index) =>
+            new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10));
+        const flat = (extra?: (index: number) => object) =>
+            dates.map((date, index) => ({ date, price: 100, ...(extra?.(index) ?? {}) }));
+
+        it('refetches price-only stored history with adjusted closes and reports total return', async () => {
+            let requestedUrl = '';
+            globalThis.fetch = (async (input: RequestInfo | URL) => {
+                requestedUrl = String(input);
+                const series = Object.fromEntries(['AAPL', 'MSFT'].map((ticker) => [
+                    ticker,
+                    flat((index) => ({ adjPrice: 100 * Math.pow(1.0003, index) })),
+                ]));
+                return new Response(JSON.stringify({ series }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+            }) as unknown as typeof fetch;
+            const priceOnly = mockPortfolio.slice(0, 2).map((item) => ({ ...item, shares: 1, price: 100, history: flat() })) as Portfolio;
+
+            render(<MonteCarloSimulator portfolio={priceOnly} />);
+            fireEvent.click(screen.getByText('Run simulation'));
+
+            expect(await screen.findByText(/distributions reinvested/)).toBeInTheDocument();
+            expect(requestedUrl).toContain('adjusted=1');
+        });
+
+        it('runs on stored price history and says so when the adjusted refetch fails', async () => {
+            globalThis.fetch = (async () => new Response('{}', { status: 502 })) as unknown as typeof fetch;
+            const priceOnly = mockPortfolio.slice(0, 2).map((item) => ({ ...item, shares: 1, price: 100, history: flat() })) as Portfolio;
+
+            render(<MonteCarloSimulator portfolio={priceOnly} />);
+            fireEvent.click(screen.getByText('Run simulation'));
+
+            expect(await screen.findByText(/price returns only \(adjusted closes unavailable/)).toBeInTheDocument();
+        });
+    });
 });

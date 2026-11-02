@@ -95,6 +95,18 @@ describe('API: /api/etfs/search (live, no DB)', () => {
     expect(parseResult.success).toBe(true);
   });
 
+  it('asks for adjusted history only when the caller needs it, and keeps adjPrice through the schema', async () => {
+    mockGetFastQuotes.mockResolvedValue(new Map([['AAPL', quote('AAPL', { price: 190, name: 'Apple Inc.' })]]));
+    mockGetFastHistory.mockResolvedValue(new Map([['AAPL', [{ date: '2024-01-01', price: 180, adjPrice: 175 }]]]));
+
+    const adjusted: any = await GET(new NextRequest('http://localhost/api/etfs/search?tickers=AAPL&includeHistory=true&adjusted=true'));
+    expect(mockGetFastHistory.mock.calls.at(-1)).toEqual([['AAPL'], '1M', { adjusted: true }]);
+    expect(ETFSchema.parse(adjusted._data[0]).history[0].adjPrice).toBe(175);
+
+    await GET(new NextRequest('http://localhost/api/etfs/search?tickers=AAPL&includeHistory=true'));
+    expect(mockGetFastHistory.mock.calls.at(-1)).toEqual([['AAPL'], '1M', { adjusted: false }]);
+  });
+
   it('returns 404 when exact tickers resolve to nothing', async () => {
     mockGetFastQuotes.mockResolvedValue(new Map());
 
