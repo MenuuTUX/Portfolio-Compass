@@ -7,6 +7,7 @@ import {
   TrendingUp,
   BarChart3,
   FlaskConical,
+  PiggyBank,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
@@ -100,6 +101,13 @@ export default function Navigation({
             >
               <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
               Backtest
+            </Link>
+            <Link
+              href="/tfsa"
+              className={cn("relative flex h-7 items-center gap-1.5 rounded-md px-3 text-muted transition-colors duration-[120ms] hover:text-ink", focusRing)}
+            >
+              <PiggyBank className="h-3.5 w-3.5" aria-hidden="true" />
+              TFSA
             </Link>
           </div>
         </div>

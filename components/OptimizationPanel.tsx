@@ -31,6 +31,9 @@ const RISK_PROFILE_BY_STRATEGY = {
   Growth: "growth",
 } as const;
 
+/** Assumed annual return per unit of beta. A modelling assumption shown in the panel text, not an estimate from data. */
+const BETA_PREMIUM_ASSUMPTION = 0.06;
+
 export default function OptimizationPanel({
   portfolio,
   onCalibrating,
@@ -48,7 +51,7 @@ export default function OptimizationPanel({
       ticker: p.ticker,
       price: p.price,
       // Return proxy used by this allocator, not a forecast.
-      expectedReturn: getAssetYieldFraction(p) + getAssetBeta(p) * 0.06,
+      expectedReturn: getAssetYieldFraction(p) + getAssetBeta(p) * BETA_PREMIUM_ASSUMPTION,
     })),
     [portfolio],
   );
