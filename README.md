@@ -34,7 +34,10 @@ Lab is a backtesting workspace at `/lab` with a guided mode, a no-code mode and 
 - Each run stores a hash of the code, parameters, data and engine version, so a run can be reproduced.
 - Daily bars are cached in the browser (IndexedDB) and fetched through `/api/market/bars`.
 
-Not built yet: walk-forward tests, parameter sweeps and a multiple-testing warning. See the limitations below.
+- A Robustness tab sweeps the no-code trend rule's moving-average length and runs a walk-forward test: each window picks the length with the best Sharpe over three years, applies it to the next year, and the test years are stitched into one out-of-sample curve, shown next to the hindsight-best length over the same dates.
+- Results count the distinct variants tried this session (by run hash, sweep values included) and warn from 10 that the best of many tries is likely flattered. The warning states no significance level.
+
+Not built yet: sweeps and walk-forward for code strategies and for the momentum rule, and runs that persist across sessions. See the limitations below.
 
 ### Example
 
@@ -62,6 +65,7 @@ Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CS
 - The allocation score is a heuristic, not a Sharpe optimizer. It uses a provider-reported yield and a beta-based return proxy (beta times an assumed 6%), and it cannot apply trades.
 - Monte Carlo uses historical price returns and geometric Brownian motion. The paths are illustrative, not forecasts. Each run uses a random seed that is shown and can be reused.
 - The first-70% and last-30% view compares two pieces of one run. The rule is not refit between them, so it is a consistency check, not a true out-of-sample test.
+- Walk-forward is one path through one history, over a list of lengths we chose. Each length is simulated over the whole history, so switching between windows pays no trading cost. The variant count lives in the browser session only and resets on reload.
 - Lookahead in strategy code is detected heuristically, not prevented by construction.
 - The TFSA planner knows the CRA's published limits through 2026 and only what you type in. Check your real room in CRA My Account.
 - Market data comes from Yahoo Finance and scrapers and has not been cross-checked against a second source.

@@ -14,6 +14,8 @@ import GuidePanel from "./GuidePanel";
 import ResultsPanel from "./ResultsPanel";
 import RunsPanel from "./RunsPanel";
 import { StrategyRunError, useLabEngine, type LabRun } from "./useLabEngine";
+import { countVariants } from "@/lib/lab/engine/variants";
+import type { RobustnessState } from "./RobustnessPanel";
 import CodePane, { type ConsoleState } from "./CodePane";
 import type { Params, StrategyError } from "@/lib/lab/strategy/types";
 
@@ -104,6 +106,8 @@ export default function LabApp() {
   const [runs, setRuns] = useState<LabRun[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [compareIds, setCompareIds] = useState<number[]>([]);
+  const [robustness, setRobustness] = useState<Record<number, RobustnessState>>({});
+  const [sweepHashes, setSweepHashes] = useState<string[]>([]);
   const [pane, setPane] = useState<MobilePane>("strategy");
   const [center, setCenter] = useState<"code" | "results">("code");
   const [consoleState, setConsoleState] = useState<ConsoleState>({ logs: [], error: null });
@@ -111,7 +115,7 @@ export default function LabApp() {
   const [paramsError, setParamsError] = useState<StrategyError | null>(null);
   const [pythonUsed, setPythonUsed] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { status, pythonStatus, run, inspect } = useLabEngine();
+  const { status, pythonStatus, run, robustness: sweep, inspect } = useLabEngine();
   const isLg = useIsLg();
   const left = useResizableWidth("lab-left", 340, 280, maxSide);
   const right = useResizableWidth("lab-right", 300, 240, maxSide);
@@ -193,6 +197,17 @@ export default function LabApp() {
     }
   }, [busy, form, run]);
 
+  const runRobustness = useCallback(async (target: LabRun) => {
+    setRobustness((prev) => ({ ...prev, [target.id]: { status: "running" } }));
+    try {
+      const result = await sweep(target);
+      setSweepHashes((prev) => [...prev, ...result.points.map((p) => p.hash)]);
+      setRobustness((prev) => ({ ...prev, [target.id]: { status: "done", result } }));
+    } catch (error) {
+      setRobustness((prev) => ({ ...prev, [target.id]: { status: "error", error: error instanceof Error ? error.message : String(error) } }));
+    }
+  }, [sweep]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -240,7 +255,17 @@ export default function LabApp() {
   ) : (
     <StrategyPanel form={form} onChange={updateForm} onRun={() => void runNow()} running={busy} errors={errors} params={params} paramsError={paramsError} />
   );
-  const results = <ResultsPanel run={selected} compare={compare} guided={guided} />;
+  const variants = countVariants(runs.map((r) => r.report.hash), sweepHashes);
+  const results = (
+    <ResultsPanel
+      run={selected}
+      compare={compare}
+      guided={guided}
+      variants={variants}
+      robustness={selected ? robustness[selected.id] : undefined}
+      onRobustness={(r) => void runRobustness(r)}
+    />
+  );
   const codePane = (
     <CodePane
       wide={isLg}
