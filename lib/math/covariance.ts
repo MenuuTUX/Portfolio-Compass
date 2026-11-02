@@ -4,7 +4,7 @@ import {
   calculateCovarianceMatrix,
 } from "@/lib/monte-carlo";
 import { classifyAsset, getAssetBeta } from "@/lib/math/portfolio-returns";
-import { alignPriceHistories } from "@/lib/math/history";
+import { alignPriceHistories, type ReturnBasis } from "@/lib/math/history";
 
 /**
  * Annualized covariance matrix for a set of holdings.
@@ -38,6 +38,8 @@ export interface CovarianceEstimate {
   source: CovarianceSource;
   /** Overlapping observations behind a `history` estimate. */
   samples: number;
+  /** Return basis of a `history` estimate; "price" when adjusted closes were unavailable. */
+  basis?: ReturnBasis;
 }
 
 /** Long-run annual volatility of the broad equity market. */
@@ -90,7 +92,7 @@ function singleIndexMatrix(portfolio: PortfolioItem[]): number[][] {
  */
 function alignedReturns(
   portfolio: PortfolioItem[],
-): { returns: number[][]; samplesPerYear: number; samples: number } | null {
+): { returns: number[][]; samplesPerYear: number; samples: number; basis: ReturnBasis } | null {
   const aligned = alignPriceHistories(portfolio);
   if (!aligned || aligned.prices[0].length < MIN_SAMPLES + 1) return null;
 
@@ -110,6 +112,7 @@ function alignedReturns(
     returns: returns.map((r) => r.slice(r.length - usable)),
     samplesPerYear: usable / spanYears,
     samples: usable,
+    basis: aligned.basis,
   };
 }
 
@@ -137,5 +140,5 @@ export function estimateAnnualCovariance(
     }),
   );
 
-  return { matrix, source: "history", samples: aligned.samples };
+  return { matrix, source: "history", samples: aligned.samples, basis: aligned.basis };
 }

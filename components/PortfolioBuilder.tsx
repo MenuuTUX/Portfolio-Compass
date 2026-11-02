@@ -6,7 +6,7 @@ import { AnimatePresence, animate, motion, useReducedMotion } from "framer-motio
 import Reveal, { EASE } from "./motion/Reveal";
 import HeroChart from "./home/HeroChart";
 import RangeChips from "./home/RangeChips";
-import { availableRanges, buildPortfolioIndex, sliceIndex, type IndexRange } from "@/lib/portfolio-history";
+import { availableRanges, buildPortfolioIndexWithBasis, sliceIndex, type IndexRange } from "@/lib/portfolio-history";
 import { getPortfolioValuation } from "@/lib/math/portfolio-returns";
 import { useBankOfCanadaFx } from "@/hooks/useBankOfCanadaFx";
 import { Portfolio } from "@/types";
@@ -87,7 +87,7 @@ export default function PortfolioBuilder({
 
   // New internal view state for the Builder section
   // Renamed 'TREEMAP' to 'ALLOCATION'
-  const portfolioIndex = useMemo(() => buildPortfolioIndex(portfolio), [portfolio]);
+  const { points: portfolioIndex, basis: indexBasis } = useMemo(() => buildPortfolioIndexWithBasis(portfolio), [portfolio]);
   const indexRanges = useMemo(() => availableRanges(portfolioIndex), [portfolioIndex]);
   const indexPoints = useMemo(
     () => sliceIndex(portfolioIndex, indexRanges.includes(indexRange) ? indexRange : "ALL"),
@@ -588,7 +588,7 @@ export default function PortfolioBuilder({
                     <HeroChart
                       points={indexPoints}
                       height={chartHeight}
-                      label="Illustrative portfolio index"
+                      label={indexBasis === "total" ? "Illustrative portfolio index, total return" : "Illustrative portfolio index, price only"}
                       formatValue={(v) => v.toFixed(1)}
                     />
                   </div>
@@ -601,7 +601,7 @@ export default function PortfolioBuilder({
                     label="Portfolio chart range"
                   />
                   <p className="mt-1.5 text-xs text-muted">
-                    Illustrative only: your current target weights applied to past prices, starting at 100. Not your actual returns, and past prices do not predict future results.
+                    Illustrative only: your current target weights applied to past {indexBasis === "total" ? "total returns (dividends reinvested)" : "price returns (dividends not included; adjusted prices unavailable)"}, starting at 100. Not your actual returns, and past returns do not predict future results.
                   </p>
                 </div>
               </>

@@ -28,7 +28,7 @@ async function fetchStocksByTickers(tickers: string[]): Promise<ETF[]> {
   // Primary: DB-backed bulk search
   try {
     const response = await fetch(
-      `/api/etfs/search?tickers=${encodeURIComponent(unique.join(","))}&includeHistory=true`,
+      `/api/etfs/search?tickers=${encodeURIComponent(unique.join(","))}&includeHistory=true&adjusted=true`,
     );
     if (response.ok) {
       const rawData = await response.json();

@@ -38,6 +38,8 @@ import {
 } from "@/lib/math/portfolio-returns";
 import {
   alignPriceHistories,
+  selectReturnBasis,
+  type ReturnBasis,
   hasDailyObservationCoverage,
 } from "@/lib/math/history";
 import { convertPriceHistoryToCad, type HistoricalFxRate } from "@/lib/math/fx-history";
@@ -83,6 +85,8 @@ interface SimulationModelStats {
   observationCount: number;
   lookbackStart: string;
   lookbackEnd: string;
+  /** What the drift and volatility are computed from. */
+  basis: ReturnBasis;
   /** Seed the paths were drawn with; reusing it reproduces them exactly. */
   seed: number;
 }
@@ -90,6 +94,11 @@ interface SimulationModelStats {
 function hasDailyHistory(points: Portfolio[0]["history"]): boolean {
   return !!points && points.length >= 200 &&
     hasDailyObservationCoverage(points.map((point) => point.date));
+}
+
+/** Stored history from before adjusted closes were fetched is refetched, so existing portfolios move to total return. */
+function hasAdjustedHistory(points: Portfolio[0]["history"]): boolean {
+  return selectReturnBasis([points ?? []]) === "total";
 }
 
 export default function MonteCarloSimulator({
@@ -141,9 +150,13 @@ export default function MonteCarloSimulator({
   // Load full history if needed
   const ensureFullHistory = useCallback(async (): Promise<Portfolio | null> => {
     const heldPortfolio = portfolio.filter((item) => item.shares > 0);
-    const needsFetch = heldPortfolio.some((item) => !hasDailyHistory(item.history));
+    const needsFetch = heldPortfolio.some((item) => !hasDailyHistory(item.history) || !hasAdjustedHistory(item.history));
 
     let historyPortfolio = heldPortfolio;
+    // Stored history that is long enough but has no adjusted closes is refetched
+    // only to upgrade it to total return; if that fails the stored price history
+    // still runs, and the details panel labels it price-only.
+    const refetchIsUpgradeOnly = heldPortfolio.every((item) => hasDailyHistory(item.history));
     if (needsFetch) {
       setIsLoadingHistory(true);
       setError(null);
@@ -151,7 +164,7 @@ export default function MonteCarloSimulator({
       try {
         const tickers = heldPortfolio.map((p) => p.ticker).join(",");
         const res = await fetch(
-          `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`,
+          `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y&adjusted=1`,
         );
         if (!res.ok) throw new Error("Failed to fetch historical data");
 
@@ -162,9 +175,11 @@ export default function MonteCarloSimulator({
           return points?.length ? { ...item, history: points } : item;
         });
       } catch (e: any) {
-        setError(`Error loading data: ${e.message}`);
-        setIsLoadingHistory(false);
-        return null;
+        if (!refetchIsUpgradeOnly) {
+          setError(`Error loading data: ${e.message}`);
+          setIsLoadingHistory(false);
+          return null;
+        }
       }
     }
 
@@ -290,6 +305,7 @@ export default function MonteCarloSimulator({
       observationCount,
       lookbackStart: dates[0],
       lookbackEnd: dates[dates.length - 1],
+      basis: aligned.basis,
     });
 
     const numDays = timeHorizonYears * 252;
@@ -579,7 +595,7 @@ export default function MonteCarloSimulator({
       </section>
 
       <p className="max-w-3xl text-sm leading-6 text-muted">
-        Illustrative price-only scenarios, not forecasts or calibrated probabilities. Each simulated step applies a random daily price return using the historical average, volatility, and co-movement between holdings. It assumes a buy-and-hold portfolio. Recurring contributions, withdrawals, rebalancing, distributions, fees, and extreme events are excluded.
+        Illustrative scenarios, not forecasts or calibrated probabilities. Each simulated step applies a random daily return using the historical average, volatility, and co-movement between holdings. Historical returns are total returns (distributions reinvested) when every holding has dividend-adjusted closes, and price returns otherwise; the model details panel says which. It assumes a buy-and-hold portfolio. Recurring contributions, withdrawals, rebalancing, fees, taxes, and extreme events are excluded.
       </p>
       {mixedCurrency && fxProvenance && (
         <p className="text-sm text-muted">
@@ -820,7 +836,7 @@ export default function MonteCarloSimulator({
             </div>
             <div className="@xl:col-span-2">
               <dt className="text-muted">Observed lookback</dt>
-              <dd className="font-medium text-ink">{modelStats.lookbackStart} to {modelStats.lookbackEnd} · daily closes · price returns only</dd>
+              <dd className="font-medium text-ink">{modelStats.lookbackStart} to {modelStats.lookbackEnd} · daily closes · {modelStats.basis === "total" ? "total returns (dividend-adjusted closes, distributions reinvested)" : "price returns only (adjusted closes unavailable for at least one holding)"}</dd>
             </div>
           </dl>
         </details>

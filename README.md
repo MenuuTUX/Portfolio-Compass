@@ -58,9 +58,9 @@ Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CS
 
 ## Known limitations
 
-- The main site shows price returns, not total returns. Dividends are not included. The Lab models dividends.
+- The main site's performance math (portfolio index, covariance, historical stats, Monte Carlo drift and volatility) uses Yahoo's dividend-adjusted closes, so it is total return, with distributions reinvested. Charts of a single fund still show the quoted price. If any holding in a calculation has no adjusted closes, the whole calculation falls back to price returns and the screen says so. Intraday ranges (1D, 1W) have no adjusted close and are display only. Adjusted closes are revised by Yahoo after each distribution, so a stored series is refetched rather than trusted for years.
 - The allocation score is a heuristic, not a Sharpe optimizer. It uses a provider-reported yield and a beta-based return proxy (beta times an assumed 6%), and it cannot apply trades.
-- Monte Carlo uses historical price returns and geometric Brownian motion. The paths are illustrative, not forecasts. Each run uses a random seed that is shown and can be reused.
+- Monte Carlo uses historical daily returns (total return when adjusted closes exist, price return otherwise, shown after each run) and geometric Brownian motion. No separate yield term is added, so dividends are counted once. The paths are illustrative, not forecasts. Each run uses a random seed that is shown and can be reused.
 - The first-70% and last-30% view compares two pieces of one run. The rule is not refit between them, so it is a consistency check, not a true out-of-sample test.
 - Lookahead in strategy code is detected heuristically, not prevented by construction.
 - The TFSA planner knows the CRA's published limits through 2026 and only what you type in. Check your real room in CRA My Account.

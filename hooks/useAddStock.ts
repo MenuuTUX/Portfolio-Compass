@@ -28,7 +28,7 @@ async function resolveStock(
 
   // Exact ticker match via DB-backed search (enriches history/holdings when available)
   const exactRes = await fetch(
-    `/api/etfs/search?tickers=${encodeURIComponent(target)}&includeHistory=true`,
+    `/api/etfs/search?tickers=${encodeURIComponent(target)}&includeHistory=true&adjusted=true`,
   );
 
   if (exactRes.ok) {

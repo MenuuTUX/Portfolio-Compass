@@ -51,21 +51,21 @@ const steps = [
     subtitle: "Geometric Brownian Motion",
     icon: GitBranch,
     description:
-      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily price returns using geometric Brownian motion. Percentiles are not calibrated probabilities or forecasts; distributions are excluded.",
+      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily returns using geometric Brownian motion. Returns come from dividend-adjusted closes (total return) when every holding has them, and from price alone otherwise, with the basis shown after each run. Percentiles are not calibrated probabilities or forecasts.",
     details: [
       {
         label: "Drift (μ)",
-        text: "Mean aligned daily price return",
+        text: "Mean aligned daily return (total return when adjusted closes exist)",
         icon: ArrowRight,
       },
       {
         label: "Shock (σ)",
-        text: "Historical price volatility; distributions excluded",
+        text: "Historical volatility of the same returns, with no separate yield term",
         icon: Shuffle,
       },
       {
         label: "All Assets",
-        text: "Holdings linked through sample price covariance",
+        text: "Holdings linked through sample covariance",
         icon: Binary,
       },
     ],
