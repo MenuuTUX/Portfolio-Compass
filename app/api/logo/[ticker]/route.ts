@@ -18,6 +18,7 @@ interface Logo {
 }
 
 const cache = new Map<string, Logo>();
+const inflight = new Map<string, ReturnType<typeof findLogo>>();
 
 async function fetchImage(url: string): Promise<{ body: Uint8Array<ArrayBuffer>; contentType: string } | null> {
   try {
@@ -37,24 +38,27 @@ async function findLogo(ticker: string) {
   const clientId = process.env.BRANDFETCH_CLIENT_ID;
   const t = encodeURIComponent(ticker);
 
-  if (clientId) {
+  const brandfetch = async () => {
+    if (!clientId) return null;
     const hit = await fetchImage(
       `https://cdn.brandfetch.io/ticker/${t}/w/256/h/256/fallback/404?c=${encodeURIComponent(clientId)}`,
     );
     if (hit) return hit;
     const domain = await getFastWebsiteDomain(ticker);
-    if (domain) {
-      const byDomain = await fetchImage(
-        `https://cdn.brandfetch.io/domain/${encodeURIComponent(domain)}/w/256/h/256/fallback/404?c=${encodeURIComponent(clientId)}`,
-      );
-      if (byDomain) return byDomain;
-    }
-  }
+    if (!domain) return null;
+    return fetchImage(
+      `https://cdn.brandfetch.io/domain/${encodeURIComponent(domain)}/w/256/h/256/fallback/404?c=${encodeURIComponent(clientId)}`,
+    );
+  };
 
-  return (
-    (await fetchImage(`https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/${t}.png`)) ??
-    (await fetchImage(`https://financialmodelingprep.com/image-stock/${t}.png`))
-  );
+  // Race all sources at once instead of waiting out each timeout in turn;
+  // results are still picked in quality order.
+  const results = await Promise.all([
+    brandfetch(),
+    fetchImage(`https://cdn.jsdelivr.net/gh/nvstly/icons@main/ticker_icons/${t}.png`),
+    fetchImage(`https://financialmodelingprep.com/image-stock/${t}.png`),
+  ]);
+  return results.find(Boolean) ?? null;
 }
 
 function monogram(ticker: string) {
@@ -94,7 +98,12 @@ export async function GET(
   const hit = cache.get(key);
   if (hit && hit.expires > Date.now()) return respond(hit);
 
-  const found = await findLogo(key);
+  let pending = inflight.get(key);
+  if (!pending) {
+    pending = findLogo(key).finally(() => inflight.delete(key));
+    inflight.set(key, pending);
+  }
+  const found = await pending;
   const logo: Logo = found
     ? { ...found, found: true, expires: Date.now() + FOUND_TTL_MS }
     : { ...monogram(key), found: false, expires: Date.now() + MISS_TTL_MS };

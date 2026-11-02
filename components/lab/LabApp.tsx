@@ -4,14 +4,16 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import Link from "next/link";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import { motion } from "framer-motion";
-import { BLANK_FORM, LAB_ACK_KEY, LAB_FORM_KEY, toRequest, type LabForm } from "@/lib/lab/lab-form";
-import { PaneResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
+import { BLANK_FORM, isGuided, LAB_ACK_KEY, LAB_FORM_KEY, startGuided, toRequest, type LabForm } from "@/lib/lab/lab-form";
+import { extractTickers, lessonById, liveNotes } from "@/lib/lab/lessons";
+import { PaneResizer, RowResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
 import { EASE } from "@/components/motion/Reveal";
 import { cn } from "@/lib/utils";
 import StrategyPanel from "./StrategyPanel";
+import GuidePanel from "./GuidePanel";
 import ResultsPanel from "./ResultsPanel";
 import RunsPanel from "./RunsPanel";
-import { StrategyRunError, useLabEngine, type LabRun, type EngineStatus } from "./useLabEngine";
+import { StrategyRunError, useLabEngine, type LabRun } from "./useLabEngine";
 import CodePane, { type ConsoleState } from "./CodePane";
 import type { Params, StrategyError } from "@/lib/lab/strategy/types";
 
@@ -27,6 +29,8 @@ function useIsLg() {
   return useSyncExternalStore(subscribeLg, () => window.matchMedia(LG_QUERY).matches, () => false);
 }
 
+// Leaves the results below the editor at least 220px.
+const maxCodeH = () => Math.max(160, window.innerHeight - 260);
 const maxSide = () => Math.min(520, Math.round(window.innerWidth * 0.32));
 
 function read(key: string): string | null {
@@ -59,11 +63,11 @@ function LabGate({ onEnter }: { onEnter: () => void }) {
           <FlaskConical className="h-5 w-5" aria-hidden />
           <span className="text-sm font-medium">Compass Lab</span>
         </div>
-        <h1 className="text-2xl font-bold text-ink">A backtesting workspace for advanced users</h1>
+        <h1 className="text-2xl font-bold text-ink">Test an investing idea on past prices</h1>
         <div className="space-y-3 text-sm text-body">
           <p>
-            The Lab replays a strategy over past prices: rebalancing, trend filters, momentum, contributions, costs and dividends.
-            It assumes you know terms like drawdown, CAGR and Sharpe ratio.
+            The Lab replays an idea over past prices and shows what would have happened: how much the money grew, and how far it fell along the way.
+            Short guided lessons teach you to write each rule in a few lines of Python, and no finance or coding background is needed. Prefer a form? Build rules without code, or write your own strategy once you are comfortable.
           </p>
           <ul className="list-disc space-y-1.5 pl-5">
             <li>Every result is hypothetical. Past prices do not predict future returns.</li>
@@ -86,15 +90,6 @@ function LabGate({ onEnter }: { onEnter: () => void }) {
     </main>
   );
 }
-
-const STATUS_TEXT: Record<EngineStatus, string> = {
-  starting: "Engine starting",
-  ready: "Engine ready",
-  "loading-data": "Loading prices",
-  strategy: "Running your code",
-  running: "Running the engine",
-  error: "Last run failed",
-};
 
 type MobilePane = "strategy" | "code" | "results" | "runs";
 
@@ -120,6 +115,7 @@ export default function LabApp() {
   const isLg = useIsLg();
   const left = useResizableWidth("lab-left", 340, 280, maxSide);
   const right = useResizableWidth("lab-right", 300, 240, maxSide);
+  const codeH = useResizableWidth("lab-code-h", 300, 160, maxCodeH);
 
   useEffect(() => {
     // Read after mount so the server render and first client render match.
@@ -132,6 +128,9 @@ export default function LabApp() {
       } catch {
         // A corrupt draft is dropped.
       }
+    } else {
+      // First visit: start in the first guided lesson.
+      setForm(startGuided());
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -166,18 +165,19 @@ export default function LabApp() {
     };
   }, [shouldInspect, form.language, form.code, inspect, status]);
 
-  const runNow = useCallback(async () => {
+  const runNow = useCallback(async (override?: LabForm) => {
     if (busy) return;
-    const built = toRequest(form);
+    const target = override ?? form;
+    const built = toRequest(target);
     if ("errors" in built) {
       setErrors(built.errors);
       return;
     }
     setErrors([]);
-    const isCode = form.mode === "code";
-    if (isCode && form.language === "python") setPythonUsed(true);
+    const isCode = target.mode === "code";
+    if (isCode && target.language === "python") setPythonUsed(true);
     try {
-      const result = await run(form.name.trim() || "Untitled strategy", built.request);
+      const result = await run(target.name.trim() || "Untitled strategy", built.request);
       setRuns((prev) => [...prev, result]);
       setSelectedId(result.id);
       setConsoleState({ logs: result.logs, error: null, lookahead: result.lookahead, strategyMs: result.strategyMs });
@@ -222,19 +222,37 @@ export default function LabApp() {
     setCompareIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id].slice(-MAX_COMPARE)));
 
   const codeMode = form.mode === "code";
-  const strategy = (
-    <StrategyPanel form={form} onChange={updateForm} onRun={runNow} running={busy} errors={errors} params={params} paramsError={paramsError} />
+  const guided = isGuided(form);
+  const lesson = guided ? lessonById(form.lessonId) : null;
+  const strategy = guided ? (
+    <GuidePanel
+      form={form}
+      onChange={updateForm}
+      onRunWith={(next) => {
+        updateForm(next);
+        void runNow(next);
+      }}
+      onRun={() => void runNow()}
+      running={busy}
+      errors={errors}
+      pythonStatus={pythonStatus}
+    />
+  ) : (
+    <StrategyPanel form={form} onChange={updateForm} onRun={() => void runNow()} running={busy} errors={errors} params={params} paramsError={paramsError} />
   );
-  const results = <ResultsPanel run={selected} compare={compare} />;
+  const results = <ResultsPanel run={selected} compare={compare} guided={guided} />;
   const codePane = (
     <CodePane
       wide={isLg}
       language={form.language}
       code={form.code}
-      onChange={(code) => updateForm({ ...form, code })}
+      // Guided code names its own tickers, so the universe follows what is typed.
+      onChange={(code) => updateForm(guided ? { ...form, code, universe: extractTickers(code) } : { ...form, code })}
       onRun={() => void runNow()}
       console={consoleState}
       pythonStatus={pythonStatus}
+      highlightLines={lesson ? liveNotes(lesson, form.code).map((n) => n.line) : undefined}
+      compact={guided && isLg}
     />
   );
   const mobilePanes = codeMode
@@ -263,7 +281,14 @@ export default function LabApp() {
         </section>
         <PaneResizer label="Resize strategy panel" width={left.width} direction={1} onResize={left.setWidth} onCommit={left.persist} onDraggingChange={left.setDragging} onReset={left.reset} />
         <section aria-label={codeMode ? "Code and results" : "Results"} className="ws-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {codeMode ? (
+          {guided ? (
+            // Beginners see code and results together: write on top, watch the outcome below.
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="shrink-0" style={{ height: codeH.width }}>{codePane}</div>
+              <RowResizer label="Resize code and results" height={codeH.width} direction={1} onResize={codeH.setWidth} onCommit={codeH.persist} onDraggingChange={codeH.setDragging} onReset={codeH.reset} />
+              <div className="min-h-0 flex-1 border-t border-hairline">{results}</div>
+            </div>
+          ) : codeMode ? (
             <>
               <div role="tablist" aria-label="Center pane" className="flex shrink-0 gap-1 border-b border-hairline px-3 pt-2">
                 {([["code", "Code"], ["results", "Results"]] as const).map(([id, text]) => (
@@ -323,23 +348,6 @@ export default function LabApp() {
       </div>
       )}
 
-      <footer className="flex h-7 shrink-0 items-center gap-4 overflow-x-auto px-2 text-xs text-muted" aria-live="polite">
-        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-          <span className={cn("h-1.5 w-1.5 rounded-full", status === "error" ? "bg-rose-400" : busy ? "bg-muted" : "bg-emerald-400")} aria-hidden />
-          {STATUS_TEXT[status]}
-        </span>
-        {codeMode && form.language === "python" && pythonStatus && <span className="whitespace-nowrap">{pythonStatus}</span>}
-        {selected && (
-          <>
-            {selected.strategyMs !== undefined && <span className="whitespace-nowrap">Code {selected.strategyMs.toFixed(0)} ms</span>}
-            <span className="whitespace-nowrap">Engine {selected.engineMs.toFixed(0)} ms</span>
-            <span className="whitespace-nowrap">{selected.report.dates.length.toLocaleString()} trading days × {selected.report.tickers.length} tickers</span>
-            <span className="whitespace-nowrap">Data through {selected.dataThrough}</span>
-            <span className="whitespace-nowrap">{selected.dataRequests === 0 ? "Prices from browser cache" : `${selected.dataRequests} price ${selected.dataRequests === 1 ? "download" : "downloads"}`}</span>
-            <span className="whitespace-nowrap font-mono">#{selected.report.hash.slice(0, 8)}</span>
-          </>
-        )}
-      </footer>
     </main>
   );
 }

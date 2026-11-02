@@ -6,8 +6,10 @@ import {
   PieChart,
   TrendingUp,
   BarChart3,
+  FlaskConical,
   Settings,
 } from "lucide-react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { EASE } from "@/components/motion/Reveal";
@@ -92,6 +94,13 @@ export default function Navigation({
                 </button>
               );
             })}
+            <Link
+              href="/lab"
+              className={cn("relative flex h-7 items-center gap-1.5 rounded-md px-3 text-muted transition-colors duration-[120ms] hover:text-ink", focusRing)}
+            >
+              <FlaskConical className="h-3.5 w-3.5" aria-hidden="true" />
+              Backtest
+            </Link>
           </div>
         </div>
 
@@ -140,6 +149,16 @@ export default function Navigation({
             </button>
           );
         })}
+        <Link
+          href="/lab"
+          className={cn(
+            "flex flex-1 min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
+            focusRing,
+          )}
+        >
+          <FlaskConical className="h-5 w-5" aria-hidden="true" />
+          <span className="text-xs">Backtest</span>
+        </Link>
         {onOpenSettings && (
           <button
             type="button"

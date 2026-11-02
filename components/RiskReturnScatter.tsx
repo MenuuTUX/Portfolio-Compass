@@ -113,9 +113,16 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
         )}
       </AnimatePresence>
 
+      {data.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center px-4 py-8 text-center text-sm text-muted">
+          {excludedYahooYieldCount > 0
+            ? "No sourced yield and beta are available. Yahoo quote yields are excluded because their definition is unverified."
+            : "Sourced beta and yield are unavailable for these holdings."}
+        </div>
+      ) : (
       <div className="flex-1 min-h-0 relative">
         <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 10 }}>
+          <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
             <XAxis
               type="number"
               dataKey="x"
@@ -141,11 +148,13 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               tickLine={false}
               axisLine={{ stroke: "#404040" }}
               unit="%"
+              width={64}
             >
               <Label
                 value="Sourced Yield (%)"
                 angle={-90}
                 position="insideLeft"
+                style={{ textAnchor: "middle" }}
                 fill="#525252"
                 fontSize={12}
               />
@@ -203,14 +212,8 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
           </ScatterChart>
         </ResponsiveContainer>
 
-        {data.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-muted">
-            {excludedYahooYieldCount > 0
-              ? "No sourced yield and beta are available. Yahoo quote yields are excluded because their definition is unverified."
-              : "Sourced beta and yield are unavailable for these holdings."}
-          </div>
-        )}
       </div>
+      )}
     </div>
   );
 }

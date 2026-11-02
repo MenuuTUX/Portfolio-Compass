@@ -280,11 +280,11 @@ export default function PortfolioBarChart({
       className="w-full h-full glass-panel p-6 rounded-lg flex flex-col border border-hairline bg-surface-card"
     >
       <div className="flex flex-col gap-1 mb-8">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold text-ink tracking-tight">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h3 className="text-lg font-bold text-ink tracking-tight sm:text-xl">
             Target Portfolio Look-Through
           </h3>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs whitespace-nowrap">
             <div className="flex items-center gap-1.5">
               <span
                 className="w-2 h-2 rounded-full"

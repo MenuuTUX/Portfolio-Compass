@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EASE } from "@/components/motion/Reveal";
 
 interface SimulatorExplainerProps {
   mode?: "SIMPLE" | "MONTE_CARLO";
@@ -24,7 +25,6 @@ const steps = [
     title: "Deterministic Growth",
     subtitle: "Compound Interest Model",
     icon: TrendingUp,
-    color: "blue",
     description:
       "The simple projection compounds a constant annual return and regular contributions. It shows how those assumptions accumulate over time; it does not model market volatility.",
     details: [
@@ -50,7 +50,6 @@ const steps = [
     title: "Stochastic Simulation",
     subtitle: "Geometric Brownian Motion",
     icon: GitBranch,
-    color: "emerald",
     description:
       "The Monte Carlo model generates illustrative paths from at least 200 aligned daily price returns using geometric Brownian motion. Percentiles are not calibrated probabilities or forecasts; distributions are excluded.",
     details: [
@@ -87,359 +86,197 @@ export default function SimulatorExplainer({
     setActiveStep(mode === "MONTE_CARLO" ? 1 : 0);
   }
 
-  return (
-    <div className="w-full mt-12 mb-8 relative font-sans">
-      {/* Ambient Background */}
+  const term = (id: string, label: React.ReactNode, className?: string) => (
+    <span
+      tabIndex={0}
+      className={cn(
+        "cursor-help rounded-sm transition-colors duration-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-compass",
+        hoveredTerm === id ? "text-ink" : "text-body",
+        className,
+      )}
+      onMouseEnter={() => setHoveredTerm(id)}
+      onMouseLeave={() => setHoveredTerm(null)}
+      onFocus={() => setHoveredTerm(id)}
+      onBlur={() => setHoveredTerm(null)}
+    >
+      {label}
+    </span>
+  );
 
-      <div className="relative glass-panel border border-hairline bg-surface-card rounded-2xl overflow-hidden ">
+  return (
+    <div className="@container w-full mt-8 mb-8 relative">
+      <div className="ws-panel overflow-hidden">
         {/* Header */}
-        <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-surface-soft border border-hairline">
-                <Binary className="w-6 h-6 text-emerald-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-ink tracking-tight">
-                How the <span className="text-emerald-400">projection works</span>
-              </h2>
-            </div>
-            <p className="text-muted max-w-2xl text-sm">
-              Review the assumptions and equations behind each chart.
-            </p>
+        <div className="flex items-center gap-3 border-b border-hairline p-4 @2xl:p-6">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-soft text-ink">
+            <Binary className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-ink">How the projection works</h2>
+            <p className="text-sm text-muted">Review the assumptions and equations behind each chart.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 min-h-[500px]">
-          {/* LEFT: Interactive Visualizer (7 Columns) */}
-          <div className="lg:col-span-7 bg-surface-card relative overflow-hidden flex flex-col border-r border-hairline">
-            {/* Background Grid */}
-            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10 pointer-events-none" />
-
-            {/* Content Area */}
-            <div className="flex-1 p-8 lg:p-12 flex items-center justify-center relative w-full">
-              <AnimatePresence mode="wait">
-                {/* === STEP 1: DETERMINISTIC (SIMPLE) === */}
-                {activeStep === 0 && (
-                  <motion.div
-                    key="step-0"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.05 }}
-                    transition={{ duration: 0.4 }}
-                    className="w-full flex flex-col items-center gap-10"
-                  >
-                    {/* The Formula */}
-                    <div className="relative group">
-                      <div className="relative bg-surface-card ring-1 ring-hairline px-8 py-6 rounded-2xl flex flex-wrap justify-center items-center gap-4 text-2xl md:text-3xl text-white">
-                        <span
-                          className={cn(
-                            "transition-colors cursor-help italic font-bold",
-                            hoveredTerm === "A"
-                              ? "text-body-strong "
-                              : "text-ink",
-                          )}
-                          onMouseEnter={() => setHoveredTerm("A")}
-                          onMouseLeave={() => setHoveredTerm(null)}
-                        >
-                          FV
+        <div className="grid grid-cols-1 @4xl:grid-cols-12">
+          {/* Illustration */}
+          <div className="@4xl:col-span-7 flex items-center justify-center border-b border-hairline p-4 @lg:p-8 @4xl:border-b-0 @4xl:border-r @4xl:p-12">
+            <AnimatePresence mode="wait">
+              {activeStep === 0 && (
+                <motion.div
+                  key="step-0"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3, ease: EASE }}
+                  className="flex w-full flex-col items-center gap-8"
+                >
+                  <div className="relative w-full max-w-md">
+                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-3 rounded-lg bg-surface-soft px-4 py-5 text-xl text-ink @lg:text-2xl">
+                      {term("A", "FV", "font-semibold text-ink")}
+                      <span className="text-muted">=</span>
+                      <span className="whitespace-nowrap">
+                        {term("P", <>P(1+r)<sup className="text-sm">t</sup></>)}
+                      </span>
+                      <span className="text-muted">+</span>
+                      <span className="inline-flex items-center gap-2">
+                        {term("PMT", "PMT")}
+                        <span className="text-muted">×</span>
+                        <span className="inline-flex flex-col items-center text-base">
+                          <span className="border-b border-hairline-strong px-1 pb-0.5">
+                            (1+r)<sup className="text-xs">t</sup> − 1
+                          </span>
+                          <span>r</span>
                         </span>
-                        <span className="text-muted text-xl mx-1">=</span>
-                        <div className="flex items-center group/principal">
-                          <span
-                            className={cn(
-                              "transition-colors cursor-help italic",
-                              hoveredTerm === "P"
-                                ? "text-emerald-400 "
-                                : "text-neutral-200",
-                            )}
-                            onMouseEnter={() => setHoveredTerm("P")}
-                            onMouseLeave={() => setHoveredTerm(null)}
-                          >
-                            P(1+r)
-                          </span>
-                          <sup className="text-lg text-muted">t</sup>
-                        </div>
-                        <span className="text-muted text-xl mx-1">+</span>
-                        <div className="flex items-center group/contribution">
-                          <span
-                            className={cn(
-                              "transition-colors cursor-help italic",
-                              hoveredTerm === "PMT"
-                                ? "text-body-strong "
-                                : "text-body-strong",
-                            )}
-                            onMouseEnter={() => setHoveredTerm("PMT")}
-                            onMouseLeave={() => setHoveredTerm(null)}
-                          >
-                            PMT
-                          </span>
-                          <span className="ml-1 text-neutral-200">×</span>
-                          <div className="flex flex-col items-center mx-2 text-lg">
-                            <span className="border-b border-hairline-strong pb-1">
-                              (1+r)<sup className="text-xs">t</sup> - 1
-                            </span>
-                            <span>r</span>
-                          </div>
-                        </div>
-                      </div>
+                      </span>
+                    </div>
+                    <p className="mt-3 min-h-10 text-center text-sm text-muted" aria-live="polite">
+                      {hoveredTerm === "A" && "FV, future value: the account balance after t years."}
+                      {hoveredTerm === "P" && "P, the starting balance, compounded annually at r."}
+                      {hoveredTerm === "PMT" && "PMT, the regular contribution, added to the balance each period."}
+                      {!hoveredTerm && "Hover or focus a term to see what it means."}
+                    </p>
+                  </div>
 
-                      {/* Floating Tooltip */}
-                      <AnimatePresence>
-                        {hoveredTerm && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10, x: "-50%" }}
-                            animate={{ opacity: 1, y: 0, x: "-50%" }}
-                            exit={{ opacity: 0, y: 5, x: "-50%" }}
-                            className="absolute top-full left-1/2 mt-6 px-6 py-3 bg-neutral-900/95 border border-hairline-strong rounded-xl whitespace-nowrap z-20 "
+                  <figure className="w-full max-w-sm rounded-lg bg-surface-soft p-4">
+                    <figcaption className="mb-2 flex items-center justify-between text-xs text-muted">
+                      <span>Constant-return path</span>
+                      <span>Deterministic</span>
+                    </figcaption>
+                    <svg className="h-28 w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="A smooth upward curve with no ups and downs">
+                      <path d="M0,100 Q50,60 100,10" fill="none" stroke="var(--ink)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                  </figure>
+                </motion.div>
+              )}
+
+              {activeStep === 1 && (
+                <motion.div
+                  key="step-1"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3, ease: EASE }}
+                  className="flex w-full flex-col items-center gap-8"
+                >
+                  <div className="relative w-full max-w-md">
+                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-3 rounded-lg bg-surface-soft px-4 py-5 text-xl text-ink @lg:text-2xl">
+                      <span>dS</span>
+                      <span className="text-muted">=</span>
+                      {term("drift", "μS dt", "underline decoration-2 underline-offset-8")}
+                      <span className="text-muted">+</span>
+                      {term("shock", "σS dW", "underline decoration-dashed decoration-2 underline-offset-8")}
+                    </div>
+                    <p className="mt-3 min-h-10 text-center text-sm text-muted" aria-live="polite">
+                      {hoveredTerm === "drift" && "Drift (solid underline): the average daily price trend, μ."}
+                      {hoveredTerm === "shock" && "Random shock (dashed underline): daily price noise scaled by volatility, σ."}
+                      {!hoveredTerm && "Hover or focus a term to see what it means."}
+                    </p>
+                  </div>
+
+                  <figure className="w-full max-w-sm rounded-lg bg-surface-soft p-4">
+                    <figcaption className="mb-2 flex items-center justify-between text-xs text-muted">
+                      <span>Simulated paths</span>
+                      <span>Assumption-based, not a forecast</span>
+                    </figcaption>
+                    <svg className="h-28 w-full overflow-visible" viewBox="0 0 100 115" preserveAspectRatio="none" role="img" aria-label="Several jagged paths, most rising and one falling">
+                      <g fill="none" stroke="var(--ink)" strokeOpacity="0.45" strokeWidth="1.5" vectorEffect="non-scaling-stroke">
+                        <path vectorEffect="non-scaling-stroke" d="M0,100 L10,90 L20,95 L30,80 L40,85 L50,70 L60,75 L70,60 L80,65 L90,50 L100,55" />
+                        <path vectorEffect="non-scaling-stroke" d="M0,100 L10,95 L20,85 L30,90 L40,75 L50,80 L60,65 L70,70 L80,55 L90,60 L100,45" />
+                        <path vectorEffect="non-scaling-stroke" d="M0,100 L10,98 L20,92 L30,85 L40,90 L50,82 L60,70 L70,75 L80,68 L90,55 L100,40" />
+                      </g>
+                      <path vectorEffect="non-scaling-stroke" d="M0,100 L20,105 L40,110 L60,100 L80,105 L100,95" fill="none" stroke="var(--loss)" strokeWidth="1.5" strokeDasharray="3 3" />
+                    </svg>
+                    <p className="mt-2 text-xs text-muted">The red dashed path shows a loss: paths can end below where they started.</p>
+                  </figure>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Steps */}
+          <div className="@4xl:col-span-5 flex flex-col">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+              const isActive = activeStep === index;
+
+              return (
+                <button
+                  type="button"
+                  key={step.id}
+                  aria-pressed={isActive}
+                  onClick={() => setActiveStep(index)}
+                  className={cn(
+                    "text-left p-4 @lg:p-6 border-b border-hairline last:border-b-0 transition-colors duration-75 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-compass",
+                    isActive ? "bg-surface-soft/60" : "hover:bg-surface-soft/40",
+                  )}
+                >
+                  <div className="flex gap-3 @lg:gap-4">
+                    <div
+                      className={cn(
+                        "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                        isActive ? "bg-surface-soft text-ink" : "bg-surface-soft/60 text-muted",
+                      )}
+                    >
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className={cn("text-base font-semibold", isActive ? "text-ink" : "text-body")}>{step.title}</h3>
+                        <ChevronRight
+                          className={cn("h-4 w-4 shrink-0 text-muted transition-transform duration-200", isActive && "rotate-90")}
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <p className="text-sm text-muted">{step.subtitle}</p>
+                      <p className="mt-2 text-sm leading-6 text-body">{step.description}</p>
+
+                      <AnimatePresence initial={false}>
+                        {isActive && (
+                          <motion.ul
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.28, ease: EASE }}
+                            className="overflow-hidden"
                           >
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-sm font-bold text-ink">
-                                {hoveredTerm === "A" && "Future Value"}
-                                {hoveredTerm === "P" && "Principal Investment"}
-                                {hoveredTerm === "PMT" &&
-                                  "Monthly Contribution"}
-                              </span>
-                              <span className="text-xs text-muted">
-                                {hoveredTerm === "A" &&
-                                  "Total account balance after t years."}
-                                {hoveredTerm === "P" &&
-                                  "Starting amount compounded annually."}
-                                {hoveredTerm === "PMT" &&
-                                  "Regular deposits compounded monthly."}
-                              </span>
-                            </div>
-                            <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-neutral-900/95 border-t border-l border-hairline-strong rotate-45" />
-                          </motion.div>
+                            {step.details.map((detail) => (
+                              <li key={detail.label} className="mt-3 flex items-start gap-3 first:mt-4">
+                                <detail.icon className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden="true" />
+                                <div>
+                                  <div className="text-sm font-medium text-ink">{detail.label}</div>
+                                  <div className="text-sm text-muted">{detail.text}</div>
+                                </div>
+                              </li>
+                            ))}
+                          </motion.ul>
                         )}
                       </AnimatePresence>
                     </div>
-
-                    {/* Visual Metaphor: Smooth Chart */}
-                    <div className="w-full max-w-sm h-40 bg-surface-card ring-1 ring-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
-                      <div className="absolute top-4 left-4 text-xs text-muted font-mono">
-                        Constant-return path
-                      </div>
-                      <svg
-                        className="w-full h-full overflow-visible"
-                        viewBox="0 0 100 100"
-                        preserveAspectRatio="none"
-                      >
-                        <path
-                          d="M0,100 Q50,60 100,10"
-                          fill="none"
-                          stroke="#60a5fa"
-                          strokeWidth="3"
-                        />
-                        <path
-                          d="M0,100 Q50,60 100,10 L100,100 L0,100 Z"
-                          fill="url(#blueGradient)"
-                          opacity="0.2"
-                        />
-                        <defs>
-                          <linearGradient
-                            id="blueGradient"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop offset="0%" stopColor="#60a5fa" />
-                            <stop offset="100%" stopColor="transparent" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                      <div className="absolute bottom-4 right-4 text-xs text-body-strong font-bold bg-surface-soft px-2 py-1 rounded border border-hairline">
-                        Deterministic
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* === STEP 2: STOCHASTIC (MONTE CARLO) === */}
-                {activeStep === 1 && (
-                  <motion.div
-                    key="step-1"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="w-full flex flex-col items-center gap-10"
-                  >
-                    {/* The Formula */}
-                    <div className="relative group">
-                      <div className="relative bg-surface-card ring-1 ring-hairline px-8 py-6 rounded-2xl flex items-center gap-4 text-2xl md:text-3xl text-white">
-                        <span className="text-ink">dS</span>
-                        <span className="text-muted text-xl mx-1">=</span>
-                        <div className="flex items-center group/drift cursor-help">
-                          <span className="text-emerald-400">μS dt</span>
-                        </div>
-                        <span className="text-muted text-xl mx-1">+</span>
-                        <div className="flex items-center group/shock cursor-help">
-                          <span className="text-rose-400">σS dW</span>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex gap-4 justify-center text-xs text-muted font-mono">
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-emerald-400" />{" "}
-                          Drift (Trend)
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-rose-400" />{" "}
-                          Random Shock
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Visual Metaphor: Random Paths */}
-                    <div className="w-full max-w-sm h-40 bg-surface-card ring-1 ring-hairline rounded-xl p-6 relative overflow-hidden flex items-end">
-                      <div className="absolute top-4 left-4 text-xs text-muted font-mono">
-                        Simulated paths
-                      </div>
-                      <svg
-                        className="w-full h-full overflow-visible"
-                        viewBox="0 0 100 100"
-                        preserveAspectRatio="none"
-                      >
-                        {/* Random Paths */}
-                        <path
-                          d="M0,100 L10,90 L20,95 L30,80 L40,85 L50,70 L60,75 L70,60 L80,65 L90,50 L100,55"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="1"
-                          opacity="0.4"
-                        />
-                        <path
-                          d="M0,100 L10,95 L20,85 L30,90 L40,75 L50,80 L60,65 L70,70 L80,55 L90,60 L100,45"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="1"
-                          opacity="0.4"
-                        />
-                        <path
-                          d="M0,100 L10,98 L20,92 L30,85 L40,90 L50,82 L60,70 L70,75 L80,68 L90,55 L100,40"
-                          fill="none"
-                          stroke="#10b981"
-                          strokeWidth="1"
-                          opacity="0.4"
-                        />
-
-                        {/* Lower sample path */}
-                        <path
-                          d="M0,100 L20,105 L40,110 L60,100 L80,105 L100,95"
-                          fill="none"
-                          stroke="#f43f5e"
-                          strokeWidth="1.5"
-                          strokeDasharray="3 3"
-                          opacity="0.8"
-                        />
-                      </svg>
-                      <div className="absolute bottom-4 right-4 text-xs text-emerald-400 font-bold bg-surface-soft px-2 py-1 rounded border border-hairline">
-                        Assumption-based
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* RIGHT: Navigation & Details (5 Columns) */}
-          <div className="lg:col-span-5 bg-white/[0.02] border-l border-hairline flex flex-col h-full">
-            <div className="flex flex-col gap-0">
-              {steps.map((step, index) => {
-                const Icon = step.icon;
-                const isActive = activeStep === index;
-
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => setActiveStep(index)}
-                    className={cn(
-                      "group text-left p-6 md:p-8 transition-all duration-300 border-b border-hairline relative",
-                      isActive
-                        ? "bg-surface-card"
-                        : "hover:bg-white/[0.02] opacity-60 hover:opacity-100",
-                    )}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="active-sim-indicator"
-                        className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"
-                        transition={{
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-
-                    <div className="flex gap-4">
-                      <div
-                        className={cn(
-                          "mt-1 p-2.5 rounded-xl h-fit transition-colors border",
-                          isActive
-                            ? `bg-${step.color}-500/10 text-${step.color}-400 border-${step.color}-500/30`
-                            : "bg-surface-card text-muted border-hairline group-hover:border-hairline-strong",
-                        )}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1">
-                          <h3
-                            className={cn(
-                              "font-semibold text-lg",
-                              isActive ? "text-ink" : "text-neutral-300",
-                            )}
-                          >
-                            {step.title}
-                          </h3>
-                          {isActive && (
-                            <ChevronRight className="w-4 h-4 text-body-strong" />
-                          )}
-                        </div>
-                        <p className="text-xs font-mono text-muted mb-2">
-                          {step.subtitle}
-                        </p>
-                        <p className="text-sm text-muted leading-relaxed mb-4">
-                          {step.description}
-                        </p>
-
-                        <AnimatePresence>
-                          {isActive && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="grid gap-3 pt-2">
-                                {step.details.map((detail, i) => (
-                                  <div
-                                    key={i}
-                                    className="flex items-start gap-3 p-3 rounded-lg bg-surface-card ring-1 ring-hairline"
-                                  >
-                                    <detail.icon className="w-4 h-4 text-muted mt-0.5" />
-                                    <div>
-                                      <div className="text-xs text-neutral-200 font-medium mb-0.5">
-                                        {detail.label}
-                                      </div>
-                                      <div className="text-xs text-muted leading-snug">
-                                        {detail.text}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
