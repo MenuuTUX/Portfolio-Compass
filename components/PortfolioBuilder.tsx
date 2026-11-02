@@ -334,7 +334,9 @@ export default function PortfolioBuilder({
   const mask = "••••••";
   const panel = "ws-panel bg-surface-card rounded-lg ring-1 ring-hairline";
   const totalValue = portfolio.length > 0 && portfolioCurrency ? portfolioValuation.totalValue! : null;
-  const totalFallback = portfolio.length === 0 ? "Portfolio" : "Value unavailable";
+  // Weights alone leave every share count at 0; a balance of 0.00 would read as a bug.
+  const noShares = totalValue === 0;
+  const totalFallback = portfolio.length === 0 ? "Portfolio" : noShares ? "No shares entered" : "Value unavailable";
   // Value-weighted move from the latest quotes already held; same-currency only.
   const heldMove = (() => {
     if (!sameCurrencyValuation || !portfolioValuation.totalValue) return null;
@@ -540,7 +542,7 @@ export default function PortfolioBuilder({
             </div>
             <div className="mt-3 flex items-center gap-2">
               <p className="text-[32px] font-bold text-ink leading-[38px] tabular-nums">
-                {totalValue !== null ? (
+                {totalValue !== null && !noShares ? (
                   hideValues ? mask : (
                     <AnimatedText value={totalValue} format={(v) => formatCurrency(v, portfolioCurrency!)} />
                   )
@@ -571,7 +573,9 @@ export default function PortfolioBuilder({
               </p>
             ) : (
               <p className="mt-1 text-sm text-muted">
-                Set holdings and weights. Aim for a 100% total allocation.
+                {noShares
+                  ? "Enter shares on a holding to see a balance. The chart below uses your target weights only."
+                  : "Set holdings and weights. Aim for a 100% total allocation."}
               </p>
             )}
           </div>

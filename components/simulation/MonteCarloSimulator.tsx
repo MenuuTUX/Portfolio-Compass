@@ -83,6 +83,8 @@ interface SimulationModelStats {
   observationCount: number;
   lookbackStart: string;
   lookbackEnd: string;
+  /** Seed the paths were drawn with; reusing it reproduces them exactly. */
+  seed: number;
 }
 
 function hasDailyHistory(points: Portfolio[0]["history"]): boolean {
@@ -117,6 +119,7 @@ export default function MonteCarloSimulator({
     Number.isFinite(currentPortfolioValue) ? currentPortfolioValue : 0,
   );
 
+  const [reuseSeed, setReuseSeed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [modelStats, setModelStats] = useState<SimulationModelStats | null>(
@@ -279,7 +282,9 @@ export default function MonteCarloSimulator({
       (sum, value) => sum + (value - sampleMean) ** 2, 0,
     ) / (observationCount - 1);
 
+    const runSeed = reuseSeed && modelStats ? modelStats.seed : Math.floor(Math.random() * 0x7fffffff);
     setModelStats({
+      seed: runSeed,
       annualizedLogDrift: sampleMean * 252,
       annualizedVolatility: Math.sqrt(sampleVariance * 252),
       observationCount,
@@ -297,6 +302,7 @@ export default function MonteCarloSimulator({
       numSimulations,
       numDays,
       initialInvestment,
+      runSeed,
     );
 
     allPathsRef.current = paths;
@@ -311,6 +317,8 @@ export default function MonteCarloSimulator({
     ensureFullHistory,
     currency,
     fxProvenance,
+    reuseSeed,
+    modelStats,
   ]);
 
   // Animation Loop
@@ -801,6 +809,14 @@ export default function MonteCarloSimulator({
             <div>
               <dt className="text-muted">Aligned daily returns</dt>
               <dd className="font-medium tabular-nums text-ink">{modelStats.observationCount}</dd>
+            </div>
+            <div>
+              <dt className="text-muted">Random seed</dt>
+              <dd className="font-medium tabular-nums text-ink">{modelStats.seed}</dd>
+              <label className="mt-1 flex items-center gap-2 text-muted">
+                <input type="checkbox" checked={reuseSeed} onChange={(e) => setReuseSeed(e.target.checked)} />
+                Reuse this seed on the next run to get the same paths
+              </label>
             </div>
             <div className="@xl:col-span-2">
               <dt className="text-muted">Observed lookback</dt>
