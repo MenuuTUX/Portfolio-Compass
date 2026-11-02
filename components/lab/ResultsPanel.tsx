@@ -8,8 +8,9 @@ import LabChart, { type ChartSeries } from "./LabChart";
 import { compactMoney, money, pct, signedPct } from "./format";
 import { cn } from "@/lib/utils";
 import { splitMetrics, type SliceStats } from "@/lib/lab/engine/holdout";
+import RobustnessPanel, { VariantNotice, type RobustnessState } from "./RobustnessPanel";
 
-const TABS = ["Overview", "Drawdown", "Monthly", "Holdings", "Trades", "Compare"] as const;
+const TABS = ["Overview", "Drawdown", "Robustness", "Monthly", "Holdings", "Trades", "Compare"] as const;
 type Tab = (typeof TABS)[number];
 const DASHES = [undefined, "6 4", "2 3", "10 3 2 3", "1 4"];
 
@@ -320,9 +321,13 @@ interface ResultsPanelProps {
   compare: LabRun[];
   /** Beginner mode: the empty state points at the Run button. */
   guided?: boolean;
+  /** Distinct variants tried this session (run hashes, sweeps included). */
+  variants: number;
+  robustness: RobustnessState | undefined;
+  onRobustness: (run: LabRun) => void;
 }
 
-export default function ResultsPanel({ run, compare, guided }: ResultsPanelProps) {
+export default function ResultsPanel({ run, compare, guided, variants, robustness, onRobustness }: ResultsPanelProps) {
   const [tab, setTab] = useState<Tab>("Overview");
   const [log, setLog] = useState(true);
 
@@ -396,6 +401,7 @@ export default function ResultsPanel({ run, compare, guided }: ResultsPanelProps
             </div>
             <PlainSummary run={run} hasFlows={hasFlows} />
             <HoldoutCheck run={run} />
+            <VariantNotice count={variants} />
             <LabChart
               dates={report.dates}
               series={series.lines}
@@ -449,6 +455,9 @@ export default function ResultsPanel({ run, compare, guided }: ResultsPanelProps
           </div>
         )}
 
+        {tab === "Robustness" && (
+          <RobustnessPanel run={run} variants={variants} state={robustness} onRun={() => onRobustness(run)} />
+        )}
         {tab === "Monthly" && <MonthlyTable run={run} />}
         {tab === "Holdings" && <HoldingsTable run={run} />}
         {tab === "Trades" && <TradesTable run={run} />}
