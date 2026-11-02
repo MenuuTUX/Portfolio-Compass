@@ -141,8 +141,8 @@ export default function WealthProjector({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       >
-        <div className="flex items-center justify-between mb-12">
-          <div className="flex items-center gap-4">
+        <div className="mb-12 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <div className="flex min-w-0 flex-1 basis-80 items-center gap-4">
             {onBack && (
               <button
                 onClick={onBack}
@@ -165,7 +165,7 @@ export default function WealthProjector({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center gap-3">
             <PortfolioShareButton
               portfolio={portfolio}
               currency={currency}
@@ -189,7 +189,7 @@ export default function WealthProjector({
 
             <button
               onClick={() => setMode("MONTE_CARLO")}
-              className="flex items-center gap-2 px-4 py-2 bg-surface-soft hover:bg-hairline-strong rounded-full font-medium transition-colors duration-75 min-h-[44px] md:min-h-0"
+              className="flex items-center gap-2 whitespace-nowrap px-4 py-2 bg-surface-soft hover:bg-hairline-strong rounded-full font-medium transition-colors duration-75 min-h-[44px] md:min-h-0"
             >
               <Sparkles className="w-4 h-4" />
               Use Monte Carlo model
@@ -337,12 +337,12 @@ export default function WealthProjector({
 
           {/* Chart */}
           <div className="lg:col-span-3 p-6 rounded-2xl flex flex-col bg-surface-card ring-1 ring-hairline">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-6 gap-y-4">
               <div>
                 <div className="text-sm text-muted">
                   Ending Balance Under Assumptions
                 </div>
-                <div className="text-3xl font-bold text-ink">
+                <div className="text-2xl font-bold text-ink tabular-nums break-words xl:text-3xl">
                   {formatCurrency(finalAmount, currency)}
                 </div>
               </div>
@@ -350,16 +350,16 @@ export default function WealthProjector({
                 <div className="text-sm text-muted">
                   Modeled Gain or Loss
                 </div>
-                <div className="text-3xl font-bold text-body-strong">
+                <div className="text-2xl font-bold text-body-strong tabular-nums break-words xl:text-3xl">
                   {formatCurrency(modeledGain, currency)}
                 </div>
                 <div className="text-xs text-muted mt-0.5">
                   Ending balance minus starting balance and contributions
                 </div>
               </div>
-              <div className="text-left sm:text-right">
+              <div>
                 <div className="text-sm text-muted">Total Invested</div>
-                <div className="text-xl font-medium text-neutral-300">
+                <div className="text-xl font-medium text-neutral-300 tabular-nums break-words">
                   {formatCurrency(totalInvested, currency)}
                 </div>
               </div>
@@ -391,6 +391,7 @@ export default function WealthProjector({
                     tick={{ fill: "#666" }}
                     axisLine={false}
                     tickLine={false}
+                    width={88}
                     tickFormatter={(value) => `${currency} ${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip

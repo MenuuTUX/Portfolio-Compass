@@ -21,7 +21,6 @@ import {
   Play,
   RefreshCw,
   AlertCircle,
-  Info,
   Loader2,
 } from "lucide-react";
 import {
@@ -45,6 +44,30 @@ import { convertPriceHistoryToCad, type HistoricalFxRate } from "@/lib/math/fx-h
 import { getPortfolioValuation, type BankOfCanadaFxRate } from "@/lib/math/portfolio-returns";
 import { PortfolioShareButton } from "../PortfolioShareButton";
 import SimulatorExplainer from "./SimulatorExplainer";
+import { EASE } from "@/components/motion/Reveal";
+import { cn } from "@/lib/utils";
+
+const HORIZONS = [5, 10, 15, 20, 30] as const;
+const PATH_COUNTS = [20, 50, 100] as const;
+
+/** Whole years on the x axis, thinned so long horizons stay readable. */
+function yearTicks(years: number) {
+  const step = years <= 10 ? 1 : years <= 20 ? 2 : 5;
+  const out: number[] = [];
+  for (let y = 0; y <= years; y += step) out.push(y * 252);
+  return out;
+}
+
+function compactMoney(v: number, currency?: string) {
+  const code = currency && /^[A-Z]{3}$/.test(currency) ? currency : undefined;
+  return new Intl.NumberFormat("en-CA", {
+    ...(code ? { style: "currency" as const, currency: code, currencyDisplay: "narrowSymbol" as const } : {}),
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(v);
+}
+
+const signedPercent = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}%`;
 
 interface MonteCarloSimulatorProps {
   portfolio: Portfolio;
@@ -389,34 +412,42 @@ export default function MonteCarloSimulator({
     );
   }, [riskMetrics, initialInvestment]);
 
+  const horizonOptions = HORIZONS.includes(timeHorizonYears as (typeof HORIZONS)[number])
+    ? HORIZONS
+    : ([...HORIZONS, timeHorizonYears].sort((a, b) => a - b) as number[]);
+  const showResult = simulationComplete && riskMetrics;
+  const lostAtLow = riskMetrics ? riskMetrics.p05Outcome < initialInvestment : false;
+  const chip = "ws-chip";
+
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="@container flex min-h-full flex-col gap-6 [&>*]:shrink-0">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="flex min-w-0 flex-1 basis-72 items-start gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="w-11 h-11 md:w-9 md:h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-soft text-muted hover:text-ink transition-colors"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-75 hover:bg-surface-soft hover:text-ink md:h-9 md:w-9 focus-visible:outline-2 focus-visible:outline-compass"
               title="Back to Portfolio"
+              aria-label="Back to Portfolio"
             >
-              <ArrowLeft className="w-6 h-6" />
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
           <div>
-            <h2 className="text-base font-semibold text-ink flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-ink">
               Monte Carlo Simulation{" "}
-              <span className="text-xs px-2 py-0.5 bg-surface-soft text-body-strong rounded-full">
-                BETA
+              <span className="ml-1 rounded-full bg-surface-soft px-2 py-0.5 align-middle text-xs font-medium text-body">
+                Beta
               </span>
             </h2>
-            <p className="text-sm text-muted">
-              Runs {numSimulations} illustrative paths from observed daily price returns, volatility, and correlations. Results depend on this historical sample and the assumptions below.
+            <p className="mt-1 max-w-xl text-sm text-body">
+              See a range of ways your portfolio could grow, built from how its holdings have moved together in the past. It shows {numSimulations} possible paths, not a prediction.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           {simulationComplete && riskMetrics && (
             <PortfolioShareButton
               portfolio={portfolio}
@@ -452,14 +483,14 @@ export default function MonteCarloSimulator({
             <button
               onClick={prepareSimulation}
               disabled={isLoadingHistory}
-              className="flex items-center gap-2 px-6 py-2 bg-surface-soft hover:bg-hairline-strong text-ink disabled:cursor-not-allowed rounded-full font-medium transition-colors duration-75 min-h-[44px] md:min-h-0 "
+              className="ws-pill ws-pill-primary h-11 whitespace-nowrap px-6 md:h-10"
             >
               {isLoadingHistory ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : simulationComplete ? (
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <Play className="w-4 h-4" />
+                <Play className="h-4 w-4" aria-hidden="true" />
               )}
               {isLoadingHistory
                 ? "Loading data..."
@@ -471,348 +502,313 @@ export default function MonteCarloSimulator({
         </div>
       </div>
 
-      {/* Parameters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-surface-card ring-1 ring-hairline">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-muted font-semibold block">
+      {/* Setup: three plain questions */}
+      <section aria-label="Simulation setup" className="ws-panel grid gap-x-8 gap-y-5 p-4 @2xl:grid-cols-[minmax(0,14rem)_1fr_auto] @2xl:p-6">
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <label htmlFor="mc-investment" className="text-sm text-muted">
               Investment
             </label>
             {currentPortfolioValue > 0 &&
               initialInvestment !== currentPortfolioValue && (
                 <button
                   onClick={() => setInitialInvestment(currentPortfolioValue)}
-                  className="text-xs text-emerald-400 hover:text-emerald-400 flex items-center gap-1"
+                  className="inline-flex items-center gap-1 rounded text-sm text-compass hover:underline focus-visible:outline-2 focus-visible:outline-compass"
                   title="Reset to current portfolio value"
                 >
-                  <RefreshCw className="w-3 h-3" />
-                  Sync
+                  <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                  Use my portfolio
                 </button>
               )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted">$</span>
+          <div className="flex items-center gap-2 border-b border-hairline pb-1 focus-within:border-compass">
+            <span className="text-2xl text-muted" aria-hidden="true">$</span>
             <input
+              id="mc-investment"
               type="number"
               aria-label={`Starting balance (${currency ?? "currency"})`}
               value={initialInvestment}
               onChange={(e) => setInitialInvestment(Number(e.target.value))}
-              className="bg-transparent text-xl font-mono text-ink focus:outline-none w-full"
+              className="w-full bg-transparent text-2xl font-semibold tabular-nums text-ink outline-none"
             />
           </div>
+          {currency && <p className="mt-1 text-sm text-muted">{currency}, today&apos;s value</p>}
         </div>
-        <div className="p-4 rounded-2xl bg-surface-card ring-1 ring-hairline">
-          <label className="text-xs text-muted font-semibold mb-2 block">
-            Time Horizon
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min="1"
-              max="30"
-              value={timeHorizonYears}
-              onChange={(e) => setTimeHorizonYears(Number(e.target.value))}
-              className="flex-1 accent-[var(--compass)]"
-            />
-            <span className="text-xl font-mono text-ink w-12 text-right">
-              {timeHorizonYears}y
-            </span>
-          </div>
-        </div>
-        <div className="p-4 rounded-2xl bg-surface-card ring-1 ring-hairline">
-          <label className="text-xs text-muted font-semibold mb-2 block">
-            Simulations
-          </label>
-          <select
-            value={numSimulations}
-            onChange={(e) => setNumSimulations(Number(e.target.value))}
-            className="bg-surface-soft border border-hairline text-ink rounded px-2 py-1 w-full focus:outline-none"
-          >
-            <option value={20}>20 paths</option>
-            <option value={50}>50 paths</option>
-            <option value={100}>100 paths</option>
-          </select>
-        </div>
-      </div>
 
-      <p className="text-xs text-muted leading-relaxed">
+        <div>
+          <div className="mb-2 text-sm text-muted" id="mc-horizon">For how long</div>
+          <div role="group" aria-labelledby="mc-horizon" className="flex flex-wrap gap-2">
+            {horizonOptions.map((y) => (
+              <button
+                key={y}
+                type="button"
+                aria-pressed={timeHorizonYears === y}
+                onClick={() => setTimeHorizonYears(y)}
+                className={cn(chip, "min-h-10 px-4 text-sm")}
+              >
+                {y} {y === 1 ? "year" : "years"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 text-sm text-muted" id="mc-paths">How many paths</div>
+          <div role="group" aria-labelledby="mc-paths" className="flex flex-wrap gap-2">
+            {PATH_COUNTS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-pressed={numSimulations === n}
+                onClick={() => setNumSimulations(n)}
+                className={cn(chip, "min-h-10 px-4 text-sm")}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <p className="max-w-3xl text-sm leading-6 text-muted">
         Illustrative price-only scenarios, not forecasts or calibrated probabilities. Each simulated step applies a random daily price return using the historical average, volatility, and co-movement between holdings. It assumes a buy-and-hold portfolio. Recurring contributions, withdrawals, rebalancing, distributions, fees, and extreme events are excluded.
       </p>
       {mixedCurrency && fxProvenance && (
-        <p className="text-xs text-muted">
+        <p className="text-sm text-muted">
           Historical USD/CAD moves are included in the converted CAD return samples. Current USD quotes use {fxProvenance.usdCad} CAD/USD ({fxProvenance.date}); future FX is not modeled as a separate process or forecast.
         </p>
       )}
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-200 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <p>{error}</p>
+        <div role="alert" className="ws-panel flex items-start gap-3 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
+          <div>
+            <p className="text-ink">{error}</p>
+            {error.startsWith("Simulation requires a positive valued") && (
+              <p className="mt-1 text-sm text-muted">Enter share counts for your holdings on the Portfolio tab, then run it again.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Answer first */}
+      <AnimatePresence>
+        {showResult && riskMetrics && (
+          <motion.section
+            aria-label="Simulation result"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: EASE }}
+            className="grid gap-6 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] @3xl:items-end"
+          >
+            <div>
+              <p className="text-sm text-muted">
+                In {timeHorizonYears} {timeHorizonYears === 1 ? "year" : "years"}, a typical path ends near
+              </p>
+              <p className="mt-1 text-4xl font-bold tabular-nums text-ink @2xl:text-5xl">
+                {formatCurrency(riskMetrics.medianOutcome, currency)}
+              </p>
+              <p className="mt-2 text-sm text-body">
+                <span className={percentageGrowth >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                  {signedPercent(percentageGrowth)}
+                </span>{" "}
+                from {formatCurrency(initialInvestment, currency)}, or about{" "}
+                <span className={medianCAGR >= 0 ? "text-emerald-400" : "text-rose-400"}>
+                  {signedPercent(medianCAGR * 100)}
+                </span>{" "}
+                a year. Half of the simulated paths finished higher and half lower.
+              </p>
+            </div>
+
+            <dl className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
+              {[
+                ["Stronger end", "1 in 20 paths finished above", riskMetrics.p95Outcome],
+                ["Typical", "The middle path", riskMetrics.medianOutcome],
+                ["Weaker end", "1 in 20 paths finished below", riskMetrics.p05Outcome],
+              ].map(([label, note, value]) => (
+                <div key={label as string} className="flex items-center justify-between gap-4 px-4 py-3">
+                  <div>
+                    <dt className="text-sm font-medium text-ink">{label}</dt>
+                    <dd className="text-sm text-muted">{note}</dd>
+                  </div>
+                  <dd className="text-lg font-semibold tabular-nums text-ink">{formatCurrency(value as number, currency)}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="text-sm text-body @3xl:col-span-2">
+              {lostAtLow
+                ? `In the weaker end of these paths, the balance finished ${formatCurrency(riskMetrics.modeledLossAtP05, currency)} below where it started. Losses of this size are possible, and larger ones are too.`
+                : "Even in the weaker end of these paths, the balance finished above where it started. That is a feature of this sample, not a promise."}
+            </p>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {/* Chart */}
+      {(!error || simulationComplete) && (
+        <div
+          className={cn(
+            "ws-panel relative overflow-hidden p-4 @2xl:p-6",
+            isSimulating || simulationComplete ? "min-h-[340px] flex-1" : "",
+          )}
+        >
+          {!isSimulating && !simulationComplete && !error && !isLoadingHistory && (
+            <div className="flex flex-col items-start gap-1 py-6">
+              <p className="text-base font-medium text-ink">Your range of outcomes will appear here</p>
+              <p className="text-sm text-muted">Press Run simulation to draw {numSimulations} possible paths over {timeHorizonYears} years.</p>
+            </div>
+          )}
+
+          {isSimulating && (
+            <div className="h-[340px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--hairline)" vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    type="number"
+                    domain={[0, timeHorizonYears * 252]}
+                    ticks={yearTicks(timeHorizonYears)}
+                    tickFormatter={(d) => `${Math.round(d / 252)}y`}
+                    tick={{ fill: "var(--muted)", fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fill: "var(--muted)", fontSize: 12 }}
+                    domain={["auto", "auto"]}
+                    tickFormatter={(v) => compactMoney(v, currency)}
+                    width={64}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <ReferenceLine y={initialInvestment} stroke="var(--hairline-strong)" strokeDasharray="4 4" />
+                  {Array.from({ length: numSimulations }).map((_, i) => (
+                    <Line
+                      key={i}
+                      type="monotone"
+                      dataKey={`sim${i}`}
+                      stroke="var(--ink)"
+                      strokeWidth={1}
+                      strokeOpacity={0.18}
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {simulationComplete && !isSimulating && (
+            <motion.figure
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4, ease: EASE }}
+              className="m-0"
+            >
+              <figcaption className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-body">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-0.5 w-5 rounded bg-ink" aria-hidden="true" /> Typical path
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-5 rounded-sm bg-ink/15" aria-hidden="true" /> Where 9 in 10 paths finished
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-5 border-t border-dashed border-muted" aria-hidden="true" /> Starting amount
+                </span>
+              </figcaption>
+              <div className="h-[340px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={coneChartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                    <CartesianGrid stroke="var(--hairline)" vertical={false} />
+                    <XAxis
+                      dataKey="day"
+                      type="number"
+                      domain={[0, timeHorizonYears * 252]}
+                      ticks={yearTicks(timeHorizonYears)}
+                      tickFormatter={(d) => `${Math.round(d / 252)}y`}
+                      tick={{ fill: "var(--muted)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fill: "var(--muted)", fontSize: 12 }}
+                      tickFormatter={(v) => compactMoney(v, currency)}
+                      width={64}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <ReferenceLine y={initialInvestment} stroke="var(--muted)" strokeDasharray="4 4" />
+                    <Tooltip
+                      cursor={{ stroke: "var(--hairline-strong)" }}
+                      content={({ active, payload }) => {
+                        const d = active && payload?.length ? (payload[0].payload as { day: number; median: number; p05: number; p95: number }) : null;
+                        if (!d) return null;
+                        return (
+                          <div className="ws-floating min-w-48 p-3 text-sm">
+                            <p className="mb-2 font-medium text-ink">Year {(d.day / 252).toFixed(1)}</p>
+                            <p className="flex justify-between gap-6 text-muted">Stronger end <span className="tabular-nums text-ink">{formatCurrency(d.p95, currency)}</span></p>
+                            <p className="flex justify-between gap-6 text-muted">Typical <span className="tabular-nums text-ink">{formatCurrency(d.median, currency)}</span></p>
+                            <p className="flex justify-between gap-6 text-muted">Weaker end <span className="tabular-nums text-ink">{formatCurrency(d.p05, currency)}</span></p>
+                          </div>
+                        );
+                      }}
+                    />
+                    {/* Lower edge of the simulated 5th to 95th percentile range, left unfilled. */}
+                    <Area type="monotone" dataKey="p05" stackId="interval" name="5th Percentile" stroke="none" fill="transparent" fillOpacity={0} isAnimationActive={false} />
+                    <Area
+                      type="monotone"
+                      dataKey="interval"
+                      stackId="interval"
+                      name="Illustrative 5th–95th percentile range"
+                      stroke="none"
+                      fill="var(--ink)"
+                      fillOpacity={0.15}
+                      animationDuration={900}
+                      animationEasing="ease-out"
+                    />
+                    <Line type="monotone" dataKey="p95" name="Illustrative 95th percentile" stroke="var(--ink)" strokeOpacity={0.35} strokeWidth={1} dot={false} animationDuration={900} />
+                    <Line type="monotone" dataKey="p05" name="Illustrative 5th percentile" stroke="var(--ink)" strokeOpacity={0.35} strokeWidth={1} dot={false} animationDuration={900} />
+                    <Area type="monotone" dataKey="median" name="Illustrative median" stroke="var(--ink)" strokeWidth={2.5} fill="none" animationDuration={1000} animationEasing="ease-out" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.figure>
+          )}
         </div>
       )}
 
       {simulationComplete && modelStats && (
-        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-hairline bg-hairline text-xs text-muted sm:grid-cols-3">
-          <div className="bg-surface-card px-3 py-2">
-              <span className="block">Historical annualized log drift</span>
-            <strong className="mt-1 block font-mono text-sm text-ink">
-              {(modelStats.annualizedLogDrift * 100).toFixed(2)}%
-            </strong>
-          </div>
-          <div className="bg-surface-card px-3 py-2">
-              <span className="block">Historical annualized volatility</span>
-            <strong className="mt-1 block font-mono text-sm text-ink">
-              {(modelStats.annualizedVolatility * 100).toFixed(2)}%
-            </strong>
-          </div>
-          <div className="bg-surface-card px-3 py-2">
-            <span className="block">Historical covariance model</span>
-            <strong className="mt-1 block font-mono text-sm text-ink">
-              Historical sample
-            </strong>
-          </div>
-          <div className="bg-surface-card px-3 py-2">
-            <span className="block">Aligned daily returns</span>
-            <strong className="mt-1 block font-mono text-sm text-ink">
-              {modelStats.observationCount}
-            </strong>
-          </div>
-          <div className="bg-surface-card px-3 py-2 sm:col-span-3">
-            <span className="block">Observed lookback</span>
-            <strong className="mt-1 block font-mono text-sm text-ink">
-              {modelStats.lookbackStart} to {modelStats.lookbackEnd} · daily closes · price returns only
-            </strong>
-          </div>
-        </div>
+        <details className="rounded-lg ring-1 ring-hairline">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink focus-visible:outline-2 focus-visible:outline-compass">
+            What this simulation used
+          </summary>
+          <dl className="grid gap-x-8 gap-y-3 px-4 pb-4 text-sm @xl:grid-cols-2">
+            <div>
+              <dt className="text-muted">Historical annualized log drift</dt>
+              <dd className="font-medium tabular-nums text-ink">{(modelStats.annualizedLogDrift * 100).toFixed(2)}%</dd>
+            </div>
+            <div>
+              <dt className="text-muted">Historical annualized volatility</dt>
+              <dd className="font-medium tabular-nums text-ink">{(modelStats.annualizedVolatility * 100).toFixed(2)}%</dd>
+            </div>
+            <div>
+              <dt className="text-muted">Historical covariance model</dt>
+              <dd className="font-medium text-ink">Historical sample</dd>
+            </div>
+            <div>
+              <dt className="text-muted">Aligned daily returns</dt>
+              <dd className="font-medium tabular-nums text-ink">{modelStats.observationCount}</dd>
+            </div>
+            <div className="@xl:col-span-2">
+              <dt className="text-muted">Observed lookback</dt>
+              <dd className="font-medium text-ink">{modelStats.lookbackStart} to {modelStats.lookbackEnd} · daily closes · price returns only</dd>
+            </div>
+          </dl>
+        </details>
       )}
-
-      {/* Chart */}
-      <div className="flex-1 min-h-[400px] p-6 rounded-2xl bg-surface-card ring-1 ring-hairline relative overflow-hidden">
-        {!isSimulating &&
-          !simulationComplete &&
-          !error &&
-          !isLoadingHistory && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-muted z-10">
-              <Info className="w-12 h-12 mb-4 opacity-50" />
-              <p>Run the simulation to generate model paths.</p>
-            </div>
-          )}
-
-        {(isSimulating || (simulationComplete && false)) && (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#333"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="day"
-                stroke="#555"
-                tick={{ fill: "var(--muted)", fontSize: 12 }}
-                tickFormatter={(d) => `Y${Math.floor(d / 252)}`}
-                type="number"
-                domain={[0, timeHorizonYears * 252]}
-              />
-              <YAxis
-                stroke="#555"
-                tick={{ fill: "var(--muted)", fontSize: 12 }}
-                domain={["auto", "auto"]}
-                tickFormatter={(v) => `${currency} ${(v / 1000).toFixed(0)}k`}
-              />
-              <ReferenceLine
-                y={initialInvestment}
-                stroke="#8f9b94"
-                strokeDasharray="4 4"
-              />
-              {Array.from({ length: numSimulations }).map((_, i) => (
-                <Line
-                  key={i}
-                  type="monotone"
-                  dataKey={`sim${i}`}
-                  stroke="#ef4444"
-                  strokeWidth={1}
-                  strokeOpacity={0.3}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-
-        {simulationComplete && !isSimulating && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="w-full h-full"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={coneChartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#333"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="day"
-                  stroke="#555"
-                  tick={{ fill: "var(--muted)", fontSize: 12 }}
-                  tickFormatter={(d) => `Y${Math.floor(d / 252)}`}
-                  minTickGap={30}
-                  label={{
-                    value: "Trading days",
-                    position: "insideBottom",
-                    offset: -4,
-                    fill: "#666",
-                    fontSize: 12,
-                  }}
-                />
-                <YAxis
-                  stroke="#555"
-                  tick={{ fill: "var(--muted)", fontSize: 12 }}
-                  tickFormatter={(value) => {
-                    if (value >= 1000000)
-                      return `$${(value / 1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
-                    return `$${value}`;
-                  }}
-                  width={60}
-                  label={{
-                    value: currency ?? "Currency unavailable",
-                    angle: -90,
-                    position: "insideLeft",
-                    fill: "#666",
-                    fontSize: 12,
-                  }}
-                />
-                <ReferenceLine
-                  y={initialInvestment}
-                  stroke="var(--muted)"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: "Initial",
-                    fill: "#737373",
-                    fontSize: 12,
-                    position: "insideTopLeft",
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--surface-card)",
-                    borderColor: "var(--hairline)",
-                    color: "var(--ink)",
-                  }}
-                  itemStyle={{ color: "var(--ink)" }}
-                  formatter={(val: any) => formatCurrency(Number(val), currency)}
-                  labelFormatter={(d) => `Year ${(d / 252).toFixed(1)}`}
-                />
-                {/* Lower edge of the simulated percentile range. */}
-                <Area
-                  type="monotone"
-                  dataKey="p05"
-                  stackId="interval"
-                  name="5th Percentile"
-                  stroke="none"
-                  fill="transparent"
-                  fillOpacity={0}
-                  isAnimationActive={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="interval"
-                  stackId="interval"
-                  name="Illustrative 5th–95th percentile range"
-                  stroke="none"
-                  fill="#10b981"
-                  fillOpacity={1}
-                  animationBegin={0}
-                  animationDuration={900}
-                  animationEasing="ease-out"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="p95"
-                  name="Illustrative 95th percentile"
-                  stroke="#34d399"
-                  strokeWidth={2}
-                  dot={false}
-                  strokeDasharray="4 4"
-                  animationBegin={180}
-                  animationDuration={900}
-                  animationEasing="ease-out"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="median"
-                  name="Illustrative median"
-                  stroke="#10b981"
-                  strokeWidth={3}
-                  fill="none"
-                  animationBegin={120}
-                  animationDuration={1000}
-                  animationEasing="ease-out"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="p05"
-                  name="Illustrative 5th percentile"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={false}
-                  animationBegin={240}
-                  animationDuration={900}
-                  animationEasing="ease-out"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Results */}
-      <AnimatePresence>
-        {simulationComplete && riskMetrics && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          >
-            <div className="p-4 rounded-2xl  border-hairline bg-surface-card">
-              <div className="text-xs text-muted">Median</div>
-              <div className="text-xl font-bold text-ink">
-                {formatCurrency(riskMetrics.medianOutcome, currency)}
-              </div>
-            </div>
-            <div className="p-4 rounded-2xl  border-hairline bg-surface-card">
-              <div className="text-xs text-muted">95th Percentile</div>
-              <div className="text-lg font-bold text-emerald-400">
-                {formatCurrency(riskMetrics.p95Outcome, currency)}
-              </div>
-            </div>
-            <div className="p-4 rounded-2xl  bg-surface-card">
-              <div className="text-xs text-muted">5th Percentile</div>
-              <div className="text-lg font-bold text-rose-400">
-                {formatCurrency(riskMetrics.p05Outcome, currency)}
-              </div>
-            </div>
-            <div className="p-4 rounded-2xl  bg-surface-card">
-              <div className="text-xs text-muted">
-                Modeled Loss at 5th Percentile
-              </div>
-              <div className="text-lg font-bold text-body-strong">
-                {formatCurrency(
-                  riskMetrics.modeledLossAtP05 > 0
-                    ? riskMetrics.modeledLossAtP05
-                    : 0,
-                  currency,
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Explainer Section */}
       <div className="pb-12">

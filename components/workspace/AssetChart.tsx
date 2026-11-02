@@ -22,6 +22,41 @@ interface AssetChartProps {
   kind?: "area" | "line" | "candles";
   /** Fixed height class for sheet use; defaults to filling the parent. */
   className?: string;
+  /** Adds price/date axes, high/low markers and drag-to-measure. Off for compact charts. */
+  advanced?: boolean;
+  /** Overlays a moving average of the price (area/line only). */
+  showAverage?: boolean;
+}
+
+/** Compact axis date: time for 1D, weekday for 1W, day for 1M, month for 1Y, year beyond. */
+function formatAxisDate(date: string, range: TimeRange) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  switch (range) {
+    case "1D":
+      return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    case "1W":
+      return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
+    case "1M":
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    case "1Y":
+      return `${d.toLocaleDateString(undefined, { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
+    default:
+      return String(d.getFullYear());
+  }
+}
+
+/** Round-number gridline values inside [min, max]. */
+function niceTicks(min: number, max: number, count = 4) {
+  const raw = (max - min || 1) / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const ticks: number[] = [];
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-6 && ticks.length < 12; v += step) {
+    ticks.push(v);
+  }
+  return { ticks, step };
 }
 
 function formatTag(date: string, range: TimeRange) {
@@ -40,6 +75,8 @@ function formatTag(date: string, range: TimeRange) {
 
 const PAD_TOP = 26;
 const PAD_BOTTOM = 4;
+// Room for the date axis plus the low marker's label
+const PAD_BOTTOM_ADVANCED = 34;
 
 function linePath(
   values: (number | null | undefined)[],
@@ -66,6 +103,8 @@ export function AssetChart({
   currency,
   kind = "area",
   className,
+  advanced = false,
+  showAverage = false,
 }: AssetChartProps) {
   const gradientId = `fill-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const reduce = useReducedMotion();
@@ -73,6 +112,8 @@ export function AssetChart({
   const plotRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [hover, setHover] = useState<number | null>(null);
+  // Index where a mouse drag started; hover then marks the other end of the measured span
+  const [anchor, setAnchor] = useState<number | null>(null);
   const { data, loading, compare, range } = chart;
   // Candles need OHLC bars and can't be percent-normalised against SPY
   const showCandles = kind === "candles" && !compare && chart.candles.length > 0;
@@ -142,7 +183,8 @@ export function AssetChart({
     }
   }
   const span = max - min || 1;
-  const plotH = Math.max(h - PAD_TOP - PAD_BOTTOM, 1);
+  const padBottom = advanced ? PAD_BOTTOM_ADVANCED : PAD_BOTTOM;
+  const plotH = Math.max(h - PAD_TOP - padBottom, 1);
   const x = (i: number) => (n > 1 ? (i / (n - 1)) * w : w / 2);
   const y = (v: number) => PAD_TOP + (1 - (v - min) / span) * plotH;
 
@@ -175,12 +217,81 @@ export function AssetChart({
   const ay = showCandles ? yC(ap.price) : y(ap.price);
   const bar = showCandles ? chart.candles[active] : null;
 
-  const setFromClientX = (clientX: number) => {
+  const indexAt = (clientX: number) => {
     const rect = plotRef.current?.getBoundingClientRect();
-    if (!rect || m < 2) return;
+    if (!rect || m < 2) return null;
     const ratio = (clientX - rect.left) / Math.max(rect.width, 1);
-    setHover(Math.max(0, Math.min(m - 1, Math.round(ratio * (m - 1)))));
+    return Math.max(0, Math.min(m - 1, Math.round(ratio * (m - 1))));
   };
+  const setFromClientX = (clientX: number) => {
+    const i = indexAt(clientX);
+    if (i !== null) setHover(i);
+  };
+
+  // Per-point value/position, shared by the line and candle modes
+  const valueAt = (i: number) => (showCandles ? chart.candles[i].close : data[i].price);
+  const dateAt = (i: number) => (showCandles ? chart.candles[i].date : data[i].date);
+  const px = (i: number) => (showCandles ? cx_(i) : x(i));
+  const sMin = showCandles ? cMin : min;
+  const sMax = showCandles ? cMax : max;
+  const yS = showCandles ? yC : y;
+  const fmtAxis = (v: number, step: number) =>
+    compare
+      ? `${v.toFixed(step >= 1 ? 0 : 1)}%`
+      : v.toLocaleString(undefined, {
+          minimumFractionDigits: step >= 1 ? 0 : step >= 0.1 ? 1 : 2,
+          maximumFractionDigits: step >= 1 ? 0 : step >= 0.1 ? 1 : 2,
+        });
+
+  // Axes, extremes and moving average (advanced charts only)
+  const { ticks: yTicks, step: yStep } = advanced && w > 0 ? niceTicks(sMin, sMax) : { ticks: [], step: 1 };
+  const xCount = w < 420 ? 3 : 5;
+  const xTicks =
+    advanced && m > 1
+      ? Array.from({ length: xCount }, (_, k) => Math.round((k * (m - 1)) / (xCount - 1)))
+      : [];
+  let hiIdx = 0;
+  let loIdx = 0;
+  let hiVal = -Infinity;
+  let loVal = Infinity;
+  if (advanced) {
+    for (let i = 0; i < m; i++) {
+      const hi = showCandles ? chart.candles[i].high : data[i].price;
+      const lo = showCandles ? chart.candles[i].low : data[i].price;
+      if (hi > hiVal) {
+        hiVal = hi;
+        hiIdx = i;
+      }
+      if (lo < loVal) {
+        loVal = lo;
+        loIdx = i;
+      }
+    }
+  }
+  const avgWindow = Math.max(3, Math.min(50, Math.round(n / 6)));
+  const avgOn = advanced && showAverage && !compare && !showCandles && n > avgWindow;
+  let avgLine = "";
+  if (avgOn) {
+    let sum = 0;
+    const avg = data.map((p, i) => {
+      sum += p.price;
+      if (i >= avgWindow) sum -= data[i - avgWindow].price;
+      return i >= avgWindow - 1 ? sum / avgWindow : null;
+    });
+    avgLine = linePath(avg, x, y);
+  }
+
+  // Drag-to-measure: change between where the drag began and where it is now
+  const measuring = advanced && anchor !== null && hover !== null && hover !== anchor && anchor < m;
+  const mFrom = measuring ? Math.min(anchor, hover) : 0;
+  const mTo = measuring ? Math.max(anchor, hover) : 0;
+  const mDelta = measuring ? valueAt(mTo) - valueAt(mFrom) : 0;
+  const mPct = measuring && valueAt(mFrom) !== 0 ? (mDelta / Math.abs(valueAt(mFrom))) * 100 : 0;
+  const signed = (v: number, digits = 2) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(digits)}`;
+  const mColor = mDelta >= 0 ? GAIN_HEX : LOSS_HEX;
+  // Hovered point vs the start of the range
+  const hoverPct = !compare && !bar && first !== 0 ? ((ap.price - first) / first) * 100 : null;
+  const labelAnchor = (px_: number) => (px_ < 44 ? "start" : px_ > w - 44 ? "end" : "middle");
 
   // Tag slides from left-aligned at the left edge to right-aligned at the right edge
   const tagShift = w > 0 ? (ax / w) * 100 : 50;
@@ -215,9 +326,21 @@ export function AssetChart({
           role="group"
           aria-label={`${ticker} price chart. Use arrow keys to inspect values.`}
           onPointerMove={(e) => setFromClientX(e.clientX)}
-          onPointerDown={(e) => setFromClientX(e.clientX)}
-          onPointerLeave={() => setHover(null)}
-          onBlur={() => setHover(null)}
+          onPointerDown={(e) => {
+            // Touch keeps plain scrubbing; only a mouse drag measures a span
+            if (advanced && e.pointerType === "mouse") setAnchor(indexAt(e.clientX));
+            setFromClientX(e.clientX);
+          }}
+          onPointerUp={() => setAnchor(null)}
+          onPointerCancel={() => setAnchor(null)}
+          onPointerLeave={() => {
+            setHover(null);
+            setAnchor(null);
+          }}
+          onBlur={() => {
+            setHover(null);
+            setAnchor(null);
+          }}
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") {
               e.preventDefault();
@@ -252,6 +375,55 @@ export function AssetChart({
                 </linearGradient>
               </defs>
               {kind === "area" && n > 1 && <path d={area} fill={`url(#${gradientId})`} />}
+              {advanced &&
+                yTicks.map((t) => (
+                  <g key={`y-${t}`}>
+                    <line
+                      x1={0}
+                      x2={w}
+                      y1={yS(t)}
+                      y2={yS(t)}
+                      stroke="var(--ink)"
+                      strokeOpacity="0.07"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={w - 6}
+                      y={yS(t) - 4}
+                      textAnchor="end"
+                      fontSize="10"
+                      fill="var(--ink)"
+                      fillOpacity="0.45"
+                      className="tabular-nums"
+                    >
+                      {fmtAxis(t, yStep)}
+                    </text>
+                  </g>
+                ))}
+              {advanced &&
+                xTicks.map((i, k) => (
+                  <text
+                    key={`x-${k}`}
+                    x={px(i)}
+                    y={h - 8}
+                    textAnchor={k === 0 ? "start" : k === xTicks.length - 1 ? "end" : "middle"}
+                    fontSize="10"
+                    fill="var(--ink)"
+                    fillOpacity="0.45"
+                  >
+                    {formatAxisDate(dateAt(i), range)}
+                  </text>
+                ))}
+              {measuring && (
+                <rect
+                  x={px(mFrom)}
+                  y={PAD_TOP}
+                  width={Math.max(px(mTo) - px(mFrom), 1)}
+                  height={plotH}
+                  fill={mColor}
+                  fillOpacity="0.1"
+                />
+              )}
               <line
                 x1={0}
                 x2={w}
@@ -298,6 +470,44 @@ export function AssetChart({
                   strokeLinecap="round"
                 />
               )}
+              {avgOn && avgLine && (
+                <path
+                  d={avgLine}
+                  fill="none"
+                  stroke="var(--ink)"
+                  strokeOpacity="0.6"
+                  strokeWidth="1.25"
+                  strokeLinejoin="round"
+                />
+              )}
+              {advanced && m > 1 && hiIdx !== loIdx && (
+                <>
+                  <text
+                    x={px(hiIdx)}
+                    y={yS(hiVal) - 6}
+                    textAnchor={labelAnchor(px(hiIdx))}
+                    fontSize="10"
+                    fontWeight="600"
+                    fill="var(--ink)"
+                    fillOpacity="0.7"
+                    className="tabular-nums"
+                  >
+                    High {fmtAxis(hiVal, 0.01)}
+                  </text>
+                  <text
+                    x={px(loIdx)}
+                    y={yS(loVal) + 14}
+                    textAnchor={labelAnchor(px(loIdx))}
+                    fontSize="10"
+                    fontWeight="600"
+                    fill="var(--ink)"
+                    fillOpacity="0.7"
+                    className="tabular-nums"
+                  >
+                    Low {fmtAxis(loVal, 0.01)}
+                  </text>
+                </>
+              )}
               {hover === null ? (
                 <motion.circle
                   key={`last-${drawKey}`}
@@ -331,19 +541,42 @@ export function AssetChart({
               className="pointer-events-none absolute top-0 z-10 whitespace-nowrap rounded-md bg-[var(--panel)] px-2 py-0.5 text-xs leading-4 ring-1 ring-hairline"
               style={{ left: ax, transform: `translateX(-${tagShift}%)` }}
             >
-              <span className="font-semibold text-ink tabular-nums">
-                {compare
-                  ? `${ticker} ${ap.price.toFixed(2)}%`
-                  : bar
-                    ? `O ${formatCurrency(bar.open, currency)} H ${formatCurrency(bar.high, currency)} L ${formatCurrency(bar.low, currency)} C ${formatCurrency(bar.close, currency)}`
-                    : formatCurrency(ap.price, currency)}
-              </span>
-              {compare && ap.spyPrice != null && (
-                <span className="ml-2 text-muted tabular-nums">
-                  SPY {ap.spyPrice.toFixed(2)}%
-                </span>
+              {measuring ? (
+                <>
+                  <span className="font-semibold tabular-nums" style={{ color: mColor }}>
+                    {compare
+                      ? `${signed(mDelta)} pts`
+                      : `${signed(mPct)}% (${mDelta >= 0 ? "+" : "−"}${formatCurrency(Math.abs(mDelta), currency)})`}
+                  </span>
+                  <span className="ml-2 text-muted">
+                    {formatTag(dateAt(mFrom), range)} → {formatTag(dateAt(mTo), range)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-ink tabular-nums">
+                    {compare
+                      ? `${ticker} ${ap.price.toFixed(2)}%`
+                      : bar
+                        ? `O ${formatCurrency(bar.open, currency)} H ${formatCurrency(bar.high, currency)} L ${formatCurrency(bar.low, currency)} C ${formatCurrency(bar.close, currency)}`
+                        : formatCurrency(ap.price, currency)}
+                  </span>
+                  {hoverPct !== null && advanced && active > 0 && (
+                    <span
+                      className="ml-2 tabular-nums"
+                      style={{ color: hoverPct >= 0 ? GAIN_HEX : LOSS_HEX }}
+                    >
+                      {signed(hoverPct)}%
+                    </span>
+                  )}
+                  {compare && ap.spyPrice != null && (
+                    <span className="ml-2 text-muted tabular-nums">
+                      SPY {ap.spyPrice.toFixed(2)}%
+                    </span>
+                  )}
+                  <span className="ml-2 text-muted">{formatTag(ap.date, range)}</span>
+                </>
               )}
-              <span className="ml-2 text-muted">{formatTag(ap.date, range)}</span>
             </div>
           )}
           <span className="sr-only" aria-live="polite">

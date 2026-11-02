@@ -132,6 +132,71 @@ export function PaneResizer({
   );
 }
 
+interface RowResizerProps {
+  label: string;
+  /** Current height of the pane being resized. */
+  height: number;
+  /** +1 if dragging down grows the pane (pane above the handle), -1 if dragging up grows it (pane below). */
+  direction: 1 | -1;
+  onResize: (height: number) => number;
+  onCommit: (height: number) => void;
+  onDraggingChange?: (dragging: boolean) => void;
+  onReset: () => void;
+}
+
+/** Horizontal drag handle between two stacked panes. Same behaviour as PaneResizer, on the Y axis. */
+export function RowResizer({ label, height, direction, onResize, onCommit, onDraggingChange, onReset }: RowResizerProps) {
+  const start = useRef<{ y: number; h: number } | null>(null);
+  const [active, setActive] = useState(false);
+  const end = (commit: number | null) => {
+    start.current = null;
+    setActive(false);
+    onDraggingChange?.(false);
+    if (commit !== null) onCommit(commit);
+  };
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      aria-label={label}
+      aria-valuenow={height}
+      tabIndex={0}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        start.current = { y: e.clientY, h: height };
+        setActive(true);
+        onDraggingChange?.(true);
+      }}
+      onPointerMove={(e) => {
+        if (start.current) onResize(start.current.h + direction * (e.clientY - start.current.y));
+      }}
+      onPointerUp={(e) => {
+        if (start.current) end(onResize(start.current.h + direction * (e.clientY - start.current.y)));
+      }}
+      onPointerCancel={() => end(null)}
+      onDoubleClick={onReset}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 48 : 16;
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          const sign = e.key === "ArrowDown" ? 1 : -1;
+          onCommit(onResize(height + direction * sign * step));
+        }
+      }}
+      className="group relative h-2 w-full shrink-0 cursor-row-resize touch-none select-none focus-visible:outline-none"
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 rounded-full transition-colors duration-75",
+          active ? "bg-compass" : "bg-transparent group-hover:bg-hairline-strong group-focus-visible:bg-compass",
+        )}
+      />
+    </div>
+  );
+}
+
 // Each side pane may take at most 30% of the viewport (and a hard cap), so the
 // center chart always keeps room.
 export const LEFT_PANE = { initial: 276, min: 200 };
