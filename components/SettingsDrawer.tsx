@@ -371,9 +371,9 @@ export default function SettingsDrawer({
                 </h3>
                 <div className="rounded-2xl ring-1 ring-hairline p-4 space-y-3">
                   <div>
-                    <h4 className="text-sm font-medium text-ink">Backtest strategies (advanced)</h4>
+                    <h4 className="text-sm font-medium text-ink">Backtest an idea</h4>
                     <p className="text-sm text-body">
-                      Replay allocations, trend filters and momentum rules over past prices, with costs, dividends and contributions. Results are hypothetical.
+                      Learn to test an investing idea on past prices with short guided lessons, or build your own rules with code or a form. Results are hypothetical.
                     </p>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row">

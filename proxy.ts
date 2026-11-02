@@ -24,6 +24,10 @@ function clientIp(request: NextRequest): string {
 }
 
 export function proxy(request: NextRequest) {
+  // Logos are cacheable and a single heatmap view requests hundreds of them;
+  // counting them would exhaust the budget for the real data routes.
+  if (request.nextUrl.pathname.startsWith("/api/logo/")) return NextResponse.next();
+
   const ip = clientIp(request);
   const now = Date.now();
   const entry = hits.get(ip);

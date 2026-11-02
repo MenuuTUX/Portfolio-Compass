@@ -20,6 +20,7 @@ const scrollToId = (id: string) => {
 const NAV_LINKS = [
   { label: "Compare", id: "compare" },
   { label: "Portfolio", id: "build" },
+  { label: "Backtest", id: "test" },
   { label: "Learn", id: "learn" },
 ];
 

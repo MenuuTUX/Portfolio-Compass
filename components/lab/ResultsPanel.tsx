@@ -191,12 +191,96 @@ function TradesTable({ run }: { run: LabRun }) {
   );
 }
 
+
+const YEAR_MS = 365.25 * 86_400_000;
+
+function span(days: number) {
+  if (days < 45) return `${Math.round(days)} days`;
+  if (days < 700) return `${Math.round(days / 30.4)} months`;
+  return `${(days / 365.25).toFixed(1)} years`;
+}
+
+/** The result in plain words: what the money did, against simply holding the benchmark, and the worst stretch. */
+function PlainSummary({ run, hasFlows }: { run: LabRun; hasFlows: boolean }) {
+  const { report } = run;
+  const m = report.metrics;
+  const bench = report.benchmark;
+  const cur = report.currency;
+  const years = (Date.parse(m.endDate) - Date.parse(m.startDate)) / YEAR_MS;
+  const start = report.sim.equity[0];
+  const diff = bench && !hasFlows ? m.finalEquity - bench.metrics.finalEquity : null;
+  const worst = m.maxDrawdown;
+  const benchWorst = bench?.metrics.maxDrawdown;
+  const cagrGap = bench ? m.cagr - bench.metrics.cagr : null;
+
+  return (
+    <section aria-label="Result in plain words" className="space-y-3 rounded-xl p-4 ring-1 ring-hairline">
+      <p className="text-sm text-body">
+        {hasFlows ? (
+          <>You put in <b className="text-ink">{money(m.netContributions, cur)}</b> over {years.toFixed(1)} years and it became</>
+        ) : (
+          <><b className="text-ink">{money(start, cur)}</b> invested for {years.toFixed(1)} years would have become</>
+        )}
+      </p>
+      <p className="font-mono text-3xl font-bold text-ink">{money(m.finalEquity, cur)}</p>
+      {bench && (
+        <p className="text-sm text-body">
+          {diff !== null ? (
+            <>
+              Just holding {bench.ticker} would have given {money(bench.metrics.finalEquity, cur)}
+              {Math.abs(diff) < 1 ? (
+                <>, <b className="text-ink">the same</b>. That makes sense when the rule is holding {bench.ticker} anyway.</>
+              ) : (
+                <>, so this rule{" "}
+                  <b className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>{diff >= 0 ? "finished ahead by" : "finished behind by"} {money(Math.abs(diff), cur)}</b>.</>
+              )}
+            </>
+          ) : (
+            <>
+              Growth per year was {signedPct(m.cagr)} against {signedPct(bench.metrics.cagr)} for holding {bench.ticker}
+              {cagrGap !== null && <>, <b className={cagrGap >= 0 ? "text-emerald-400" : "text-rose-400"}>{cagrGap >= 0 ? "ahead" : "behind"} by {pct(Math.abs(cagrGap))} a year</b></>}.
+            </>
+          )}
+        </p>
+      )}
+      <dl className="grid gap-px overflow-hidden rounded-lg bg-hairline sm:grid-cols-3">
+        {[
+          ["Growth per year", signedPct(m.cagr), bench ? `${bench.ticker}: ${signedPct(bench.metrics.cagr)}` : "On average, compounded"],
+          [
+            "Worst drop",
+            worst ? pct(-Math.abs(worst.depth)) : "n/a",
+            worst
+              ? `At its lowest point the account was ${pct(Math.abs(worst.depth), 0)} below its previous high${benchWorst ? `. ${bench!.ticker}: ${pct(Math.abs(benchWorst.depth), 0)}` : ""}`
+              : "No decline",
+          ],
+          [
+            "Longest wait for a new high",
+            span(m.longestDrawdownDays),
+            "Time spent below an earlier peak",
+          ],
+        ].map(([k, v, note]) => (
+          <div key={k} className="bg-[var(--panel)] p-3">
+            <dt className="text-xs text-muted">{k}</dt>
+            <dd className="mt-0.5 font-mono text-lg font-semibold text-ink">{v}</dd>
+            <dd className="mt-0.5 text-[11px] leading-4 text-muted">{note}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-muted">
+        This replays past prices with next-day trades and a small cost per trade. It is not a prediction, and a rule tuned to look good on the past often does worse afterwards.
+      </p>
+    </section>
+  );
+}
+
 interface ResultsPanelProps {
   run: LabRun | null;
   compare: LabRun[];
+  /** Beginner mode: the empty state points at the Run button. */
+  guided?: boolean;
 }
 
-export default function ResultsPanel({ run, compare }: ResultsPanelProps) {
+export default function ResultsPanel({ run, compare, guided }: ResultsPanelProps) {
   const [tab, setTab] = useState<Tab>("Overview");
   const [log, setLog] = useState(true);
 
@@ -218,7 +302,7 @@ export default function ResultsPanel({ run, compare }: ResultsPanelProps) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
         <LineChart className="h-6 w-6 text-muted-soft" aria-hidden />
-        <p className="text-sm text-muted">Pick a template or enter tickers, then run a backtest.</p>
+        <p className="text-sm text-muted">{guided ? "Press Run it to see how this idea would have done." : "Pick a template or enter tickers, then run a backtest."}</p>
       </div>
     );
   }
@@ -268,6 +352,7 @@ export default function ResultsPanel({ run, compare }: ResultsPanelProps) {
                 Log scale
               </label>
             </div>
+            <PlainSummary run={run} hasFlows={hasFlows} />
             <LabChart
               dates={report.dates}
               series={series.lines}

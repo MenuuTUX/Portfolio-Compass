@@ -62,7 +62,7 @@ export function PortfolioShareButton({
       <button
         onClick={handleDownload}
         disabled={isGenerating || isSuccess}
-        className="flex items-center gap-2 px-4 h-11 md:h-9 rounded-full bg-surface-soft text-ink hover:bg-hairline-strong transition-colors duration-75 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex items-center gap-2 whitespace-nowrap px-4 h-11 md:h-9 rounded-full bg-surface-soft text-ink hover:bg-hairline-strong transition-colors duration-75 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isGenerating ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />

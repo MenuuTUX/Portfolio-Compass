@@ -57,7 +57,7 @@ Parts that can be reused directly:
 
 There are two options. **This decision belongs to the product owner.**
 
-**A. Separate route plus a local opt-in (recommended).** The Lab lives at its own route (for example `/lab`). On first visit it shows one screen: what the Lab is, that results are hypothetical, and that it assumes the user can read code. The user ticks an acknowledgment, which is stored locally. The main site links to it only from Settings and the command palette, never from the landing page. This keeps the local-first promise and needs no backend.
+**A. Separate route plus a local opt-in (recommended).** The Lab lives at its own route (for example `/lab`). On first visit it shows one screen: what the Lab is, that results are hypothetical, and that it assumes the user can read code. The user ticks an acknowledgment, which is stored locally. The main site links to it from Settings, the app navigation and the landing header (decided later: the Lab now has a Guided mode for beginners, so it is no longer advanced-only). This keeps the local-first promise and needs no backend.
 
 **B. Accounts.** Needed only for cloud-saved strategies, sharing, or server compute. This adds a database, auth, and privacy work, and breaks the "no login" promise in the README and `/privacy`. Defer it until there is evidence of demand.
 

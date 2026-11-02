@@ -10,6 +10,7 @@ import { noCodeToSource } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
 import { cn } from "@/lib/utils";
 import CodeSettings from "./CodeSettings";
+import ModeSwitch from "./ModeSwitch";
 
 const field =
   "h-9 w-full rounded-md bg-surface-soft px-2.5 text-sm text-ink ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-compass";
@@ -132,23 +133,7 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
       }}
     >
       <section className="px-4 pt-4">
-        <div role="radiogroup" aria-label="Strategy type" className="grid grid-cols-2 gap-1 rounded-lg bg-surface-soft p-1">
-          {([["no-code", "No-code"], ["code", "Code"]] as const).map(([k, text]) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={form.mode === k}
-              onClick={() => set("mode", k)}
-              className={cn(
-                "h-8 rounded-md text-xs font-semibold transition-colors duration-75",
-                form.mode === k ? "bg-[var(--panel)] text-ink ring-1 ring-hairline" : "text-muted hover:text-ink",
-              )}
-            >
-              {text}
-            </button>
-          ))}
-        </div>
+        <ModeSwitch form={form} onChange={onChange} />
       </section>
 
       {code ? (

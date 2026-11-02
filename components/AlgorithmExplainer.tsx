@@ -120,18 +120,18 @@ export default function AlgorithmExplainer() {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto mt-12 mb-24 relative font-sans">
+    <div className="@container w-full max-w-7xl mx-auto relative font-sans">
       {/* Ambient Background */}
 
       <div className="relative glass-panel border border-hairline bg-surface-card rounded-2xl overflow-hidden ">
         {/* Header */}
-        <div className="p-8 border-b border-hairline flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="p-4 @2xl:p-8 border-b border-hairline flex flex-col @2xl:flex-row justify-between items-start @2xl:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-surface-soft border border-hairline">
                 <BrainCircuit className="w-6 h-6 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold text-ink tracking-tight">
+              <h2 className="text-xl @lg:text-2xl font-bold text-ink tracking-tight">
                 Allocation Heuristic
               </h2>
             </div>
@@ -149,13 +149,13 @@ export default function AlgorithmExplainer() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 min-h-[600px]">
+        <div className="grid grid-cols-1 @4xl:grid-cols-12 gap-0 @4xl:min-h-[600px]">
           {/* LEFT: Interactive Visualizer (7 Columns) */}
-          <div className="lg:col-span-7 bg-surface-card relative overflow-hidden flex flex-col border-r border-hairline">
+          <div className="@4xl:col-span-7 bg-surface-card relative overflow-hidden flex flex-col @4xl:border-r border-b @4xl:border-b-0 border-hairline">
             {/* Background Grid */}
 
             {/* Content Area */}
-            <div className="flex-1 p-8 lg:p-12 flex items-center justify-center relative w-full">
+            <div className="flex-1 p-4 @lg:p-8 @4xl:p-12 flex items-center justify-center relative w-full">
               <AnimatePresence mode="wait">
                 {/* === STEP 1: OBJECTIVE FUNCTION === */}
                 {activeStep === 0 && (
@@ -169,7 +169,7 @@ export default function AlgorithmExplainer() {
                   >
                     {/* The Equation */}
                     <div className="relative">
-                      <div className="relative bg-surface-card ring-1 ring-hairline px-10 py-8 rounded-2xl flex items-center gap-4 text-3xl md:text-4xl text-white">
+                      <div className="relative bg-surface-card ring-1 ring-hairline px-4 py-5 @lg:px-10 @lg:py-8 rounded-2xl flex flex-wrap items-center justify-center gap-x-3 gap-y-1 @lg:gap-4 text-2xl @lg:text-3xl @2xl:text-4xl text-white">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
@@ -268,7 +268,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Interactive Slider Demo */}
-                    <div className="w-full max-w-sm bg-surface-card ring-1 ring-hairline rounded-xl p-6 flex flex-col gap-6 ">
+                    <div className="w-full max-w-sm bg-surface-card ring-1 ring-hairline rounded-xl p-4 @lg:p-6 flex flex-col gap-6 ">
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-neutral-300 font-medium">
                           Risk Aversion (λ)
@@ -362,7 +362,7 @@ export default function AlgorithmExplainer() {
                       Example values only. These score changes are not based on
                       actual holdings or predictions.
                     </p>
-                    <div className="flex items-center gap-3 rounded-lg border border-hairline-strong bg-surface-card px-6 py-4 text-lg text-ink">
+                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-lg border border-hairline-strong bg-surface-card px-4 py-3 @lg:px-6 @lg:py-4 text-base @lg:text-lg text-ink">
                       <span>Maximize</span>
                       <span className="text-ink font-bold">ΔU</span>
                       <span>=</span>
@@ -374,7 +374,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Simulation Stage */}
-                    <div className="w-full bg-surface-card rounded-lg p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
+                    <div className="w-full bg-surface-card rounded-lg p-4 @lg:p-6 border border-hairline min-h-[280px] flex flex-col justify-between">
                       <div className="flex justify-between items-end gap-2 h-40 mb-6 relative">
                         {/* Baseline */}
                         <div className="absolute inset-x-0 bottom-[40%] border-t border-dashed border-hairline-strong flex items-end justify-end px-2">
@@ -535,7 +535,7 @@ export default function AlgorithmExplainer() {
                     className="relative w-full max-w-lg flex flex-col items-center gap-10"
                   >
                     {/* Constraints Formula Block */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                    <div className="grid grid-cols-1 @lg:grid-cols-2 gap-4 w-full">
                       <div className="bg-surface-card ring-1 ring-hairline p-4 rounded-lg flex flex-col items-center justify-center gap-2">
                         <div className="text-sm font-medium text-body">
                           Integer Shares
@@ -569,7 +569,7 @@ export default function AlgorithmExplainer() {
                     </div>
 
                     {/* Visual Metaphor */}
-                    <div className="relative flex aspect-video w-full max-w-sm items-center justify-center overflow-hidden rounded-lg border border-hairline bg-surface-card p-6">
+                    <div className="relative flex aspect-video w-full max-w-sm items-center justify-center overflow-hidden rounded-lg border border-hairline bg-surface-card p-4 @lg:p-6">
 
                       <div className="flex items-end gap-1 h-32 w-full justify-center">
                         {/* Correct Stack */}
@@ -625,7 +625,7 @@ export default function AlgorithmExplainer() {
             </div>
 
             {/* Step Indicator dots for mobile */}
-            <div className="flex lg:hidden justify-center gap-2 pb-6">
+            <div className="flex @4xl:hidden justify-center gap-2 pb-6">
               {steps.map((_, i) => (
                 <div
                   key={i}
@@ -639,7 +639,7 @@ export default function AlgorithmExplainer() {
           </div>
 
           {/* RIGHT: Navigation & Details (5 Columns) */}
-          <div className="lg:col-span-5 bg-canvas border-l border-hairline flex flex-col h-full overflow-y-auto custom-scrollbar">
+          <div className="@4xl:col-span-5 bg-canvas @4xl:border-l border-hairline flex flex-col h-full overflow-y-auto custom-scrollbar">
             <div className="flex flex-col gap-0">
               {steps.map((step, index) => {
                 const Icon = step.icon;
@@ -655,7 +655,7 @@ export default function AlgorithmExplainer() {
                       setSimulationState("IDLE"); // Reset simulation state
                     }}
                     className={cn(
-                      "group text-left p-6 md:p-8 transition-all duration-300 border-b border-hairline relative",
+                      "group text-left p-4 @lg:p-6 @2xl:p-8 transition-all duration-300 border-b border-hairline relative",
                       isActive
                         ? "bg-surface-card"
                       : "text-muted hover:bg-surface-soft hover:text-ink",
@@ -673,7 +673,7 @@ export default function AlgorithmExplainer() {
                       />
                     )}
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-3 @lg:gap-4">
                       <div
                         className={cn(
                           "mt-1 p-2.5 rounded-lg h-fit transition-colors border",

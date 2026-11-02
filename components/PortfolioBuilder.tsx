@@ -334,7 +334,7 @@ export default function PortfolioBuilder({
   const mask = "••••••";
   const panel = "ws-panel bg-surface-card rounded-lg ring-1 ring-hairline";
   const totalValue = portfolio.length > 0 && portfolioCurrency ? portfolioValuation.totalValue! : null;
-  const totalFallback = portfolio.length === 0 ? "Portfolio" : "Unavailable";
+  const totalFallback = portfolio.length === 0 ? "Portfolio" : "Value unavailable";
   // Value-weighted move from the latest quotes already held; same-currency only.
   const heldMove = (() => {
     if (!sameCurrencyValuation || !portfolioValuation.totalValue) return null;
@@ -368,15 +368,15 @@ export default function PortfolioBuilder({
   const sectorXRay = (
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-bold text-ink">Sector X-Ray</h3>
-      <div className="w-full h-[220px] flex-shrink-0">
-        {pieData.length > 0 ? (
+      {pieData.length > 0 ? (
+        <div className="w-full h-[220px] flex-shrink-0">
           <SectorPieChart data={pieData} />
-        ) : (
-          <div className="h-full flex items-center justify-center text-muted text-sm">
-            Add holdings to see exposure
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <p className="rounded-lg bg-surface-soft px-4 py-6 text-center text-sm text-muted">
+          Add holdings to see exposure
+        </p>
+      )}
       {pieData.length > 0 && (
         <div className="grid grid-cols-2 gap-2">
           {pieData.map((entry, index) => (
@@ -413,7 +413,7 @@ export default function PortfolioBuilder({
     }
     return (
       <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-6">
-        <div className="min-h-[320px] lg:h-full lg:min-h-0">
+        <div className="min-h-[320px] xl:h-full xl:min-h-0">
           <PortfolioBarChart portfolio={portfolio} />
         </div>
         {sectorXRay}
@@ -563,6 +563,11 @@ export default function PortfolioBuilder({
                 {hideValues
                   ? `${heldMove.pct >= 0 ? "+" : "-"}${Math.abs(heldMove.pct).toFixed(2)}% latest session`
                   : `${heldMove.delta >= 0 ? "+" : "-"}${formatCurrency(Math.abs(heldMove.delta), portfolioCurrency!)} (${heldMove.pct >= 0 ? "+" : "-"}${Math.abs(heldMove.pct).toFixed(2)}%) latest session`}
+              </p>
+            ) : portfolio.length > 0 && totalValue === null ? (
+              // Say why there is no total, instead of showing the setup hint under "Unavailable".
+              <p className="mt-1 text-sm text-muted">
+                The total is hidden until every holding has a fresh quote and a known currency. The reason is listed under Target allocation.
               </p>
             ) : (
               <p className="mt-1 text-sm text-muted">
