@@ -12,14 +12,21 @@ type Point = { date: string; price: number; adjPrice?: number };
 const DAYS = 400;
 const day = (i: number) => new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString();
 
+/** Ex-dividend days and the dividend as a fraction of price: 1.5% a quarter. */
+const EX_DAYS = [91, 182, 273, 364];
+const DIVIDEND = 0.015;
+const exFactor = (i: number) => Math.pow(1 - DIVIDEND, EX_DAYS.filter((d) => d > i).length);
+
 /**
- * A fund whose quoted price is flat while it pays out its whole 6% a year:
- * price return 0%, total return about 6%.
+ * A fund whose quoted price stays flat while it pays 1.5% each quarter, so
+ * price return is about 0% and total return about 6%. Yahoo's adjusted close
+ * is the close scaled down by every dividend paid after that day.
  */
 function incomeFund(adjusted: boolean, drop: number[] = []): Point[] {
   return Array.from({ length: DAYS }, (_, i) => {
-    const point: Point = { date: day(i), price: 100 * (1 + 0.0003 * Math.sin(i)) };
-    if (adjusted && !drop.includes(i)) point.adjPrice = 100 * Math.pow(1.06, i / 365);
+    const price = 100 * (1 + 0.0003 * Math.sin(i));
+    const point: Point = { date: day(i), price };
+    if (adjusted && !drop.includes(i)) point.adjPrice = price * exFactor(i);
     return point;
   });
 }
@@ -57,7 +64,11 @@ describe("alignPriceHistories", () => {
     const aligned = alignPriceHistories([item("INC", incomeFund(true)), item("GRO", growthFund(true))])!;
     expect(aligned.basis).toBe("total");
     expect(aligned.prices[0][0]).toBeCloseTo(incomeFund(true)[0].price, 8);
-    expect(aligned.prices[0].at(-1)! / aligned.prices[0][0]).toBeCloseTo(Math.pow(1.06, (DAYS - 1) / 365), 6);
+    const plain = incomeFund(false);
+    // Four 1.5% dividends are reinvested on top of the (near flat) price move.
+    expect(aligned.prices[0].at(-1)! / aligned.prices[0][0]).toBeCloseTo(
+      (plain.at(-1)!.price / plain[0].price) / Math.pow(1 - DIVIDEND, 4), 8,
+    );
   });
 
   it("drops a date missing an adjusted close for every holding instead of zeroing it", () => {
@@ -98,9 +109,10 @@ describe("a fund with a known dividend", () => {
     expect(price.basis).toBe("price");
     expect(Math.abs(price.annualizedReturn!)).toBeLessThan(0.005);
     expect(total.annualizedReturn!).toBeGreaterThan(0.05);
+    expect(total.annualizedReturn!).toBeLessThan(0.07);
   });
 
-  it("does not change covariance when only the level of returns shifts, and reports the basis", () => {
+  it("reports the basis of the covariance estimate", () => {
     const pair = (adjusted: boolean) => [item("INC", incomeFund(adjusted)), item("GRO", growthFund(adjusted))];
     const total = estimateAnnualCovariance(pair(true));
     const price = estimateAnnualCovariance(pair(false));
