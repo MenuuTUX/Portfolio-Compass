@@ -81,19 +81,61 @@ export function loadPortfolio(): LocalPortfolioItem[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
 
-    const parsed = JSON.parse(raw);
-    const result = LocalPortfolioSchema.safeParse(parsed);
-
-    if (result.success) {
-      return result.data;
-    } else {
-      console.warn("Local portfolio data corrupted, resetting:", result.error);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      preserveCorruptPortfolio(raw);
       return [];
     }
+
+    const result = LocalPortfolioSchema.safeParse(parsed);
+    if (result.success) return result.data;
+
+    // One bad holding must not make the whole portfolio look empty, because the
+    // next save would then overwrite every holding. Keep each item that has a
+    // ticker, reset unusable numbers to 0, and keep the raw text for recovery.
+    preserveCorruptPortfolio(raw);
+    console.warn("Local portfolio data partly invalid, repaired:", result.error);
+    return repairPortfolio(parsed);
   } catch (error) {
     console.error("Failed to load portfolio from local storage:", error);
     return [];
   }
+}
+
+export const CORRUPT_BACKUP_KEY = `${STORAGE_KEY}_corrupt_backup`;
+
+function preserveCorruptPortfolio(raw: string) {
+  try {
+    // Keep the first copy: a later repair must not replace the original data.
+    if (localStorage.getItem(CORRUPT_BACKUP_KEY) === null) {
+      localStorage.setItem(CORRUPT_BACKUP_KEY, raw);
+    }
+  } catch {
+    // Storage full or blocked: nothing more can be saved.
+  }
+}
+
+function toNonNegative(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+/** Keep holdings with a usable ticker; invalid weights or shares become 0. */
+export function repairPortfolio(input: unknown): LocalPortfolioItem[] {
+  if (!Array.isArray(input)) return [];
+  const seen = new Set<string>();
+  const items: LocalPortfolioItem[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== "object") continue;
+    const { ticker, weight, shares } = item as Record<string, unknown>;
+    if (typeof ticker !== "string" || !ticker.trim()) continue;
+    const key = ticker.trim().toUpperCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    items.push({ ticker: ticker.trim(), weight: toNonNegative(weight), shares: toNonNegative(shares) });
+  }
+  return items;
 }
 
 /** Read local holdings strictly for backup export, where corruption must not look empty. */

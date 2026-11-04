@@ -91,7 +91,13 @@ export async function GET(
   { params }: { params: Promise<{ ticker: string }> },
 ) {
   const { ticker: raw } = await params;
-  const [ticker] = parseTickers([decodeURIComponent(raw)], 1);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    return new Response("Invalid ticker", { status: 400 });
+  }
+  const [ticker] = parseTickers([decoded], 1);
   if (!ticker) return new Response("Invalid ticker", { status: 400 });
   const key = ticker.toUpperCase();
 

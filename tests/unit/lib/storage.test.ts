@@ -74,3 +74,36 @@ describe('portfolio backup data', () => {
     ]);
   });
 });
+
+describe('loadPortfolio recovery', () => {
+  const KEY = 'portfolio_compass_v1';
+
+  it('keeps valid holdings when one stored item is invalid, and preserves the raw data', async () => {
+    const { loadPortfolio, CORRUPT_BACKUP_KEY } = await import('@/lib/storage');
+    localStorage.clear();
+    const raw = JSON.stringify([
+      { ticker: 'VOO', weight: 60, shares: 3 },
+      { ticker: 'XEQT', weight: 40 },
+      { ticker: 'BND', weight: Number.NaN, shares: -2 },
+      { weight: 10, shares: 1 },
+    ]);
+    localStorage.setItem(KEY, raw);
+
+    expect(loadPortfolio()).toEqual([
+      { ticker: 'VOO', weight: 60, shares: 3 },
+      { ticker: 'XEQT', weight: 40, shares: 0 },
+      { ticker: 'BND', weight: 0, shares: 0 },
+    ]);
+    expect(localStorage.getItem(CORRUPT_BACKUP_KEY)).toBe(raw);
+  });
+
+  it('keeps the first corrupt copy when a later load is also invalid', async () => {
+    const { loadPortfolio, CORRUPT_BACKUP_KEY } = await import('@/lib/storage');
+    localStorage.clear();
+    localStorage.setItem(KEY, '{not json');
+    expect(loadPortfolio()).toEqual([]);
+    localStorage.setItem(KEY, '[{"ticker":"SPY"}]');
+    expect(loadPortfolio()).toEqual([{ ticker: 'SPY', weight: 0, shares: 0 }]);
+    expect(localStorage.getItem(CORRUPT_BACKUP_KEY)).toBe('{not json');
+  });
+});
