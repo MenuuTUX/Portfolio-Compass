@@ -1,6 +1,6 @@
 # Compass Lab: plan for an advanced backtesting workspace
 
-Status: historical design document, written 2026-10-28 before the Lab was built. Phases 1 to 4 are built; the README describes what exists now, and `docs/interview-notes.md` lists where this plan and the code differ.
+Status: historical design document, written 2026-10-28 before the Lab was built. Phases 1 to 4 are built; the README describes what exists now, and `docs/design-notes.md` lists where this plan and the code differ.
 
 Compass Lab is a separate, opt-in side of Portfolio Compass for advanced users. In it they write strategies in code (or define allocation rules without code) and test them on their own portfolios and on any equity or ETF universe. It stays an educational research tool, like the rest of the site. It never places trades, connects to a broker, or runs live.
 
@@ -31,7 +31,7 @@ These constraints shape the design. Each one is real today.
 
 | Constraint | Where | Effect on the Lab |
 | --- | --- | --- |
-| History uses `close`, not `adjclose` | `lib/math/portfolio-returns.ts` header comment, `lib/fast-market.ts` | Phase 0 found Yahoo's `close` is already split-adjusted but not dividend-adjusted, so current returns were price returns that miss dividends. The Lab uses `adjclose` plus dividend events. Update: the main site's performance math now reads an optional `adjPrice` per history point and reports total return when every holding has one (see `docs/interview-notes.md`, item 1). |
+| History uses `close`, not `adjclose` | `lib/math/portfolio-returns.ts` header comment, `lib/fast-market.ts` | Phase 0 found Yahoo's `close` is already split-adjusted but not dividend-adjusted, so current returns were price returns that miss dividends. The Lab uses `adjclose` plus dividend events. Update: the main site's performance math now reads an optional `adjPrice` per history point and reports total return when every holding has one (see `docs/design-notes.md`, item 1). |
 | Daily bars only reach 1Y. 5Y is weekly and MAX is monthly | `RANGE_CONFIG` in `lib/fast-market.ts` | Long daily backtests need a new date-range endpoint. |
 | 60-ticker cap per request | `parseTickers(..., 60)` in `app/api/market/chart/route.ts` | Universe tests have to batch. |
 | 120 req/min per IP, in memory | `proxy.ts` | The client needs a local cache and must batch requests. |

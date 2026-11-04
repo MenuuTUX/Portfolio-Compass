@@ -1,22 +1,12 @@
-# Portfolio Compass: interview notes
+# Portfolio Compass: design notes
 
 First written at commit 1aa9790. Updated 2026-11-04 for the total-return change and the Lab's robustness tools. Code references are repo-relative `file:line` and were read directly; line numbers may drift. Where a claim comes from a planning document rather than code, it says so.
 
-## 1. Two-minute spoken explanation
+How the main pieces work, what they assume, and where they fall short.
 
-I built Portfolio Compass, a browser app for looking at stocks and ETFs before deciding what to hold. You search for tickers, see quotes and charts, and assemble a portfolio. Everything you enter stays in your browser. There is no account and no database, so the server holds nothing about you.
+## 1. How it works
 
-The project has three parts I can explain. The first is an allocation panel. It estimates how the holdings move together using a covariance matrix, which comes from overlapping price history when there is enough of it and from a market-model shortcut when there is not. It then spends the budget in whole shares, one small lot at a time, each time buying the lot that does best on a simple score: expected return minus a risk penalty. It is a heuristic. It can only buy, and it does not place trades, so I describe it as a teaching tool and not an optimizer.
-
-The second part is a Monte Carlo simulator. It takes each holding's historical daily returns, models them as geometric Brownian motion with correlated random shocks, and draws many possible paths. The output is a range of outcomes, not a forecast, and it uses total return (dividend-adjusted closes) when every holding has them, falling back to a labelled price return otherwise.
-
-The third part is Compass Lab, a backtesting engine. A strategy is either a set of rules or a short piece of Python or TypeScript that returns target weights. The engine owns cash, fills, costs, dividends and rebalancing, so every strategy gets the same accounting. Orders decided on one day fill on the next day. It reports CAGR, volatility, Sharpe, Sortino, drawdown and Calmar, and it hashes each run's inputs so the same run can be checked.
-
-I would be upfront about the limits. The main site's performance math uses dividend-adjusted closes, so it is total return when every holding has them, and falls back to a labelled price return otherwise. The S&P list in the repo is a current list, so backtests on it would carry survivorship bias. The lookahead check is a heuristic. The Lab shows a first-70% and last-30% view of each run, and for the no-code trend rule a parameter sweep and a walk-forward test. It counts variants tried and warns from 10. These cover one rule only, and the count resets on reload.
-
-## 2. How it works
-
-### 2.1 Backtest engine (`lib/lab/engine/simulate.ts`, `backtest.ts`, `frame.ts`)
+### 1.1 Backtest engine (`lib/lab/engine/simulate.ts`, `backtest.ts`, `frame.ts`)
 
 - **Inputs.** `buildFrame` aligns every ticker on the union of trading dates, in one base currency. Missing bars stay NaN and are never zero (`frame.ts` header). Non-base currencies are converted with dated FX, and the build throws when no FX series is supplied. Split-adjusted open, close and adjClose are kept, plus cash dividends on their ex-dates.
 - **Timing and no execution lookahead.** The target row for bar t is decided after t's close. Its orders fill at bar t+1, at open by default (`simulate.ts:7-9`, `simulate.ts:114`, rebalance call at `simulate.ts:217-218`).
@@ -30,7 +20,7 @@ I would be upfront about the limits. The main site's performance math uses divid
 - **Benchmark.** A single ticker held buy-and-hold with no cash flows and no rebalancing (`backtest.ts:93-102`).
 - **Run hash.** SHA-256 over the engine version, settings, strategy identity, dates, tickers, currency and the four price arrays the engine actually used (`run-hash.ts:18-37`).
 
-### 2.2 Metrics (`lib/lab/engine/metrics.ts`)
+### 1.2 Metrics (`lib/lab/engine/metrics.ts`)
 
 Returns are time-weighted, so contributions are not counted as performance.
 
@@ -46,7 +36,7 @@ Returns are time-weighted, so contributions are not counted as performance.
 - **Beta and alpha.** Beta = cov(r, r_bench) / var(r_bench) (`metrics.ts:127-140`). Alpha is annualized Jensen's alpha: (mean r − rf daily − beta × (mean r_bench − rf daily)) × 252 (`metrics.ts:141`).
 - **Turnover.** Total absolute traded value at fill prices, halved, divided by mean equity and by years (`metrics.ts:156-159`). It is one-way turnover per year.
 
-### 2.3 Covariance estimation (`lib/math/covariance.ts`, `history.ts`)
+### 1.3 Covariance estimation (`lib/math/covariance.ts`, `history.ts`)
 
 Two estimators, never mixed (`covariance.ts:28-30`, the reason being that mixing can give a matrix that is not positive semi-definite and a negative modelled variance).
 
@@ -55,7 +45,7 @@ Two estimators, never mixed (`covariance.ts:28-30`, the reason being that mixing
 - **Single-index fallback.** Off-diagonal cov(i, j) = β_i × β_j × σ_m², with σ_m fixed at 15% (`covariance.ts:44`, `covariance.ts:62-84`). Diagonal variance = β_i² × σ_m² + idiosyncratic variance, with idiosyncratic volatility of 22% for STOCK, 6% for ETF and 0 for cash (`covariance.ts:51-54`, `covariance.ts:75-81`). Variance has a 1e-6 floor (`covariance.ts:60`).
 - **Why the off-diagonals matter.** The header comment gives the concrete case: with the off-diagonals zeroed, sixteen S&P 500 trackers would show about 3.8% volatility. The correct figure is about 15% (`covariance.ts:12-16`).
 
-### 2.4 Monte Carlo (`lib/monte-carlo.ts`, `components/simulation/MonteCarloSimulator.tsx`)
+### 1.4 Monte Carlo (`lib/monte-carlo.ts`, `components/simulation/MonteCarloSimulator.tsx`)
 
 - **Model.** For each day, each asset's log return is μ_i + (L z)_i, where z is a vector of independent standard normals from Box-Muller (`monte-carlo.ts:231-242`, `boxMullerTransform` at `monte-carlo.ts:262-268`). Price_i is multiplied by exp(log return) (`monte-carlo.ts:241-242`).
 - **Drift.** μ_i is the sample mean of that asset's daily log returns (`MonteCarloSimulator.tsx:255-257`).
@@ -65,16 +55,16 @@ Two estimators, never mixed (`covariance.ts:28-30`, the reason being that mixing
 - **Preconditions.** At least 200 aligned daily returns for every holding (`MonteCarloSimulator.tsx:245`). A fresh, complete valuation in one currency is required, and mixed currencies are converted with dated FX before the run (`MonteCarloSimulator.tsx:168-216`).
 - **Seeding.** The simulator takes a seed. The UI draws a random seed for each run, shows it under "What this simulation used", and has a checkbox to reuse it so a run can be reproduced exactly (`MonteCarloSimulator.tsx`, `monte-carlo.ts:180`).
 
-### 2.5 Allocation heuristic (`lib/optimizer.ts`, `components/OptimizationPanel.tsx`)
+### 1.5 Allocation heuristic (`lib/optimizer.ts`, `components/OptimizationPanel.tsx`)
 
 - **Objective.** U(w) = μ_p − λ × σ_p², computed from market-value weights and the covariance matrix (`optimizer.ts:76-103`).
-- **Risk penalty.** λ = 10 for conservative, 5 for balanced, 1 for growth (`optimizer.ts:41-45`).
+- **Risk penalty.** λ = 3 for conservative, 1.4 for balanced, 0.9 for growth, calibrated so a broad stock and bond fund pair lands near 30%, 60% and 90% equity (`LAMBDA_BY_PROFILE` in `optimizer.ts`). The earlier values (10, 5, 1) gave about 13%, 20% and 83% once the allocator spent the full budget.
 - **Return proxy.** expected return = yield + β × 0.06, with the 6% named `BETA_PREMIUM_ASSUMPTION` in `OptimizationPanel.tsx` and described in the panel's "How it works" text. The 6% is a fixed assumption, not data.
 - **Search.** Greedy. Each step tries one lot per asset, sized to about $100 of that asset (`STEP_VALUE`, `optimizer.ts:48`). The step grows to budget / 400 for large budgets (`optimizer.ts:57`, `optimizer.ts:181`). The asset with the best utility gain per dollar wins. The loop keeps buying until the cash left is below the cheapest share, even when the best lot slightly lowers utility. U depends only on weights, so a "stop when nothing improves U" rule left most of a new investor's budget in cash after one or two purchases; spending the budget instead converges on the fully invested mean-variance mix (a unit test checks it against the closed-form two-asset optimum). Assets with a non-positive return proxy are never bought, since cash dominates them.
 - **Buy only.** The allocator cannot sell (`optimizer.ts:112-116`). Its budget is the target total minus current value (`OptimizationPanel.tsx:79`).
 - **Display only.** The panel says Apply is unavailable (`OptimizationPanel.tsx:328`).
 
-## 3. Known limitations, stated honestly
+## 2. Known limitations
 
 Each item below was verified in the code or docs, and the source is given.
 
@@ -88,7 +78,7 @@ Each item below was verified in the code or docs, and the source is given.
 
 **Compass Lab engine**
 
-6. **Strategies see the full history in one call.** Execution cannot happen before the bar that decided it, but the signal can still read later prices. Only a heuristic check catches that (see 7 and section 5, question 2). The plan says the engine gives strategies only bars up to t (plan section 4.1). The code does not do this.
+6. **Strategies see the full history in one call.** Execution cannot happen before the bar that decided it, but the signal can still read later prices. Only a heuristic check catches that (see 7, and section 1.1). The plan says the engine gives strategies only bars up to t (plan section 4.1). The code does not do this.
 7. **The lookahead check is a heuristic.** It reruns the strategy with history cut at 60% and 85% of the sample and flags any earlier weight that changes (`lookaheadCutoffs` and `checkLookahead`, `lib/lab/strategy/weights.ts`; called from `ts-worker.ts:44` and `py-worker.ts:130`). It can miss leaks that do not show at those two cut points.
 8. **Strategies see backward-adjusted prices.** The price matrix a strategy receives is adjClose (`lib/lab/strategy/types.ts`, `ts-runner.ts` `pricesView`). That series is adjusted backward from today, so its level at a past date depends on later dividends. Ratios are safe. Price levels can leak future information (plan, Phase 2, caveat 2).
 9. **Overfitting guards are partial.** Each Lab run shows the first 70% and last 30% of its own equity curve side by side (`lib/lab/engine/holdout.ts`, with tests). The rule is not refit between the two pieces, so this is a consistency check, not a true out-of-sample test. For the no-code trend rule there is also a sweep over moving-average lengths and a walk-forward test (`lib/lab/engine/sweep.ts`, `walkforward.ts`, with tests). The walk-forward picks the best-Sharpe length on three years, applies it to the next year, and stitches the test years into one out-of-sample curve. Limits: each length is simulated once over the whole history, so a switch at a window edge pays no cost and carries the position it would already have held; the length list is our choice; it is one path through one history. Code strategies and the momentum rule are not swept. A variant count (distinct run hashes in the session, sweep values included) triggers a plain warning from 10, with no p-value, and resets on reload.
@@ -114,7 +104,7 @@ Each item below was verified in the code or docs, and the source is given.
 23. **Rate limiting is per process.** The API limit is 120 requests per minute per IP, kept in memory (`proxy.ts:14-15`). Users behind a shared IP can hit it together, and the limit resets when the process restarts.
 24. **Local-first means local-only data.** Clearing site data erases the portfolio (README, Architecture). The Lab's strategies and cache live in IndexedDB and localStorage in the same browser.
 
-## 4. Documentation versus code
+## 3. Documentation versus code
 
 These are the mismatches found while reading. None is hidden in this note.
 
@@ -129,60 +119,7 @@ These are the mismatches found while reading. None is hidden in this note.
 
 The README's statements on rate limiting (120 per minute per IP in `proxy.ts`), quote staleness, FX withholding, and the description of the allocator and Monte Carlo all match the code.
 
-## 5. Questions an interviewer might ask
-
-**1. Why do you fill orders on the next bar?**
-A signal computed from bar t's close cannot be traded at that same close, because the decision uses information that exists only after the close. The earliest realistic fill is the next open, and the engine does that (`simulate.ts:7-9`, `simulate.ts:217-218`). Filling at the next close is also available. The default of next open is the more conservative choice.
-
-**2. What is lookahead bias, and does your engine prevent it?**
-Lookahead bias means a test uses information that would not have been available when the decision was made. There are two kinds here. Execution lookahead is prevented by construction: orders decided at t fill at t+1. Signal lookahead is not prevented. Strategies get the whole price matrix in one call, so a strategy can read future prices. The engine detects this only heuristically: it reruns the strategy on truncated history at 60% and 85% of the sample and flags earlier weights that change (`lib/lab/strategy/weights.ts`). I would say that plainly rather than claim the engine guarantees no lookahead.
-
-**3. Why can a high Sharpe ratio mislead?**
-Sharpe divides the average excess return by volatility, so it assumes returns are roughly stable and that volatility captures the risk. It ignores crash risk and skew, and it can look excellent on a short or lucky sample. Here it uses a 0% risk-free rate, which is fine for this UI but is not the rate you would earn in cash (`metrics.ts:117-119`). Sortino and Calmar are shown alongside it because they answer different questions about the same returns.
-
-**4. What does overfitting look like in this project?**
-The most likely path is that a user edits the parameters or the code, reruns until the equity curve looks best, and reports that run. Each run has a hash, so a run can be reproduced, and each result shows how the first 70% and last 30% of the history compare, which exposes a rule that only worked early on. The Lab now counts distinct variants tried in the session and warns from 10, and a walk-forward test shows how a pick-on-the-past rule would have done. That is a warning and a better check, not protection: the count resets on reload, runs made in another tab or session are invisible to it, and a user can still pick the best of many code-mode runs, which are counted but not swept.
-
-**5. What does the run hash guarantee?**
-Two runs with the same hash used the same engine version, settings, strategy identity, dates, tickers, currency and the same price, open, close, adjusted close and dividend arrays (`run-hash.ts:18-37`). It does not guarantee the strategy is identical for matrix-only inputs, because that identity is a 32-bit fingerprint (`backtest.ts:119-125`), and it does not cover the runtime (for example the Python version).
-
-**6. Why is the simulator built on time-weighted returns?**
-Money added during the period would otherwise look like performance. A time-weighted return removes each day's flow before computing that day's return (`metrics.ts:47-54`). This makes a strategy with monthly contributions comparable to one without. Dollar-weighted (money-weighted) return answers a different question, the return on the investor's own cash.
-
-**7. Why does Monte Carlo use GBM, and what are its weaknesses?**
-GBM is simple and closed form, and it keeps prices positive because it works on log returns. The Cholesky step keeps the assets correlated the way history says they were. Its weaknesses are that it assumes constant drift and volatility, normal shocks with no fat tails, independent days and a stable correlation. A calm lookback produces a narrow cone, and a crash that is absent from the history is absent from the paths. The output should be read as a range given the past, not a forecast.
-
-**8. Why is there no −σ²/2 term in the drift?**
-The drift is the sample mean of daily log returns, applied to log returns (`MonteCarloSimulator.tsx:255-257`, `monte-carlo.ts:241-242`). The −σ²/2 correction appears when the drift is written for arithmetic returns. Here the estimated mean of log returns already includes that effect, so adding the term again would double-count it.
-
-**9. Why do off-diagonal covariance terms matter?**
-Portfolio variance is the sum of all pairwise covariances, so zeroing them makes variance fall with the number of holdings. The code's own example is sixteen S&P 500 trackers, which would show about 3.8% volatility instead of about 15% (`covariance.ts:12-16`). Two funds that track the same index are one bet, and only the covariance term shows it.
-
-**10. Why use a single-index model when history is missing?**
-With fewer than 40 aligned returns or less than about 3 months of overlap, a sample covariance is unreliable. The market-model fallback gives every pair a correlation driven by beta, so two funds on the same index still look correlated (`covariance.ts:62-84`). It rests on fixed assumptions (15% market volatility, 22% or 6% idiosyncratic), and the code says so.
-
-**11. Is the allocator an optimizer?**
-Not in the sense of a Sharpe optimizer. It maximizes expected return minus a risk penalty, using a return proxy of yield plus beta times 6% (`OptimizationPanel.tsx:51`). It is greedy and buy-only, so it can add but never sell (`optimizer.ts:112-116`). It does not solve for weights and its results cannot be applied from the panel. The README says the same.
-
-**12. How did you check the engine is correct?**
-The Lab plan records hand-computed unit cases and golden tests against recorded SPY and AGG data, with tolerances of 0.006% and 0.004% (plan, Phase 2). I have not run those tests for these notes. In an interview I would describe them as a claim from the plan and point to `tests/unit/lib/lab-engine.test.ts`, rather than say I re-ran them.
-
-**13. Why local-first, with no server database?**
-Portfolios are personal, and keeping them in the browser means the server never sees them. There is no login to build or secure, and the hosting stays cheap (README, Architecture). The trade-offs are that clearing site data erases the portfolio, there is no sync between devices, and the server cannot help with heavy computation. The Lab follows the same rule: user code runs in the user's browser, and the server only proxies market data (plan, section 4).
-
-**14. Why does the Lab use a vectorized contract for Python?**
-The strategy gets the whole matrix once and returns the whole weight matrix once. Crossing the JavaScript and Python boundary on every bar is slow, and the plan measured that the data copy takes milliseconds while Python's cost is mostly startup (plan, Phase 0).
-
-**15. Why not use decimal arithmetic for money?**
-Decimal arithmetic slows sweeps a lot, and float error is far below the noise in the price data. The plan records the decision and relies on golden tests to catch drift (plan, Phase 2, decision 1). For a student project I would say this openly, because a reviewer in finance may push on it.
-
-**16. What would you add next?**
-In order: sweeps and walk-forward for code strategies, saving runs so the variant count survives a reload, a survivorship warning before any index list is used as a universe, total-return data from dated distributions or adjusted prices, and longer FX history for mixed-currency portfolios. These follow directly from the limitations above.
-
-**17. Why does the allocator add lots of about $100?**
-The step size keeps the search from being dominated by very cheap or very expensive shares, and it keeps runtime bounded (`optimizer.ts:48`, `optimizer.ts:51-57`). The comment records that a fixed $100 step made runtime linear in the budget, so a 100-asset, $20 million case blocked the main thread for 98 seconds. The step now grows to budget / 400.
-
-## 6. Glossary
+## 4. Glossary
 
 - **Time-weighted return.** The return of the portfolio with cash flows removed, so the investor's timing of contributions does not affect the number. Used for all Lab returns (`metrics.ts:47-54`).
 - **CAGR.** Compound annual growth rate: the constant yearly rate that turns the start value into the end value over the period (`metrics.ts:115`).
@@ -193,12 +130,12 @@ The step size keeps the search from being dominated by very cheap or very expens
 - **Calmar ratio.** CAGR divided by the size of the maximum drawdown (`metrics.ts:125`).
 - **Covariance matrix.** A table of the variances of each holding and the covariances between each pair. It drives both the allocator and the Monte Carlo (`covariance.ts`).
 - **Geometric Brownian motion (GBM).** A model where log returns are normal with constant drift and volatility, so prices stay positive. Used for the Monte Carlo paths (`monte-carlo.ts:231-251`).
-- **Lookahead bias.** Using information that was not available when a decision was made. The engine prevents execution lookahead and only partly detects signal lookahead (section 2.1, question 2).
+- **Lookahead bias.** Using information that was not available when a decision was made. The engine prevents execution lookahead and only partly detects signal lookahead (section 1.1).
 - **Survivorship bias.** A backtest that uses only the companies that still exist today overstates returns, because the failures are missing. The S&P list in the repo is a current list (plan, section 2).
 - **Slippage.** The gap between the expected price and the fill price, here a fixed number of basis points against the trader (`simulate.ts:137-145`).
 
 
-## TFSA planner (`/tfsa`)
+## 5. TFSA planner (`/tfsa`)
 
 **What it is.** A page that works out TFSA contribution room and shows what steady monthly saving adds up to. It exists because the project was built for people who have just opened a TFSA.
 
@@ -210,8 +147,3 @@ The step size keeps the search from being dominated by very cheap or very expens
 **Where the facts came from.** The yearly limits, the 1% per month excess tax and the withdrawal rule are from the CRA page "Before you contribute to a TFSA". The foreign tax credit and carrying-on-a-business points link to CRA folios on the page. I did not use any statistic about young investors, because I have no source for one.
 
 **Limits.** The planner only knows what the user types, so it can disagree with CRA My Account. It knows limits through 2026. It does not model taxable accounts, so it makes no claim about how much a TFSA saves in tax.
-
-**Likely questions.**
-- *Why does a TFSA matter for investing?* Growth inside it is generally not taxed, so the full return compounds. The catch is the contribution limit and the 1% per month excess tax.
-- *Why not recommend funds?* The site is an educational tool and does not assess suitability. It shows the evidence and the assumptions.
-- *What would you add next?* Total-return data, so the main site matches the Lab, and a comparison of holding a US-listed fund versus a Canadian-listed one inside a TFSA that includes foreign withholding tax, once I can source the rates.
