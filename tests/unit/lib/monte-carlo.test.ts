@@ -161,3 +161,23 @@ describe('Monte Carlo Math Library', () => {
   });
 
 });
+
+describe('generateMonteCarloPaths stepDays', () => {
+  it('a 21-day step matches 21 daily steps in drift and in variance of the log value', async () => {
+    const { generateMonteCarloPaths } = await import('@/lib/monte-carlo');
+    const mu = 0.0003;
+    const sigma = 0.01;
+    // No shock: one year as 12 monthly steps equals 252 daily steps exactly.
+    const daily = generateMonteCarloPaths([100], [1], [mu], [[0]], 1, 252, 1000, 1);
+    const monthly = generateMonteCarloPaths([100], [1], [mu], [[0]], 1, 12, 1000, 1, 21);
+    expect(monthly[0][12]).toBeCloseTo(daily[0][252], 8);
+
+    // With shock: the variance of the 1-year log value is 252·σ² for both.
+    const paths = generateMonteCarloPaths([100], [1], [0], [[sigma]], 4000, 12, 1, 7, 21);
+    const logs = paths.map((p) => Math.log(p[12]));
+    const mean = logs.reduce((a, b) => a + b, 0) / logs.length;
+    const variance = logs.reduce((a, b) => a + (b - mean) ** 2, 0) / (logs.length - 1);
+    expect(variance).toBeGreaterThan(252 * sigma ** 2 * 0.9);
+    expect(variance).toBeLessThan(252 * sigma ** 2 * 1.1);
+  });
+});

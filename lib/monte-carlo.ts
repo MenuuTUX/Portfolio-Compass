@@ -42,8 +42,11 @@ function calculateMean(data: number[]): number {
  */
 export function calculateQuantile(values: number[], probability: number): number {
   if (values.length === 0) return 0;
+  return quantileOfSorted([...values].sort((a, b) => a - b), probability);
+}
 
-  const sorted = [...values].sort((a, b) => a - b);
+/** Same interpolation as `calculateQuantile`, for a sample already sorted ascending. */
+function quantileOfSorted(sorted: ArrayLike<number>, probability: number): number {
   const clampedProbability = Math.min(1, Math.max(0, probability));
   const position = (sorted.length - 1) * clampedProbability;
   const lower = Math.floor(position);
@@ -134,25 +137,6 @@ export function getCholeskyDecomposition(matrix: number[][]): number[][] {
 }
 
 /**
- * Matrix Multiplication: A (nxm) * B (mx1) -> C (nx1)
- * Used for L * Z
- */
-function multiplyMatrixVector(matrix: number[][], vector: number[]): number[] {
-  const rows = matrix.length;
-  const cols = matrix[0].length;
-  const result = Array(rows).fill(0);
-
-  for (let i = 0; i < rows; i++) {
-    let sum = 0;
-    for (let j = 0; j < cols; j++) {
-      sum += matrix[i][j] * vector[j];
-    }
-    result[i] = sum;
-  }
-  return result;
-}
-
-/**
  * Generates Monte Carlo simulation paths for a multi-asset portfolio.
  *
  * Price dynamics use geometric Brownian motion with correlated shocks
@@ -169,6 +153,11 @@ function multiplyMatrixVector(matrix: number[][], vector: number[]): number[] {
  * @param numDays               Trading days to simulate
  * @param initialPortfolioValue Starting wealth
  * @param seed                  Optional seed for repeatable simulations
+ * @param stepDays              Trading days per simulated step (default 1). With
+ *                              k > 1 each step draws drift k·μ and shock √k·L·Z,
+ *                              which is exactly the distribution of k summed daily
+ *                              log returns, so values at step ends are unchanged
+ *                              in distribution and many more paths are affordable.
  */
 export function generateMonteCarloPaths(
   currentPrices: number[],
@@ -179,6 +168,7 @@ export function generateMonteCarloPaths(
   numDays: number,
   initialPortfolioValue: number,
   seed?: number,
+  stepDays = 1,
 ): number[][] {
   const numAssets = currentPrices.length;
   if (numAssets === 0 || weights.length !== numAssets || meanReturns.length !== numAssets) {
@@ -206,11 +196,15 @@ export function generateMonteCarloPaths(
   if (!Number.isFinite(initialPortfolioValue) || initialPortfolioValue <= 0) {
     throw new RangeError("Starting portfolio value must be finite and positive.");
   }
+  if (!Number.isInteger(stepDays) || stepDays < 1) {
+    throw new RangeError("Step length must be a positive whole number of days.");
+  }
   if (seed !== undefined && !Number.isFinite(seed)) {
     throw new RangeError("Simulation seed must be finite.");
   }
 
   const paths: number[][] = [];
+  const shockScale = Math.sqrt(stepDays);
   let randomState = seed;
   const random = () => {
     if (randomState === undefined) return Math.random();
@@ -222,24 +216,29 @@ export function generateMonteCarloPaths(
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
 
-  for (let sim = 0; sim < numSimulations; sim++) {
-    const path: number[] = [initialPortfolioValue];
-    // Buy-and-hold: share counts fixed at t=0.
-    const shares = weights.map((w, i) => (initialPortfolioValue * w) / currentPrices[i]);
+  // Buffers reused across every step: allocating them per step dominated the
+  // run time. The draw order is unchanged, so a seed gives the same paths.
+  const Z = new Float64Array(numAssets);
+  const simAssetPrices = new Float64Array(numAssets);
+  const shares = weights.map((w, i) => (initialPortfolioValue * w) / currentPrices[i]);
 
-    const simAssetPrices = [...currentPrices];
+  for (let sim = 0; sim < numSimulations; sim++) {
+    const path: number[] = new Array(numDays + 1);
+    path[0] = initialPortfolioValue;
+    // Buy-and-hold: share counts fixed at t=0.
+    for (let i = 0; i < numAssets; i++) simAssetPrices[i] = currentPrices[i];
 
     for (let day = 0; day < numDays; day++) {
       // 1. Uncorrelated standard normals
-      const Z = Array.from({ length: numAssets }, () => boxMullerTransform(random));
+      for (let i = 0; i < numAssets; i++) Z[i] = boxMullerTransform(random);
 
-      // 2. Correlate: shock = L · Z
-      const R_shock = multiplyMatrixVector(choleskyMatrix, Z);
-
-      // 3. Evolve paths with the caller's drift and mark portfolio.
+      // 2-3. Correlate (shock = L · Z), evolve with the caller's drift, and mark.
       let totalValue = 0;
       for (let i = 0; i < numAssets; i++) {
-        const logRet = meanReturns[i] + R_shock[i];
+        const row = choleskyMatrix[i];
+        let shock = 0;
+        for (let j = 0; j < numAssets; j++) shock += row[j] * Z[j];
+        const logRet = meanReturns[i] * stepDays + shock * shockScale;
         simAssetPrices[i] *= Math.exp(logRet);
         if (!Number.isFinite(simAssetPrices[i]) || simAssetPrices[i] <= 0) {
           throw new RangeError("A simulated price became invalid.");
@@ -249,7 +248,7 @@ export function generateMonteCarloPaths(
       if (!Number.isFinite(totalValue) || totalValue <= 0) {
         throw new RangeError("A simulated portfolio value became invalid.");
       }
-      path.push(totalValue);
+      path[day + 1] = totalValue;
     }
     paths.push(path);
   }
@@ -288,13 +287,15 @@ export function calculateCone(paths: number[][]): MonteCarloCone {
   const p05Path: number[] = [];
   const p95Path: number[] = [];
 
+  const values = new Float64Array(paths.length);
   for (let day = 0; day < numDays; day++) {
-    // Collect values for this day across all sims
-    const values = paths.map((p) => p[day]);
+    // Collect values for this day across all sims; sort once for all three.
+    for (let s = 0; s < paths.length; s++) values[s] = paths[s][day];
+    values.sort();
 
-    medianPath.push(calculateQuantile(values, 0.5));
-    p05Path.push(calculateQuantile(values, 0.05));
-    p95Path.push(calculateQuantile(values, 0.95));
+    medianPath.push(quantileOfSorted(values, 0.5));
+    p05Path.push(quantileOfSorted(values, 0.05));
+    p95Path.push(quantileOfSorted(values, 0.95));
   }
 
   return {

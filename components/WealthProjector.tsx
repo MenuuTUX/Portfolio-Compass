@@ -24,6 +24,7 @@ import {
 } from "@/lib/math/portfolio-returns";
 import { projectContributionScenario } from "@/lib/math/scenario";
 import { PortfolioShareButton } from "./PortfolioShareButton";
+import { GAIN, HAIRLINE, HAIRLINE_STRONG, MUTED } from "@/lib/chart-colors";
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
@@ -203,7 +204,7 @@ export default function WealthProjector({
         )}
         {mixedCurrency && (
           <p className="mb-6 text-xs text-muted">
-            Monte Carlo converts historical USD prices to CAD using dated Bank of Canada daily FX averages. Future exchange rate changes are excluded; simulated results remain illustrative price-only model assumptions.
+            Monte Carlo converts historical USD prices to CAD using dated Bank of Canada daily FX averages. Future exchange rate changes are excluded; simulated results remain illustrative model assumptions.
           </p>
         )}
 
@@ -370,25 +371,25 @@ export default function WealthProjector({
                 <AreaChart data={projectionData}>
                   <defs>
                     <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6dc382" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6dc382" stopOpacity={0} />
+                      <stop offset="5%" stopColor={GAIN} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={GAIN} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="#333"
+                    stroke={HAIRLINE}
                     vertical={false}
                   />
                   <XAxis
                     dataKey="year"
-                    stroke="#666"
-                    tick={{ fill: "#666" }}
+                    stroke={HAIRLINE_STRONG}
+                    tick={{ fill: MUTED, fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    stroke="#666"
-                    tick={{ fill: "#666" }}
+                    stroke={HAIRLINE_STRONG}
+                    tick={{ fill: MUTED, fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                     width={88}
@@ -406,7 +407,7 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="balance"
                     name="Balance Under Assumptions"
-                    stroke="#6dc382"
+                    stroke={GAIN}
                     fillOpacity={1}
                     fill="url(#colorBalance)"
                     animationDuration={1100}
@@ -416,7 +417,7 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="invested"
                     name="Total Invested"
-                    stroke="#525252"
+                    stroke={MUTED}
                     strokeDasharray="5 5"
                     fill="transparent"
                     animationBegin={200}

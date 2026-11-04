@@ -51,6 +51,13 @@ import { cn } from "@/lib/utils";
 
 const HORIZONS = [5, 10, 15, 20, 30] as const;
 const PATH_COUNTS = [20, 50, 100] as const;
+/**
+ * The drawn paths are few so they stay legible, but a 5th percentile from 20
+ * paths is roughly the second-worst path. The bands and the risk figures come
+ * from a separate, larger run stepped monthly (21 trading days).
+ */
+const STATS_PATHS = 2000;
+const STATS_STEP_DAYS = 21;
 
 /** Whole years on the x axis, thinned so long horizons stay readable. */
 function yearTicks(years: number) {
@@ -139,6 +146,7 @@ export default function MonteCarloSimulator({
   const animationFrameRef = useRef<number>(0);
   const allPathsRef = useRef<number[][]>([]);
   const coneRef = useRef<any>(null);
+  const statsFinalRef = useRef<number[]>([]);
 
   // Effect to sync initialInvestment with portfolio value if it loads later and we are at default
   useEffect(() => {
@@ -321,8 +329,21 @@ export default function MonteCarloSimulator({
       runSeed,
     );
 
+    const statsPaths = generateMonteCarloPaths(
+      currentPrices,
+      weights,
+      meanReturns,
+      cholesky,
+      STATS_PATHS,
+      (timeHorizonYears * 252) / STATS_STEP_DAYS,
+      initialInvestment,
+      (runSeed + 1) | 0,
+      STATS_STEP_DAYS,
+    );
+
     allPathsRef.current = paths;
-    coneRef.current = calculateCone(paths);
+    coneRef.current = calculateCone(statsPaths);
+    statsFinalRef.current = statsPaths.map((p) => p[p.length - 1]);
     setIsSimulating(true);
   }, [
     portfolio,
@@ -386,7 +407,7 @@ export default function MonteCarloSimulator({
     const { median, p05, p95 } = coneRef.current;
     return median.map((m: number, i: number) => {
       return {
-        day: i,
+        day: i * STATS_STEP_DAYS,
         median: m,
         p05: p05[i],
         p95: p95[i],
@@ -398,11 +419,11 @@ export default function MonteCarloSimulator({
   const riskMetrics = useMemo(() => {
     if (
       !simulationComplete ||
-      !allPathsRef.current.length ||
+      !statsFinalRef.current.length ||
       !coneChartData.length
     )
       return null;
-    const finalValues = allPathsRef.current.map((p) => p[p.length - 1]);
+    const finalValues = statsFinalRef.current;
 
     const medianOutcome = calculateQuantile(finalValues, 0.5);
     const p05Outcome = calculateQuantile(finalValues, 0.05);
@@ -643,13 +664,21 @@ export default function MonteCarloSimulator({
                 </span>{" "}
                 a year. Half of the simulated paths finished higher and half lower.
               </p>
+              {modelStats && (
+                <p className="mt-2 text-sm text-muted">
+                  The paths assume the average return of {modelStats.lookbackStart} to {modelStats.lookbackEnd} repeats
+                  every year. From {modelStats.observationCount} days of history, that average is only known to within
+                  about ±{(196 * modelStats.annualizedVolatility / Math.sqrt(modelStats.observationCount / 252)).toFixed(0)}{" "}
+                  points a year (95% interval), so the middle path mostly reflects how that period went.
+                </p>
+              )}
             </div>
 
             <dl className="divide-y divide-hairline rounded-lg ring-1 ring-hairline">
               {[
-                ["Stronger end", "1 in 20 paths finished above", riskMetrics.p95Outcome],
+                ["Stronger end", `1 in 20 of ${STATS_PATHS.toLocaleString()} modelled paths finished above`, riskMetrics.p95Outcome],
                 ["Typical", "The middle path", riskMetrics.medianOutcome],
-                ["Weaker end", "1 in 20 paths finished below", riskMetrics.p05Outcome],
+                ["Weaker end", `1 in 20 of ${STATS_PATHS.toLocaleString()} modelled paths finished below`, riskMetrics.p05Outcome],
               ].map(([label, note, value]) => (
                 <div key={label as string} className="flex items-center justify-between gap-4 px-4 py-3">
                   <div>

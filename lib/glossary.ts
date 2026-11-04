@@ -206,7 +206,7 @@ const entries = {
   sharpe: {
     label: "Sharpe Ratio",
     what: "Return earned per unit of risk (volatility), after a risk-free rate.",
-    means: "A higher historical value means more excess return per unit of measured volatility. The result changes with the period, data, and risk-free rate.",
+    means: "A higher historical value means more excess return per unit of measured volatility. The result changes with the period, data, and risk-free rate. Compass Lab uses a 0% risk-free rate.",
   },
   volatility: {
     label: "Volatility",
