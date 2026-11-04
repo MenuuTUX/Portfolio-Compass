@@ -2,18 +2,14 @@ import "./globals.css";
 import React from "react";
 import Providers from "@/components/Providers";
 import { ThemeProvider } from "@/components/theme-provider";
-import localFont from 'next/font/local';
+import { Inter } from 'next/font/google';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 
-const openaiSans = localFont({
-  src: [
-    { path: './fonts/OpenAISans-Regular.ttf', weight: '400', style: 'normal' },
-    { path: './fonts/OpenAISans-Medium.ttf', weight: '500', style: 'normal' },
-    { path: './fonts/OpenAISans-Semibold.ttf', weight: '600', style: 'normal' },
-    { path: './fonts/OpenAISans-Bold.ttf', weight: '700', style: 'normal' },
-  ],
-  variable: '--font-openai-sans',
+// Inter is open source (SIL Open Font License); next/font self-hosts it at build time.
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-app',
   display: 'swap',
 });
 
@@ -28,7 +24,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${openaiSans.variable}`} suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className="font-sans antialiased bg-canvas text-ink" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme-system-only">
           <Providers>

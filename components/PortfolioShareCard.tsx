@@ -197,7 +197,7 @@ export const PortfolioShareCard = React.forwardRef<
       <div
         ref={ref}
         className="w-[1080px] h-[1350px] bg-canvas text-ink p-12 flex flex-col relative overflow-hidden font-sans"
-        style={{ fontFamily: "var(--font-openai-sans), sans-serif" }}
+        style={{ fontFamily: "var(--font-app), sans-serif" }}
       >
 
         <div className="flex justify-between items-start mb-12 relative z-10 border-b border-hairline pb-8 shrink-0">
@@ -476,7 +476,7 @@ export const PortfolioShareCard = React.forwardRef<
                         textAnchor="end"
                         fill="#666"
                         fontSize="12"
-                        fontFamily="var(--font-openai-sans), sans-serif"
+                        fontFamily="var(--font-app), sans-serif"
                       >
                         {formatYTick(val)}
                       </text>
@@ -505,7 +505,7 @@ export const PortfolioShareCard = React.forwardRef<
                     textAnchor="start"
                     fill="#666"
                     fontSize="12"
-                    fontFamily="var(--font-openai-sans), sans-serif"
+                    fontFamily="var(--font-app), sans-serif"
                   >
                     Year 0
                   </text>
@@ -516,7 +516,7 @@ export const PortfolioShareCard = React.forwardRef<
                     textAnchor="middle"
                     fill="#666"
                     fontSize="12"
-                    fontFamily="var(--font-openai-sans), sans-serif"
+                    fontFamily="var(--font-app), sans-serif"
                   >
                     Year {metrics.years / 2}
                   </text>
@@ -527,7 +527,7 @@ export const PortfolioShareCard = React.forwardRef<
                     textAnchor="end"
                     fill="#666"
                     fontSize="12"
-                    fontFamily="var(--font-openai-sans), sans-serif"
+                    fontFamily="var(--font-app), sans-serif"
                   >
                     Year {metrics.years}
                   </text>

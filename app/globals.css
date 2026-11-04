@@ -2,7 +2,7 @@
 
 /* ---------------------------------------------------------------------------
    Portfolio Compass design tokens
-   Dark, calm, number-first. OpenAI Sans only. Neutral surfaces; saturated
+   Dark, calm, number-first. Inter only. Neutral surfaces; saturated
    color is reserved for gain, loss, and links.
 
    Theme-switchable tokens go through one layer of indirection: @theme wires
@@ -92,12 +92,12 @@
   --color-red-500: #e05a4e;
   --color-red-900: #7c2d24;
 
-  --font-sans: var(--font-openai-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-openai-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-openai-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-openai-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-app), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-app), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-app), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-app), ui-sans-serif, system-ui, sans-serif;
   /* Legacy alias: components referencing font-space fall back to the sans stack */
-  --font-space: var(--font-openai-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-space: var(--font-app), ui-sans-serif, system-ui, sans-serif;
 
   --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 
@@ -446,9 +446,8 @@ body {
 
 .card-shine { position: relative; }
 
-/* OpenAI Sans tabular figures widen "." and "," into visible gaps, so numbers use its default proportional figures. */
-.font-mono,
-.tabular-nums { font-variant-numeric: normal; }
+/* Inter's tabular figures keep columns of numbers aligned. */
+.font-mono { font-variant-numeric: tabular-nums; }
 
 /* Interaction: instant, quiet hover/press feedback */
 button, a, [role="button"] { transition-duration: 70ms; }
