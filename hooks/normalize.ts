@@ -38,12 +38,17 @@ export function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
       yieldInputUnit: raw?.metrics?.yieldInputUnit,
       yieldNormalization: raw?.metrics?.yieldNormalization,
       yieldMeasurementDate: raw?.metrics?.yieldMeasurementDate,
+      betaSource: raw?.metrics?.betaSource,
     },
-    allocation: {
-      equities: raw?.allocation?.equities ?? 0,
-      bonds: raw?.allocation?.bonds ?? 0,
-      cash: raw?.allocation?.cash ?? 0,
-    },
+    // A missing mix stays null; zeros would read as a known 0% equity fund.
+    allocation: raw?.allocation
+      ? {
+          equities: raw.allocation.equities ?? 0,
+          bonds: raw.allocation.bonds ?? 0,
+          cash: raw.allocation.cash ?? 0,
+          ...(raw.allocation.other !== undefined ? { other: raw.allocation.other } : {}),
+        }
+      : null,
     sectors: raw?.sectors || {},
     holdings: raw?.holdings,
     marketCap: raw?.marketCap,

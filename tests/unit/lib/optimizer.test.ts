@@ -75,6 +75,27 @@ describe('optimizePortfolioGreedy', () => {
     expect(getOptimizerInputGaps(items)).toEqual(['MISSING', 'YAHOO', 'NO_SOURCE']);
   });
 
+  it('accepts a dated TTM distribution yield with an estimated beta, and a known zero yield', () => {
+    const items = [
+      {
+        ticker: 'VOO',
+        metrics: { yield: 1.12, yieldSource: 'Yahoo Finance dividend history (TTM)', betaSource: 'Estimated vs SPY from 249 daily total returns' },
+        beta: 1,
+      },
+      {
+        ticker: 'GLD',
+        metrics: { yield: 0, yieldSource: 'Yahoo Finance dividend history (TTM)' },
+        beta: 0.12,
+      },
+      {
+        ticker: 'NO_BETA',
+        metrics: { yield: 3.8, yieldSource: 'Yahoo Finance dividend history (TTM)' },
+      },
+    ] as unknown as import('@/types').PortfolioItem[];
+
+    expect(getOptimizerInputGaps(items)).toEqual(['NO_BETA']);
+  });
+
   it('should allocate budget to best asset (Greedy Utility logic)', () => {
     // A: High Return, Low Risk (Best)
     // B: Low Return, High Risk

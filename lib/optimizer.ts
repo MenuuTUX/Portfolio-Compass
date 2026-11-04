@@ -68,12 +68,20 @@ export function riskPenaltyForProfile(
   return LAMBDA_BY_PROFILE[profile];
 }
 
-/** Tickers without an issuer-sourced yield or reported beta cannot receive a score. */
+/**
+ * Tickers without a sourced yield or a beta cannot receive a score.
+ *
+ * A sourced yield is one with a stated definition: the trailing 12 months of
+ * dated distributions over the current price, or any other labelled source.
+ * Yahoo's bare quote yield has no stated definition or measurement date and
+ * stays excluded (see getReportedAssetYieldFraction). An earlier version also
+ * required an "Issuer " source, but nothing in the data path produces one, so
+ * that rule made the score unreachable for every fund.
+ */
 export function getOptimizerInputGaps(portfolio: readonly PortfolioItem[]): string[] {
   return portfolio
     .filter((item) =>
       getReportedAssetYieldFraction(item) === null ||
-      !item.metrics?.yieldSource?.startsWith("Issuer ") ||
       typeof item.beta !== "number" || !Number.isFinite(item.beta),
     )
     .map((item) => item.ticker);

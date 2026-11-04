@@ -35,12 +35,14 @@ export const MetricsSchema = z.object({
   yieldInputUnit: z.enum(["fraction", "percent"]).nullable().optional(),
   yieldNormalization: z.string().nullable().optional(),
   yieldMeasurementDate: z.string().nullable().optional(),
+  betaSource: z.string().nullable().optional(),
 });
 
 export const AllocationSchema = z.object({
   equities: z.number(),
   bonds: z.number(),
   cash: z.number(),
+  other: z.number().optional(),
 });
 
 // Since sectors is { [key: string]: number }, we use z.record
@@ -60,7 +62,7 @@ export const ETFSchema = z.object({
   history: z.array(EtfHistoryItemSchema),
   dividendHistory: z.array(DividendHistoryItemSchema).optional(),
   metrics: MetricsSchema,
-  allocation: AllocationSchema,
+  allocation: AllocationSchema.nullable(),
   sectors: SectorsSchema.optional(),
   holdings: z
     .array(

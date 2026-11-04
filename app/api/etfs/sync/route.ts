@@ -5,6 +5,7 @@ import {
   getFastDividendHistory,
   getFastEtfDetails,
   enrichEtfDetailsGaps,
+  getFastMarketBetas,
 } from "@/lib/fast-market";
 import { calculateTTMYield } from "@/lib/finance";
 import { getRedditCommunities } from "@/config/tickers";
@@ -45,14 +46,18 @@ export async function POST(req: NextRequest) {
 
     const normalizedTicker = validation.data.ticker.toUpperCase();
 
-    const [quotes, histories, dividendHistory, details] = await Promise.all([
+    const [quotes, histories, dividendHistory, details, betas] = await Promise.all([
       getFastQuotes([normalizedTicker], { includeProfiles: true }),
       getFastHistory([normalizedTicker], "1Y", { adjusted: true }),
       getFastDividendHistory(normalizedTicker),
       getFastEtfDetails(normalizedTicker).then((d) =>
         d ? enrichEtfDetailsGaps(d) : null,
       ),
+      getFastMarketBetas([normalizedTicker]),
     ]);
+    // Yahoo's fund beta is relative to the category benchmark, not the market,
+    // so the payload carries the SPY-relative estimate instead.
+    const beta = betas.get(normalizedTicker);
 
     const q = quotes.get(normalizedTicker);
     if (!q) {
@@ -119,10 +124,12 @@ export async function POST(req: NextRequest) {
         merMeasurementDate: q.expenseRatio !== undefined
           ? q.expenseRatioMeasurementDate ?? null
           : details?.expenseRatioMeasurementDate ?? null,
+        betaSource: beta?.source ?? null,
       },
+      ...(beta ? { beta: beta.beta } : {}),
       dividend: q.dividend,
       dividendYield: q.dividendYield,
-      allocation: details?.allocation || { equities: 0, bonds: 0, cash: 0 },
+      allocation: details?.allocation ?? null,
       sectors: details?.sectors || {},
       holdings: (details?.holdings || []).map((h) => ({
         ticker: h.ticker,

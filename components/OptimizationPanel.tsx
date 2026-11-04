@@ -16,6 +16,7 @@ import { estimateAnnualCovariance } from "@/lib/math/covariance";
 import {
   getAssetBeta,
   getAssetYieldFraction,
+  getReportedAssetYieldFraction,
 } from "@/lib/math/portfolio-returns";
 
 interface OptimizationPanelProps {
@@ -136,17 +137,20 @@ export default function OptimizationPanel({
     }
 
     // Equity share of the proposed portfolio, from each fund's reported asset
-    // mix. Shown only when every holding reports one: a missing mix arrives as
-    // all zeros, which would read as "0% equity" rather than "unknown".
-    const hasMix = (p: PortfolioItem) => {
+    // mix. Shown only when every holding reports one; a missing mix is null.
+    // `other` counts toward a known mix, so a gold fund reads as 0% equity.
+    const equityFraction = (p: PortfolioItem): number | null => {
       const a = p.allocation;
-      return !!a && [a.equities, a.bonds, a.cash].every(Number.isFinite) && a.equities + a.bonds + a.cash > 0;
+      if (!a) return null;
+      const parts = [a.equities, a.bonds, a.cash, a.other ?? 0];
+      if (!parts.every(Number.isFinite) || parts.reduce((s, v) => s + v, 0) <= 0) return null;
+      return a.equities / 100;
     };
     let equityShare: number | null = null;
-    if (!futureTotalValue.isZero() && portfolio.every(hasMix)) {
+    if (!futureTotalValue.isZero() && portfolio.every((p) => equityFraction(p) !== null)) {
       let equityValue = 0;
       portfolio.forEach((p) => {
-        equityValue += (p.price || 0) * (futureShares[p.ticker] || 0) * (p.allocation.equities / 100);
+        equityValue += (p.price || 0) * (futureShares[p.ticker] || 0) * equityFraction(p)!;
       });
       equityShare = equityValue / futureTotalValue.toNumber();
     }
@@ -178,7 +182,7 @@ export default function OptimizationPanel({
         ) : missingInputTickers.length > 0 ? (
           <>
             <p className="font-bold text-ink">Experimental score unavailable</p>
-            <p className="mt-1 text-muted">An issuer-sourced yield or reported beta is missing for {missingInputTickers.join(", ")}. Yahoo quote yield is unverified and cannot qualify this score.</p>
+            <p className="mt-1 text-muted">A sourced yield or a market beta is missing for {missingInputTickers.join(", ")}. Yahoo quote yield has no stated definition and cannot qualify this score.</p>
           </>
         ) : (
           "Calculating allocation..."
@@ -335,8 +339,9 @@ export default function OptimizationPanel({
         </summary>
         <div className="flex flex-col gap-2 px-4 pb-4 text-xs leading-5 text-muted">
           <p>
-            The score uses issuer yield, reported beta × 6%, and estimated
-            annual covariance. These inputs are proxies, not forecasts or a
+            The score uses each holding&apos;s trailing 12-month distribution
+            yield, its beta against SPY × 6%, and estimated annual covariance.
+            The source of each yield and beta is listed under Inputs. These inputs are proxies, not forecasts or a
             recommendation.{" "}
             {covariance.source === "history"
               ? `The covariance uses ${covariance.samples} overlapping daily ${covariance.basis === "total" ? "total returns (dividend-adjusted closes)" : "price returns (adjusted closes unavailable for at least one holding)"}.`
@@ -349,6 +354,30 @@ export default function OptimizationPanel({
             The model invests the whole budget, one lot at a time, choosing the lot with the best change in the allocation score per dollar, even when no lot raises it. Cash is left only when it is less than one share, and assets with a zero or negative return proxy are never bought.
           </p>
         </div>
+      </details>
+
+      <details className="group border-t border-hairline">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-compass">
+          Inputs
+          <span className="text-muted transition-transform duration-75 group-open:rotate-180" aria-hidden="true">
+            &#9662;
+          </span>
+        </summary>
+        <ul className="flex flex-col gap-2 px-4 pb-4 text-xs leading-5 text-muted" aria-label="Optimizer inputs by holding">
+          {portfolio.map((item) => {
+            const yieldFraction = getReportedAssetYieldFraction(item);
+            return (
+              <li key={item.ticker}>
+                <span className="font-bold text-ink">{item.ticker}</span>
+                {": yield "}
+                <span className="tabular-nums">{yieldFraction === null ? "n/a" : `${(yieldFraction * 100).toFixed(2)}%`}</span>
+                {` (${item.metrics?.yieldSource ?? "no source"}), beta `}
+                <span className="tabular-nums">{getAssetBeta(item).toFixed(2)}</span>
+                {` (${item.metrics?.betaSource ?? "source not recorded"})`}
+              </li>
+            );
+          })}
+        </ul>
       </details>
 
       <p className="border-t border-hairline bg-canvas p-4 text-xs leading-5 text-muted">

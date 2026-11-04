@@ -3,6 +3,8 @@ import pLimit from "p-limit";
 import { z } from "zod";
 import type { QuoteSession } from "@/lib/quote-session";
 import { calculateTTMYield, type DividendHistoryItem } from "@/lib/finance";
+import type { AllocationWeights } from "@/lib/asset-class";
+import { estimateMarketBeta, MARKET_PROXY, type BetaEstimate } from "@/lib/math/beta";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -826,6 +828,27 @@ export async function getFastDividendHistories(
   return new Map(entries);
 }
 
+/**
+ * Market beta per ticker, estimated from one year of daily returns against
+ * MARKET_PROXY. Tickers without enough overlapping history are left out.
+ */
+export async function getFastMarketBetas(
+  tickers: string[],
+): Promise<Map<string, BetaEstimate>> {
+  const clean = normalizeTickers(tickers);
+  const out = new Map<string, BetaEstimate>();
+  if (clean.length === 0) return out;
+  const histories = await getFastHistory([...clean, MARKET_PROXY], "1Y", { adjusted: true });
+  const market = histories.get(MARKET_PROXY);
+  if (!market) return out;
+  for (const ticker of clean) {
+    const history = histories.get(ticker);
+    const estimate = history ? estimateMarketBeta(history, market) : null;
+    if (estimate) out.set(ticker, estimate);
+  }
+  return out;
+}
+
 export function isChartRange(value: string): value is ChartRange {
   return value in RANGE_CONFIG;
 }
@@ -1227,7 +1250,8 @@ export function quoteToAsset(
       merNormalization: q.expenseRatioNormalization ?? null,
       merMeasurementDate: q.expenseRatioMeasurementDate ?? null,
     },
-    allocation: { equities: 0, bonds: 0, cash: 0 },
+    // Unknown until fund details arrive; zeros would read as a 0% equity fund.
+    allocation: null as AllocationWeights | null,
     sectors: {},
     sector: q.sector,
     industry: q.industry,

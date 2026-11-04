@@ -31,12 +31,16 @@ export interface ETF {
     yieldNormalization?: string | null;
     /** The quote date used for a yield calculated from dated distributions. */
     yieldMeasurementDate?: string | null;
+    /** How `beta` was obtained, e.g. "Estimated vs SPY from 249 daily total returns". */
+    betaSource?: string | null;
   };
+  /** Percent weights (0-100). Null when no source reported an asset mix. */
   allocation: {
     equities: number;
     bonds: number;
     cash: number;
-  };
+    other?: number;
+  } | null;
   sectors?: {
     [key: string]: number;
   };
