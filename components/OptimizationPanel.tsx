@@ -322,7 +322,7 @@ export default function OptimizationPanel({
             Unitless scores are comparable only under these same heuristic inputs. No trade can be applied from this panel.
           </p>
           <p>
-            The model can leave cash unallocated when no affordable purchase improves its allocation score.
+            The model invests the whole budget, one lot at a time, choosing the lot with the best change in the allocation score per dollar, even when no lot raises it. Cash is left only when it is less than one share, and assets with a zero or negative return proxy are never bought.
           </p>
         </div>
       </details>

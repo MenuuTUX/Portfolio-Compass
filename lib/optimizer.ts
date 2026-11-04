@@ -110,6 +110,17 @@ export function calculatePortfolioUtility(
  * which is what makes the comparison fair across assets whose share prices —
  * and therefore whose minimum lot sizes — differ by an order of magnitude.
  *
+ * The budget is spent, not optional. U depends only on weights, so it does not
+ * grow with portfolio size: once the mix is near its best, every single lot
+ * moves it slightly away, and a "stop when no lot raises U" rule would leave
+ * most of a new investor's budget as cash after one or two purchases. So the
+ * loop keeps buying the best lot (the one that raises U most, or lowers it
+ * least) until the cash left is below the cheapest affordable share. That
+ * converges on the fully invested mean-variance mix.
+ *
+ * Assets with zero or negative expected return are never bought: cash has the
+ * same or better return with no risk, so it dominates them.
+ *
  * Scope worth stating plainly: this only ever adds. It cannot sell, so it
  * rebalances a portfolio by dilution, and an existing holding that is dominated
  * on both return and risk stays where it is.
@@ -167,12 +178,14 @@ export function optimizePortfolioGreedy(
     calculatePortfolioUtility(candidates, covarianceMatrix, lambda, shares);
 
   // Prices drive every division below, so anything non-positive or non-finite
-  // is excluded rather than allowed to produce Infinity share counts.
+  // is excluded rather than allowed to produce Infinity share counts. Assets
+  // that cash dominates (expected return <= 0) are excluded too.
   const tradable: number[] = [];
   let minPrice = Infinity;
   for (let i = 0; i < numAssets; i++) {
     const price = candidates[i].price;
-    if (Number.isFinite(price) && price > 0) {
+    const expected = candidates[i].expectedReturn;
+    if (Number.isFinite(price) && price > 0 && Number.isFinite(expected) && expected > 0) {
       tradable.push(i);
       if (price < minPrice) minPrice = price;
     }
@@ -222,7 +235,8 @@ export function optimizePortfolioGreedy(
       }
     }
 
-    if (bestIdx === -1 || bestScore <= 0) break;
+    // No positive-gain requirement: the budget is to be invested (see above).
+    if (bestIdx === -1) break;
 
     addedShares[bestIdx] += bestLot;
     remainingBudgetDec = remainingBudgetDec.minus(

@@ -183,8 +183,9 @@ describe('optimizePortfolioGreedy', () => {
     });
 
     expect(result.shares['GHOST']).toBe(40);
-    expect(result.shares['A']).toBe(5);
-    expect(result.remainingBudget).toBe(1000);
+    // The budget is invested in the one priced candidate.
+    expect(result.shares['A']).toBe(15);
+    expect(result.remainingBudget).toBe(0);
     // GHOST has no price, so it cannot be weighted.
     expect(result.weights['GHOST']).toBeUndefined();
   });
@@ -251,7 +252,7 @@ describe('optimizePortfolioGreedy', () => {
     expect(Number.isFinite(result.remainingBudget)).toBe(true);
   });
 
-  it('keeps cash when every affordable purchase has no score gain', () => {
+  it('never buys an asset whose expected return is not positive', () => {
     const result = optimizePortfolioGreedy({
       candidates: [{ ticker: 'LOSS', price: 100, expectedReturn: -0.1 }],
       covarianceMatrix: [[0.04]],
@@ -271,4 +272,20 @@ describe('optimizePortfolioGreedy', () => {
       ),
     );
   });
+
+  it('invests the full budget from an empty portfolio at the mean-variance mix', () => {
+    // Fully invested optimum for this pair: w_EQ = (μE − μB + 2λ(σB² − σEB)) / (2λ(σE² + σB² − 2σEB)).
+    const candidates = [
+      { ticker: 'EQ', price: 100, expectedReturn: 0.075 },
+      { ticker: 'BD', price: 50, expectedReturn: 0.039 },
+    ];
+    const cov = [[0.0225, 0.0005], [0.0005, 0.0016]];
+    for (const [riskProfile, lambda] of [['conservative', 10], ['balanced', 5], ['growth', 1]] as const) {
+      const r = optimizePortfolioGreedy({ candidates, covarianceMatrix: cov, riskProfile, budget: 7000 });
+      expect(r.remainingBudget).toBeLessThan(50);
+      const optimum = (0.075 - 0.039 + 2 * lambda * (0.0016 - 0.0005)) / (2 * lambda * (0.0225 + 0.0016 - 0.001));
+      expect(Math.abs(r.weights.EQ - optimum)).toBeLessThan(0.02);
+    }
+  });
 });
+
