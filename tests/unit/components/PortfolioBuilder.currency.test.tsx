@@ -20,7 +20,6 @@ await mockModule("@/components/PortfolioItemRow", () => ({
 }));
 await mockModule("@/components/WealthProjector", () => ({ default: (props: any) => <div>Projection model {props.startingValue} {props.baseCurrency} {props.fxProvenance?.date}</div> }));
 await mockModule("@/components/OptimizationPanel", () => ({ default: () => <div>Optimizer model</div> }));
-await mockModule("@/components/ContributePopup", () => ({ default: () => null }));
 await mockModule("@/components/AlgorithmExplainer", () => ({ default: () => null }));
 await mockModule("@/components/RiskReturnScatter", () => ({ default: () => null }));
 await mockModule("@/components/PortfolioBarChart", () => ({ default: () => null }));

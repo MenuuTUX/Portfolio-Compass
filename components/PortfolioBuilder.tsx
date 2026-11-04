@@ -14,7 +14,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import PortfolioItemRow from "./PortfolioItemRow";
 import { Decimal } from "@/lib/decimal";
 import WealthProjector from "./WealthProjector";
-import ContributePopup from "./ContributePopup";
 import OptimizationPanel from "./OptimizationPanel";
 import AlgorithmExplainer from "./AlgorithmExplainer";
 import RiskReturnScatter from "./RiskReturnScatter";
@@ -81,7 +80,6 @@ export default function PortfolioBuilder({
   onNavigate,
 }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<"BUILDER" | "PROJECTION">("BUILDER");
-  const [showContributePopup, setShowContributePopup] = useState(false);
   const [hideValues, setHideValues] = useState(false);
   const [indexRange, setIndexRange] = useState<IndexRange>("ALL");
 
@@ -314,9 +312,6 @@ export default function PortfolioBuilder({
     }
     return (
       <>
-        {showContributePopup && (
-          <ContributePopup onClose={() => setShowContributePopup(false)} />
-        )}
         <Reveal onMount y={12} duration={0.5} className="h-full min-h-0 overflow-y-auto custom-scrollbar">
           <WealthProjector
             portfolio={portfolio}
@@ -525,10 +520,7 @@ export default function PortfolioBuilder({
                   Allocation Mode
                 </button>
                 <button
-                  onClick={() => {
-                    setViewMode("PROJECTION");
-                    setTimeout(() => setShowContributePopup(true), 800);
-                  }}
+                  onClick={() => setViewMode("PROJECTION")}
                   disabled={!projectionAvailable}
                   title={!projectionAvailable ? valuationUnavailableMessage : undefined}
                   className={pill}
