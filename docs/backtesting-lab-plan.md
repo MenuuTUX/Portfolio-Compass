@@ -1,6 +1,6 @@
 # Compass Lab: plan for an advanced backtesting workspace
 
-Status: proposal, not started. Date: 2026-10-28.
+Status: historical design document, written 2026-10-28 before the Lab was built. Phases 1 to 4 are built; the README describes what exists now, and `docs/interview-notes.md` lists where this plan and the code differ.
 
 Compass Lab is a separate, opt-in side of Portfolio Compass for advanced users. In it they write strategies in code (or define allocation rules without code) and test them on their own portfolios and on any equity or ETF universe. It stays an educational research tool, like the rest of the site. It never places trades, connects to a broker, or runs live.
 

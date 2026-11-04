@@ -45,7 +45,7 @@ Maximum drawdown by window, close to close, from the full-period runs:
 - **Costs:** 5 bps slippage on every fill, 0 bps commission, no minimum ticket.
 - **Fills:** next bar's open. Orders are never filled on the bar that generated them.
 - **Shares:** fractional. Dividends are paid as cash on the ex-date and reinvested.
-- **Buy and hold:** buy SPY at the first bar, rebalance on change only (weight never changes, so no rebalances after the first buy).
+- **Buy and hold:** buy SPY at the first bar, rebalance on change only (weight never changes, so no rebalances after the first buy). Its 88 trades are the first buy plus the quarterly dividend reinvestments.
 - **SMA filter:** signal is SPY `adjClose` compared with the simple average of the last 200 trading days, including the current bar. Evaluated on the last trading day of each month. If above, 100% SPY, otherwise 100% cash. Orders fill at the next open, so the position changes on the first trading day of the following month.
 - **Turnover:** engine definition, traded value divided by two, over average equity, per year.
 - **Run hashes (SHA-256, engine `lab-engine/0.1.0`):**
@@ -65,7 +65,7 @@ Maximum drawdown by window, close to close, from the full-period runs:
 
 ## What could be wrong with this
 
-- **One parameter, no sweep.** Only the 200-day window was tested. It was chosen as the conventional 10-month proxy, not from a search, so there is no multiple-testing correction. A sweep over window lengths would show whether the result depends on this exact choice. The Lab does not yet have a parameter sweep or a multiple-testing warning, so any sweep would need that correction applied by hand.
+- **One parameter, no sweep.** Only the 200-day window was tested. It was chosen as the conventional 10-month proxy, not from a search, so there is no multiple-testing correction. A sweep over window lengths would show whether the result depends on this exact choice. When this run was made the Lab had no parameter sweep. It now has one for the trend rule, plus a walk-forward test and a warning once 10 or more variants have been tried, but that warning applies no formal correction, so any sweep result still needs one by hand.
 - **Survivorship and one-asset bias.** SPY is a large-cap US index that has survived and grown. The result describes one market over one period. It says nothing about other indices, sectors, bonds or international markets.
 - **Dividends and adjustment basis.** Dividends are treated as cash on the ex-date and reinvested. The `adjClose` series used for the signal is revised by the data provider when later dividends arrive, so a re-fetch can change the signal slightly. The data has not been cross-checked against another source.
 - **Regime dependence.** Most of the in-sample drawdown benefit comes from the 2007 to 2009 episode. The filter also helped in the COVID window (-11.90% against -33.72%) and in 2022 (-17.34% against -24.49%), but the 2022 to 2023 whipsaw pushed its hold-out drawdown to the same depth as buy and hold's. The run does not test why the filter whipsawed in that period.
