@@ -16,6 +16,7 @@ import { PortfolioItem } from "@/types";
 import { Info, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { HAIRLINE_STRONG, INK, MUTED } from "@/lib/chart-colors";
 
 interface RiskReturnScatterProps {
   items: PortfolioItem[];
@@ -127,16 +128,16 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               type="number"
               dataKey="x"
               name="Reported Beta"
-              tick={{ fill: "#737373", fontSize: 12 }}
+              tick={{ fill: MUTED, fontSize: 12 }}
               tickLine={false}
-              axisLine={{ stroke: "#404040" }}
+              axisLine={{ stroke: HAIRLINE_STRONG }}
               domain={["dataMin - 0.2", "dataMax + 0.2"]}
             >
               <Label
                 value="Reported Beta"
                 offset={0}
                 position="bottom"
-                fill="#525252"
+                fill={MUTED}
                 fontSize={12}
               />
             </XAxis>
@@ -144,9 +145,9 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               type="number"
               dataKey="y"
               name="Sourced Yield (%)"
-              tick={{ fill: "#737373", fontSize: 12 }}
+              tick={{ fill: MUTED, fontSize: 12 }}
               tickLine={false}
-              axisLine={{ stroke: "#404040" }}
+              axisLine={{ stroke: HAIRLINE_STRONG }}
               unit="%"
               width={64}
             >
@@ -155,13 +156,13 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                 angle={-90}
                 position="insideLeft"
                 style={{ textAnchor: "middle" }}
-                fill="#525252"
+                fill={MUTED}
                 fontSize={12}
               />
             </YAxis>
             <ZAxis type="number" dataKey="z" range={[60, 500]} name="Weight" />
             <Tooltip
-              cursor={{ strokeDasharray: "3 3", stroke: "#525252" }}
+              cursor={{ strokeDasharray: "3 3", stroke: MUTED }}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const d = payload[0].payload;
@@ -197,18 +198,18 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
               }}
             />
             {/* Market beta baseline */}
-            <ReferenceLine x={1} stroke="#525252" strokeDasharray="3 3">
+            <ReferenceLine x={1} stroke={MUTED} strokeDasharray="3 3">
               <Label
                 value="Beta 1.0"
                 position="insideTopRight"
-                fill="#525252"
+                fill={MUTED}
                 fontSize={12}
                 offset={10}
                 className="hidden sm:block"
               />
             </ReferenceLine>
 
-            <Scatter name="Assets" data={data} fill="#2b7fff" />
+            <Scatter name="Assets" data={data} fill={INK} />
           </ScatterChart>
         </ResponsiveContainer>
 

@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "PortfolioCompass: compare stocks and ETFs, build a portfolio locally.";
+  "Portfolio Compass: compare stocks and ETFs, build a portfolio locally.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -32,7 +32,7 @@ export default function OpengraphImage() {
             }}
           />
           <div style={{ fontSize: 28, color: "#8c8c8c" }}>
-            PortfolioCompass
+            Portfolio Compass
           </div>
         </div>
 

@@ -67,7 +67,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         <div className="flex flex-1 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
-          <span className="text-base font-semibold ">PortfolioCompass</span>
+          <span className="text-base font-semibold ">Portfolio Compass</span>
         </div>
         <nav aria-label="Landing sections" className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
@@ -121,7 +121,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         <Reveal onMount y={12} className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" width={20} height={20} className="h-5 w-5 rounded-md" />
-          <span className="text-sm font-medium text-ink">PortfolioCompass</span>
+          <span className="text-sm font-medium text-ink">Portfolio Compass</span>
         </Reveal>
         <h1
           id="landing-title"

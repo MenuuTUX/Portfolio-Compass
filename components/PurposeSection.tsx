@@ -130,7 +130,7 @@ export default function PurposeSection() {
   const share = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: "PortfolioCompass", text: "PortfolioCompass: ETF comparison and portfolio tools", url: window.location.href });
+        await navigator.share({ title: "Portfolio Compass", text: "Portfolio Compass: ETF comparison and portfolio tools", url: window.location.href });
       } else {
         await navigator.clipboard.writeText(window.location.href);
         setShareStatus("Link copied.");

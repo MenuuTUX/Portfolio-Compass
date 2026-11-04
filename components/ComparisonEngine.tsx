@@ -39,6 +39,7 @@ import MarketFilters, {
   MarketFilterState,
   applyMarketFilters,
 } from "./MarketFilters";
+import { GAIN, LOSS } from "@/lib/chart-colors";
 
 interface ETFRowProps {
   etf: ETF;
@@ -52,8 +53,6 @@ interface ETFRowProps {
   onView: (etf: ETF) => void;
 }
 
-const GAIN_HEX = "#6dc382";
-const LOSS_HEX = "#f87171";
 
 // One dense list row. Memoized to isolate state updates (like flash animations)
 const ETFRow = memo(
@@ -144,7 +143,7 @@ const ETFRow = memo(
             <span className="hidden sm:block lg:hidden shrink-0">
               <Sparkline
                 data={displayHistory}
-                color={isGraphPositive ? GAIN_HEX : LOSS_HEX}
+                color={isGraphPositive ? GAIN : LOSS}
                 name={etf.ticker}
               />
             </span>

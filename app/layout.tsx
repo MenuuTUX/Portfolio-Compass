@@ -21,7 +21,7 @@ export const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://portfolio-compass.vercel.app";
 
 export const metadata = {
-  title: "PortfolioCompass",
+  title: "Portfolio Compass",
   description:
     "Compare ETFs and stocks, test portfolio allocations, and run assumption-based projections.",
 };

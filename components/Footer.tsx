@@ -16,7 +16,7 @@ export default function Footer() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.png" alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
               <span className="font-display font-bold text-ink" style={{ fontSize: "clamp(32px, 5vw, 56px)", lineHeight: 1.1, letterSpacing: "0.005em" }}>
-                PortfolioCompass
+                Portfolio Compass
               </span>
             </div>
             <p className="mt-4 max-w-[40ch] text-body">Compare funds, build an allocation and test its assumptions in your browser.</p>

@@ -11,9 +11,8 @@ import {
   type AssetChartState,
   type TimeRange,
 } from "./useAssetChart";
+import { GAIN, LOSS, MUTED } from "@/lib/chart-colors";
 
-export const GAIN_HEX = "#6dc382";
-export const LOSS_HEX = "#ed4f3c";
 
 interface AssetChartProps {
   chart: AssetChartState;
@@ -134,7 +133,7 @@ export function AssetChart({
 
   // Colour follows the overall change of the plotted series
   const isUp = n > 1 ? data[n - 1].price >= data[0].price : chart.isPositive;
-  const color = isUp ? GAIN_HEX : LOSS_HEX;
+  const color = isUp ? GAIN : LOSS;
 
   if (n === 0) {
     return (
@@ -288,7 +287,7 @@ export function AssetChart({
   const mDelta = measuring ? valueAt(mTo) - valueAt(mFrom) : 0;
   const mPct = measuring && valueAt(mFrom) !== 0 ? (mDelta / Math.abs(valueAt(mFrom))) * 100 : 0;
   const signed = (v: number, digits = 2) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(digits)}`;
-  const mColor = mDelta >= 0 ? GAIN_HEX : LOSS_HEX;
+  const mColor = mDelta >= 0 ? GAIN : LOSS;
   // Hovered point vs the start of the range
   const hoverPct = !compare && !bar && first !== 0 ? ((ap.price - first) / first) * 100 : null;
   const labelAnchor = (px_: number) => (px_ < 44 ? "start" : px_ > w - 44 ? "end" : "middle");
@@ -438,7 +437,7 @@ export function AssetChart({
                 <path
                   d={spyLine}
                   fill="none"
-                  stroke="#8a8a8a"
+                  stroke={MUTED}
                   strokeWidth="1.25"
                   strokeDasharray="4 4"
                   strokeLinejoin="round"
@@ -449,7 +448,7 @@ export function AssetChart({
                   {chart.candles.map((c, i) => {
                     const cx = cx_(i);
                     const up = c.close >= c.open;
-                    const col = up ? GAIN_HEX : LOSS_HEX;
+                    const col = up ? GAIN : LOSS;
                     const top = yC(Math.max(c.open, c.close));
                     const bodyH = Math.max(Math.abs(yC(c.open) - yC(c.close)), 1);
                     return (
@@ -564,7 +563,7 @@ export function AssetChart({
                   {hoverPct !== null && advanced && active > 0 && (
                     <span
                       className="ml-2 tabular-nums"
-                      style={{ color: hoverPct >= 0 ? GAIN_HEX : LOSS_HEX }}
+                      style={{ color: hoverPct >= 0 ? GAIN : LOSS }}
                     >
                       {signed(hoverPct)}%
                     </span>

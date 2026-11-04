@@ -199,7 +199,6 @@ export const PortfolioShareCard = React.forwardRef<
         className="w-[1080px] h-[1350px] bg-canvas text-ink p-12 flex flex-col relative overflow-hidden font-sans"
         style={{ fontFamily: "var(--font-openai-sans), sans-serif" }}
       >
-        <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-[0.03] pointer-events-none" />
 
         <div className="flex justify-between items-start mb-12 relative z-10 border-b border-hairline pb-8 shrink-0">
           <div className="flex items-center gap-5">

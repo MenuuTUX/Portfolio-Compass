@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Portfolio } from "@/types";
 import { TickIcon } from "./TickIcon";
+import { HAIRLINE, LOSS, MUTED } from "@/lib/chart-colors";
 
 interface PortfolioBarChartProps {
   portfolio: Portfolio;
@@ -84,10 +85,10 @@ const CustomYAxisTick = (props: any) => {
             cx={7}
             cy={7}
             r={10}
-            fill={CONCENTRATION_COLORS.ABOVE_20}
-            fillOpacity={0.2}
+            fill={LOSS}
+            fillOpacity={0.15}
           />
-          <AlertTriangle size={14} color={CONCENTRATION_COLORS.ABOVE_20} />
+          <AlertTriangle size={14} color={LOSS} />
         </g>
       )}
 
@@ -96,11 +97,12 @@ const CustomYAxisTick = (props: any) => {
         y={4}
         textAnchor="end"
         fill={
+          // Text uses theme tokens: the pastel bar fills are unreadable as text on the light canvas.
           isAboveTwentyPercent
-            ? CONCENTRATION_COLORS.ABOVE_20
+            ? LOSS
             : isAboveTenPercent
-              ? CONCENTRATION_COLORS.TEN_TO_20
-              : "#e5e5e5"
+              ? "var(--gold-deep)"
+              : "var(--body-strong)"
         }
         fontSize={12}
         fontWeight={isAboveTenPercent ? "600" : "400"}
@@ -420,16 +422,15 @@ export default function PortfolioBarChart({
               <CartesianGrid
                 strokeDasharray="4 4"
                 horizontal={false}
-                stroke="#ffffff"
-                strokeOpacity={0.03}
+                stroke={HAIRLINE}
               />
 
               <XAxis
                 type="number"
                 domain={[0, maxWeight]}
-                stroke="#525252"
+                stroke={MUTED}
                 tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
-                tick={{ fill: "#737373", fontSize: 12 }}
+                tick={{ fill: MUTED, fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -449,7 +450,7 @@ export default function PortfolioBarChart({
               />
 
               <Tooltip
-                cursor={{ fill: "rgba(50,48,47,0.04)" }}
+                cursor={{ fill: "var(--surface-soft)", fillOpacity: 0.5 }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
