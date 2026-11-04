@@ -280,12 +280,24 @@ describe('optimizePortfolioGreedy', () => {
       { ticker: 'BD', price: 50, expectedReturn: 0.039 },
     ];
     const cov = [[0.0225, 0.0005], [0.0005, 0.0016]];
-    for (const [riskProfile, lambda] of [['conservative', 10], ['balanced', 5], ['growth', 1]] as const) {
+    for (const [riskProfile, lambda] of [['conservative', 3], ['balanced', 1.4], ['growth', 0.9]] as const) {
       const r = optimizePortfolioGreedy({ candidates, covarianceMatrix: cov, riskProfile, budget: 7000 });
       expect(r.remainingBudget).toBeLessThan(50);
       const optimum = (0.075 - 0.039 + 2 * lambda * (0.0016 - 0.0005)) / (2 * lambda * (0.0225 + 0.0016 - 0.001));
       expect(Math.abs(r.weights.EQ - optimum)).toBeLessThan(0.02);
     }
   });
-});
 
+  it('maps the profiles to roughly 30 / 60 / 90 percent equity on a stock-bond pair', () => {
+    const candidates = [
+      { ticker: 'EQ', price: 100, expectedReturn: 0.075 },
+      { ticker: 'BD', price: 50, expectedReturn: 0.039 },
+    ];
+    const cov = [[0.0225, 0.0005], [0.0005, 0.0016]];
+    const equity = (riskProfile: 'conservative' | 'balanced' | 'growth') =>
+      optimizePortfolioGreedy({ candidates, covarianceMatrix: cov, riskProfile, budget: 20000 }).weights.EQ;
+    expect(equity('conservative')).toBeCloseTo(0.3, 1);
+    expect(equity('balanced')).toBeCloseTo(0.6, 1);
+    expect(equity('growth')).toBeCloseTo(0.9, 1);
+  });
+});

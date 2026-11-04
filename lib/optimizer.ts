@@ -38,10 +38,16 @@ export interface GreedyOptimizationResult {
   remainingBudget: number;
 }
 
+/**
+ * Risk aversion per profile. Calibrated so a broad equity fund (return proxy
+ * about 7.5%, 15% volatility) against a broad bond fund (about 3.9%, 4%)
+ * lands near 30%, 60% and 90% equity when the budget is fully invested,
+ * which is what the profile names suggest. Real mixes depend on the holdings.
+ */
 const LAMBDA_BY_PROFILE = {
-  conservative: 10.0,
-  balanced: 5.0,
-  growth: 1.0,
+  conservative: 3.0,
+  balanced: 1.4,
+  growth: 0.9,
 } as const;
 
 /** Nominal dollar value of one greedy step. */

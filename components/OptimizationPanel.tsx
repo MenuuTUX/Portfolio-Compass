@@ -135,7 +135,23 @@ export default function OptimizationPanel({
       });
     }
 
-    return { newWeights, futureTotalValue, futureShares };
+    // Equity share of the proposed portfolio, from each fund's reported asset
+    // mix. Shown only when every holding reports one: a missing mix arrives as
+    // all zeros, which would read as "0% equity" rather than "unknown".
+    const hasMix = (p: PortfolioItem) => {
+      const a = p.allocation;
+      return !!a && [a.equities, a.bonds, a.cash].every(Number.isFinite) && a.equities + a.bonds + a.cash > 0;
+    };
+    let equityShare: number | null = null;
+    if (!futureTotalValue.isZero() && portfolio.every(hasMix)) {
+      let equityValue = 0;
+      portfolio.forEach((p) => {
+        equityValue += (p.price || 0) * (futureShares[p.ticker] || 0) * (p.allocation.equities / 100);
+      });
+      equityShare = equityValue / futureTotalValue.toNumber();
+    }
+
+    return { newWeights, futureTotalValue, futureShares, equityShare };
   }, [portfolio, proposedShares, result]);
 
   const modelScores = useMemo(() => {
@@ -239,6 +255,14 @@ export default function OptimizationPanel({
           <span className="text-ink">Model candidate score</span>
           <span className="font-bold text-ink tabular-nums">{modelScores.proposal.toFixed(4)}</span>
         </div>
+        {projectedMetrics.equityShare !== null && (
+          <div className="flex items-center justify-between px-4 py-3 text-sm">
+            <span className="text-ink">Equity share after proposal</span>
+            <span className="font-bold text-ink tabular-nums">
+              {(projectedMetrics.equityShare * 100).toFixed(0)}%
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between px-4 py-3 text-xs text-muted">
           <span>Proposed value</span>
           <span className="tabular-nums">{formatCurrency(projectedMetrics.futureTotalValue, currency)}</span>
