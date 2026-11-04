@@ -31,15 +31,15 @@ export default function PrivacyPage() {
         </p>
         <ul className="list-disc space-y-1 pl-6">
           <li>
-            <code>portfolio_compass_v1</code> — your holdings: ticker, weight,
+            <code>portfolio_compass_v1</code>: your holdings: ticker, weight,
             and share count.
           </li>
           <li>
-            <code>recent_tickers</code> — tickers you recently searched, used to
+            <code>recent_tickers</code>: tickers you recently searched, used to
             populate the search box.
           </li>
           <li>
-            <code>theme</code> — your light/dark preference.
+            <code>theme</code>: your light/dark preference.
           </li>
           <li>
             <code>pc:lab-ack:v1</code> and <code>pc:lab-form:v1</code>: that you
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
       <Section heading="What is sent to our server">
         <p>
           To display a price, chart, or fund breakdown, the app calls its own API
-          routes with the ticker symbols concerned — for example{" "}
+          routes with the ticker symbols concerned, for example{" "}
           <code>/api/market/snapshot?tickers=AAPL,VOO</code>. Those requests
           carry the symbols you are viewing.
         </p>
@@ -85,27 +85,27 @@ export default function PrivacyPage() {
       <Section heading="Third parties that see your requests">
         <ul className="list-disc space-y-1 pl-6">
           <li>
-            <strong>Vercel</strong> — hosting. Serves the site and keeps request
+            <strong>Vercel</strong>: hosting. Serves the site and keeps request
             logs.
           </li>
           <li>
-            <strong>Vercel Analytics and Speed Insights</strong> — aggregate page
+            <strong>Vercel Analytics and Speed Insights</strong>: aggregate page
             view and performance measurement. Both are cookieless and do not
             track you across other sites.
           </li>
           <li>
-            <strong>Yahoo Finance</strong> — quotes, charts, and fund data,
+            <strong>Yahoo Finance</strong>: quotes, charts, and fund data,
             requested by our server on your behalf.
           </li>
           <li>
-            <strong>stockanalysis.com</strong> and <strong>etf.com</strong> —
+            <strong>stockanalysis.com</strong> and <strong>etf.com</strong>:
             fund details Yahoo does not cover, requested by our server.
           </li>
           <li>
-            <strong>CNN</strong> — the Fear &amp; Greed index.
+            <strong>CNN</strong>: the Fear &amp; Greed index.
           </li>
           <li>
-            <strong>Bank of Canada</strong> — your browser requests its public
+            <strong>Bank of Canada</strong>: your browser requests its public
             USD/CAD daily exchange rate when the portfolio view is open. The
             request contains no tickers, shares, or portfolio value, but the
             Bank of Canada can see your IP address as the recipient.
@@ -118,7 +118,7 @@ export default function PrivacyPage() {
             address.
           </li>
           <li>
-            <strong>Google Fonts</strong> — typefaces, self-hosted at build time
+            <strong>Google Fonts</strong>: typefaces, self-hosted at build time
             by Next.js, so your browser does not call Google.
           </li>
         </ul>

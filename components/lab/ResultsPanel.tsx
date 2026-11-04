@@ -264,7 +264,7 @@ function PlainSummary({ run, hasFlows }: { run: LabRun; hasFlows: boolean }) {
           <div key={k} className="bg-[var(--panel)] p-3">
             <dt className="text-xs text-muted">{k}</dt>
             <dd className="mt-0.5 font-mono text-lg font-semibold text-ink">{v}</dd>
-            <dd className="mt-0.5 text-[11px] leading-4 text-muted">{note}</dd>
+            <dd className="mt-0.5 text-xs leading-4 text-muted">{note}</dd>
           </div>
         ))}
       </dl>

@@ -484,5 +484,5 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @media (min-width: 3600px) { html { font-size: 150%; } }
 
 /* Guided lessons: lines the notes point at in the Lab editor */
-.lab-note-line { background-color: rgba(245, 166, 35, 0.13); }
-.lab-note-bar { border-left: 3px solid #f5a623; margin-left: 3px; }
+.lab-note-line { background-color: color-mix(in srgb, var(--compass) 14%, transparent); }
+.lab-note-bar { border-left: 3px solid var(--compass); margin-left: 3px; }
