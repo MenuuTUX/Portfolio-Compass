@@ -26,7 +26,7 @@ import {
 import {
   calculateLogReturns,
   calculateCovarianceMatrix,
-  getCholeskyDecomposition,
+  getRegularizedCholesky,
   generateMonteCarloPaths,
   calculateCone,
   calculateQuantile,
@@ -87,6 +87,8 @@ interface MonteCarloSimulatorProps {
 }
 
 interface SimulationModelStats {
+  /** Fraction of average variance added to the diagonal for near-duplicate holdings; 0 if none. */
+  ridge: number;
   annualizedLogDrift: number;
   annualizedVolatility: number;
   observationCount: number;
@@ -283,8 +285,9 @@ export default function MonteCarloSimulator({
     );
 
     let cholesky: number[][];
+    let ridge = 0;
     try {
-      cholesky = getCholeskyDecomposition(covMatrix);
+      ({ L: cholesky, ridge } = getRegularizedCholesky(covMatrix));
     } catch {
       setError("Simulation unavailable: historical covariance is not positive definite, so correlations cannot be modeled reliably.");
       return;
@@ -307,6 +310,7 @@ export default function MonteCarloSimulator({
 
     const runSeed = reuseSeed && modelStats ? modelStats.seed : Math.floor(Math.random() * 0x7fffffff);
     setModelStats({
+      ridge,
       seed: runSeed,
       annualizedLogDrift: sampleMean * 252,
       annualizedVolatility: Math.sqrt(sampleVariance * 252),
@@ -849,7 +853,11 @@ export default function MonteCarloSimulator({
             </div>
             <div>
               <dt className="text-muted">Historical covariance model</dt>
-              <dd className="font-medium text-ink">Historical sample</dd>
+              <dd className="font-medium text-ink">
+                {modelStats.ridge > 0
+                  ? `Historical sample, with a small ridge (${modelStats.ridge} × average variance) because some holdings move almost identically`
+                  : "Historical sample"}
+              </dd>
             </div>
             <div>
               <dt className="text-muted">Aligned daily returns</dt>

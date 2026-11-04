@@ -137,6 +137,33 @@ export function getCholeskyDecomposition(matrix: number[][]): number[][] {
 }
 
 /**
+ * Cholesky with a fallback for near-duplicate holdings. Two funds tracking the
+ * same index (VOO and IVV, say) give a covariance that is singular or nearly
+ * so, and rounding can push a diagonal term to zero or below. In that case a
+ * small ridge, a fraction of the average variance, is added to the diagonal and
+ * retried. `ridge` is that fraction (0 when none was needed), so the caller can
+ * say so. A ridge of 1e-4 changes each volatility by about 0.005%.
+ */
+export function getRegularizedCholesky(matrix: number[][]): { L: number[][]; ridge: number } {
+  try {
+    return { L: getCholeskyDecomposition(matrix), ridge: 0 };
+  } catch (error) {
+    const n = matrix.length;
+    const meanVariance = matrix.reduce((sum, row, i) => sum + row[i], 0) / n;
+    if (!(meanVariance > 0) || !Number.isFinite(meanVariance)) throw error;
+    for (const ridge of [1e-8, 1e-6, 1e-4]) {
+      const bumped = matrix.map((row, i) => row.map((v, j) => (i === j ? v + ridge * meanVariance : v)));
+      try {
+        return { L: getCholeskyDecomposition(bumped), ridge };
+      } catch {
+        // try a larger ridge
+      }
+    }
+    throw error;
+  }
+}
+
+/**
  * Generates Monte Carlo simulation paths for a multi-asset portfolio.
  *
  * Price dynamics use geometric Brownian motion with correlated shocks

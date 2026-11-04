@@ -181,3 +181,25 @@ describe('generateMonteCarloPaths stepDays', () => {
     expect(variance).toBeLessThan(252 * sigma ** 2 * 1.1);
   });
 });
+
+describe('getRegularizedCholesky', () => {
+  it('returns the plain factor and no ridge for a well-conditioned matrix', async () => {
+    const { getRegularizedCholesky } = await import('@/lib/monte-carlo');
+    const { L, ridge } = getRegularizedCholesky([[0.04, 0.01], [0.01, 0.09]]);
+    expect(ridge).toBe(0);
+    expect(L[0][0]).toBeCloseTo(0.2, 12);
+  });
+
+  it('adds a small ridge for two identical holdings instead of failing', async () => {
+    const { getRegularizedCholesky, getCholeskyDecomposition } = await import('@/lib/monte-carlo');
+    const v = 0.0002;
+    const singular = [[v, v], [v, v]];
+    expect(() => getCholeskyDecomposition(singular)).toThrow();
+    const { L, ridge } = getRegularizedCholesky(singular);
+    expect(ridge).toBeGreaterThan(0);
+    expect(ridge).toBeLessThanOrEqual(1e-4);
+    // L·Lᵀ reproduces the matrix to within the ridge.
+    expect(L[1][0] * L[0][0]).toBeCloseTo(v, 10);
+    expect(L[1][0] ** 2 + L[1][1] ** 2).toBeCloseTo(v * (1 + ridge), 10);
+  });
+});
