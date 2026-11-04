@@ -29,3 +29,4 @@ tsconfig.tsbuildinfo
 *.tsbuildinfo
 .vercel
 .env*
+next-env.d.ts
