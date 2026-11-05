@@ -290,12 +290,33 @@ Ten-year unlevered free cash flow, then a terminal value:
 - Revenue: grows at rate g for years 1 to 5, fading in a straight line to terminal growth by year 10.
 - Operating margin: moves from the trailing margin to a target margin over the ten years (default target: five-year average).
 - After-tax operating income: operating income × (1 - tax rate).
-- Reinvestment: capex - D&A + change in working capital. Defaults are each one's five-year ratio to revenue (working capital change from receivables, inventory and payables in the filings).
+- Reinvestment: capex - D&A + change in working capital. Capex and D&A default to their five-year ratio to revenue. Working capital is modeled in days (fix 7 below).
 - Share-based pay is treated as a real cost (subtracted), because it dilutes shareholders; a toggle shows the value with it added back, labeled.
-- Discount rate (WACC): cost of equity = risk-free rate + beta × equity risk premium; cost of debt = interest expense / debt, after tax; weights from market cap and debt.
-- Terminal value: Gordon growth on year-11 free cash flow, with terminal growth capped at the risk-free rate.
-- Equity value = present value of cash flows + terminal value - net debt (debt minus cash and short-term investments); per share on diluted shares.
+- Discount rate (WACC): cost of equity = risk-free rate + beta × equity risk premium; cost of debt from a synthetic rating (fix 10 below), after tax; weights from market cap and debt.
+- Terminal value: both perpetuity growth and an exit multiple (fix 3 below), with terminal growth capped at the risk-free rate.
+- Equity value = enterprise value through the full bridge (fix 4 below); per share on treasury-stock-method diluted shares (fix 5 below).
 - Reverse DCF: bisection on g between -20% and +60% until the model's value per share equals the price, to within $0.01. Reports "no solution in range" rather than an extreme number.
+
+### Bank-grade mechanics
+
+Added after a stress test against standard investment-bank DCF practice (2026-11-05). Fixes 1 to 8 bring the mechanics to that standard. Fixes 9 and 10 are the parts that depend on paid data, handled as openly as free data allows.
+
+1. **Mid-year convention, on by default.** Cash flows are discounted as if received mid-period: factor = 1 / (1 + WACC)^t with t = 0.5, 1.5, 2.5, and so on. A toggle switches to year-end. Without it, value is understated by about half a year of discounting (3 to 5%).
+2. **Stub period and valuation date.** The model values as of today, not the last fiscal year end. Year 1 covers only the rest of the current fiscal year: its cash flow is pro-rated by stub = (current fiscal year end - today) / 365, and the later periods shift by the stub. With mid-year on, t = stub / 2 for year 1 and stub + (i - 1.5) for year i ≥ 2. Net debt and shares come from the latest filing, with their date shown.
+3. **Two terminal methods, cross-checked.**
+   - Perpetuity growth: TV = FCF(year 11) / (WACC - g), discounted with the same mid-year shift as the final year.
+   - Exit multiple: TV = EBITDA(year 10) × multiple, discounted at the end of year 10 (multiples are struck on year-end values). The default multiple is the peer median trailing EV/EBITDA from section 2's peers, editable.
+   - Each method shows the other's implied figure: the EV/EBITDA the perpetuity value implies, and the perpetuity growth the exit multiple implies. When they disagree by more than half, the UI says so: "The two ways of valuing the years after the forecast disagree; check the exit multiple and long-term growth."
+4. **Full bridge from enterprise value to equity.** Equity value = EV - total debt - finance lease liabilities - minority interest - preferred stock - pension deficit + cash and short-term investments + equity-method investments. New tags in `concepts.ts`: `MinorityInterest`, `PreferredStockValue`, `FinanceLeaseLiability` (plus its current and noncurrent parts), `DefinedBenefitPlanFundedStatusOfPlan` (counted only when negative), `EquityMethodInvestments`. Operating lease liabilities are left out on purpose: under US GAAP their cost is already in operating expenses, so counting them as debt would deduct them twice. The bridge is shown line by line.
+5. **Dilution by the treasury stock method, iterated.** Diluted shares = basic shares outstanding (cover page) + RSUs outstanding + options in the money × (1 - strike / implied price). Because the implied price depends on the share count, the model iterates until the price changes by less than $0.01, at most 20 rounds. New tags: `ShareBasedCompensationArrangementByShareBasedPaymentAwardOptionsOutstandingNumber`, `...OptionsOutstandingWeightedAverageExercisePrice`, `...EquityInstrumentsOtherThanOptionsNonvestedNumber`. Convertible notes are not tagged consistently enough to model: when `ConvertibleDebt` or similar tags appear, the UI notes "Convertible debt is counted as debt, not as possible new shares."
+6. **Consistent terminal reinvestment.** Terminal free cash flow = NOPAT(year 11) × (1 - g / RONIC), where RONIC is the return on new capital. Default RONIC = the five-year average return on invested capital, floored at WACC and capped at 25%, editable. This stops a model from assuming growth with no investment. Separate checks: terminal capex below terminal D&A raises "Capital spending is below depreciation forever, which shrinks the asset base," and RONIC below WACC raises "Growth at this return destroys value; long-term growth lowers the result."
+7. **Working capital in days.** Days sales outstanding = receivables / revenue × 365; days inventory = inventory / cost of revenue × 365; days payable = payables / cost of revenue × 365. Defaults are three-year averages; the change in working capital each year comes from the projected days. New tags: `InventoryNet`, `AccountsPayableCurrent`, `CostOfGoodsAndServicesSold` / `CostOfRevenue`. Companies without inventory (software, services) just omit that line.
+8. **Scenarios, grids and a football field.**
+   - Three named scenarios: Bear, Base and Bull. Base is the defaults. Bear and Bull move revenue growth by ∓3 points, target margin by ∓3 points and WACC by ±0.5 points. Every scenario input is editable, and scenarios are saved per ticker in `localStorage`.
+   - Sensitivity grids: WACC × terminal growth, WACC × exit multiple, and revenue growth × target margin, each 5 × 5 with the current inputs at the center.
+   - Football field: horizontal price ranges for DCF (perpetuity), DCF (exit multiple), peer EV/EBITDA, peer P/E and the 52-week trading range, with the current price as a vertical line. This is a summary, not a verdict: it shows where the price sits against each method.
+9. **Forecast drivers: history, stated openly.** Banks build forecasts from management guidance and analyst consensus. Consensus estimates come only from paid feeds, so the defaults stay history-based. They are labeled "From the company's last five years, not analyst estimates," and every projection year can be overridden by hand.
+10. **Cost of debt from a synthetic rating.** Market bond yields need paid feeds. Instead, interest coverage (operating income / interest) maps to a credit rating band and its default spread over the risk-free rate. The mapping table is a constant in code, with its source and year in a comment, for example Damodaran's published synthetic rating table. Book cost (interest / debt) is shown next to it for comparison, and either can be chosen.
 
 ### Inputs and their sources
 
@@ -308,6 +329,11 @@ Ten-year unlevered free cash flow, then a terminal value:
 | Beta | Two years of weekly returns against SPY, shrunk toward 1 (0.67 × raw + 0.33) | Price history the app already fetches (`/api/market/chart`) |
 | Equity risk premium | 4.5% | A stated constant in code with a comment on its basis, shown in the UI and editable; reviewed when the plan is revisited |
 | Terminal growth | 2.5%, capped at the risk-free rate | Stated default, editable |
+| Exit multiple | Peer median trailing EV/EBITDA | Peer set from section 2, editable |
+| Return on new capital | Five-year average ROIC, floored at WACC, capped at 25% | `lib/fundamentals` metrics, editable |
+| Working capital days | Three-year averages | `lib/fundamentals` |
+| Credit spread | From interest coverage | Synthetic rating table constant, source in code comment |
+| Options, RSUs, bridge items | Latest filing | New `concepts.ts` tags (fixes 4 and 5) |
 
 Each input in the UI shows its value, where it came from, and a reset-to-default control.
 
@@ -315,7 +341,10 @@ Each input in the UI shows its value, where it came from, and a reset-to-default
 
 - **Reverse DCF:** the implied growth rate, next to the company's own one-, three- and five-year revenue growth.
 - **Editable DCF:**
-  - A range ("the model gives $150 to $230 under these inputs") from a 5 × 5 sensitivity grid of discount rate (±1 point in half-point steps) against terminal growth (±1 point).
+  - A range ("the model gives $150 to $230 under these inputs") from the scenarios and the three sensitivity grids in fix 8.
+  - The equity bridge, line by line, and the diluted share count with how many shares the options and RSUs add.
+  - The terminal-method cross-check and any consistency warnings from fixes 3 and 6.
+  - The football field from fix 8.
   - The share of value that comes from the terminal value, with a warning above 75%: "Most of this value comes from years after the forecast."
   - The full ten-year table behind it, collapsed by default.
 - Footer: "A model under the inputs shown, not a fair value or a recommendation."
@@ -329,7 +358,9 @@ Each input in the UI shows its value, where it came from, and a reset-to-default
 
 ### Code
 
-- `lib/valuation/dcf.ts`: pure functions `projectCashFlows`, `wacc`, `dcfValue`, `sensitivityGrid`, `impliedGrowth`, and `defaultInputs(company, market)`, which returns every input with its source label.
+- `lib/valuation/dcf.ts`: pure functions `projectCashFlows`, `discountFactors` (mid-year and stub), `terminalValues` (both methods and their cross-check), `equityBridge`, `dilutedShares` (treasury stock method, iterated), `wacc`, `dcfValue`, `sensitivityGrid`, `scenarios`, `impliedGrowth`, and `defaultInputs(company, market)`, which returns every input with its source label.
+- `lib/valuation/synthetic-rating.ts`: the coverage-to-spread table and its lookup.
+- `components/valuation/FootballField.tsx`: the price-range chart.
 - `lib/valuation/beta.ts`: weekly returns, covariance against SPY, shrinkage.
 - `app/api/market/treasury/route.ts`: fetches and caches the 10-year yield; falls back to the snapshot copy, and to the last cached value with its date if both fail. Add "US Treasury (interest rates)" to the privacy page's data sources; no user data is involved.
 - UI: a "Valuation" section in the Financials tab, below the peer multiples.
@@ -337,6 +368,15 @@ Each input in the UI shows its value, where it came from, and a reset-to-default
 ### Tests
 
 - `dcf`: a hand-computed three-year case with a known answer; constant growth with no fade reduces to the closed-form Gordon value; raising the discount rate lowers value and raising terminal growth raises it; WACC at or below terminal growth throws.
+- Mid-year: the same cash flows are worth exactly (1 + WACC)^0.5 times more with the convention on than with year-end discounting.
+- Stub: with today exactly at fiscal year end the stub model equals the full-year model; halfway through the year, year 1's cash flow is halved and later discount exponents shift by 0.5.
+- Terminal methods: an exit multiple set to the perpetuity value's implied multiple gives the same enterprise value (within rounding, after adjusting for the different discount timing); the disagreement warning appears above 50% and not below.
+- Bridge: a fixture with every bridge item gives the hand-computed equity value; a positive pension funded status adds nothing; operating leases are never subtracted.
+- Treasury stock method: options with strike above the implied price add zero shares; the iteration converges on a hand-built case and stops at 20 rounds with a message if it does not.
+- Reinvestment: g = 0 means terminal reinvestment of zero; RONIC = WACC means growth leaves value unchanged (the textbook result); both warnings trigger at their thresholds.
+- Working capital days: a fixture with constant days and growing revenue produces the expected working capital investment each year.
+- Scenarios: Bear ≤ Base ≤ Bull per share for a normal company; saved scenarios reload per ticker.
+- Synthetic rating: coverage values on each band edge map to the documented spread.
 - `impliedGrowth`: round trip (value at g, then solve from that price returns g within 0.01%); no solution in range is reported, not clamped.
 - `defaultInputs`: on the AAPL and MSFT fixtures, every default has a source label and a finite value; JPM and TSM return the not-applicable reason.
 - `beta`: a series that is exactly 1.5 times SPY's returns gives raw beta 1.5 and shrunk 1.335.
