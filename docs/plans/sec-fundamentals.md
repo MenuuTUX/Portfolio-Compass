@@ -1,6 +1,11 @@
 # Plan: company financials from SEC filings
 
-Status: plan only, nothing implemented. Written 2026-11-05.
+Status: step 1 (engine, no UI) built 2026-11-05 in `lib/fundamentals/`, tested on real filings for AAPL, MSFT, NVDA, JPM and TSM in `tests/fixtures/sec/` (rebuild them with `tests/fixtures/sec/trim.ts`). Learned while building:
+- Tag fallback has to be per period, not per company: NVIDIA and Apple switched revenue tags mid-history.
+- Stock splits make older diluted share counts look tiny (NVIDIA 10:1 in 2024), so dilution is measured on split-adjusted counts.
+- Net debt subtracts short-term investments as well as cash. Some companies stop tagging those (NVIDIA after fiscal 2025), which overstates their net debt; the source tag on every number keeps that visible.
+- Trailing twelve months use fiscal year + year to date - prior year to date, which covers cash flow statements that 10-Qs report only year to date. Separate quarters were not needed.
+- Microsoft tags only "Depreciation", so its EBITDA is slightly understated.
 
 Goal: when a user looks at a US-listed stock, show what an analyst would pull from its filings: five years of key figures, quality and balance-sheet measures, valuation against a few peers, and a short list of things worth a closer look, each linked to the filing it came from. It explains and checks; it does not rate, score or recommend.
 
