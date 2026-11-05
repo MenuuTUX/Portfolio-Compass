@@ -45,6 +45,43 @@ function mergeQuoteWithDetails(current: ETF, details?: ETF): ETF {
   };
 }
 
+interface FundProfile {
+  beta?: number | null;
+  allocation?: { equities?: number; bonds?: number; cash?: number } | null;
+  holdings?: { ticker: string; name: string; weight: number }[] | null;
+  /** Sector weights as fractions (0-1), the same unit Sector X-Ray expects. */
+  sectors?: Record<string, number> | null;
+}
+
+/** A fund still missing the mix, beta or holdings the optimizer and look-through use. */
+export function needsFundProfile(item: ETF): boolean {
+  if (item.assetType === "STOCK") return false;
+  const a = item.allocation;
+  return typeof item.beta !== "number" || !a || a.equities + a.bonds + a.cash <= 0 || !item.holdings?.length;
+}
+
+/** Fills fund fields the item is missing; never overwrites data it already has. */
+export function mergeFundProfile<T extends ETF>(item: T, fund?: FundProfile | null): T {
+  if (!fund) return item;
+  const next = { ...item };
+  if (typeof next.beta !== "number" && typeof fund.beta === "number" && Number.isFinite(fund.beta)) {
+    next.beta = fund.beta;
+  }
+  const a = next.allocation;
+  const hasMix = !!a && a.equities + a.bonds + a.cash > 0;
+  const f = fund.allocation;
+  if (!hasMix && f && (f.equities ?? 0) + (f.bonds ?? 0) + (f.cash ?? 0) > 0) {
+    next.allocation = { equities: f.equities ?? 0, bonds: f.bonds ?? 0, cash: f.cash ?? 0 };
+  }
+  if (!next.holdings?.length && fund.holdings?.length) {
+    next.holdings = fund.holdings.map((h) => ({ ticker: h.ticker, name: h.name, weight: h.weight }));
+  }
+  if ((!next.sectors || Object.keys(next.sectors).length === 0) && fund.sectors && Object.keys(fund.sectors).length > 0) {
+    next.sectors = fund.sectors;
+  }
+  return next;
+}
+
 export function mergeLocalPortfolio(
   localItems: LocalPortfolioItem[],
   etfByTicker: Map<string, ETF>,
@@ -180,6 +217,33 @@ export const usePortfolio = (refreshEnabled = false) => {
       cancelled = true;
     };
   }, [tickersKey, queryClient]);
+
+  // Fund profiles (asset mix, beta, holdings, sectors). The search route
+  // leaves these empty for many funds, which made every ETF look identical to
+  // the optimizer and left the look-through and Sector X-Ray empty. Only funds
+  // still missing them are fetched, once per set.
+  const profileKey = (data ?? []).filter(needsFundProfile).map((item) => item.ticker).join(",");
+  useEffect(() => {
+    if (!profileKey) return;
+    let cancelled = false;
+    Promise.all(profileKey.split(",").map((ticker) =>
+      fetch(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`)
+        .then((response) => response.ok ? response.json() : null)
+        .catch(() => null),
+    )).then((funds) => {
+      if (cancelled) return;
+      const fundByTicker = new Map(
+        funds.filter(Boolean).map((fund) => [normalizeTicker(fund.ticker), fund]),
+      );
+      if (fundByTicker.size === 0) return;
+      queryClient.setQueryData<Portfolio>(["portfolio"], (current) =>
+        current?.map((item) => mergeFundProfile(item, fundByTicker.get(item.ticker))),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileKey, queryClient]);
 
   return query;
 };

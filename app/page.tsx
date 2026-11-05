@@ -80,6 +80,18 @@ export default function Home() {
     updatePortfolioItemMutation.mutate({ ticker, shares });
   };
 
+  // One write for the whole plan: per-item mutations would each reload and
+  // resave storage and could interleave.
+  const handleApplyAllocation = (plan: { ticker: string; weight: number; shares: number }[]) => {
+    const byTicker = new Map(plan.map((p) => [p.ticker, p]));
+    const next = portfolio.map((item) => {
+      const p = byTicker.get(item.ticker);
+      return p ? { ...item, weight: p.weight, shares: p.shares } : item;
+    });
+    savePortfolio(next.map(({ ticker, weight, shares }) => ({ ticker, weight, shares })));
+    queryClient.setQueryData(['portfolio'], next);
+  };
+
   const handleClearPortfolio = () => {
     savePortfolio([]);
     queryClient.setQueryData(['portfolio'], []);
@@ -172,6 +184,7 @@ export default function Home() {
                       onUpdateWeight={handleUpdateWeight}
                       onUpdateShares={handleUpdateShares}
                       onClear={handleClearPortfolio}
+                      onApplyAllocation={handleApplyAllocation}
                       onNavigate={switchTab}
                     />
                   )}

@@ -1,6 +1,6 @@
 import { Decimal } from "@/lib/decimal";
 import { PortfolioItem } from "@/types";
-import { getReportedAssetYieldFraction } from "@/lib/math/portfolio-returns";
+import { getAssetBeta, getReportedAssetYieldFraction } from "@/lib/math/portfolio-returns";
 
 export interface GreedyOptimizationParams {
   candidates: {
@@ -68,15 +68,73 @@ export function riskPenaltyForProfile(
   return LAMBDA_BY_PROFILE[profile];
 }
 
-/** Tickers without an issuer-sourced yield or reported beta cannot receive a score. */
-export function getOptimizerInputGaps(portfolio: readonly PortfolioItem[]): string[] {
-  return portfolio
-    .filter((item) =>
-      getReportedAssetYieldFraction(item) === null ||
-      !item.metrics?.yieldSource?.startsWith("Issuer ") ||
-      typeof item.beta !== "number" || !Number.isFinite(item.beta),
-    )
-    .map((item) => item.ticker);
+/** Assumed annual return per unit of market beta. A modelling assumption, not an estimate from data. */
+export const BETA_PREMIUM_ASSUMPTION = 0.06;
+
+/** Market beta by sleeve, used to turn a fund's asset mix into an equity exposure. */
+const SLEEVE_BETA = { equities: 1.0, bonds: 0.15, cash: 0 } as const;
+
+/**
+ * Market exposure the optimizer prices a holding at.
+ *
+ * A fund's reported asset mix wins over its quoted beta: Yahoo's 3-year betas
+ * for Canadian asset-allocation ETFs put an 80/20 fund (XGRO 1.06) above an
+ * all-equity one (XEQT 0.88), which would make "Growth" buy the bond-holding
+ * fund. Stocks, and funds with no reported mix, use the quoted beta, then the
+ * asset-class default.
+ */
+export function getOptimizerBeta(item: PortfolioItem): number {
+  const a = item.allocation;
+  const mixTotal = a ? a.equities + a.bonds + a.cash : 0;
+  if (item.assetType !== "STOCK" && a && Number.isFinite(mixTotal) && mixTotal > 0) {
+    return (
+      (a.equities * SLEEVE_BETA.equities + a.bonds * SLEEVE_BETA.bonds + a.cash * SLEEVE_BETA.cash) /
+      mixTotal
+    );
+  }
+  return getAssetBeta(item);
+}
+
+/**
+ * Annual return proxy: distribution yield plus beta × an assumed 6% equity
+ * premium. Issuer yield is preferred; a provider yield is accepted here as an
+ * estimate because leaving it out prices every fund at the same return.
+ */
+export function getOptimizerReturnProxy(item: PortfolioItem): number {
+  let yieldFraction = getReportedAssetYieldFraction(item);
+  if (yieldFraction === null) {
+    const raw = item.metrics?.yield ?? item.dividendYield;
+    yieldFraction = typeof raw === "number" && Number.isFinite(raw) && raw > 0 ? raw / 100 : 0;
+  }
+  return yieldFraction + getOptimizerBeta(item) * BETA_PREMIUM_ASSUMPTION;
+}
+
+/**
+ * Target weights (percent, one decimal) from a share plan, summing to exactly
+ * 100. The rounding remainder goes to the largest position.
+ */
+export function weightsFromShares(
+  holdings: readonly { ticker: string; price: number }[],
+  shares: Record<string, number>,
+): Record<string, number> {
+  const values = holdings.map((h) => Math.max(0, (shares[h.ticker] || 0) * (h.price || 0)));
+  const total = values.reduce((sum, v) => sum + v, 0);
+  const weights: Record<string, number> = {};
+  if (!(total > 0)) {
+    holdings.forEach((h) => { weights[h.ticker] = 0; });
+    return weights;
+  }
+  let largest = 0;
+  let assigned = 0;
+  holdings.forEach((h, i) => {
+    const w = Math.round((values[i] / total) * 1000) / 10;
+    weights[h.ticker] = w;
+    assigned += w;
+    if (values[i] > values[largest]) largest = i;
+  });
+  const remainder = Math.round((100 - assigned) * 10) / 10;
+  weights[holdings[largest].ticker] = Math.round((weights[holdings[largest].ticker] + remainder) * 10) / 10;
+  return weights;
 }
 
 /** U(w) = expectedReturn − λ × annual variance, for the supplied share counts. */

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PortfolioItem } from "@/types";
 import { mockModule } from "@/tests/helpers/mock-module";
 
@@ -17,7 +17,7 @@ import OptimizationPanel from "@/components/OptimizationPanel";
 describe("OptimizationPanel", () => {
   afterEach(cleanup);
 
-  it("shows the experimental score without an apply action", async () => {
+  it("builds a plan from an amount and applies it to every holding", async () => {
     const portfolio = [{
       ticker: "TEST",
       name: "Test fund",
@@ -46,14 +46,21 @@ describe("OptimizationPanel", () => {
       shares: 5,
     }] as unknown as PortfolioItem[];
 
-    render(<OptimizationPanel portfolio={portfolio} />);
+    let applied: { ticker: string; shares: number; weight: number }[] | null = null;
+    render(<OptimizationPanel portfolio={portfolio} onApply={(plan) => { applied = plan; }} />);
 
-    expect(await screen.findByText("Current score")).toBeTruthy();
-    expect(screen.getByText("Model candidate score")).toBeTruthy();
-    expect(screen.getByText(/Experimental score only/)).toBeTruthy();
-    expect(screen.getByText("Maximum portfolio value for this comparison")).toBeTruthy();
-    expect(screen.getByText(/Unallocated cash under cap/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /apply/i })).toBeNull();
+    expect(screen.getByLabelText("Amount to invest")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "Balanced" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(await screen.findByRole("button", { name: "Use this allocation" }));
+
+    expect(applied).not.toBeNull();
+    const plan = applied!;
+    expect(plan.map((p) => p.ticker)).toEqual(["TEST", "SECOND"]);
+    expect(plan.reduce((sum, p) => sum + p.weight, 0)).toBeCloseTo(100, 6);
+    // Default amount is 10,000; whole shares leave under one share of cash.
+    const invested = plan.reduce((sum, p) => sum + p.shares * (p.ticker === "TEST" ? 100 : 80), 0);
+    expect(invested).toBeGreaterThan(10000 - 100);
+    expect(invested).toBeLessThanOrEqual(10000);
   });
 
   it("explains why one asset cannot produce an allocation decision", () => {
@@ -63,7 +70,6 @@ describe("OptimizationPanel", () => {
       allocation: { equities: 100, bonds: 0, cash: 0 }, beta: 1, weight: 100, shares: 10,
     }] as unknown as PortfolioItem[];
     render(<OptimizationPanel portfolio={portfolio} />);
-    expect(screen.getByText("Allocation score unavailable")).toBeTruthy();
-    expect(screen.getByText(/Buying more of one asset leaves its model weight at 100%/)).toBeTruthy();
+    expect(screen.getByText("Add at least two holdings")).toBeTruthy();
   });
 });

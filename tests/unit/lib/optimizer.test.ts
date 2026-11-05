@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'bun:test';
 import {
   calculatePortfolioUtility,
-  getOptimizerInputGaps,
+  getOptimizerBeta,
+  getOptimizerReturnProxy,
+  weightsFromShares,
   optimizePortfolioGreedy,
   GreedyOptimizationParams,
 } from '../../../lib/optimizer';
@@ -42,37 +44,6 @@ describe('optimizePortfolioGreedy', () => {
       initialShares: { A: 1 },
     });
     expect(result.utility).toBeCloseTo(0.09);
-  });
-
-  it('requires issuer-sourced yield and beta before showing a score', () => {
-    const items = [
-      {
-        ticker: 'MISSING',
-        metrics: { yield: null },
-        dividendYield: null,
-        beta: undefined,
-      },
-      {
-        ticker: 'YAHOO',
-        metrics: { yield: 1.5, yieldSource: 'Yahoo Finance quote' },
-        dividendYield: null,
-        beta: 1,
-      },
-      {
-        ticker: 'NO_SOURCE',
-        metrics: { yield: 1.5 },
-        dividendYield: null,
-        beta: 1,
-      },
-      {
-        ticker: 'ISSUER',
-        metrics: { yield: 1.5, yieldSource: 'Issuer factsheet' },
-        dividendYield: null,
-        beta: 1,
-      },
-    ] as unknown as import('@/types').PortfolioItem[];
-
-    expect(getOptimizerInputGaps(items)).toEqual(['MISSING', 'YAHOO', 'NO_SOURCE']);
   });
 
   it('should allocate budget to best asset (Greedy Utility logic)', () => {
@@ -299,5 +270,53 @@ describe('optimizePortfolioGreedy', () => {
     expect(equity('conservative')).toBeCloseTo(0.3, 1);
     expect(equity('balanced')).toBeCloseTo(0.6, 1);
     expect(equity('growth')).toBeCloseTo(0.9, 1);
+  });
+});
+
+describe('optimizer inputs', () => {
+  const fund = (ticker: string, equities: number, bonds: number, extra: Record<string, unknown> = {}) => ({
+    ticker,
+    assetType: 'ETF',
+    price: 40,
+    metrics: { yield: 1.5, yieldSource: 'Yahoo Finance dividend history (TTM)' },
+    allocation: { equities, bonds, cash: 100 - equities - bonds },
+    ...extra,
+  }) as unknown as import('@/types').PortfolioItem;
+
+  it('prices a fund by its reported stock/bond mix over a quoted beta', () => {
+    // Yahoo quotes XGRO (80/20) at beta 1.06, above all-equity XEQT at 0.88.
+    expect(getOptimizerBeta(fund('XGRO', 80, 20, { beta: 1.06 }))).toBeCloseTo(0.83);
+    expect(getOptimizerBeta(fund('XEQT', 100, 0, { beta: 0.88 }))).toBeCloseTo(1);
+  });
+
+  it('falls back to quoted beta for stocks and funds with no mix', () => {
+    expect(getOptimizerBeta(fund('AAPL', 0, 0, { assetType: 'STOCK', beta: 1.2 }))).toBeCloseTo(1.2);
+    expect(getOptimizerBeta(fund('NOMIX', 0, 0, { beta: 0.7, allocation: { equities: 0, bonds: 0, cash: 0 } }))).toBeCloseTo(0.7);
+  });
+
+  it('uses a provider yield as an estimate so funds do not all price the same', () => {
+    expect(getOptimizerReturnProxy(fund('XEQT', 100, 0))).toBeCloseTo(0.015 + 0.06);
+    expect(getOptimizerReturnProxy(fund('XGRO', 80, 20))).toBeLessThan(getOptimizerReturnProxy(fund('XEQT', 100, 0)));
+  });
+
+  it('gives Growth more stocks than Conservative across an all-equity and an 80/20 fund', () => {
+    const items = [fund('EQ', 100, 0), fund('GRO', 80, 20)];
+    const betas = items.map(getOptimizerBeta);
+    const idio = 0.06 * 0.06;
+    const cov = betas.map((bi, i) => betas.map((bj, j) => bi * bj * 0.0225 + (i === j ? idio : 0)));
+    const candidates = items.map((p) => ({ ticker: p.ticker, price: 40, expectedReturn: getOptimizerReturnProxy(p) }));
+    const equity = (profile: 'conservative' | 'growth') => {
+      const r = optimizePortfolioGreedy({ candidates, covarianceMatrix: cov, riskProfile: profile, budget: 10000 });
+      return (r.weights.EQ ?? 0) * 1 + (r.weights.GRO ?? 0) * 0.8;
+    };
+    expect(equity('growth')).toBeGreaterThan(equity('conservative') + 0.02);
+  });
+
+  it('turns a share plan into one-decimal weights that sum to exactly 100', () => {
+    const holdings = [{ ticker: 'A', price: 33.33 }, { ticker: 'B', price: 33.33 }, { ticker: 'C', price: 33.34 }, { ticker: 'D', price: 10 }];
+    const w = weightsFromShares(holdings, { A: 1, B: 1, C: 1, D: 0 });
+    expect(Object.values(w).reduce((a, b) => a + b, 0)).toBeCloseTo(100, 10);
+    expect(w.D).toBe(0);
+    expect(weightsFromShares(holdings, {})).toEqual({ A: 0, B: 0, C: 0, D: 0 });
   });
 });

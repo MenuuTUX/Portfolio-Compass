@@ -14,7 +14,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import PortfolioItemRow from "./PortfolioItemRow";
 import { Decimal } from "@/lib/decimal";
 import WealthProjector from "./WealthProjector";
-import OptimizationPanel from "./OptimizationPanel";
+import OptimizationPanel, { type AllocationPlanItem } from "./OptimizationPanel";
 import AlgorithmExplainer from "./AlgorithmExplainer";
 import RiskReturnScatter from "./RiskReturnScatter";
 import PortfolioBarChart from "./PortfolioBarChart";
@@ -67,6 +67,8 @@ interface PortfolioBuilderProps {
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
   onClear: () => void;
+  /** Replaces every holding's shares and target weight with an optimizer plan. */
+  onApplyAllocation?: (plan: AllocationPlanItem[]) => void;
   /** Optional: lets the empty state send people to the asset browsers. */
   onNavigate?: (tab: NavTab) => void;
 }
@@ -77,6 +79,7 @@ export default function PortfolioBuilder({
   onUpdateWeight,
   onUpdateShares,
   onClear,
+  onApplyAllocation,
   onNavigate,
 }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<"BUILDER" | "PROJECTION">("BUILDER");
@@ -391,7 +394,7 @@ export default function PortfolioBuilder({
   const drawerBody = (() => {
     if (activeTab === "OPTIMIZER") {
       return optimizerActive ? (
-        <OptimizationPanel portfolio={portfolio} onCalibrating={setIsCalibrating} />
+        <OptimizationPanel portfolio={portfolio} onCalibrating={setIsCalibrating} onApply={onApplyAllocation} />
       ) : (
         <div className="flex flex-col gap-3">
           {!optimizerAvailable && portfolio.length > 0 && (
@@ -409,11 +412,11 @@ export default function PortfolioBuilder({
       );
     }
     return (
-      <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-6">
-        <div className="min-h-[320px] xl:h-full xl:min-h-0">
+      <div className="@container">
+        <div className="grid grid-cols-1 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,280px)] gap-6 items-start">
           <PortfolioBarChart portfolio={portfolio} />
+          {sectorXRay}
         </div>
-        {sectorXRay}
       </div>
     );
   })();
@@ -782,9 +785,9 @@ export default function PortfolioBuilder({
             )}
 
             <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-bold text-ink">Experimental score</h3>
+              <h3 className="text-sm font-bold text-ink">Optimizer</h3>
               <p className="text-xs leading-5 text-muted">
-                Allocation scores use proxy inputs, not forecasts or a recommendation. Nothing here can be applied as a trade.
+                Enter an amount and a risk level, and the optimizer splits it across your holdings. Model estimates, not advice.
               </p>
               {optimizerAvailable && portfolio.length > 0 && (
                 <button type="button" className={cn(pill, "self-start")} onClick={() => selectTab("OPTIMIZER")}>
