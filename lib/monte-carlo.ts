@@ -164,6 +164,27 @@ export function getRegularizedCholesky(matrix: number[][]): { L: number[][]; rid
 }
 
 /**
+ * Uniform [0, 1) generator. With a seed it is Mulberry32, so seeded runs repeat
+ * exactly without a dependency; without one it falls back to Math.random.
+ */
+export function createRandom(seed?: number): () => number {
+  if (seed === undefined) return Math.random;
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Uniform integer in [0, n). */
+export function randomIndex(random: () => number, n: number): number {
+  return Math.min(n - 1, Math.floor(random() * n));
+}
+
+/**
  * Generates Monte Carlo simulation paths for a multi-asset portfolio.
  *
  * Price dynamics use geometric Brownian motion with correlated shocks
@@ -232,16 +253,7 @@ export function generateMonteCarloPaths(
 
   const paths: number[][] = [];
   const shockScale = Math.sqrt(stepDays);
-  let randomState = seed;
-  const random = () => {
-    if (randomState === undefined) return Math.random();
-    // Mulberry32 keeps seeded runs repeatable without a dependency.
-    randomState = (randomState + 0x6d2b79f5) | 0;
-    let value = randomState;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
+  const random = createRandom(seed);
 
   // Buffers reused across every step: allocating them per step dominated the
   // run time. The draw order is unchanged, so a seed gives the same paths.
@@ -294,41 +306,327 @@ function boxMullerTransform(random: () => number): number {
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
+
 /**
- * Calculate percentiles (5th, 50th, 95th) for each day across all simulations.
+ * Percentiles for each recorded step across all simulations.
  */
 export interface MonteCarloCone {
   median: number[];
   p05: number[];
+  p10: number[];
+  p90: number[];
   p95: number[];
-  dates: number[]; // Indices 0 to numDays
+  dates: number[]; // Step indices 0 to numSteps
 }
 
 export function calculateCone(paths: number[][]): MonteCarloCone {
   if (paths.length === 0 || paths[0]?.length === 0) {
-    return { median: [], p05: [], p95: [], dates: [] };
+    return { median: [], p05: [], p10: [], p90: [], p95: [], dates: [] };
   }
 
   const numDays = paths[0].length;
-  const medianPath: number[] = [];
-  const p05Path: number[] = [];
-  const p95Path: number[] = [];
+  const cone: MonteCarloCone = { median: [], p05: [], p10: [], p90: [], p95: [], dates: [] };
 
   const values = new Float64Array(paths.length);
   for (let day = 0; day < numDays; day++) {
-    // Collect values for this day across all sims; sort once for all three.
+    // Collect values for this step across all sims; sort once for every quantile.
     for (let s = 0; s < paths.length; s++) values[s] = paths[s][day];
     values.sort();
 
-    medianPath.push(quantileOfSorted(values, 0.5));
-    p05Path.push(quantileOfSorted(values, 0.05));
-    p95Path.push(quantileOfSorted(values, 0.95));
+    cone.median.push(quantileOfSorted(values, 0.5));
+    cone.p05.push(quantileOfSorted(values, 0.05));
+    cone.p10.push(quantileOfSorted(values, 0.1));
+    cone.p90.push(quantileOfSorted(values, 0.9));
+    cone.p95.push(quantileOfSorted(values, 0.95));
+    cone.dates.push(day);
   }
 
-  return {
-    median: medianPath,
-    p05: p05Path,
-    p95: p95Path,
-    dates: Array.from({ length: numDays }, (_, i) => i),
+  return cone;
+}
+
+// ---------------------------------------------------------------------------
+// Three simulation modes
+// ---------------------------------------------------------------------------
+
+/**
+ * - reshuffle: the historical days in a random order. Every path ends at the
+ *   same value; only the route differs (sequence risk).
+ * - resample: historical days drawn with replacement (bootstrap), optionally in
+ *   blocks of consecutive days. Ending values differ.
+ * - randomize: geometric Brownian motion fitted to the history (parametric).
+ */
+export type SimulationMode = "reshuffle" | "resample" | "randomize";
+
+export const SIMULATION_MODES: readonly SimulationMode[] = ["reshuffle", "resample", "randomize"];
+
+/**
+ * Added to the run seed per mode so each mode is reproducible on its own.
+ * Randomize is 0 so seeds saved before the modes existed still give the same paths.
+ */
+export const MODE_SEED_OFFSET: Record<SimulationMode, number> = {
+  randomize: 0,
+  resample: 1000,
+  reshuffle: 2000,
+};
+
+export interface SimulationInput {
+  /** Aligned daily log returns, [asset][day]. Every row the same length. */
+  returns: number[][];
+  currentPrices: number[];
+  /** Portfolio weights, summing to 1. */
+  weights: number[];
+  initialValue: number;
+  numPaths: number;
+  /** Horizon in trading days. */
+  numDays: number;
+  /** Values are recorded every stepDays (default 1); the last step may be shorter. */
+  stepDays?: number;
+  seed?: number;
+  /** Resample only: consecutive days per bootstrap block. 1 is a plain bootstrap. */
+  blockDays?: number;
+}
+
+export interface SimulationRun {
+  mode: SimulationMode;
+  /** paths[i][k] is the value at day days[k]; paths[i][0] is initialValue. */
+  paths: number[][];
+  /** Trading day of each recorded point. */
+  days: number[];
+  /** Reshuffle only: the same days in their historical order, on the same grid. */
+  referencePath?: number[];
+  /** Randomize only: covariance ridge used (see getRegularizedCholesky). */
+  ridge?: number;
+}
+
+function validateSimulationInput(input: SimulationInput) {
+  const { returns, currentPrices, weights, initialValue, numPaths, numDays } = input;
+  const stepDays = input.stepDays ?? 1;
+  const n = currentPrices.length;
+  if (n === 0 || weights.length !== n || returns.length !== n) {
+    throw new RangeError("Prices, weights, and returns must contain the same nonzero number of assets.");
+  }
+  const T = returns[0]?.length ?? 0;
+  if (T < 2 || returns.some((row) => row.length !== T)) {
+    throw new RangeError("Every asset needs the same number of historical returns, at least two.");
+  }
+  if (returns.some((row) => row.some((r) => !Number.isFinite(r)))) {
+    throw new RangeError("Historical returns must be finite.");
+  }
+  if (currentPrices.some((price) => !Number.isFinite(price) || price <= 0)) {
+    throw new RangeError("Every simulated asset must have a finite positive price.");
+  }
+  if (weights.some((w) => !Number.isFinite(w) || w < 0) ||
+      Math.abs(weights.reduce((sum, w) => sum + w, 0) - 1) > 1e-6) {
+    throw new RangeError("Portfolio weights must be finite, nonnegative, and sum to 1.");
+  }
+  if (!Number.isInteger(numPaths) || numPaths < 1 || !Number.isInteger(numDays) || numDays < 1) {
+    throw new RangeError("Simulation count and duration must be positive integers.");
+  }
+  if (!Number.isFinite(initialValue) || initialValue <= 0) {
+    throw new RangeError("Starting portfolio value must be finite and positive.");
+  }
+  if (!Number.isInteger(stepDays) || stepDays < 1) {
+    throw new RangeError("Step length must be a positive whole number of days.");
+  }
+  if (input.blockDays !== undefined &&
+      (!Number.isInteger(input.blockDays) || input.blockDays < 1 || input.blockDays > T)) {
+    throw new RangeError("Block length must be a whole number of days within the history.");
+  }
+  if (input.seed !== undefined && !Number.isFinite(input.seed)) {
+    throw new RangeError("Simulation seed must be finite.");
+  }
+  return { n, T, stepDays };
+}
+
+/** Day index of each recorded point: 0, step, 2·step, ..., numDays. */
+function recordedDays(numDays: number, stepDays: number): number[] {
+  const days = [0];
+  for (let d = stepDays; d < numDays; d += stepDays) days.push(d);
+  days.push(numDays);
+  return days;
+}
+
+/** Mean daily log return per asset and the regularized Cholesky factor of their covariance. */
+export function fitReturnModel(returns: number[][]) {
+  const meanReturns = returns.map((row) => calculateMean(row));
+  const { L, ridge } = getRegularizedCholesky(calculateCovarianceMatrix(returns));
+  return { meanReturns, cholesky: L, ridge };
+}
+
+/**
+ * One interface for all three modes. Reshuffle and Resample replay whole
+ * historical days (every asset's return from the same date), so same-day
+ * co-movement between holdings is kept without a covariance model. All modes
+ * value a buy-and-hold portfolio: share counts are fixed at t = 0.
+ */
+export function simulatePaths(mode: SimulationMode, input: SimulationInput): SimulationRun {
+  const { n, T, stepDays } = validateSimulationInput(input);
+  const { returns, currentPrices, weights, initialValue, numPaths, numDays, seed } = input;
+  const days = recordedDays(numDays, stepDays);
+
+  if (mode === "randomize") {
+    const { meanReturns, cholesky, ridge } = fitReturnModel(returns);
+    if (numDays % stepDays !== 0) {
+      throw new RangeError("Randomize needs a horizon that is a whole number of steps.");
+    }
+    const paths = generateMonteCarloPaths(
+      currentPrices, weights, meanReturns, cholesky,
+      numPaths, numDays / stepDays, initialValue, seed, stepDays,
+    );
+    return { mode, paths, days, ridge };
+  }
+
+  const random = createRandom(seed);
+  // Day-major copy so one historical day is a contiguous row.
+  const R = new Float64Array(T * n);
+  for (let i = 0; i < n; i++) for (let t = 0; t < T; t++) R[t * n + i] = returns[i][t];
+  const startValues = weights.map((w) => initialValue * w);
+  const logPrice = new Float64Array(n);
+  const blockDays = mode === "resample" ? input.blockDays ?? 1 : 1;
+  const order = mode === "reshuffle" ? new Int32Array(numDays) : null;
+
+  // Marks one path given a function that returns the historical row for day d.
+  const markPath = (rowFor: (d: number) => number): number[] => {
+    logPrice.fill(0);
+    const path = new Array<number>(days.length);
+    path[0] = initialValue;
+    let d = 0;
+    for (let k = 1; k < days.length; k++) {
+      for (; d < days[k]; d++) {
+        const base = rowFor(d) * n;
+        for (let i = 0; i < n; i++) logPrice[i] += R[base + i];
+      }
+      let value = 0;
+      for (let i = 0; i < n; i++) value += startValues[i] * Math.exp(logPrice[i]);
+      if (!Number.isFinite(value) || value <= 0) {
+        throw new RangeError("A simulated portfolio value became invalid.");
+      }
+      path[k] = value;
+    }
+    return path;
   };
+
+  const paths: number[][] = [];
+  for (let sim = 0; sim < numPaths; sim++) {
+    if (order) {
+      // Tile the history to the horizon, then Fisher-Yates shuffle all of it.
+      for (let d = 0; d < numDays; d++) order[d] = d % T;
+      for (let d = numDays - 1; d > 0; d--) {
+        const j = randomIndex(random, d + 1);
+        const tmp = order[d];
+        order[d] = order[j];
+        order[j] = tmp;
+      }
+      paths.push(markPath((d) => order[d]));
+    } else {
+      let blockStart = 0;
+      paths.push(markPath((d) => {
+        const offset = d % blockDays;
+        if (offset === 0) blockStart = randomIndex(random, T);
+        return (blockStart + offset) % T;
+      }));
+    }
+  }
+
+  const run: SimulationRun = { mode, paths, days };
+  if (mode === "reshuffle") run.referencePath = markPath((d) => d % T);
+  return run;
+}
+
+// ---------------------------------------------------------------------------
+// Summaries
+// ---------------------------------------------------------------------------
+
+/** Largest peak-to-trough fall along a path, as a fraction (0.25 = fell 25%). */
+export function maxDrawdown(path: ArrayLike<number>): number {
+  let peak = -Infinity;
+  let worst = 0;
+  for (let i = 0; i < path.length; i++) {
+    const v = path[i];
+    if (v > peak) peak = v;
+    else if (peak > 0) worst = Math.max(worst, (peak - v) / peak);
+  }
+  return worst;
+}
+
+export interface OutcomeSummary {
+  /** Ending value percentiles. */
+  p05: number; p10: number; p25: number; p50: number; p75: number; p90: number; p95: number;
+  /** Share of paths ending below the starting value. */
+  chanceOfLoss: number;
+  /** Peak-to-trough fall: the median path's, and the one 1 in 10 paths matched or exceeded. */
+  maxDrawdown: { p50: number; p90: number };
+  /** Share of paths that were below the starting value at some recorded point. */
+  everBelowStart: number;
+}
+
+export function summarizeOutcomes(paths: number[][], initialValue: number): OutcomeSummary {
+  const finals = paths.map((p) => p[p.length - 1]).sort((a, b) => a - b);
+  const drawdowns = paths.map(maxDrawdown).sort((a, b) => a - b);
+  const count = Math.max(1, paths.length);
+  // A tolerance so reshuffled paths that end exactly at the start (round-off) are not losses.
+  const below = initialValue * (1 - 1e-9);
+  return {
+    p05: quantileOfSorted(finals, 0.05),
+    p10: quantileOfSorted(finals, 0.1),
+    p25: quantileOfSorted(finals, 0.25),
+    p50: quantileOfSorted(finals, 0.5),
+    p75: quantileOfSorted(finals, 0.75),
+    p90: quantileOfSorted(finals, 0.9),
+    p95: quantileOfSorted(finals, 0.95),
+    chanceOfLoss: finals.filter((v) => v < below).length / count,
+    maxDrawdown: {
+      p50: quantileOfSorted(drawdowns, 0.5),
+      p90: quantileOfSorted(drawdowns, 0.9),
+    },
+    everBelowStart: paths.filter((p) => p.some((v) => v < below)).length / count,
+  };
+}
+
+export interface HistogramBin {
+  from: number;
+  to: number;
+  count: number;
+  /** True when the whole bin is below zero. */
+  loss: boolean;
+}
+
+/**
+ * Bins ending returns on a grid anchored at 0, so 0 is always a bin edge and
+ * the loss/gain color split is exact. Width is (max - min) / targetBins.
+ */
+export function returnHistogram(endReturns: number[], targetBins = 30): HistogramBin[] {
+  const values = endReturns.filter(Number.isFinite);
+  if (values.length === 0) return [];
+  let min = Infinity;
+  let max = -Infinity;
+  for (const v of values) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (max - min < 1e-12) {
+    return [{ from: min, to: max, count: values.length, loss: max < 0 }];
+  }
+  const width = (max - min) / Math.max(1, targetBins);
+  const first = Math.floor(min / width);
+  const binCount = Math.max(1, Math.floor(max / width) - first + 1);
+  const bins: HistogramBin[] = Array.from({ length: binCount }, (_, k) => {
+    const from = (first + k) * width;
+    const to = (first + k + 1) * width;
+    return { from, to, count: 0, loss: to <= 1e-12 };
+  });
+  for (const v of values) {
+    const k = Math.min(binCount - 1, Math.max(0, Math.floor(v / width) - first));
+    bins[k].count++;
+  }
+  return bins;
+}
+
+/** Index of the path whose ending value is the median (a real path, not the pointwise median). */
+export function medianPathIndex(paths: number[][]): number {
+  if (paths.length === 0) return -1;
+  const order = paths.map((_, i) => i).sort(
+    (a, b) => paths[a][paths[a].length - 1] - paths[b][paths[b].length - 1],
+  );
+  return order[Math.floor((order.length - 1) / 2)];
 }

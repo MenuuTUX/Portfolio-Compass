@@ -203,6 +203,21 @@ const entries = {
     what: "A method that generates random paths from specified return, volatility, and correlation assumptions.",
     means: "Shows a distribution of model outcomes. The result is not a forecast and depends on the assumptions.",
   },
+  "reshuffle": {
+    label: "Reshuffle",
+    what: "A Monte Carlo method that replays the actual historical returns in a random order.",
+    means: "Every path ends at the same value, so it isolates sequence risk: how bumpy the route is, not where it ends.",
+  },
+  "resample": {
+    label: "Resample (bootstrap)",
+    what: "A Monte Carlo method that builds paths from historical days picked at random, with repeats allowed.",
+    means: "Endings differ because some paths draw more good or bad days. It keeps the real shape of past returns instead of assuming a bell curve.",
+  },
+  "randomize": {
+    label: "Randomize (parametric)",
+    what: "A Monte Carlo method that draws returns from a distribution fitted to history, here geometric Brownian motion.",
+    means: "Produces smooth outcome ranges, but only as realistic as the fitted average, volatility and correlations.",
+  },
   sharpe: {
     label: "Sharpe Ratio",
     what: "Return earned per unit of risk (volatility), after a risk-free rate.",

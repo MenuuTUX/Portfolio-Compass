@@ -7,8 +7,12 @@ import { mockModule } from '@/tests/helpers/mock-module';
 
 expect.extend(matchers);
 
-let capturedSimulation: { prices: number[]; weights: number[] } | null = null;
+let capturedSimulation: { prices: number[]; weights: number[]; mode: string; blockDays?: number; seed?: number } | null = null;
+let capturedModes: string[] = [];
 let capturedReturnPrices: number[][] = [];
+let breakCovariance = false;
+
+const realMonteCarlo = { ...(await import('@/lib/monte-carlo')) };
 
 // Mock rechart components to avoid rendering issues in test env
 await mockModule('recharts', () => ({
@@ -24,24 +28,25 @@ await mockModule('recharts', () => ({
     ComposedChart: () => <div />,
 }));
 
-// Mock Monte Carlo calculations
+// The share card renders next/image, which happy-dom cannot load.
+await mockModule('@/components/PortfolioShareButton', () => ({
+    PortfolioShareButton: () => <button type="button">Share</button>,
+}));
+
+// Capture the inputs and delegate to the real engine.
 await mockModule('@/lib/monte-carlo', () => ({
+    ...realMonteCarlo,
     calculateLogReturns: (prices: number[]) => {
         capturedReturnPrices.push(prices);
         return prices.slice(1).map((price, index) => Math.log(price / prices[index]));
     },
-    calculateCovarianceMatrix: (returns: number[][]) => returns.map(() => returns.map(() => 0.0001)),
-    getCholeskyDecomposition: (matrix: number[][]) => matrix.map((row, index) => row.map((_, column) => index === column ? 1 : 0)),
-    generateMonteCarloPaths: (prices: number[], weights: number[], _means: number[], _cholesky: number[][], count: number, days: number, initial: number) => {
-        capturedSimulation = { prices, weights };
-        return Array.from({ length: count }, () => Array.from({ length: days + 1 }, () => initial));
+    calculateCovarianceMatrix: (returns: number[][]) =>
+        returns.map((_, i) => returns.map((__, j) => breakCovariance ? (i === j ? -1 : 0) : (i === j ? 0.0002 : 0.0001))),
+    simulatePaths: (mode: any, input: any) => {
+        capturedSimulation = { prices: input.currentPrices, weights: input.weights, mode, blockDays: input.blockDays, seed: input.seed };
+        capturedModes.push(mode);
+        return realMonteCarlo.simulatePaths(mode, input);
     },
-    calculateCone: () => ({
-        median: [],
-        p05: [],
-        p95: [],
-        dates: []
-    }),
 }));
 
 // Mock Decimal
@@ -61,7 +66,9 @@ describe('MonteCarloSimulator', () => {
         cleanup();
         globalThis.fetch = originalFetch;
         capturedSimulation = null;
+        capturedModes = [];
         capturedReturnPrices = [];
+        breakCovariance = false;
     });
 
     const mockPortfolio: Portfolio = [
@@ -298,6 +305,105 @@ describe('MonteCarloSimulator', () => {
             fireEvent.click(screen.getByText('Run simulation'));
 
             expect(await screen.findByText(/price returns only \(adjusted closes unavailable/)).toBeInTheDocument();
+        });
+    });
+
+    describe('simulation modes', () => {
+        const dates = Array.from({ length: 230 }, (_, index) =>
+            new Date(Date.UTC(2025, 0, 1 + index)).toISOString().slice(0, 10));
+        // Deterministic bumpy history with both up and down days.
+        const bumpy = (phase: number) => {
+            let price = 100;
+            return dates.map((date, index) => {
+                price *= 1 + 0.02 * Math.sin(index * 1.7 + phase) + 0.0004;
+                return { date, price, adjPrice: price };
+            });
+        };
+        const portfolio = () => mockPortfolio.slice(0, 2).map((item, i) => ({
+            ...item, shares: 1, price: 100, history: bumpy(i),
+        })) as Portfolio;
+
+        const runOnce = async () => {
+            let fetches = 0;
+            globalThis.fetch = (async () => {
+                fetches++;
+                return new Response('{}', { status: 502 });
+            }) as unknown as typeof fetch;
+            const view = render(<MonteCarloSimulator portfolio={portfolio()} />);
+            fireEvent.click(screen.getByText('Run simulation'));
+            await screen.findByText('Typical ending');
+            return { view, fetchCount: () => fetches };
+        };
+
+        it('defaults to Resample and explains it in one line', () => {
+            render(<MonteCarloSimulator portfolio={portfolio()} />);
+            expect(screen.getByRole('tab', { name: /Resample/ })).toHaveAttribute('aria-selected', 'true');
+            expect(screen.getByText(/Real past days picked at random, with repeats/)).toBeInTheDocument();
+        });
+
+        it('shows the four callouts after a run', async () => {
+            await runOnce();
+            expect(capturedSimulation!.mode).toBe('resample');
+            for (const label of ['Typical ending', 'Range', 'Chance of loss', 'Worst drop']) {
+                expect(screen.getByText(label)).toBeInTheDocument();
+            }
+            expect(screen.getByText('8 in 10 paths finished between these')).toBeInTheDocument();
+        });
+
+        it('switches to Reshuffle without refetching history and keeps the seed base', async () => {
+            const { fetchCount } = await runOnce();
+            const before = fetchCount();
+            const resampleSeed = capturedSimulation!.seed!;
+            fireEvent.click(screen.getByRole('tab', { name: /Reshuffle/ }));
+            expect(await screen.findByText('Every order ends at this value')).toBeInTheDocument();
+            expect(screen.getByText('Halfway range')).toBeInTheDocument();
+            expect(screen.getByText('Dipped below start')).toBeInTheDocument();
+            expect(fetchCount()).toBe(before);
+            // Stats run seed is the drawn seed + 1; mode offsets differ by 1000.
+            expect(capturedSimulation!.mode).toBe('reshuffle');
+            expect(capturedSimulation!.seed! - resampleSeed).toBe(1000);
+        });
+
+        it('shows a histogram with loss-colored bars for Randomize', async () => {
+            const { view } = await runOnce();
+            fireEvent.click(screen.getByRole('tab', { name: /Randomize/ }));
+            expect(await screen.findByText(/paths ended$/)).toBeInTheDocument();
+            const bars = view.container.querySelectorAll('rect[fill="var(--loss)"]');
+            expect(bars.length).toBeGreaterThan(0);
+        });
+
+        it('compares all three in stacked panels', async () => {
+            await runOnce();
+            fireEvent.click(screen.getByText('Compare all three'));
+            const section = await screen.findByLabelText('All three simulation types');
+            await waitFor(() => expect(new Set(capturedModes)).toEqual(new Set(['resample', 'reshuffle', 'randomize'])));
+            for (const name of ['Reshuffle', 'Resample', 'Randomize']) {
+                expect(section.querySelector('h3')?.parentElement?.parentElement?.parentElement?.textContent).toContain(name);
+            }
+            expect(section.querySelectorAll('h3').length).toBe(3);
+        });
+
+        it('keeps Resample and Reshuffle when the covariance cannot be factored', async () => {
+            breakCovariance = true;
+            await runOnce();
+            fireEvent.click(screen.getByRole('tab', { name: /Randomize/ }));
+            expect(await screen.findByText(/Randomize is unavailable/)).toBeInTheDocument();
+            fireEvent.click(screen.getByRole('tab', { name: /Reshuffle/ }));
+            expect(await screen.findByText('Every order ends at this value')).toBeInTheDocument();
+        });
+
+        it('applies the Advanced block length on the next run', async () => {
+            await runOnce();
+            expect(screen.getByText('Paths behind the figures')).toBeInTheDocument();
+            fireEvent.click(screen.getByRole('button', { name: '1 week' }));
+            expect(screen.getByText(/settings changed since the last run/)).toBeInTheDocument();
+            fireEvent.click(screen.getByText('Run again'));
+            await waitFor(() => expect(capturedSimulation!.blockDays).toBe(5));
+        });
+
+        it('uses no em dashes in the rendered copy', async () => {
+            const { view } = await runOnce();
+            expect(view.container.textContent).not.toContain('\u2014');
         });
     });
 });

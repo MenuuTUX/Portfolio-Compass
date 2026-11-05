@@ -48,24 +48,24 @@ const steps = [
   {
     id: "monte_carlo",
     title: "Stochastic Simulation",
-    subtitle: "Geometric Brownian Motion",
+    subtitle: "Reshuffle, Resample, Randomize",
     icon: GitBranch,
     description:
-      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily returns using geometric Brownian motion. Returns come from dividend-adjusted closes (total return) when every holding has them, and from price alone otherwise, with the basis shown after each run. Percentiles are not calibrated probabilities or forecasts.",
+      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily returns in three ways. Reshuffle replays the past year's days in a random order, so every path ends at the same value and only the route changes. Resample picks past days at random with repeats, so endings differ. Randomize draws returns from geometric Brownian motion fitted to the same history. Returns come from dividend-adjusted closes (total return) when every holding has them, and from price alone otherwise, with the basis shown after each run. Percentiles are not calibrated probabilities or forecasts.",
     details: [
       {
-        label: "Drift (μ)",
-        text: "Mean aligned daily log return (total return when adjusted closes exist)",
-        icon: ArrowRight,
-      },
-      {
-        label: "Shock (σ)",
-        text: "Historical volatility of the same returns, with no separate yield term",
+        label: "Reshuffle",
+        text: "Same days, new order: shows sequence risk",
         icon: Shuffle,
       },
       {
-        label: "All Assets",
-        text: "Holdings linked through sample covariance",
+        label: "Resample",
+        text: "Real days drawn with repeats, optionally in blocks",
+        icon: ArrowRight,
+      },
+      {
+        label: "Randomize",
+        text: "Drift (μ), volatility (σ) and sample covariance, no separate yield term",
         icon: Binary,
       },
     ],
