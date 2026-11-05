@@ -29,7 +29,7 @@ Out (named so nobody builds them by accident):
 - Fund look-through from Form N-PORT. Valuable for US ETFs, but it is a different parser and UI; a separate plan.
 - Full-text red flags such as going-concern language. XBRL rarely tags them; needs filing text parsing.
 - Portfolio-level weighted fundamentals. Follows once per-company data is trustworthy.
-- DCF or any price target. The app shows what the price implies, never a fair value.
+- A single "fair value" or price target. The DCF tools in section 7 show what the price implies and a range under the user's inputs, never one verdict number.
 
 ## 1. Data source
 
@@ -275,7 +275,75 @@ A "Statements" view inside the Financials tab: three sub-tabs (Income, Balance s
 - Canadian issuers (SEDAR+) remain out of scope.
 - The quarterly files lag by days to weeks, so a filing made yesterday shows in the standardized view first and in the as-reported view after the next quarterly file.
 
-## 7. Order of work
+## 7. Reverse DCF and editable DCF
+
+Goal: let a user see what today's price assumes about a company's future cash flows, and test their own assumptions, with every input traceable to a filing, a market source or the user. Plain arithmetic, no AI: AI would add untraceable inputs, which is the opposite of what this tool is for.
+
+### Two tools
+
+1. **Reverse DCF (one click).** Solves for the revenue growth the current price implies, holding the other inputs at their historical defaults. Output, in plain words: "At $X, the market price assumes revenue grows about 9% a year for ten years at a 30% operating margin. Over the last five years it grew 12% a year." The growth is solved, not guessed, so there is no assumption to hide.
+2. **Editable DCF.** The same model run forward. Every input starts at a labeled default and can be changed. The output is a range, never a single "fair value".
+
+### Model
+
+Ten-year unlevered free cash flow, then a terminal value:
+- Revenue: grows at rate g for years 1 to 5, fading in a straight line to terminal growth by year 10.
+- Operating margin: moves from the trailing margin to a target margin over the ten years (default target: five-year average).
+- After-tax operating income: operating income × (1 - tax rate).
+- Reinvestment: capex - D&A + change in working capital. Defaults are each one's five-year ratio to revenue (working capital change from receivables, inventory and payables in the filings).
+- Share-based pay is treated as a real cost (subtracted), because it dilutes shareholders; a toggle shows the value with it added back, labeled.
+- Discount rate (WACC): cost of equity = risk-free rate + beta × equity risk premium; cost of debt = interest expense / debt, after tax; weights from market cap and debt.
+- Terminal value: Gordon growth on year-11 free cash flow, with terminal growth capped at the risk-free rate.
+- Equity value = present value of cash flows + terminal value - net debt (debt minus cash and short-term investments); per share on diluted shares.
+- Reverse DCF: bisection on g between -20% and +60% until the model's value per share equals the price, to within $0.01. Reports "no solution in range" rather than an extreme number.
+
+### Inputs and their sources
+
+| Input | Default | Source |
+|---|---|---|
+| Revenue, margins, tax rate, capex, D&A, working capital, share-based pay | Trailing and five-year history | `lib/fundamentals` (sections 2 and 6) |
+| Net debt, diluted shares | Latest balance sheet and cover page | `lib/fundamentals` |
+| Price | Current quote | Existing Yahoo quote path |
+| Risk-free rate | 10-year US Treasury yield | US Treasury daily yield curve CSV, free, no key. Checked 2026-11-05: `https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rates.csv/{YYYY}/all?type=daily_treasury_yield_curve&field_tdr_date_value={YYYY}&_format=csv` returns a "10 Yr" column (4.84% that day). Cached for a day by a small route, snapshotted with the nightly job as a fallback. |
+| Beta | Two years of weekly returns against SPY, shrunk toward 1 (0.67 × raw + 0.33) | Price history the app already fetches (`/api/market/chart`) |
+| Equity risk premium | 4.5% | A stated constant in code with a comment on its basis, shown in the UI and editable; reviewed when the plan is revisited |
+| Terminal growth | 2.5%, capped at the risk-free rate | Stated default, editable |
+
+Each input in the UI shows its value, where it came from, and a reset-to-default control.
+
+### Output
+
+- **Reverse DCF:** the implied growth rate, next to the company's own one-, three- and five-year revenue growth.
+- **Editable DCF:**
+  - A range ("the model gives $150 to $230 under these inputs") from a 5 × 5 sensitivity grid of discount rate (±1 point in half-point steps) against terminal growth (±1 point).
+  - The share of value that comes from the terminal value, with a warning above 75%: "Most of this value comes from years after the forecast."
+  - The full ten-year table behind it, collapsed by default.
+- Footer: "A model under the inputs shown, not a fair value or a recommendation."
+
+### Where it does not run (shown as a message, not a blank)
+
+- Financial companies (SIC 6000 to 6799): "Cash-flow models do not suit banks and insurers, whose borrowing is their business."
+- Negative trailing free cash flow and negative five-year average: "This company has not produced positive free cash flow, so the model would rest almost entirely on guesses about later years."
+- IFRS or non-USD filers, for the same reasons valuation is withheld today.
+- WACC at or below terminal growth: the model refuses and says why.
+
+### Code
+
+- `lib/valuation/dcf.ts`: pure functions `projectCashFlows`, `wacc`, `dcfValue`, `sensitivityGrid`, `impliedGrowth`, and `defaultInputs(company, market)`, which returns every input with its source label.
+- `lib/valuation/beta.ts`: weekly returns, covariance against SPY, shrinkage.
+- `app/api/market/treasury/route.ts`: fetches and caches the 10-year yield; falls back to the snapshot copy, and to the last cached value with its date if both fail. Add "US Treasury (interest rates)" to the privacy page's data sources; no user data is involved.
+- UI: a "Valuation" section in the Financials tab, below the peer multiples.
+
+### Tests
+
+- `dcf`: a hand-computed three-year case with a known answer; constant growth with no fade reduces to the closed-form Gordon value; raising the discount rate lowers value and raising terminal growth raises it; WACC at or below terminal growth throws.
+- `impliedGrowth`: round trip (value at g, then solve from that price returns g within 0.01%); no solution in range is reported, not clamped.
+- `defaultInputs`: on the AAPL and MSFT fixtures, every default has a source label and a finite value; JPM and TSM return the not-applicable reason.
+- `beta`: a series that is exactly 1.5 times SPY's returns gives raw beta 1.5 and shrunk 1.335.
+- Treasury route: parses the "10 Yr" column from a saved CSV fixture, uses the latest date, and falls back with the date shown when the fetch fails.
+- UI copy: no "fair value", "undervalued", "buy" or "sell", and no em dashes.
+
+## 8. Order of work
 
 1. `lib/fundamentals` (client, concepts, periods, metrics, flags, sector, source interface) with fixtures and unit tests. No UI.
 2. The route with live and snapshot sources, its tests, and the privacy page source lines.
@@ -284,4 +352,5 @@ A "Statements" view inside the Financials tab: three sub-tabs (Income, Balance s
 5. Peers.
 6. As-reported statements (section 6): builder script with fixtures and tests, the quarterly workflow, then the Statements view.
 7. Map common company-specific tags back into the standardized line items.
-8. Separate plans afterwards: N-PORT fund look-through, then portfolio-level fundamentals.
+8. Reverse DCF and editable DCF (section 7): `lib/valuation` with tests, the Treasury route, then the Valuation section in the Financials tab.
+9. Separate plans afterwards: N-PORT fund look-through, then portfolio-level fundamentals.
