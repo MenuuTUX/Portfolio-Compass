@@ -206,11 +206,82 @@ Component tests:
 - Peers can be removed and added, and persist.
 - No em dash in rendered copy.
 
-## 6. Order of work
+## 6. As-reported statements (income statement, balance sheet, cash flow)
+
+Goal: show each company's three statements the way it filed them (same lines, order and labels) for every XBRL filer, next to the standardized figures above.
+
+### Why a second SEC source
+
+The per-company feed (`companyfacts`) has no statement layout and drops company-specific tags. Checked on Microsoft's fiscal 2026 10-K: 4 of its 88 statement lines are Microsoft's own tags, including "Depreciation, amortization, and other" ($38.5B), which is why the standardized engine falls back to plain "Depreciation" for Microsoft. Subtotals rebuilt from `companyfacts` alone would not add up.
+
+The SEC's **Financial Statement Data Sets** have both. They are free quarterly bulk files at `https://www.sec.gov/files/dera/data/financial-statement-data-sets/{YYYY}q{N}.zip`, covering every 10-K, 10-Q, 20-F and 40-F filed that quarter since 2009. Checked 2026 Q3: 65 MB zipped, about 985 MB unzipped, 6,516 filings (5,263 10-Q, 344 10-K, 97 20-F), 3.9 million numbers. Tab-separated tables:
+
+| File | Columns used | Role |
+|---|---|---|
+| `sub.txt` | `adsh, cik, name, sic, form, period, fy, fp, fye, filed` | One row per filing (`adsh` is the accession number) |
+| `pre.txt` | `adsh, report, line, stmt, tag, version, plabel, negating` | Layout: which statement (`stmt` is IS, BS, CF, EQ, CI), line order and the printed label |
+| `num.txt` | `adsh, tag, version, ddate, qtrs, uom, segments, coreg, value` | Every number, including company-specific tags. `ddate` is the period end, `qtrs` the length in quarters (0 for balances) |
+| `tag.txt` | `tag, version, custom, iord, crdr, tlabel` | Whether a tag is the company's own, and whether it is a balance (`iord` I) or a flow (D) |
+
+### Rebuilding a statement
+
+Proven by hand on Microsoft's 10-K (`0001193125-26-323660`): the income statement, balance sheet and cash flow statement came out line for line as filed, and both checks below passed.
+
+For one filing and one statement:
+1. Take that filing's `pre.txt` rows for the statement and keep the lowest `report` number. Some filings repeat a statement in a second report, such as a parenthetical one.
+2. Sort by `line`. Each row gives the label (`plabel`) and the tag.
+3. For each tag, take the `num.txt` value with no `segments` and no `coreg`, so it is the consolidated company total. Flows use `qtrs` 4 for annual or 1 for quarterly (and the year-to-date span on 10-Q cash flows); balances use `qtrs` 0.
+4. Columns: every `ddate` the filing reports for that statement. A 10-K carries three years of income and cash flow and two balance sheets.
+5. Cash flow opening balance: a balance tag that appears twice in the cash flow statement takes the prior period's `ddate` on its first line and the current one on its last.
+6. `negating` = 1 means the company shows the value with the opposite sign (payments shown negative); apply it for display only.
+7. Units come from `uom`: per-share lines are USD per share and share counts are shares, so they are never scaled like dollar amounts.
+
+### Integrity checks (shown, not hidden)
+
+Each rebuilt statement carries pass or fail for:
+- Balance sheet: `Assets` = `LiabilitiesAndStockholdersEquity`, and that equals `Liabilities` + equity including noncontrolling interest, where reported.
+- Cash flow: operating + investing + financing + FX effect = change in cash, and opening cash + change = closing cash.
+- Across statements: net income on the income statement equals the net income line that starts the cash flow statement.
+
+A failed check is labeled on the statement ("Totals do not add up as tagged; the filing may tag a line unusually"), with a link to the filing.
+
+### Delivery
+
+Same no-lock-in model as section 1b:
+- `scripts/sec-statements.ts` streams each quarterly zip line by line. It never loads `num.txt` into memory: it reads `sub.txt` and `pre.txt` first to know which accession numbers and tags matter, then keeps only those rows from `num.txt`. Uses the system `unzip -p` to stream, so no new dependency.
+- Keeps 10-K, 10-Q, 20-F and 40-F filings from listed companies (the same exchange filter as the snapshot) for the last five years: 20 quarters, about 1.3 GB downloaded and about 20 GB unzipped and streamed, processed one quarter at a time.
+- Writes one file per company, `sec/s/{CIK}.json`, holding the latest 10-K and the last four 10-Qs as statements: lines with label, tag, custom flag, values by date and check results. Target 30 to 80 KB per company; the script reports the real total.
+- Runs as a quarterly GitHub Actions job (the SEC posts each quarter's file a few days after the quarter ends), publishing next to the nightly snapshot files. The live per-company feed still covers filings made since the last quarterly file, through the standardized view.
+
+### Also improves the standardized engine
+
+The same files carry company-specific tags with their standard parent (`tag.txt` `custom` = 1). Phase 2 can map common custom lines (such as Microsoft's "Depreciation, amortization, and other") back into `concepts.ts` line items, which fixes gaps like Microsoft's understated EBITDA.
+
+### UI
+
+A "Statements" view inside the Financials tab: three sub-tabs (Income, Balance sheet, Cash flow), columns by period, the filed labels, company-specific lines marked with a small "company-specific line" note, check results at the bottom of each statement, and the filing link in the header. Progressive disclosure: a "Show tags" toggle reveals the XBRL tag on each line.
+
+### Tests
+
+- Builder on a tiny hand-made quarter (four `.txt` files in a fixture zip): line order, lowest report wins, consolidated values only, three columns from a 10-K, cash opening balance from the prior date, negating applied to display only, per-share units untouched.
+- Checks: a balanced fixture passes; one with a deliberately wrong total fails with the right message.
+- A trimmed real fixture: Microsoft's fiscal 2026 10-K rows from 2026 Q3, asserting revenue $331,839M, total assets $758,376M, operating cash flow $182,935M, the change in cash −$9,307M, and the four company-specific tags marked custom.
+- Streaming: the builder's memory stays flat on a large generated `num.txt` (rows for filings not kept are never held).
+
+### Limits
+
+- Data sets start in 2009; smaller companies began tagging in 2011.
+- Notes and segment breakdowns live in a separate, larger monthly "Financial Statement and Notes" set; not used in this phase.
+- Canadian issuers (SEDAR+) remain out of scope.
+- The quarterly files lag by days to weeks, so a filing made yesterday shows in the standardized view first and in the as-reported view after the next quarterly file.
+
+## 7. Order of work
 
 1. `lib/fundamentals` (client, concepts, periods, metrics, flags, sector, source interface) with fixtures and unit tests. No UI.
 2. The route with live and snapshot sources, its tests, and the privacy page source lines.
 3. The snapshot builder script and the nightly workflow. Run it once by hand and record the total size here.
 4. The Financials tab without peers, including the direct snapshot fallback and the "data as of" line.
 5. Peers.
-6. Separate plans afterwards: N-PORT fund look-through, then portfolio-level fundamentals.
+6. As-reported statements (section 6): builder script with fixtures and tests, the quarterly workflow, then the Statements view.
+7. Map common company-specific tags back into the standardized line items.
+8. Separate plans afterwards: N-PORT fund look-through, then portfolio-level fundamentals.
