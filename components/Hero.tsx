@@ -67,7 +67,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         <div className="flex flex-1 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
-          <span className="text-base font-semibold ">Portfolio Compass</span>
+          <span className="text-base font-semibold tracking-tight">Portfolio Compass</span>
         </div>
         <nav aria-label="Landing sections" className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (

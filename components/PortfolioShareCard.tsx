@@ -5,7 +5,6 @@ import { formatCurrency } from "@/lib/utils";
 import { getPortfolioCurrency } from "@/lib/math/portfolio-returns";
 import type { BankOfCanadaFxRate } from "@/lib/math/portfolio-returns";
 import {
-  Share2,
   TrendingUp,
   Shield,
   Layers,
@@ -202,9 +201,8 @@ export const PortfolioShareCard = React.forwardRef<
 
         <div className="flex justify-between items-start mb-12 relative z-10 border-b border-hairline pb-8 shrink-0">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center ring-1 ring-white/10">
-              <Share2 className="w-8 h-8 text-ink" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" width={64} height={64} className="h-16 w-16 rounded-2xl" />
             <div>
               <h1
                 className="text-4xl font-bold tracking-tight text-ink mb-2 font-display"
