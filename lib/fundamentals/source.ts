@@ -128,10 +128,12 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       const newest = [c.annual[c.annual.length - 1]?.end, c.trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
       // Same freshness rule as company-facts counts: not older than a year before the newest period.
       if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * 86_400_000)) return c;
-      // Classes that are not one-for-one (Berkshire A is 1,500 B shares) make a raw sum badly wrong. A sum that cannot
-      // be checked against, or is far from, the latest diluted average is left out, as for any filer without a count.
+      // A raw sum over classes that are not one-for-one can be badly wrong (Berkshire's A is 1,500 B, handled by
+      // CLASS_WEIGHTS) or double count (an Up-C voting class). A sum far from the latest diluted average is left out.
+      // With no diluted average to check against, the sum is kept: its classes count is above 1, which downstream
+      // shows as an approximate per-share warning.
       const diluted = c.annual[c.annual.length - 1]?.items.dilutedShares?.value;
-      if (count.classes > 1 && !count.weighted && (!diluted || count.value / diluted < 0.75 || count.value / diluted > 1.33)) return c;
+      if (count.classes > 1 && !count.weighted && diluted && (count.value / diluted < 0.75 || count.value / diluted > 1.33)) return c;
       return { ...c, sharesOutstanding: { value: count.value, asOf: count.asOf, classes: count.classes, accn: filing.accn } };
     } catch {
       return c;

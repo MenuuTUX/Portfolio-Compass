@@ -300,6 +300,28 @@ describe("cover share count read from the filing's inline XBRL", () => {
     expect((await live.getCompany("AAPL"))!.sharesOutstanding).toBeNull();
   });
 
+  it("keeps a multi-class sum it cannot check (no diluted average), still marked as several classes", async () => {
+    const { facts, sub } = loadFixture("AAPL");
+    const f = structuredClone(facts) as typeof facts;
+    delete (f.facts as Record<string, unknown>).dei;
+    delete (f.facts["us-gaap"] as Record<string, unknown>).CommonStockSharesOutstanding;
+    delete (f.facts["us-gaap"] as Record<string, unknown>).WeightedAverageNumberOfDilutedSharesOutstanding;
+    const base = buildCompanyFilings(f, sub, { ticker: "AAPL", source: "snapshot" });
+    expect(base.annual.at(-1)!.items.dilutedShares).toBeUndefined();
+    const asOf = base.trailing?.end ?? base.annual.at(-1)!.end;
+    const html = inst("a", asOf) + inst("b", asOf) + fact("a", 900) + fact("b", 100);
+    const fetchFn = (async (url: string) => {
+      if (url.includes("company_tickers")) return new Response(JSON.stringify(tickerFile));
+      if (url.includes("companyfacts")) return new Response(JSON.stringify(f));
+      if (url.includes("submissions")) return new Response(JSON.stringify(sub));
+      if (url.includes("/Archives/")) return new Response(html);
+      return new Response("missing", { status: 404 });
+    }) as unknown as typeof fetch;
+    const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} }));
+    const c = (await live.getCompany("AAPL"))!;
+    expect(c.sharesOutstanding).toMatchObject({ value: 1000, classes: 2 });
+  });
+
   async function setupDiluted() {
     const { facts, sub } = loadFixture("AAPL");
     return buildCompanyFilings(facts, sub, { ticker: "AAPL", source: "snapshot" }).annual.at(-1)!.items.dilutedShares!.value;
