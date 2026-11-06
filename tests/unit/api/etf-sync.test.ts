@@ -65,6 +65,31 @@ describe("ETF sync financial fields", () => {
     expect(asset.quoteAsOf).toBe("2026-09-25T20:00:00.000Z");
   });
 
+  it("reports a market-data outage as an error, not as a deleted ticker", async () => {
+    mockGetFastQuotes.mockRejectedValueOnce(new Error("Too Many Requests"));
+    const response = await POST(new Request("http://localhost/api/etfs/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "TEST" }),
+    }) as Parameters<typeof POST>[0]);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.deleted).toBeUndefined();
+  });
+
+  it("still reports an unknown ticker as deleted", async () => {
+    mockGetFastQuotes.mockResolvedValueOnce(new Map());
+    const response = await POST(new Request("http://localhost/api/etfs/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticker: "NOPE" }),
+    }) as Parameters<typeof POST>[0]);
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).deleted).toBe(true);
+  });
+
   it("keeps quote fee provenance when quote value takes priority", async () => {
     mockGetFastQuotes.mockResolvedValueOnce(new Map<string, FastQuote>([
       ["TEST", {

@@ -299,7 +299,12 @@ export function nextEarningsDate(
 
 export async function getFastQuotes(
   tickers: string[],
-  options: { bypassCache?: boolean; includeProfiles?: boolean } = {},
+  options: {
+    bypassCache?: boolean;
+    includeProfiles?: boolean;
+    /** Rethrow upstream failures instead of returning an empty map, so a caller can tell "unknown ticker" from "Yahoo is down". */
+    throwOnError?: boolean;
+  } = {},
 ): Promise<Map<string, FastQuote>> {
   const clean = normalizeTickers(tickers);
   const result = new Map<string, FastQuote>();
@@ -322,7 +327,10 @@ export async function getFastQuotes(
 
   if (misses.length > 0) {
     try {
-      const raw = await yf.quote(misses);
+      // validateResult:false keeps one symbol that fails Yahoo's strict schema
+      // (BRK-B has no price on some days) from rejecting the whole batch. The
+      // price filter below already drops entries that are unusable.
+      const raw = await yf.quote(misses, {}, { validateResult: false });
       const quotes = Array.isArray(raw) ? raw : [raw];
       for (const q of quotes) {
         if (!q?.symbol || !isFiniteNumber(q.regularMarketPrice)) continue;
@@ -335,6 +343,7 @@ export async function getFastQuotes(
       }
     } catch (e) {
       console.warn("[FastMarket] Batch quote failed:", e);
+      if (options.throwOnError) throw e;
     }
   }
 
@@ -856,7 +865,12 @@ export async function searchFastSymbols(
       quotesCount: 20,
       newsCount: 0,
     });
-    return z.array(SearchQuoteSchema).parse(res.quotes || []);
+    // Yahoo mixes non-security entries (news, lists) into `quotes`; keep the
+    // valid ones instead of failing the whole search.
+    return (res.quotes || []).flatMap((entry: unknown) => {
+      const parsed = SearchQuoteSchema.safeParse(entry);
+      return parsed.success ? [parsed.data] : [];
+    });
   });
 
   const filtered = quoteTypeFilter

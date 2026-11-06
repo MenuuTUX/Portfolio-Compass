@@ -7,6 +7,7 @@ import {
   quoteToAsset,
 } from "@/lib/fast-market";
 import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
+import { toYahooSymbol } from "@/lib/tickers";
 
 export const maxDuration = 30;
 
@@ -31,10 +32,17 @@ export async function GET(request: NextRequest) {
 
   try {
     let tickers: string[];
+    // Set when the query was tried as a ticker first; if Yahoo has no such
+    // ticker, the same text is searched by name ("apple", "vanguard").
+    let triedAsTicker = false;
 
     if (query) {
-      const exactTicker = query.trim().toUpperCase();
-      tickers = /^[A-Z0-9.^=-]{1,12}$/.test(exactTicker)
+      const exactTicker = toYahooSymbol(query);
+      // US tickers have at most 5 letters, so a longer all-letter word is a name.
+      const isTicker =
+        /^[A-Z0-9.^=-]{1,12}$/.test(exactTicker) && !/^[A-Z]{6,}$/.test(exactTicker);
+      triedAsTicker = isTicker;
+      tickers = isTicker
         ? [exactTicker]
         : await searchFastSymbols(query, assetType, 20);
     } else {
@@ -47,12 +55,19 @@ export async function GET(request: NextRequest) {
       tickers = Array.from(new Set(curated)).slice(skip, skip + limit);
     }
 
-    const [quotes, histories] = await Promise.all([
-      getFastQuotes(tickers, { includeProfiles }),
-      includeHistory
-        ? getFastHistory(tickers, "1M")
-        : Promise.resolve(new Map<string, { date: string; price: number }[]>()),
-    ]);
+    const load = (symbols: string[]) =>
+      Promise.all([
+        getFastQuotes(symbols, { includeProfiles }),
+        includeHistory
+          ? getFastHistory(symbols, "1M")
+          : Promise.resolve(new Map<string, { date: string; price: number }[]>()),
+      ]);
+
+    let [quotes, histories] = await load(tickers);
+    if (triedAsTicker && quotes.size === 0 && /^[A-Z]+$/i.test(query)) {
+      tickers = await searchFastSymbols(query, assetType, 20);
+      if (tickers.length > 0) [quotes, histories] = await load(tickers);
+    }
     const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
 
     const assets = [];

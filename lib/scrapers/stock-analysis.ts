@@ -249,9 +249,11 @@ function profileUrlsForTicker(ticker: string): string[] {
   }
 
   // US / plain symbols
-  let base = upper.includes(".") ? upper.split(".")[0] : upper;
   // Share classes: Yahoo says BRK-B, stockanalysis.com says brk.b (the dashed URL redirects away)
-  if (/^[A-Z]{1,5}-[A-Z]$/.test(base)) base = base.replace("-", ".");
+  const shareClass = /^([A-Z]{1,5})[.-]([A-Z])$/.exec(upper);
+  const base = shareClass
+    ? `${shareClass[1]}.${shareClass[2]}`
+    : upper.includes(".") ? upper.split(".")[0] : upper;
   urls.push(`https://stockanalysis.com/stocks/${base.toLowerCase()}/`);
   urls.push(`https://stockanalysis.com/etf/${base.toLowerCase()}/`);
   if (mapped?.kind === "etf") {

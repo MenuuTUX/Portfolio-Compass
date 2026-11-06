@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const normalizedTicker = validation.data.ticker.toUpperCase();
 
     const [quotes, histories, dividendHistory, details] = await Promise.all([
-      getFastQuotes([normalizedTicker], { includeProfiles: true }),
+      getFastQuotes([normalizedTicker], { includeProfiles: true, throwOnError: true }),
       getFastHistory([normalizedTicker], "1Y", { adjusted: true }),
       getFastDividendHistory(normalizedTicker),
       getFastEtfDetails(normalizedTicker).then((d) =>
