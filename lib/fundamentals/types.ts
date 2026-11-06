@@ -59,7 +59,20 @@ export type LineItem =
   | "equity"
   | "assets"
   | "receivables"
-  | "dilutedShares";
+  | "dilutedShares"
+  | "netIncomeToCommon"
+  | "preferredEquity"
+  | "financeLeasePayments"
+  | "marketableSecuritiesNoncurrent"
+  | "financeLeaseLiabilityNoncurrent"
+  | "financeLeaseLiabilityCurrent"
+  | "minorityInterest"
+  | "preferredStock"
+  | "pensionFundedStatus"
+  | "pensionLiabilityNoncurrent"
+  | "optionsOutstanding"
+  | "optionsExercisePrice"
+  | "rsusUnvested";
 
 /** One reported number, with where it came from. */
 export interface FactValue {
@@ -86,7 +99,27 @@ export interface TrailingPeriod {
   end: string;
   /** "annual" when no quarter after the last fiscal year has been filed yet. */
   basis: "annual" | "ytd";
+  /**
+   * The one date every balance-sheet item is read on: the newest instant that
+   * has total assets or cash. An item missing on this date is missing, never
+   * taken from another date.
+   */
+  balanceSheetDate: string | null;
+  /** Balance items the filer reports on other dates but not on balanceSheetDate, so they are absent from items. */
+  missingOnBalanceDate: LineItem[];
   items: Partial<Record<LineItem, FactValue>>;
+}
+
+/** How old the newest figures are, measured from the newest filing read (so a nightly snapshot stays correct). */
+export interface Staleness {
+  /** Whole months from the latest annual period end to the newest filing. */
+  annualMonths: number | null;
+  /** More than 15 months: the annual figures predate a normal filing cycle. */
+  annualStale: boolean;
+  /** Whole months from the trailing period end to the newest filing. */
+  trailingMonths: number | null;
+  /** More than 6 months. */
+  trailingStale: boolean;
 }
 
 export interface Filing {
@@ -114,9 +147,15 @@ export interface CompanyFilings {
   currency: string;
   annual: AnnualPeriod[];
   trailing: TrailingPeriod | null;
-  sharesOutstanding: { value: number; asOf: string; accn: string } | null;
+  /**
+   * Cover-page shares, summed over the share classes reported on the latest
+   * date. `classes` counts the class entries summed; above 1 the per-share
+   * figures are only approximate.
+   */
+  sharesOutstanding: { value: number; asOf: string; accn: string; classes: number } | null;
   filings: Filing[];
   /** Date of the newest filing read. */
   asOf: string;
+  staleness: Staleness;
   source: FilingsSourceId;
 }

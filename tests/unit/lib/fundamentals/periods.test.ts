@@ -107,7 +107,8 @@ describe("buildCompanyFilings on hand-built facts", () => {
   });
 
   it("sums share classes reported on the latest cover page", () => {
-    expect(c.sharesOutstanding).toEqual({ value: 1000, asOf: "2026-01-20", accn: "a-2" });
+    // Two class rows on the latest filing: summed, and counted as two classes (was no class count before P13).
+    expect(c.sharesOutstanding).toEqual({ value: 1000, asOf: "2026-01-20", accn: "a-2", classes: 2 });
   });
 
   it("uppercases the ticker and keeps the source label", () => {

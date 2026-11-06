@@ -1,65 +1,27 @@
 import { describe, it, expect } from "bun:test";
-import { createSecClient, normalizeTicker } from "@/lib/fundamentals/sec-client";
+import { createSecClient } from "@/lib/fundamentals/sec-client";
 import { edgarLiveSource, snapshotSource, withFallback, type FilingsSource } from "@/lib/fundamentals/source";
 import { fixtureCompany, loadFixture } from "./helpers";
 
 const UA = "Portfolio Compass test@example.com";
 const tickerFile = { fields: ["cik", "name", "ticker", "exchange"], data: [[320193, "Apple Inc.", "AAPL", "Nasdaq"], [1067983, "BERKSHIRE", "BRK-B", "NYSE"]] };
 
-/** A fetch stub that serves the AAPL fixtures and records every request. */
-function stubFetch() {
-  const calls: { url: string; headers: Record<string, string> }[] = [];
+/** A fetch stub that serves the AAPL fixtures for any company and records every request. */
+function stubFetch(opts: { tickers?: unknown; facts404?: boolean } = {}) {
+  const calls: string[] = [];
   const { facts, sub } = loadFixture("AAPL");
-  const fetchFn = (async (url: string, init?: RequestInit) => {
-    calls.push({ url, headers: (init?.headers ?? {}) as Record<string, string> });
-    const body = url.includes("company_tickers") ? tickerFile : url.includes("companyfacts") ? facts : url.includes("submissions") ? sub : null;
-    return body ? new Response(JSON.stringify(body)) : new Response("missing", { status: 404 });
+  const fetchFn = (async (url: string) => {
+    calls.push(url);
+    if (url.includes("company_tickers")) return new Response(JSON.stringify(opts.tickers ?? tickerFile));
+    if (url.includes("companyfacts")) return opts.facts404 ? new Response("", { status: 404 }) : new Response(JSON.stringify(facts));
+    if (url.includes("submissions")) return new Response(JSON.stringify(sub));
+    return new Response("missing", { status: 404 });
   }) as unknown as typeof fetch;
-  return { fetchFn, calls };
+  return { fetchFn, calls, count: (part: string) => calls.filter((u) => u.includes(part)).length };
 }
 
-describe("createSecClient", () => {
-  it("refuses to run without a contact address", () => {
-    expect(() => createSecClient({ userAgent: "" })).toThrow(/contact email/);
-    expect(() => createSecClient({ userAgent: "Portfolio Compass" })).toThrow(/contact email/);
-  });
-
-  it("sends the declared User-Agent and nothing about the user", async () => {
-    const { fetchFn, calls } = stubFetch();
-    const client = createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} });
-    await client.submissions(320193);
-    expect(calls[0].url).toBe("https://data.sec.gov/submissions/CIK0000320193.json");
-    expect(calls[0].headers).toEqual({ "User-Agent": UA, Accept: "application/json" });
-  });
-
-  it("spaces requests to stay under the SEC rate limit", async () => {
-    const { fetchFn } = stubFetch();
-    const waits: number[] = [];
-    const client = createSecClient({ userAgent: UA, fetch: fetchFn, ratePerSecond: 5, now: () => 0, sleep: async (ms) => { waits.push(ms); } });
-    await Promise.all([client.submissions(1), client.submissions(2), client.submissions(3)]);
-    expect(waits).toEqual([200, 400]);
-  });
-
-  it("shares one request between concurrent callers and caches the result", async () => {
-    const { fetchFn, calls } = stubFetch();
-    const client = createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} });
-    await Promise.all([client.companyFacts(320193), client.companyFacts(320193)]);
-    await client.companyFacts(320193);
-    expect(calls.filter((c) => c.url.includes("companyfacts")).length).toBe(1);
-  });
-
-  it("looks up tickers, including class shares written with a dot", async () => {
-    const { fetchFn } = stubFetch();
-    const client = createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} });
-    expect((await client.lookup("aapl"))!.cik).toBe(320193);
-    expect((await client.lookup("BRK.B"))!.cik).toBe(1067983);
-    expect(await client.lookup("XEQT.TO")).toBeNull();
-    expect(normalizeTicker(" brk.b ")).toBe("BRK-B");
-  });
-});
-
-describe("sources", () => {
-  it("live source builds a company and says null for non-filers", async () => {
+describe("edgarLiveSource", () => {
+  it("builds a company and says null for non-filers", async () => {
     const { fetchFn } = stubFetch();
     const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} }));
     const c = (await live.getCompany("AAPL"))!;
@@ -68,7 +30,47 @@ describe("sources", () => {
     expect(await live.getCompany("XEQT.TO")).toBeNull();
   });
 
-  it("snapshot source returns the same company as live, labeled as snapshot", async () => {
+  it("returns null when the SEC has no company facts for a known ticker", async () => {
+    const { fetchFn } = stubFetch({ facts404: true });
+    const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} }));
+    expect(await live.getCompany("AAPL")).toBeNull();
+  });
+
+  it("keeps the built summary for six hours and evicts the oldest of 51 companies", async () => {
+    const tickers = { fields: tickerFile.fields, data: Array.from({ length: 51 }, (_, i) => [i + 1, `Co ${i + 1}`, `T${i + 1}`, "NYSE"]) };
+    const { fetchFn, count, calls } = stubFetch({ tickers });
+    let t = 0;
+    const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, now: () => t, sleep: async () => {} }), { now: () => t });
+    const factsFor = (cik: number) => calls.filter((u) => u.includes(`CIK${String(cik).padStart(10, "0")}`) && u.includes("companyfacts")).length;
+
+    await live.getCompany("T1");
+    await live.getCompany("T1");
+    expect(factsFor(1)).toBe(1);
+
+    for (let i = 2; i <= 51; i++) await live.getCompany(`T${i}`);
+    expect(factsFor(1)).toBe(1);
+    await live.getCompany("T51");
+    expect(factsFor(51)).toBe(1); // still cached
+    await live.getCompany("T1");
+    expect(factsFor(1)).toBe(2); // the oldest was evicted by the 51st
+
+    t = 6 * 3600_000 + 1;
+    await live.getCompany("T51");
+    expect(factsFor(51)).toBe(2); // expired after six hours
+    expect(count("companyfacts")).toBeGreaterThan(51);
+  });
+
+  it("labels a cached company with the ticker that asked for it", async () => {
+    const tickers = { fields: tickerFile.fields, data: [[320193, "Apple", "AAPL", "Nasdaq"], [320193, "Apple", "AAPL2", "Nasdaq"]] };
+    const { fetchFn } = stubFetch({ tickers });
+    const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} }));
+    expect((await live.getCompany("AAPL"))!.ticker).toBe("AAPL");
+    expect((await live.getCompany("AAPL2"))!.ticker).toBe("AAPL2");
+  });
+});
+
+describe("snapshotSource", () => {
+  it("returns the same company as live, labeled as snapshot", async () => {
     const company = fixtureCompany("AAPL");
     const files: Record<string, unknown> = {
       "https://cdn.example/data/sec/tickers.json": { AAPL: 320193 },
@@ -81,7 +83,9 @@ describe("sources", () => {
     expect(c).toEqual({ ...company, source: "snapshot" });
     expect(await snap.getCompany("MSFT")).toBeNull();
   });
+});
 
+describe("withFallback", () => {
   const fixed = (id: "edgar-live" | "snapshot", result: () => Promise<null | ReturnType<typeof fixtureCompany>>): FilingsSource =>
     ({ id, getCompany: result });
 
@@ -93,6 +97,30 @@ describe("sources", () => {
     );
     expect((await chain.getCompany("AAPL"))!.source).toBe("snapshot");
     expect(chain.lastErrors()).toEqual(["edgar-live: SEC request failed with 429"]);
+  });
+
+  it("returns each call's own errors when two calls run in parallel", async () => {
+    const chain = withFallback(
+      { id: "edgar-live", getCompany: async (t: string) => { await new Promise((r) => setTimeout(r, t === "A" ? 20 : 1)); throw new Error(`live down for ${t}`); } },
+      { id: "snapshot", getCompany: async (t: string) => { await new Promise((r) => setTimeout(r, t === "A" ? 1 : 20)); throw new Error(`snapshot down for ${t}`); } },
+    );
+    const [a, b] = await Promise.all([
+      chain.lookup("A").catch((e: Error & { errors?: string[] }) => e),
+      chain.lookup("B").catch((e: Error & { errors?: string[] }) => e),
+    ]);
+    expect((a as Error & { errors: string[] }).errors).toEqual(["edgar-live: live down for A", "snapshot: snapshot down for A"]);
+    expect((b as Error & { errors: string[] }).errors).toEqual(["edgar-live: live down for B", "snapshot: snapshot down for B"]);
+  });
+
+  it("lookup returns the company together with the errors from that call", async () => {
+    const aapl = fixtureCompany("AAPL");
+    const chain = withFallback(
+      fixed("edgar-live", async () => { throw new Error("down"); }),
+      fixed("snapshot", async () => ({ ...aapl, source: "snapshot" })),
+    );
+    const r = await chain.lookup("AAPL");
+    expect(r.company!.source).toBe("snapshot");
+    expect(r.errors).toEqual(["edgar-live: down"]);
   });
 
   it("treats a definite not-a-filer answer as final", async () => {

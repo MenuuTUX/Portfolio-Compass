@@ -1,9 +1,9 @@
 import { accnUrl } from "./periods";
-import { isFinancialSic } from "./sector";
+import { kindForSic } from "./sector";
 import { liquidAssets, splitAdjustedShares, totalDebt } from "./metrics";
-import type { CompanyFilings, LineItem } from "./types";
+import type { CompanyFilings, Filing, LineItem } from "./types";
 
-/** Something worth a closer look, with the rule that raised it and where to read more. No score. */
+/** Something to look at, stated as fact, with the rule that raised it and where to read more. No score. */
 export interface Flag {
   id: string;
   title: string;
@@ -13,41 +13,59 @@ export interface Flag {
   filing?: { form: string; filed: string; url: string };
 }
 
-/** Every rule this module checks, so the UI can list what was checked when nothing is raised. */
-export const FLAG_RULES: { id: string; rule: string }[] = [
-  { id: "non-reliance", rule: "An 8-K under Item 4.02 in the last three years" },
-  { id: "auditor-change", rule: "An 8-K under Item 4.01 in the last three years" },
-  { id: "late-filing", rule: "A late-filing notice (NT 10-K or NT 10-Q) in the last three years" },
-  { id: "restated", rule: "A revenue, profit or cash flow figure changed by more than 5% in a later filing, for one of the last three years" },
-  { id: "receivables", rule: "Receivables grew more than 1.5 times as fast as revenue in each of the last two years" },
-  { id: "dilution", rule: "Diluted shares grew more than 3% a year over three years" },
-  { id: "share-based-pay", rule: "Share-based pay above 10% of revenue" },
-  { id: "cash-burn", rule: "Negative free cash flow in three of the last five years while net income was positive" },
-  { id: "leverage", rule: "Net debt above 4 times EBITDA, or operating income below 2 times interest" },
+/** Every threshold the checks use. The rule text in FLAG_CHECKS and the flag details are built from these numbers. */
+export const FLAG_RULES = {
+  /** Filing-list checks look back this many years from the as-of date. */
+  filingWindowYears: 3,
+  /** A figure changed in a later filing by more than this share of its first value. */
+  restatementMinChange: 0.05,
+  /** Receivables growth must exceed this multiple of revenue growth ... */
+  receivablesToRevenueGrowth: 1.5,
+  /** ... and this growth rate, so small moves are ignored. */
+  receivablesMinGrowth: 0.02,
+  /** Diluted shares, compound growth a year over three years. */
+  dilutionMaxPerYear: 0.03,
+  shareBasedPayMaxShareOfRevenue: 0.1,
+  cashBurnLookbackYears: 5,
+  cashBurnMinYears: 3,
+  netDebtMaxMultipleOfEbitda: 4,
+  interestCoverageMin: 2,
+} as const;
+
+/** Every check this module runs, so the UI can list what was checked when nothing is raised. */
+export const FLAG_CHECKS: { id: string; rule: string }[] = [
+  { id: "non-reliance", rule: `An 8-K under Item 4.02 in the last ${FLAG_RULES.filingWindowYears} years` },
+  { id: "auditor-change", rule: `An 8-K under Item 4.01 in the last ${FLAG_RULES.filingWindowYears} years` },
+  { id: "late-filing", rule: `A late-filing notice (NT 10-K or NT 10-Q) in the last ${FLAG_RULES.filingWindowYears} years` },
+  { id: "restated", rule: `A revenue, profit, or operating cash flow figure changed by more than ${FLAG_RULES.restatementMinChange * 100}% in a later filing, for one of the last ${FLAG_RULES.filingWindowYears} years` },
+  { id: "receivables", rule: `Receivables grew more than ${FLAG_RULES.receivablesToRevenueGrowth} times as fast as revenue in each of the last two years` },
+  { id: "dilution", rule: `Diluted shares grew more than ${FLAG_RULES.dilutionMaxPerYear * 100}% a year over three years` },
+  { id: "share-based-pay", rule: `Share-based pay above ${FLAG_RULES.shareBasedPayMaxShareOfRevenue * 100}% of revenue` },
+  { id: "cash-burn", rule: `Negative free cash flow in ${FLAG_RULES.cashBurnMinYears} of the last ${FLAG_RULES.cashBurnLookbackYears} years while net income was positive` },
+  { id: "leverage", rule: `Net debt above ${FLAG_RULES.netDebtMaxMultipleOfEbitda} times EBITDA, or operating income below ${FLAG_RULES.interestCoverageMin} times interest; checked only for companies with positive EBITDA and net debt` },
 ];
 
-const ruleOf = (id: string) => FLAG_RULES.find((r) => r.id === id)!.rule;
-const THREE_YEARS_MS = 3 * 365.25 * 86_400_000;
+const ruleOf = (id: string) => FLAG_CHECKS.find((r) => r.id === id)!.rule;
+const WINDOW_MS = FLAG_RULES.filingWindowYears * 365.25 * 86_400_000;
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 export function computeFlags(c: CompanyFilings): Flag[] {
   const flags: Flag[] = [];
-  const cutoff = Date.parse(c.asOf) - THREE_YEARS_MS;
+  const cutoff = Date.parse(c.asOf) - WINDOW_MS;
   const recent = c.filings.filter((f) => Date.parse(f.filed) >= cutoff);
+  const nonReliance8K = recent.find((f) => f.form.startsWith("8-K") && f.items.includes("4.02"));
 
-  const fromFiling = (id: string, title: string, detail: string, match: (f: typeof recent[number]) => boolean) => {
-    const hit = recent.find(match);
+  const fromFiling = (id: string, title: string, detail: string, hit: Filing | undefined) => {
     if (hit) flags.push({ id, title, detail, rule: ruleOf(id), filing: { form: hit.form, filed: hit.filed, url: hit.url } });
   };
-  fromFiling("non-reliance", "Earlier financial statements should not be relied on",
-    "The company told investors that previously issued financial statements contained errors.",
-    (f) => f.form.startsWith("8-K") && f.items.includes("4.02"));
-  fromFiling("auditor-change", "Auditor changed",
+  fromFiling("non-reliance", "8-K Item 4.02: earlier statements should not be relied on",
+    "The company stated that previously issued financial statements should no longer be relied on.", nonReliance8K);
+  fromFiling("auditor-change", "8-K Item 4.01: change in accountant",
     "The company reported a change in its independent accountant.",
-    (f) => f.form.startsWith("8-K") && f.items.includes("4.01"));
-  fromFiling("late-filing", "Filed a late-filing notice",
-    "The company said it could not file a periodic report on time.",
-    (f) => f.form === "NT 10-K" || f.form === "NT 10-Q");
+    recent.find((f) => f.form.startsWith("8-K") && f.items.includes("4.01")));
+  fromFiling("late-filing", "Notice of late filing",
+    "The company filed notice that it could not file a periodic report on time.",
+    recent.find((f) => f.form === "NT 10-K" || f.form === "NT 10-Q"));
 
   const years = c.annual;
   const lastThree = years.slice(-3);
@@ -57,14 +75,17 @@ export function computeFlags(c: CompanyFilings): Flag[] {
       const fact = p.items[i];
       if (!fact?.restated) return false;
       const base = Math.max(Math.abs(fact.restated.original), 1);
-      return Math.abs(fact.value - fact.restated.original) / base > 0.05;
+      return Math.abs(fact.value - fact.restated.original) / base > FLAG_RULES.restatementMinChange;
     });
     if (item) {
       const fact = p.items[item]!;
+      const possible = nonReliance8K
+        ? " Possible restatement: an 8-K under Item 4.02 was filed in the same window."
+        : "";
       flags.push({
         id: "restated",
-        title: `Fiscal ${p.fiscalYear} figures were changed later`,
-        detail: `${label(item)} was first reported as ${fmt(fact.restated!.original)} and later as ${fmt(fact.value)}.`,
+        title: `Fiscal ${p.fiscalYear} figures were changed in a later filing`,
+        detail: `${label(item)} was first reported as ${fmt(fact.restated!.original)} and later as ${fmt(fact.value)}.${possible}`,
         rule: ruleOf("restated"),
         filing: { form: fact.form, filed: fact.filed, url: accnUrl(c.cik, fact.accn) },
       });
@@ -79,12 +100,12 @@ export function computeFlags(c: CompanyFilings): Flag[] {
       rev: growth(a.items.revenue?.value, b.items.revenue?.value),
       rec: growth(a.items.receivables?.value, b.items.receivables?.value),
     }));
-    const flagged = pairs.every(({ rev, rec }) => rev !== undefined && rec !== undefined && rec > 0.02 &&
-      rec > 1.5 * Math.max(rev, 0));
+    const flagged = pairs.every(({ rev, rec }) => rev !== undefined && rec !== undefined &&
+      rec > FLAG_RULES.receivablesMinGrowth && rec > FLAG_RULES.receivablesToRevenueGrowth * Math.max(rev, 0));
     if (flagged) {
       flags.push({
         id: "receivables",
-        title: "Unpaid customer bills are growing faster than sales",
+        title: "Receivables grew faster than revenue",
         detail: `Receivables grew ${pairs.map((p) => pct(p.rec!)).join(" and ")} while revenue grew ${pairs.map((p) => pct(p.rev!)).join(" and ")}.`,
         rule: ruleOf("receivables"),
       });
@@ -97,10 +118,10 @@ export function computeFlags(c: CompanyFilings): Flag[] {
   if (sNow && sThen && years.length >= 4) {
     const span = years[years.length - 1].fiscalYear - years[years.length - 4].fiscalYear;
     const perYear = Math.pow(sNow / sThen, 1 / span) - 1;
-    if (perYear > 0.03) {
+    if (perYear > FLAG_RULES.dilutionMaxPerYear) {
       flags.push({
         id: "dilution",
-        title: "Your share of the company keeps shrinking",
+        title: "Diluted share count rose",
         detail: `Diluted shares grew about ${pct(perYear)} a year over ${span} years.`,
         rule: ruleOf("dilution"),
       });
@@ -110,27 +131,28 @@ export function computeFlags(c: CompanyFilings): Flag[] {
   const last = years[years.length - 1];
   const sbc = last?.items.shareBasedComp?.value;
   const rev = last?.items.revenue?.value;
-  if (sbc !== undefined && rev && rev > 0 && sbc / rev > 0.1) {
+  if (sbc !== undefined && rev && rev > 0 && sbc / rev > FLAG_RULES.shareBasedPayMaxShareOfRevenue) {
     flags.push({
       id: "share-based-pay",
-      title: "Large share-based pay",
+      title: "Share-based pay as a share of revenue",
       detail: `Share-based pay was ${pct(sbc / rev)} of revenue in fiscal ${last.fiscalYear}.`,
       rule: ruleOf("share-based-pay"),
     });
   }
 
-  if (!isFinancialSic(c.sic)) {
-    const lastFive = years.slice(-5);
+  // Financial companies are skipped: their cash flow and debt do not measure the same thing.
+  if (kindForSic(c.sic) !== "financial") {
+    const lastFive = years.slice(-FLAG_RULES.cashBurnLookbackYears);
     const burnYears = lastFive.filter((p) => {
       const cfo = p.items.operatingCashFlow?.value;
       const capex = p.items.capex?.value;
       const ni = p.items.netIncome?.value;
       return cfo !== undefined && capex !== undefined && ni !== undefined && cfo - capex < 0 && ni > 0;
     });
-    if (burnYears.length >= 3) {
+    if (burnYears.length >= FLAG_RULES.cashBurnMinYears) {
       flags.push({
         id: "cash-burn",
-        title: "Profits on paper, but cash going out",
+        title: `Free cash flow negative in ${burnYears.length} of the last ${lastFive.length} years`,
         detail: `Free cash flow was negative while net income was positive in fiscal ${burnYears.map((p) => p.fiscalYear).join(", ")}.`,
         rule: ruleOf("cash-burn"),
       });
@@ -143,17 +165,22 @@ export function computeFlags(c: CompanyFilings): Flag[] {
       const da = last.items.depreciationAmortization?.value;
       const interest = last.items.interestExpense?.value;
       const ebitda = opInc !== undefined && da !== undefined ? opInc + da : undefined;
-      const leverage = debt !== undefined && cash !== undefined && ebitda && ebitda > 0 ? (debt - cash) / ebitda : undefined;
-      const coverage = opInc !== undefined && interest && interest > 0 ? opInc / interest : undefined;
-      if ((leverage !== undefined && leverage > 4) || (coverage !== undefined && coverage < 2)) {
-        const parts = [
-          leverage !== undefined ? `net debt is ${leverage.toFixed(1)} times EBITDA` : null,
-          coverage !== undefined ? `operating income covers interest ${coverage.toFixed(1)} times` : null,
+      // Only a company that owes more than it holds in cash is checked; net-cash companies are not leveraged.
+      const netDebt = debt !== undefined && debt > 0 && cash !== undefined ? debt - cash : undefined;
+      const hasNetDebt = netDebt !== undefined && netDebt > 0;
+      const leverage = hasNetDebt && ebitda !== undefined && ebitda > 0 ? netDebt / ebitda : undefined;
+      const coverage = hasNetDebt && opInc !== undefined && opInc > 0 && interest !== undefined && interest > 0 ? opInc / interest : undefined;
+      const raised = (leverage !== undefined && leverage > FLAG_RULES.netDebtMaxMultipleOfEbitda) ||
+        (coverage !== undefined && coverage < FLAG_RULES.interestCoverageMin);
+      if (raised) {
+        const sentences = [
+          leverage !== undefined ? `Net debt is ${leverage.toFixed(1)} times EBITDA.` : null,
+          coverage !== undefined ? `Operating income covers interest ${coverage.toFixed(1)} times.` : null,
         ].filter(Boolean);
         flags.push({
           id: "leverage",
-          title: "Heavy debt load",
-          detail: `In fiscal ${last.fiscalYear}, ${parts.join(" and ")}.`,
+          title: `Debt measures for fiscal ${last.fiscalYear}`,
+          detail: sentences.join(" "),
           rule: ruleOf("leverage"),
         });
       }

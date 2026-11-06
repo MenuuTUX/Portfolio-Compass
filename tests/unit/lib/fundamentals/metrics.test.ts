@@ -48,6 +48,13 @@ describe("computeMetrics", () => {
     expect(bank.equityToAssets.value).toBeCloseTo(600 / 1500, 10);
   });
 
+  it("does not show return on equity for a REIT, whose book equity is cut by depreciation", () => {
+    const reit = computeMetrics(makeCompany(years(), { sic: 6798 }));
+    expect(reit.returnOnEquity.value).toBeNull();
+    expect(reit.returnOnEquity.reason).toMatch(/financial/i);
+    expect(reit.netDebtToEbitda.value).not.toBeNull();
+  });
+
   it("gives sensible values for real companies", () => {
     const aapl = computeMetrics(fixtureCompany("AAPL"));
     expect(aapl.grossMargin.value!).toBeGreaterThan(0.4);
@@ -81,12 +88,13 @@ describe("totalDebt", () => {
   it("adds the split, or falls back to a combined tag", () => {
     expect(totalDebt(makeCompany([{ fy: 2025, items: { debtNoncurrent: 10, debtCurrent: 2, commercialPaper: 1 } }]).annual[0])).toBe(13);
     expect(totalDebt(makeCompany([{ fy: 2025, items: { debtTotal: 12, commercialPaper: 1 } }]).annual[0])).toBe(13);
-    expect(totalDebt(makeCompany([{ fy: 2025, items: { equity: 5 } }]).annual[0])).toBe(0);
+    // No debt tag at all is unknown, not zero (P3): valuation must not net cash against an assumed zero.
+    expect(totalDebt(makeCompany([{ fy: 2025, items: { equity: 5 } }]).annual[0])).toBeUndefined();
   });
 });
 
 describe("computeValuation", () => {
-  const c = makeCompany(years(), { sharesOutstanding: { value: 100, asOf: "2026-01-31", accn: "x" } });
+  const c = makeCompany(years(), { sharesOutstanding: { value: 100, asOf: "2026-01-31", accn: "x", classes: 1 } });
 
   it("values the company on trailing figures", () => {
     const v = computeValuation(c, 20);

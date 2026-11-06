@@ -12,15 +12,35 @@ export interface FilingsSource {
   getCompany(ticker: string): Promise<CompanyFilings | null>;
 }
 
-/** Live: asks the SEC on each request (through the client's cache). */
-export function edgarLiveSource(client: SecClient): FilingsSource {
+/** Built summaries kept per CIK. Raw company facts are dropped once a summary is built. */
+const LIVE_CACHE_MAX = 50;
+const LIVE_CACHE_TTL_MS = 6 * 3600_000;
+
+/**
+ * Live: asks the SEC for a company's facts and submissions, builds the summary,
+ * and keeps the last 50 summaries for six hours (least recently used goes first).
+ */
+export function edgarLiveSource(client: SecClient, opts: { now?: () => number } = {}): FilingsSource {
+  const now = opts.now ?? Date.now;
+  const cache = new Map<number, { value: CompanyFilings; expires: number }>();
   return {
     id: "edgar-live",
     async getCompany(ticker) {
       const entry = await client.lookup(ticker);
       if (!entry) return null;
+      const hit = cache.get(entry.cik);
+      if (hit && hit.expires > now()) {
+        cache.delete(entry.cik);
+        cache.set(entry.cik, hit);
+        return { ...hit.value, ticker: entry.ticker };
+      }
+      cache.delete(entry.cik);
       const [facts, sub] = await Promise.all([client.companyFacts(entry.cik), client.submissions(entry.cik)]);
-      return buildCompanyFilings(facts, sub, { ticker: entry.ticker, source: "edgar-live" });
+      if (!facts || !sub) return null;
+      const built = buildCompanyFilings(facts, sub, { ticker: entry.ticker, source: "edgar-live" });
+      cache.set(entry.cik, { value: built, expires: now() + LIVE_CACHE_TTL_MS });
+      while (cache.size > LIVE_CACHE_MAX) cache.delete(cache.keys().next().value!);
+      return built;
     },
   };
 }
@@ -56,26 +76,44 @@ export function snapshotSource(baseUrl: string, doFetch: typeof fetch = fetch): 
   };
 }
 
+/** A lookup result with the errors from that lookup only (sources that failed before one answered). */
+export interface FilingsLookup {
+  company: CompanyFilings | null;
+  errors: string[];
+}
+
 /**
  * Tries each source in order. A source that throws (SEC down, rate limited,
  * not configured) falls through to the next; a definite "not a filer" (null)
- * from a source that answered is final.
+ * from a source that answered is final. When no source answers, the thrown
+ * error carries that lookup's `errors`.
  */
-export function withFallback(...sources: FilingsSource[]): FilingsSource & { lastErrors: () => string[] } {
-  let errors: string[] = [];
+export function withFallback(...sources: FilingsSource[]): FilingsSource & {
+  lookup: (ticker: string) => Promise<FilingsLookup>;
+  /** @deprecated Shared by all calls; with parallel calls it may hold another call's errors. Use `lookup().errors`. */
+  lastErrors: () => string[];
+} {
+  let lastCompleted: string[] = [];
+  const lookup = async (ticker: string): Promise<FilingsLookup> => {
+    const errors: string[] = [];
+    for (const s of sources) {
+      try {
+        const company = await s.getCompany(ticker);
+        lastCompleted = errors;
+        return { company, errors };
+      } catch (e) {
+        errors.push(`${s.id}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    lastCompleted = errors;
+    throw Object.assign(new Error(`No filings source answered. ${errors.join(" ")}`), { errors });
+  };
   return {
     id: sources[0].id,
-    lastErrors: () => errors,
+    lookup,
+    lastErrors: () => lastCompleted,
     async getCompany(ticker) {
-      errors = [];
-      for (const s of sources) {
-        try {
-          return await s.getCompany(ticker);
-        } catch (e) {
-          errors.push(`${s.id}: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }
-      throw new Error(`No filings source answered. ${errors.join(" ")}`);
+      return (await lookup(ticker)).company;
     },
   };
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildCompanyFilings } from "@/lib/fundamentals/periods";
+import { buildCompanyFilings, monthsBetween } from "@/lib/fundamentals/periods";
 import type { AnnualPeriod, CompanyFilings, FactValue, LineItem, SecCompanyFacts, SecSubmissions } from "@/lib/fundamentals/types";
 
 const FIXTURES = join(import.meta.dir, "../../../fixtures/sec");
@@ -32,14 +32,23 @@ export function makeCompany(
     items: Object.fromEntries(Object.entries(items).map(([k, v]) => [k, fact(v as number)])),
   }));
   const last = annual[annual.length - 1];
-  return {
+  const company: CompanyFilings = {
     cik: 1, ticker: "TEST", name: "Test Co", sic: 3571, taxonomy: "us-gaap", currency: "USD",
     annual,
-    trailing: last ? { end: last.end, basis: "annual", items: last.items } : null,
-    sharesOutstanding: { value: 1_000, asOf: "2026-01-31", accn: "x" },
+    trailing: last ? { end: last.end, basis: "annual", balanceSheetDate: last.end, missingOnBalanceDate: [], items: last.items } : null,
+    sharesOutstanding: { value: 1_000, asOf: "2026-01-31", accn: "x", classes: 1 },
     filings: [],
     asOf: "2026-03-01",
+    staleness: { annualMonths: null, annualStale: false, trailingMonths: null, trailingStale: false },
     source: "edgar-live",
     ...overrides,
   };
+  const annualMonths = last ? monthsBetween(last.end, company.asOf) : null;
+  company.staleness = {
+    annualMonths,
+    annualStale: annualMonths !== null && annualMonths > 15,
+    trailingMonths: annualMonths,
+    trailingStale: annualMonths !== null && annualMonths > 6,
+  };
+  return company;
 }

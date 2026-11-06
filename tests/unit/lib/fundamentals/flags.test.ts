@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { computeFlags, FLAG_RULES } from "@/lib/fundamentals/flags";
+import { computeFlags, FLAG_CHECKS, FLAG_RULES } from "@/lib/fundamentals/flags";
 import type { Filing } from "@/lib/fundamentals/types";
 import { fixtureCompany, makeCompany } from "./helpers";
 
@@ -8,6 +8,7 @@ const steady = { revenue: 1000, receivables: 100, netIncome: 100, operatingCashF
 const fiveYears = (f: (i: number) => Partial<typeof steady>) =>
   [2021, 2022, 2023, 2024, 2025].map((fy, i) => ({ fy, items: { ...steady, ...f(i) } }));
 const ids = (c: ReturnType<typeof makeCompany>) => computeFlags(c).map((x) => x.id);
+const VERDICT_WORDS = /heavy|danger|weak|red flag|healthy|strong|poor|bad|good|concern|risk|buy|sell/i;
 
 describe("computeFlags", () => {
   it("raises nothing for a steady company and for these large real filers", () => {
@@ -44,20 +45,61 @@ describe("computeFlags", () => {
     expect(ids(makeCompany(fiveYears(() => ({ interestExpense: 76 }))))).toContain("leverage"); // 150/76 < 2
   });
 
+  it("does not report interest coverage for a loss-making company with net cash (no -10.0 times)", () => {
+    // Operating loss of 50, EBITDA 0, interest 5, debt 100 against cash of 300.
+    const c = makeCompany(fiveYears(() => ({ operatingIncome: -50, interestExpense: 5, debtNoncurrent: 100, cash: 300 })));
+    expect(ids(c)).not.toContain("leverage");
+    expect(JSON.stringify(computeFlags(c))).not.toContain("-10");
+  });
+
+  it("states a utility-like profile as facts, without verdict words", () => {
+    // Capex 250 against operating cash flow 150 for five years; EBITDA 200; debt 1000 less cash 100 = net debt 900 = 4.5 times EBITDA.
+    const c = makeCompany(fiveYears(() => ({ capex: 250, debtNoncurrent: 1000, interestExpense: 10 })));
+    const flags = computeFlags(c);
+    const leverage = flags.find((f) => f.id === "leverage")!;
+    expect(leverage.detail).toContain("Net debt is 4.5 times EBITDA.");
+    expect(flags.find((f) => f.id === "cash-burn")!.title).toBe("Free cash flow negative in 5 of the last 5 years");
+    for (const f of flags) expect(`${f.title} ${f.detail}`).not.toMatch(VERDICT_WORDS);
+    expect(flags.map((f) => f.title)).not.toContain("Profits on paper, but cash going out");
+  });
+
   it("skips cash and debt checks for financial companies", () => {
     const bank = makeCompany(fiveYears(() => ({ capex: 200, debtNoncurrent: 5000 })), { sic: 6021 });
     expect(ids(bank)).toEqual([]);
   });
 
-  it("flags a restatement over 5% in the last three years", () => {
+  it("keeps leverage and cash checks for REITs, which are not financial companies", () => {
+    const reit = makeCompany(fiveYears(() => ({ capex: 200, debtNoncurrent: 901 })), { sic: 6798 });
+    expect(ids(reit)).toEqual(expect.arrayContaining(["cash-burn", "leverage"]));
+  });
+
+  it("keeps the same checks for operating real estate (SIC 6531)", () => {
+    const reit = makeCompany(fiveYears(() => ({ debtNoncurrent: 901 })), { sic: 6531 });
+    expect(ids(reit)).toContain("leverage");
+  });
+
+  it("flags a restatement over 5% in the last three years, with a neutral title", () => {
     const c = makeCompany(fiveYears(() => ({})));
     const fy = c.annual[3].items.revenue!;
     c.annual[3].items.revenue = { ...fy, restated: { original: fy.value * 0.9, originalAccn: "old" } };
     const flag = computeFlags(c).find((f) => f.id === "restated")!;
-    expect(flag.title).toBe("Fiscal 2024 figures were changed later");
+    expect(flag.title).toBe("Fiscal 2024 figures were changed in a later filing");
+    expect(flag.detail).not.toContain("Possible restatement");
     expect(flag.filing!.url).toContain("/Archives/edgar/data/1/");
     c.annual[3].items.revenue = { ...fy, restated: { original: fy.value * 0.97, originalAccn: "old" } };
     expect(ids(c)).not.toContain("restated");
+  });
+
+  it("calls a restatement possible only when an 8-K Item 4.02 is in the same window", () => {
+    const c = makeCompany(fiveYears(() => ({})), {
+      asOf: "2026-10-01",
+      filings: [{ form: "8-K", filed: "2025-05-01", accn: "a", items: ["4.02"], url: "https://www.sec.gov/x/4.02" }],
+    });
+    const fy = c.annual[3].items.revenue!;
+    c.annual[3].items.revenue = { ...fy, restated: { original: fy.value * 0.9, originalAccn: "old" } };
+    expect(computeFlags(c).find((f) => f.id === "restated")!.detail).toContain("Possible restatement");
+    c.filings = [];
+    expect(computeFlags(c).find((f) => f.id === "restated")!.detail).not.toContain("Possible restatement");
   });
 
   it("reads 8-K items and late-filing notices from the last three years, with a link", () => {
@@ -76,9 +118,18 @@ describe("computeFlags", () => {
     expect(flags[0].filing).toEqual({ form: "8-K", filed: "2025-05-01", url: "https://www.sec.gov/x/8-K" });
   });
 
-  it("states every rule plainly, with no em dashes", () => {
-    expect(FLAG_RULES.length).toBe(9);
-    const all = JSON.stringify(FLAG_RULES) + JSON.stringify(computeFlags(makeCompany(fiveYears((i) => ({ dilutedShares: 100 * 1.1 ** i })))));
+  it("uses one threshold table for both the checks and the numbers in the text", () => {
+    expect(FLAG_RULES.netDebtMaxMultipleOfEbitda).toBe(4);
+    expect(FLAG_RULES.interestCoverageMin).toBe(2);
+    const leverage = FLAG_CHECKS.find((r) => r.id === "leverage")!;
+    expect(leverage.rule).toContain(`${FLAG_RULES.netDebtMaxMultipleOfEbitda} times EBITDA`);
+    expect(leverage.rule).toContain(`${FLAG_RULES.interestCoverageMin} times`);
+  });
+
+  it("states every check plainly, with no em dashes or verdict words", () => {
+    expect(FLAG_CHECKS.length).toBe(9);
+    const all = JSON.stringify(FLAG_CHECKS) + JSON.stringify(computeFlags(makeCompany(fiveYears((i) => ({ dilutedShares: 100 * 1.1 ** i })))));
     expect(all).not.toContain("—");
+    expect(all).not.toMatch(VERDICT_WORDS);
   });
 });
