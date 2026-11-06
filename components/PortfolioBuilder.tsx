@@ -530,7 +530,12 @@ export default function PortfolioBuilder({
                 >
                   See Growth Projection
                 </button>
-                <button onClick={onClear} className={pill}>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Remove every holding from this portfolio? This cannot be undone.")) onClear();
+                  }}
+                  className={pill}
+                >
                   <RefreshCw className="w-4 h-4" aria-hidden="true" /> Reset
                 </button>
               </div>

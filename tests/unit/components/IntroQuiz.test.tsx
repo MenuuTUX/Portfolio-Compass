@@ -35,4 +35,35 @@ describe("IntroQuiz", () => {
     expect(completed?.isSkipped).toBe(true);
     expect(completed?.suggestedPortfolio).toEqual([]);
   });
+
+  const runQuiz = (answers: string[], props: { hasExistingPortfolio?: boolean } = {}) => {
+    render(<IntroQuiz onComplete={() => {}} {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    for (const answer of answers) fireEvent.click(screen.getByRole("button", { name: answer }));
+  };
+
+  it("does not let strong answers cancel a horizon under 2 years", () => {
+    runQuiz(["Under 2 years", "Buy more", "Experienced", "Yes, fully covered", "Grow capital"]);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Conservative");
+  });
+
+  it("does not let strong answers cancel selling everything in a crash", () => {
+    runQuiz(["10+ years", "Sell everything", "Experienced", "Yes, fully covered", "Grow capital"]);
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Conservative");
+  });
+
+  it("shows why the result came out as it did", () => {
+    runQuiz(["Under 2 years", "Buy more", "Experienced", "Yes, fully covered", "Grow capital"]);
+    expect(screen.getByText(/within 2 years/i)).toBeTruthy();
+    expect(screen.getByText(/comfort with loss/i)).toBeTruthy();
+  });
+
+  it("says an example will not replace holdings the user already has", () => {
+    runQuiz(
+      ["10+ years", "Hold", "Comfortable", "3 to 6 months of expenses", "Balance of both"],
+      { hasExistingPortfolio: true },
+    );
+    expect(screen.getByText(/will not replace/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep my portfolio" })).toBeTruthy();
+  });
 });

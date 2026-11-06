@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { LocalPortfolioItem } from "@/lib/storage";
+import { scoreRiskProfile, type RiskProfile } from "@/lib/risk-profile";
 
-export type RiskProfile = "Conservative" | "Balanced" | "Growth";
+export type { RiskProfile };
 
 interface Question {
   id: string;
@@ -18,11 +19,15 @@ export interface QuizResult {
   profile: RiskProfile;
   suggestedProviders: string[];
   suggestedPortfolio: LocalPortfolioItem[];
+  /** Plain-language reasons behind the profile. */
+  why: string[];
   isSkipped?: boolean;
 }
 
 interface IntroQuizProps {
   onComplete: (result: QuizResult) => void;
+  /** When true the example is never loaded, so the screen says so. */
+  hasExistingPortfolio?: boolean;
 }
 
 const QUESTIONS: Question[] = [
@@ -98,23 +103,19 @@ const PORTFOLIO_TEMPLATES = {
 } satisfies Record<RiskProfile, LocalPortfolioItem[]>;
 
 function buildResult(answers: Record<string, number>): QuizResult {
-  const total = Object.values(answers).reduce((a, b) => a + b, 0);
-  const score = Math.round(total / QUESTIONS.length);
-
-  let profile: RiskProfile = "Balanced";
-  if (score < 40) profile = "Conservative";
-  else if (score > 75) profile = "Growth";
+  const { score, profile, why } = scoreRiskProfile(answers);
 
   return {
     score,
     profile,
     suggestedProviders: [],
     suggestedPortfolio: PORTFOLIO_TEMPLATES[profile],
+    why,
     isSkipped: false,
   };
 }
 
-export default function IntroQuiz({ onComplete }: IntroQuizProps) {
+export default function IntroQuiz({ onComplete, hasExistingPortfolio = false }: IntroQuizProps) {
   const [step, setStep] = useState<"intro" | "quiz" | "done">("intro");
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -129,6 +130,7 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
       profile: "Balanced",
       suggestedProviders: [],
       suggestedPortfolio: [],
+      why: [],
       isSkipped: true,
     });
   };
@@ -265,6 +267,16 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
                 does not establish a personal fit. Review the holdings and
                 overlap before using this example.
               </p>
+              <ul className="space-y-1 text-sm text-body">
+                {result.why.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {hasExistingPortfolio && (
+                <p className="text-sm font-medium text-ink">
+                  You already have holdings. This example will not replace them.
+                </p>
+              )}
               {result.profile === "Growth" && (
                 <p className="text-sm text-muted">
                   VTI and QQQ have overlapping US large-company holdings, so the
@@ -284,12 +296,14 @@ export default function IntroQuiz({ onComplete }: IntroQuizProps) {
 
             <div className="flex flex-col gap-3 sm:flex-row">
               <button type="button" onClick={() => onComplete(result)} className={primary}>
-                Open portfolio
+                {hasExistingPortfolio ? "Keep my portfolio" : "Open portfolio"}
                 <ArrowRight className="h-4 w-4" />
               </button>
-              <button type="button" onClick={skip} className={ghost}>
-                Start empty
-              </button>
+              {!hasExistingPortfolio && (
+                <button type="button" onClick={skip} className={ghost}>
+                  Start empty
+                </button>
+              )}
             </div>
           </div>
         )}

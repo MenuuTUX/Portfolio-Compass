@@ -13,6 +13,7 @@ import {
 } from "@/lib/optimizer";
 import { cn, formatCurrency } from "@/lib/utils";
 import { estimateAnnualCovariance } from "@/lib/math/covariance";
+import { loadRiskProfile } from "@/lib/risk-profile";
 
 export interface AllocationPlanItem {
   ticker: string;
@@ -44,7 +45,8 @@ export default function OptimizationPanel({
 }: OptimizationPanelProps) {
   const [amountText, setAmountText] = useState(String(DEFAULT_AMOUNT));
   const amount = Math.max(0, Number(amountText) || 0);
-  const [strategyMode, setStrategyMode] = useState<StrategyMode>("Balanced");
+  // Start at the level the quiz produced; the user can still change it.
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>(() => loadRiskProfile()?.profile ?? "Balanced");
   const [result, setResult] = useState<GreedyOptimizationResult | null>(null);
   const [appliedKey, setAppliedKey] = useState<string | null>(null);
 

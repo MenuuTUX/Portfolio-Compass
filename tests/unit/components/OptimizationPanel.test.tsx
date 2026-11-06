@@ -13,6 +13,7 @@ await mockModule("@/lib/math/covariance", () => ({
 }));
 
 import OptimizationPanel from "@/components/OptimizationPanel";
+import { saveRiskProfile } from "@/lib/risk-profile";
 
 describe("OptimizationPanel", () => {
   afterEach(cleanup);
@@ -71,5 +72,25 @@ describe("OptimizationPanel", () => {
     }] as unknown as PortfolioItem[];
     render(<OptimizationPanel portfolio={portfolio} />);
     expect(screen.getByText("Add at least two holdings")).toBeTruthy();
+  });
+
+  it("starts at the risk level from the saved quiz result", () => {
+    localStorage.clear();
+    saveRiskProfile({ profile: "Conservative", score: 20 });
+    const portfolio = [{
+      ticker: "A", name: "A", price: 100, currency: "USD", quoteStatus: "ok", changePercent: 0,
+      history: [], metrics: { yield: 1, yieldSource: "Issuer factsheet" },
+      allocation: { equities: 100, bonds: 0, cash: 0 }, beta: 1, weight: 50, shares: 1,
+    }, {
+      ticker: "B", name: "B", price: 50, currency: "USD", quoteStatus: "ok", changePercent: 0,
+      history: [], metrics: { yield: 3, yieldSource: "Issuer factsheet" },
+      allocation: { equities: 0, bonds: 100, cash: 0 }, beta: 0.2, weight: 50, shares: 1,
+    }] as unknown as PortfolioItem[];
+
+    render(<OptimizationPanel portfolio={portfolio} />);
+
+    expect(screen.getByRole("radio", { name: "Conservative" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: "Balanced" }).getAttribute("aria-checked")).toBe("false");
+    localStorage.clear();
   });
 });

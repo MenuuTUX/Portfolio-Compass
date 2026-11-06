@@ -55,10 +55,8 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
     <section className="overflow-x-clip bg-canvas text-ink selection:bg-compass/20" aria-labelledby="landing-title">
       <motion.header
         className="ws-nav"
-        initial={{ opacity: 0, y: -24 }}
+        initial={false}
         animate={{
-          opacity: 1,
-          y: 0,
           boxShadow: scrolled ? "0 8px 28px rgba(0,0,0,0.16)" : "0 2px 8px rgba(0,0,0,0.06)",
         }}
         transition={{ duration: 0.7, ease: EASE }}
@@ -118,11 +116,12 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
           </motion.div>
         </motion.div>
         <motion.div className="relative min-[900px]:max-w-[50%]" style={{ y: textY, opacity: textOpacity }}>
-        <Reveal onMount y={12} className="flex items-center gap-2">
+        {/* Entrances are CSS animations, not framer initial states, so the server HTML is already visible. */}
+        <div className="animate-ws-fade-up flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="" width={20} height={20} className="h-5 w-5 rounded-md" />
           <span className="text-sm font-medium text-ink">Portfolio Compass</span>
-        </Reveal>
+        </div>
         <h1
           id="landing-title"
           className="mt-6 max-w-5xl font-display font-bold text-ink text-[clamp(40px,11vw,64px)] min-[900px]:text-[clamp(40px,5.2cqw,112px)]"
@@ -130,33 +129,28 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         >
           {HEADLINE.map((line, i) => (
             <span key={line} className="block overflow-hidden pb-[0.12em] -mb-[0.12em]">
-              <motion.span
-                className="block"
-                initial={{ y: "110%" }}
-                animate={{ y: 0 }}
-                transition={{ duration: 0.9, delay: 0.15 + i * 0.08, ease: EASE }}
-              >
+              <span className="ws-rise block" style={{ animationDelay: `${i * 70}ms` }}>
                 {line}
-              </motion.span>
+              </span>
             </span>
           ))}
         </h1>
-        <Reveal onMount delay={0.6} className="mt-8 max-w-[46ch]">
+        <div className="animate-ws-fade-up mt-8 max-w-[46ch]" style={{ animationDelay: "120ms" }}>
           <p className="text-lg leading-relaxed text-body">
             Compare funds and stocks, then test an allocation against historical data and simulated paths.
           </p>
-        </Reveal>
-        <Reveal onMount delay={0.72} className="mt-10 flex items-center gap-3">
+        </div>
+        <div className="animate-ws-fade-up mt-10 flex items-center gap-3" style={{ animationDelay: "180ms" }}>
           <button type="button" onClick={onStart} className="ws-btn-solid">
             Get started
           </button>
           <button type="button" onClick={onViewMarket} aria-label="Browse market" className="ws-arrow-btn">
             <ArrowIcon />
           </button>
-        </Reveal>
-        <Reveal onMount delay={0.84} y={12}>
+        </div>
+        <div className="animate-ws-fade-up" style={{ animationDelay: "240ms" }}>
           <p className="mt-5 text-sm text-muted">For research and education, not financial advice.</p>
-        </Reveal>
+        </div>
         </motion.div>
 
         <Reveal className="relative mt-14 min-[900px]:hidden">

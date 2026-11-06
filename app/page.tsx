@@ -20,7 +20,8 @@ import { useAddStock } from '@/hooks/useAddStock';
 import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
 import { useRemoveStock } from '@/hooks/useRemoveStock';
 import { useQueryClient } from '@tanstack/react-query';
-import { savePortfolio } from '@/lib/storage';
+import { loadPortfolio, savePortfolio } from '@/lib/storage';
+import { portfolioAfterQuiz, saveRiskProfile } from '@/lib/risk-profile';
 import Footer from '@/components/Footer';
 import { EASE } from '@/components/motion/Reveal';
 
@@ -41,7 +42,10 @@ export default function Home() {
   const updatePortfolioItemMutation = useUpdatePortfolioItem();
   const queryClient = useQueryClient();
 
+  const [hasHoldings, setHasHoldings] = useState(false);
+
   const handleStart = () => {
+    setHasHoldings(loadPortfolio().length > 0);
     setViewMode('INTRO_QUIZ');
   };
 
@@ -50,16 +54,19 @@ export default function Home() {
   };
 
   const handleQuizComplete = async (result: QuizResult) => {
-    if (result.isSkipped || !result.suggestedPortfolio || result.suggestedPortfolio.length === 0) {
+    if (result.isSkipped) {
       setViewMode('APP');
       return;
     }
 
-    if (result.suggestedPortfolio.length > 0) {
-      savePortfolio(result.suggestedPortfolio);
+    saveRiskProfile({ profile: result.profile, score: result.score });
+    // The example only fills an empty portfolio; real holdings are never replaced.
+    const next = portfolioAfterQuiz(loadPortfolio(), result.suggestedPortfolio);
+    if (next) {
+      savePortfolio(next);
       await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-      setActiveTab('PORTFOLIO');
     }
+    setActiveTab('PORTFOLIO');
     setViewMode('APP');
   };
 
@@ -107,7 +114,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-canvas overflow-hidden relative">
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {viewMode === 'LANDING' ? (
           <motion.div
             key="landing"
@@ -137,7 +144,7 @@ export default function Home() {
               transition={{ duration: 0.8, delay: 0.1, ease: EASE }}
               className="w-full flex items-center justify-center"
             >
-              <IntroQuiz onComplete={handleQuizComplete} />
+              <IntroQuiz onComplete={handleQuizComplete} hasExistingPortfolio={hasHoldings} />
             </motion.div>
           </motion.div>
         ) : (
