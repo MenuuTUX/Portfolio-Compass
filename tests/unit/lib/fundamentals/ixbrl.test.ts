@@ -29,3 +29,22 @@ describe("extensionDepreciation", () => {
     expect(extensionDepreciation(html, "2020-01-01", "2020-12-31")).toBeNull();
   });
 });
+
+describe("coverShareCount", () => {
+  const inst = (id: string, at: string, member = "") => `<xbrli:context id="${id}"><xbrli:entity>${member}</xbrli:entity><xbrli:period><xbrli:instant>${at}</xbrli:instant></xbrli:period></xbrli:context>`;
+  const shares = (c: string, text: string, extra = "") => `<ix:nonFraction contextRef="${c}" name="dei:EntityCommonStockSharesOutstanding" scale="0" ${extra}>${text}</ix:nonFraction>`;
+  const member = '<xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">x:ClassB</xbrldi:explicitMember></xbrli:segment>';
+
+  it("adds the per-class counts on the newest cover date, each class once", async () => {
+    const { coverShareCount } = await import("@/lib/fundamentals/ixbrl");
+    const html = inst("a", "2026-10-16", member) + inst("b", "2026-10-16", member) + inst("old", "2026-07-01", member) +
+      shares("a", "2,200,000,000") + shares("a", "2,200,000,000") + shares("b", "340,000,000") + shares("old", "9,999");
+    expect(coverShareCount(html)).toEqual({ value: 2_540_000_000, asOf: "2026-10-16", classes: 2 });
+  });
+
+  it("returns null when there is no positive cover count", async () => {
+    const { coverShareCount } = await import("@/lib/fundamentals/ixbrl");
+    expect(coverShareCount(inst("a", "2026-10-16") + shares("a", "0"))).toBeNull();
+    expect(coverShareCount("<html></html>")).toBeNull();
+  });
+});

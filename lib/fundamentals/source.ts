@@ -1,5 +1,5 @@
 import { buildCompanyFilings } from "./periods";
-import { extensionDepreciation } from "./ixbrl";
+import { coverShareCount, extensionDepreciation } from "./ixbrl";
 import { normalizeTicker, type SecClient } from "./sec-client";
 import type { CompanyFilings, FilingsSourceId } from "./types";
 
@@ -19,10 +19,24 @@ const LIVE_CACHE_TTL_MS = 6 * 3600_000;
 
 /**
  * Holding-company reorganizations where the new registrant has no annual report yet: new CIK -> predecessor CIK.
- * Each entry is a reviewed fact from the successor's 8-K12B, not a name guess.
- * 2115436 ExxonMobil Holdings Corp (8-K12B filed 2026-07-01) succeeds 34088 Exxon Mobil Corporation.
+ * Found with `bun scripts/sec-bulk.ts check` (quarterlies, no annual report, 8-K12B filed) and kept only where the
+ * predecessor has the same name stem and SIC code, has annual history, and filed a 15-12G within two weeks of the
+ * new registrant's 8-K12B (Exxon is the exception: it keeps filing as the operating company). Never guessed at run time.
+ *   2115436 ExxonMobil Holdings Corp   <- 34088    Exxon Mobil Corp         8-K12B 2026-07-01
+ *   2115119 Columbia Financial, Inc.   <- 1723596  Columbia Financial, Inc. 8-K12B 2026-07-21, 15-12G 2026-07-21
+ *   2126198 Expro Ltd                  <- 1575828  Expro Group Holdings N.V. 8-K12B 2026-07-13, 15-12G 2026-07-24
+ *   2152623 Navient Holdings, Inc.     <- 1593538  Navient LLC (was Navient Corp) 8-K12B 2026-10-29, 15-12G 2026-10-29
+ *   2136387 Real REMAX Group Inc.      <- 1581091  RE/MAX Holdings, Inc. 8-K12B 2026-08-24, 15-12G 2026-09-04
+ *   2119322 Digimarc Corp              <- 1438231  Old Digimarc Corp 8-K12B 2026-05-18, 15-12G 2026-05-18
  */
-export const SUCCESSOR_REGISTRANTS: Record<number, number> = { 2115436: 34088 };
+export const SUCCESSOR_REGISTRANTS: Record<number, number> = {
+  2115436: 34088,
+  2115119: 1723596,
+  2126198: 1575828,
+  2152623: 1593538,
+  2136387: 1581091,
+  2119322: 1438231,
+};
 
 /**
  * Live: asks the SEC for a company's facts and submissions, builds the summary,
@@ -91,10 +105,34 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
     }
   }
 
+  /**
+   * With no cover share count in company-facts (it leaves out counts reported per share class), the newest periodic
+   * filing's inline XBRL is read for them. A failed or empty read leaves the count missing.
+   */
+  async function refineShares(c: CompanyFilings): Promise<CompanyFilings> {
+    if (c.sharesOutstanding) return c;
+    const filing = c.filings.find((f) => ["10-Q", "10-K", "20-F", "40-F"].includes(f.form));
+    if (!filing) return c;
+    try {
+      const html = await client.filingHtml(filing.url);
+      const count = html ? coverShareCount(html) : null;
+      const newest = [c.annual[c.annual.length - 1]?.end, c.trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
+      // Same freshness rule as company-facts counts: not older than a year before the newest period.
+      if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * 86_400_000)) return c;
+      // Classes that are not one-for-one (Berkshire A is 1,500 B shares) make a raw sum badly wrong. A sum that cannot
+      // be checked against, or is far from, the latest diluted average is left out, as for any filer without a count.
+      const diluted = c.annual[c.annual.length - 1]?.items.dilutedShares?.value;
+      if (count.classes > 1 && (!diluted || count.value / diluted < 0.75 || count.value / diluted > 1.33)) return c;
+      return { ...c, sharesOutstanding: { ...count, accn: filing.accn } };
+    } catch {
+      return c;
+    }
+  }
+
   async function buildOne(cik: number, ticker: string): Promise<CompanyFilings | null> {
     const [facts, sub] = await Promise.all([client.companyFacts(cik), client.submissions(cik)]);
     if (!facts || !sub) return null;
-    return refineDepreciation(buildCompanyFilings(facts, sub, { ticker, source: "edgar-live" }));
+    return refineShares(await refineDepreciation(buildCompanyFilings(facts, sub, { ticker, source: "edgar-live" })));
   }
 
   /**

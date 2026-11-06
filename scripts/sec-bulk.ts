@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { buildCompanyFilings } from "@/lib/fundamentals/periods";
+import { SUCCESSOR_REGISTRANTS } from "@/lib/fundamentals/source";
 import type { SecCompanyFacts, SecSubmissions } from "@/lib/fundamentals/types";
 
 const DIR = join(homedir(), ".cache", "portfolio-compass-sec-bulk");
@@ -93,7 +94,9 @@ async function check(args: string[]) {
         report.noAnnual++;
         if (forms.has("10-Q")) {
           report.noAnnualWithQuarterly++;
-          (forms.has("8-K12B") ? report.successors : report.newRegistrants).push(row(forms.has("8-K12B") ? "has 8-K12B (holding-company successor?)" : "new registrant, quarterlies only"));
+          const old = SUCCESSOR_REGISTRANTS[cik];
+          (forms.has("8-K12B") ? report.successors : report.newRegistrants).push(row(
+            forms.has("8-K12B") ? (old ? `8-K12B, mapped to predecessor ${old}` : "8-K12B, NOT MAPPED (holding-company successor?)") : "new registrant, quarterlies only"));
         }
         return;
       }

@@ -251,3 +251,57 @@ describe("D&A read from the filing's inline XBRL", () => {
     expect(t.value).toBe(Math.round(sum * 1.25) + 600);
   });
 });
+
+describe("SUCCESSOR_REGISTRANTS", () => {
+  it("maps each new registrant to a different, older registrant, and never chains", async () => {
+    const { SUCCESSOR_REGISTRANTS } = await import("@/lib/fundamentals/source");
+    for (const [next, old] of Object.entries(SUCCESSOR_REGISTRANTS)) {
+      expect(Number(next)).not.toBe(old);
+      expect(SUCCESSOR_REGISTRANTS[old]).toBeUndefined();
+    }
+    expect(Object.keys(SUCCESSOR_REGISTRANTS).length).toBe(new Set(Object.values(SUCCESSOR_REGISTRANTS)).size);
+  });
+});
+
+describe("cover share count read from the filing's inline XBRL", () => {
+  const inst = (id: string, at: string) => `<xbrli:context id="${id}"><xbrli:period><xbrli:instant>${at}</xbrli:instant></xbrli:period></xbrli:context>`;
+  const fact = (id: string, v: number) => `<ix:nonFraction contextRef="${id}" name="dei:EntityCommonStockSharesOutstanding" scale="0">${v}</ix:nonFraction>`;
+
+  /** AAPL fixture with no company-facts count (as the SEC omits per-class counts), plus a filing document for any /Archives/ URL. */
+  function setup(doc: (diluted: number, asOf: string) => string) {
+    const { facts, sub } = loadFixture("AAPL");
+    const f = structuredClone(facts) as typeof facts;
+    delete (f.facts as Record<string, unknown>).dei;
+    delete (f.facts["us-gaap"] as Record<string, unknown>).CommonStockSharesOutstanding;
+    const base = buildCompanyFilings(f, sub, { ticker: "AAPL", source: "snapshot" });
+    expect(base.sharesOutstanding).toBeNull();
+    const diluted = base.annual.at(-1)!.items.dilutedShares!.value;
+    const asOf = base.trailing?.end ?? base.annual.at(-1)!.end;
+    const html = doc(diluted, asOf);
+    const fetchFn = (async (url: string) => {
+      if (url.includes("company_tickers")) return new Response(JSON.stringify(tickerFile));
+      if (url.includes("companyfacts")) return new Response(JSON.stringify(f));
+      if (url.includes("submissions")) return new Response(JSON.stringify(sub));
+      if (url.includes("/Archives/")) return new Response(html);
+      return new Response("missing", { status: 404 });
+    }) as unknown as typeof fetch;
+    return edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} }));
+  }
+
+  it("fills a missing count from the cover page", async () => {
+    const live = setup((diluted, asOf) => inst("a", asOf) + inst("b", asOf) + fact("a", Math.round(diluted * 0.6)) + fact("b", Math.round(diluted * 0.35)));
+    const c = (await live.getCompany("AAPL"))!;
+    expect(c.sharesOutstanding?.classes).toBe(2);
+    expect(c.sharesOutstanding?.value).toBe(Math.round((await setupDiluted()) * 0.6) + Math.round((await setupDiluted()) * 0.35));
+  });
+
+  it("drops a multi-class sum far from the diluted average (Berkshire-style share classes)", async () => {
+    const live = setup((diluted, asOf) => inst("a", asOf) + inst("b", asOf) + fact("a", Math.round(diluted * 0.01)) + fact("b", Math.round(diluted * 0.6)));
+    expect((await live.getCompany("AAPL"))!.sharesOutstanding).toBeNull();
+  });
+
+  async function setupDiluted() {
+    const { facts, sub } = loadFixture("AAPL");
+    return buildCompanyFilings(facts, sub, { ticker: "AAPL", source: "snapshot" }).annual.at(-1)!.items.dilutedShares!.value;
+  }
+});
