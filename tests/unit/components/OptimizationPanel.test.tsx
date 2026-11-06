@@ -52,6 +52,8 @@ describe("OptimizationPanel", () => {
 
     expect(screen.getByLabelText("Amount to invest")).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Balanced" }).getAttribute("aria-checked")).toBe("true");
+    // The holdings already have shares, so pick replace to test the whole-amount plan.
+    fireEvent.click(screen.getByRole("radio", { name: "Replace my current shares" }));
     fireEvent.click(await screen.findByRole("button", { name: "Use this allocation" }));
 
     expect(applied).not.toBeNull();
@@ -92,5 +94,83 @@ describe("OptimizationPanel", () => {
     expect(screen.getByRole("radio", { name: "Conservative" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("radio", { name: "Balanced" }).getAttribute("aria-checked")).toBe("false");
     localStorage.clear();
+  });
+
+  const holding = (ticker: string, price: number, shares: number, extra: Record<string, unknown> = {}) => ({
+    ticker, name: ticker, price, currency: "USD", quoteStatus: "ok", changePercent: 0,
+    history: [], metrics: { yield: 1.5, yieldSource: "Issuer factsheet" },
+    allocation: { equities: 100, bonds: 0, cash: 0 }, beta: 1, weight: 50, shares,
+    ...extra,
+  });
+  const twoHoldings = () => [holding("TEST", 100, 10), holding("SECOND", 80, 5)] as unknown as PortfolioItem[];
+  const valueOf = (plan: { ticker: string; shares: number }[], portfolio: PortfolioItem[]) =>
+    plan.reduce((sum, p) => sum + p.shares * (portfolio.find((h) => h.ticker === p.ticker)?.price ?? 0), 0);
+
+  it("adds new money to current holdings by default and applies current plus bought shares", async () => {
+    const portfolio = twoHoldings();
+    let applied: { ticker: string; shares: number; weight: number }[] | null = null;
+    render(<OptimizationPanel portfolio={portfolio} onApply={(plan) => { applied = plan; }} />);
+
+    expect(screen.getByRole("radio", { name: "New money added to my current holdings" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: "Replace my current shares" }).getAttribute("aria-checked")).toBe("false");
+    expect(await screen.findByText("Current value")).toBeTruthy();
+    expect(screen.getByText("New total")).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Use this allocation" }));
+    const plan = applied!;
+    // Shares start from the current holdings, so the plan never sells.
+    expect(plan.find((p) => p.ticker === "TEST")!.shares).toBeGreaterThanOrEqual(10);
+    expect(plan.find((p) => p.ticker === "SECOND")!.shares).toBeGreaterThanOrEqual(5);
+    // Current value is 1,400; the new money is spent from the 10,000 amount.
+    const newMoney = valueOf(plan, portfolio) - 1400;
+    expect(newMoney).toBeGreaterThan(10000 - 80);
+    expect(newMoney).toBeLessThanOrEqual(10000);
+    expect(plan.reduce((sum, p) => sum + p.weight, 0)).toBeCloseTo(100, 6);
+  });
+
+  it("replaces current shares when that mode is chosen", async () => {
+    const portfolio = twoHoldings();
+    let applied: { ticker: string; shares: number; weight: number }[] | null = null;
+    render(<OptimizationPanel portfolio={portfolio} onApply={(plan) => { applied = plan; }} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Replace my current shares" }));
+    expect(screen.getByRole("radio", { name: "Replace my current shares" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(await screen.findByRole("button", { name: "Use this allocation" }));
+
+    // The 10,000 amount is the whole portfolio, not new money on top of 1,400.
+    const total = valueOf(applied!, portfolio);
+    expect(total).toBeGreaterThan(10000 - 80);
+    expect(total).toBeLessThanOrEqual(10000);
+    expect(applied!.reduce((sum, p) => sum + p.weight, 0)).toBeCloseTo(100, 6);
+  });
+
+  it("explains that no plan is possible when no holding has a positive expected return", async () => {
+    // Beta -1 gives 2% - 6% = -4% expected return, so cash beats every holding.
+    const portfolio = [holding("S1", 100, 0, { assetType: "STOCK", beta: -1 }), holding("S2", 50, 0, { assetType: "STOCK", beta: -1 })] as unknown as PortfolioItem[];
+    render(<OptimizationPanel portfolio={portfolio} onApply={() => {}} />);
+    expect(await screen.findByText(/None of your funds has an expected return above zero/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Use this allocation" })).toBeNull();
+  });
+
+  it("explains when the amount cannot buy one whole share", async () => {
+    const portfolio = twoHoldings();
+    render(<OptimizationPanel portfolio={portfolio} onApply={() => {}} />);
+    fireEvent.change(screen.getByLabelText("Amount to invest"), { target: { value: "10" } });
+    expect(await screen.findByText(/too small to buy one whole share/)).toBeTruthy();
+    expect(screen.getByText(/The cheapest share costs \D*80\.00\./)).toBeTruthy();
+  });
+
+  it("shows an inline error for an absurd amount and always clears calibrating", async () => {
+    const portfolio = twoHoldings();
+    const calibrating: boolean[] = [];
+    render(<OptimizationPanel portfolio={portfolio} onCalibrating={(v) => calibrating.push(v)} />);
+    fireEvent.change(screen.getByLabelText("Amount to invest"), { target: { value: "1e13" } });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("1 trillion or less");
+    expect(screen.getByLabelText("Amount to invest").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.queryByRole("button", { name: "Use this allocation" })).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(calibrating[calibrating.length - 1]).toBe(false);
   });
 });

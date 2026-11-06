@@ -14,6 +14,8 @@ export interface PriceMatrix {
   tickers: string[];
   /** Row-major, index `t * tickers.length + j`. */
   adjClose: Float64Array;
+  /** Split-adjusted closes, not adjusted for dividends. Filled for Python, which exposes both series. */
+  close?: Float64Array;
 }
 
 export interface StrategyError {
@@ -42,8 +44,9 @@ export type StrategyRequest =
   | { id: number; op: "inspect"; code: string };
 
 export type StrategyResponse =
-  | { id: number; op: "run"; result: StrategyResult }
-  | { id: number; op: "inspect"; params: Params | null; error?: StrategyError }
+  /** `bootFailed` marks a reply sent because the runtime itself did not load. */
+  | { id: number; op: "run"; result: StrategyResult; bootFailed?: true }
+  | { id: number; op: "inspect"; params: Params | null; error?: StrategyError; bootFailed?: true }
   /** Progress while Python loads; `id` is -1. */
   | { id: number; op: "status"; message: string };
 

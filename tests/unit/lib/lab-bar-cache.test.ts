@@ -152,3 +152,30 @@ describe("loadBars warmup", () => {
     expect(r.series).toEqual([]);
   });
 });
+
+describe("loadBars stale tickers", () => {
+  it("reports a ticker that fell back to an older copy, with the last bar that copy holds", async () => {
+    const store = memoryBarStore();
+    await loadBars(["SPY", "XIC.TO"], "2026-10-01", "2026-10-29", { store, fetchOne: api(ok).fetchOne, now: TUESDAY });
+    const down = api((t) => (t === "XIC.TO" ? { ok: false, status: 502 } : ok(t, "2026-10-28")));
+    const out = await loadBars(["SPY", "XIC.TO"], "2026-10-01", "2026-10-29", { store, fetchOne: down.fetchOne, now: WEDNESDAY, wait: noWait });
+    expect(out.failed).toEqual(["XIC.TO"]);
+    expect(out.staleTickers).toEqual([{ ticker: "XIC.TO", lastBar: "2026-10-27" }]);
+    expect(out.series.map((s) => s.ticker).sort()).toEqual(["SPY", "XIC.TO"]);
+  });
+
+  it("is empty when every ticker refreshed", async () => {
+    const out = await loadBars(["SPY"], "2026-10-01", "2026-10-29", { store: memoryBarStore(), fetchOne: api(ok).fetchOne, now: TUESDAY });
+    expect(out.staleTickers).toEqual([]);
+  });
+
+  it("does not report a stale ticker that never reached the series", async () => {
+    const store = memoryBarStore();
+    await loadBars(["SPY"], "2026-10-01", "2026-10-29", { store, fetchOne: api(ok).fetchOne, now: TUESDAY });
+    // The old copy has no bars in the requested window, so it is dropped and the ticker is missing.
+    const down = api(() => ({ ok: false, status: 502 }));
+    const out = await loadBars(["SPY"], "2030-01-01", "2030-01-31", { store, fetchOne: down.fetchOne, now: WEDNESDAY, wait: noWait });
+    expect(out.series).toEqual([]);
+    expect(out.staleTickers).toEqual([]);
+  });
+});

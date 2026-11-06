@@ -6,6 +6,8 @@ import {
   weightsFromShares,
   optimizePortfolioGreedy,
   GreedyOptimizationParams,
+  RISK_FREE,
+  EQUITY_PREMIUM,
 } from '../../../lib/optimizer';
 
 describe('optimizePortfolioGreedy', () => {
@@ -259,6 +261,47 @@ describe('optimizePortfolioGreedy', () => {
     }
   });
 
+  it('spends the budget down to less than the cheapest share', () => {
+    // The fixed 400-iteration cap used to stop the greedy loop with $5,060 left
+    // of a $50,000 budget. The final sweep must spend the rest one share at a time.
+    const candidates = [
+      { ticker: 'A', price: 100, expectedReturn: 0.075 },
+      { ticker: 'B', price: 50, expectedReturn: 0.039 },
+      { ticker: 'C', price: 30, expectedReturn: 0.05 },
+    ];
+    const covarianceMatrix = [
+      [0.0225, 0.0005, 0.004],
+      [0.0005, 0.0016, 0.0002],
+      [0.004, 0.0002, 0.01],
+    ];
+    for (const budget of [10_000, 50_000, 1_000_000]) {
+      const r = optimizePortfolioGreedy({ candidates, covarianceMatrix, riskProfile: 'balanced', budget });
+      expect(r.remainingBudget).toBeLessThan(30);
+      expect(r.remainingBudget).toBeGreaterThanOrEqual(0);
+      const spent = candidates.reduce((sum, c) => sum + (r.addedShares[c.ticker] || 0) * c.price, 0);
+      expect(budget - spent).toBeCloseTo(r.remainingBudget, 6);
+    }
+  });
+
+  it('prices 200 assets in under a second', () => {
+    // A factor-model covariance (PSD by construction) keeps the greedy walk realistic.
+    const n = 200;
+    const candidates = Array.from({ length: n }, (_, k) => ({
+      ticker: `T${k}`,
+      price: 20 + (k % 37) * 7,
+      expectedReturn: 0.03 + (k % 11) * 0.005,
+    }));
+    const beta = Array.from({ length: n }, (_, k) => 0.5 + (k % 9) * 0.1);
+    const covarianceMatrix = Array.from({ length: n }, (_, i) =>
+      Array.from({ length: n }, (_, j) => beta[i] * beta[j] * 0.0225 + (i === j ? 0.01 : 0)),
+    );
+
+    const started = performance.now();
+    const r = optimizePortfolioGreedy({ candidates, covarianceMatrix, riskProfile: 'growth', budget: 100_000 });
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(r.remainingBudget).toBeLessThan(Math.min(...candidates.map((c) => c.price)));
+  }, { timeout: 20000 });
+
   it('maps the profiles to roughly 30 / 60 / 90 percent equity on a stock-bond pair', () => {
     const candidates = [
       { ticker: 'EQ', price: 100, expectedReturn: 0.075 },
@@ -294,9 +337,21 @@ describe('optimizer inputs', () => {
     expect(getOptimizerBeta(fund('NOMIX', 0, 0, { beta: 0.7, allocation: { equities: 0, bonds: 0, cash: 0 } }))).toBeCloseTo(0.7);
   });
 
-  it('uses a provider yield as an estimate so funds do not all price the same', () => {
-    expect(getOptimizerReturnProxy(fund('XEQT', 100, 0))).toBeCloseTo(0.015 + 0.06);
+  it('scores expected return as the risk-free rate plus beta times the equity premium', () => {
+    expect(RISK_FREE).toBeCloseTo(0.02);
+    expect(EQUITY_PREMIUM).toBeCloseTo(0.06);
+    expect(getOptimizerReturnProxy(fund('XEQT', 100, 0))).toBeCloseTo(RISK_FREE + EQUITY_PREMIUM);
     expect(getOptimizerReturnProxy(fund('XGRO', 80, 20))).toBeLessThan(getOptimizerReturnProxy(fund('XEQT', 100, 0)));
+  });
+
+  it('does not add a fund yield on top of its return proxy', () => {
+    // A covered-call fund pays 12% but has beta 0.6. Its yield is part of total
+    // return, so it must not outscore broad equity on yield alone.
+    const coveredCall = fund('CALL', 60, 0, { beta: 0.6, metrics: { yield: 12, yieldSource: 'Issuer factsheet' } });
+    const broad = fund('EQ', 100, 0, { metrics: { yield: 1.3, yieldSource: 'Issuer factsheet' } });
+    expect(getOptimizerReturnProxy(coveredCall)).toBeCloseTo(RISK_FREE + 0.6 * EQUITY_PREMIUM);
+    expect(getOptimizerReturnProxy(broad)).toBeCloseTo(RISK_FREE + EQUITY_PREMIUM);
+    expect(getOptimizerReturnProxy(coveredCall)).toBeLessThan(getOptimizerReturnProxy(broad));
   });
 
   it('gives Growth more stocks than Conservative across an all-equity and an 80/20 fund', () => {

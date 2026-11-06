@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { Portfolio } from "@/types";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Play,
@@ -20,11 +20,12 @@ import {
   summarizeOutcomes,
   returnHistogram,
   medianPathIndex,
+  rebaseLogDrift,
+  dropOutlierDays,
   MODE_SEED_OFFSET,
   type SimulationMode,
   type SimulationRun,
   type OutcomeSummary,
-  type HistogramBin,
 } from "@/lib/monte-carlo";
 import {
   getEffectiveWeights,
@@ -36,6 +37,9 @@ import {
   selectReturnBasis,
   type ReturnBasis,
   hasDailyObservationCoverage,
+  observationsPerYear,
+  tickersWithoutAdjustedHistory,
+  diagnoseHistory,
 } from "@/lib/math/history";
 import { convertPriceHistoryToCad, type HistoricalFxRate } from "@/lib/math/fx-history";
 import { getPortfolioValuation, type BankOfCanadaFxRate } from "@/lib/math/portfolio-returns";
@@ -45,8 +49,10 @@ import SimulatorExplainer from "./SimulatorExplainer";
 import PathFan, { type FanBand } from "./PathFan";
 import OutcomeHistogram from "./OutcomeHistogram";
 import { signedPercent } from "./format";
+import { impliedAnnualReturn } from "@/lib/math/scenario";
 import { EASE } from "@/components/motion/Reveal";
-import { cn } from "@/lib/utils";
+import { HelpTip } from "@/components/ui/HelpTip";
+import { cn } from "@/lib/cn";
 
 const HORIZONS = [5, 10, 15, 20, 30] as const;
 const PATH_COUNTS = [20, 50, 100] as const;
@@ -63,7 +69,13 @@ const BLOCK_OPTIONS = [
  */
 const DEFAULT_STATS_PATHS = 2000;
 const STATS_STEP_DAYS = 21;
-const TRADING_DAYS = 252;
+/** Recorded-step candidates for Randomize, largest first. Each divides the horizon when possible. */
+const STEP_CANDIDATES = [45, 42, 36, 30, 28, 21, 14, 7, 6, 5, 4, 3, 2, 1] as const;
+/** Annual drift outside this range is flagged: one year of history is a weak guide. */
+const DRIFT_WARN_HIGH = 0.2;
+const DRIFT_WARN_LOW = -0.1;
+const DEFAULT_LONG_RUN_PERCENT = 7;
+const BALANCE_MESSAGE = "Enter a starting balance above 0 to run the simulation.";
 
 const MODE_ORDER: SimulationMode[] = ["reshuffle", "resample", "randomize"];
 
@@ -85,12 +97,20 @@ const MODE_INFO: Record<SimulationMode, { name: string; line: string; method: st
   },
 };
 
+type ReturnModel = "past" | "long";
+
 interface MonteCarloSimulatorProps {
   portfolio: Portfolio;
   baseCurrency?: string;
   startingValue?: number;
   fxProvenance?: BankOfCanadaFxRate;
   onBack?: () => void;
+  /** Added at the end of each month, in today's money terms of the starting currency. */
+  monthlyContribution?: number;
+  /** Annual inflation in percent. Enables the "Show in today's money" view when above 0. */
+  inflationPercent?: number;
+  /** When above 0, shows the share of paths that reach this ending value. */
+  goalAmount?: number;
 }
 
 interface SimulationModelStats {
@@ -98,9 +118,16 @@ interface SimulationModelStats {
   ridge: number;
   /** False when the covariance cannot be factored, which only rules out Randomize. */
   covarianceOk: boolean;
+  /** Historical annual log drift of the weighted portfolio. */
   annualizedLogDrift: number;
+  /** Historical annual volatility of the weighted portfolio. */
   annualizedVolatility: number;
   observationCount: number;
+  periodsPerYear: number;
+  /** Days removed as unusual price jumps before simulating. */
+  droppedDays: number;
+  /** Holdings without dividend-adjusted history; empty on the total-return basis. */
+  priceOnlyTickers: string[];
   lookbackStart: string;
   lookbackEnd: string;
   /** What the drift and volatility are computed from. */
@@ -116,6 +143,9 @@ interface RunSettings {
   statsPaths: number;
   blockDays: number;
   initial: number;
+  returnModel: ReturnModel;
+  longRunPercent: number;
+  monthlyContribution: number;
 }
 
 interface PreparedInputs {
@@ -123,6 +153,7 @@ interface PreparedInputs {
   currentPrices: number[];
   weights: number[];
   seed: number;
+  periodsPerYear: number;
   /** False when the covariance cannot be factored; Randomize is then unavailable. */
   covarianceOk: boolean;
   settings: RunSettings;
@@ -134,8 +165,9 @@ interface ModeResult {
   highlight: number[];
   band: FanBand;
   summary: OutcomeSummary;
-  histogram: HistogramBin[];
-  daysPerYear: number;
+  /** Ending values of the stats paths, in the same money as the summary. */
+  finals: number[];
+  periodsPerYear: number;
   settings: RunSettings;
 }
 
@@ -154,42 +186,112 @@ function hasAdjustedHistory(points: Portfolio[0]["history"]): boolean {
 /** Whole percent; a small but nonzero share reads "<1%" rather than a misleading 0%. */
 const pct = (v: number) => (v > 0 && v < 0.005 ? "<1%" : `${Math.round(v * 100)}%`);
 
+/** "AAPL", "AAPL and MSFT", "AAPL, MSFT and VTI". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Randomize records whole steps only, so the step must divide the horizon and
+ * any contribution interval. Uses `preferred` when it fits, else the largest candidate that fits.
+ */
+function randomizeStep(numDays: number, everyDays: number | undefined, preferred?: number): number {
+  const fits = (step: number) => numDays % step === 0 && (everyDays === undefined || everyDays % step === 0);
+  if (preferred !== undefined && fits(preferred)) return preferred;
+  return STEP_CANDIDATES.find(fits) ?? 1;
+}
+
+/** Lets React paint and respond to input between chunks of simulation work. */
+const yieldToBrowser = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+/** Only a failure to factor the covariance matrix means Randomize's correlations are unusable. */
+function isCovarianceError(e: unknown): boolean {
+  const message = e instanceof Error ? e.message : String(e);
+  return /positive definite|non-finite values|Cholesky|covariance/i.test(message);
+}
+
+function historyProblemMessage(problem: Extract<ReturnType<typeof diagnoseHistory>, { ok: false }>): string {
+  if (problem.reason === "gap") {
+    return `${problem.ticker} has a gap of ${problem.gapDays} days in its price history.`;
+  }
+  return `${problem.ticker} has only ${problem.found} daily returns; the simulator needs ${problem.needed}.`;
+}
+
 const RANDOMIZE_UNAVAILABLE = "Randomize is unavailable: historical covariance is not positive definite, so correlations cannot be modeled reliably. Reshuffle and Resample do not need it.";
 
-/** Runs one mode on prepared inputs. Pure apart from the simulation itself. */
-function runMode(mode: SimulationMode, inputs: PreparedInputs): ModeOutcome {
-  const { returns, currentPrices, weights, seed, settings } = inputs;
+/** Runs one mode on prepared inputs. Yields once between the drawn run and the stats run. */
+async function runMode(mode: SimulationMode, inputs: PreparedInputs): Promise<ModeOutcome> {
+  const { returns, currentPrices, weights, seed, settings, periodsPerYear } = inputs;
   if (mode === "randomize" && !inputs.covarianceOk) return { mode, unavailable: RANDOMIZE_UNAVAILABLE };
-  const T = returns[0].length;
-  const daysPerYear = mode === "reshuffle" ? T : TRADING_DAYS;
-  const numDays = settings.years * daysPerYear;
+  const numDays = settings.years * periodsPerYear;
   const base = (seed + MODE_SEED_OFFSET[mode]) | 0;
-  const common = { returns, currentPrices, weights, initialValue: settings.initial, numDays };
+  const contribution = settings.monthlyContribution > 0
+    ? { amount: settings.monthlyContribution, everyDays: Math.max(1, Math.round(periodsPerYear / 12)) }
+    : undefined;
+  const common = { returns, currentPrices, weights, initialValue: settings.initial, numDays, contribution };
+  // Randomize records whole steps only; Reshuffle and Resample can end on a partial step.
+  const everyDays = contribution?.everyDays;
+  const drawnStep = mode === "randomize" ? randomizeStep(numDays, everyDays) : undefined;
+  const statsStep = mode === "randomize" ? randomizeStep(numDays, everyDays, STATS_STEP_DAYS) : STATS_STEP_DAYS;
   try {
     const drawn = simulatePaths(mode, {
-      ...common, numPaths: settings.drawnPaths, seed: base, blockDays: settings.blockDays,
+      ...common, numPaths: settings.drawnPaths, seed: base, blockDays: settings.blockDays, stepDays: drawnStep,
     });
+    await yieldToBrowser();
     const stats = simulatePaths(mode, {
-      ...common, numPaths: settings.statsPaths, stepDays: STATS_STEP_DAYS, seed: (base + 1) | 0, blockDays: settings.blockDays,
+      ...common, numPaths: settings.statsPaths, stepDays: statsStep, seed: (base + 1) | 0, blockDays: settings.blockDays,
     });
     const cone = calculateCone(stats.paths);
-    const finals = stats.paths.map((p) => p[p.length - 1] / settings.initial - 1);
     return {
       mode,
       drawn,
       highlight: drawn.referencePath ?? drawn.paths[medianPathIndex(drawn.paths)] ?? [],
       band: { days: stats.days, p10: cone.p10, p50: cone.median, p90: cone.p90 },
       summary: summarizeOutcomes(stats.paths, settings.initial),
-      histogram: returnHistogram(finals, 30),
-      daysPerYear,
+      finals: stats.paths.map((p) => p[p.length - 1]),
+      periodsPerYear,
       settings,
     };
   } catch (e) {
-    if (mode === "randomize") {
+    if (mode === "randomize" && isCovarianceError(e)) {
       return { mode, unavailable: RANDOMIZE_UNAVAILABLE };
     }
     throw e;
   }
+}
+
+/**
+ * The same result expressed in today's money: every value is divided by the
+ * inflation accumulated up to its date. Chance of loss is recounted on the
+ * deflated endings so it compares like with like against the starting value.
+ */
+function presentResult(r: ModeResult, rate: number): ModeResult {
+  const ppy = r.periodsPerYear;
+  const factor = (1 + rate) ** r.settings.years;
+  const deflateAt = (values: number[], days: number[]) =>
+    values.map((v, k) => v / (1 + rate) ** (days[k] / ppy));
+  const finals = r.finals.map((f) => f / factor);
+  const below = r.settings.initial * (1 - 1e-9);
+  const s = r.summary;
+  return {
+    ...r,
+    drawn: { ...r.drawn, paths: r.drawn.paths.map((p) => deflateAt(p, r.drawn.days)) },
+    highlight: deflateAt(r.highlight, r.drawn.days),
+    band: {
+      days: r.band.days,
+      p10: deflateAt(r.band.p10, r.band.days),
+      p50: deflateAt(r.band.p50, r.band.days),
+      p90: deflateAt(r.band.p90, r.band.days),
+    },
+    summary: {
+      ...s,
+      p05: s.p05 / factor, p10: s.p10 / factor, p25: s.p25 / factor, p50: s.p50 / factor,
+      p75: s.p75 / factor, p90: s.p90 / factor, p95: s.p95 / factor,
+      chanceOfLoss: finals.filter((v) => v < below).length / Math.max(1, finals.length),
+    },
+    finals,
+  };
 }
 
 export default function MonteCarloSimulator({
@@ -198,13 +300,24 @@ export default function MonteCarloSimulator({
   startingValue,
   fxProvenance,
   onBack,
+  monthlyContribution,
+  inflationPercent,
+  goalAmount,
 }: MonteCarloSimulatorProps) {
   const heldPortfolio = portfolio.filter((item) => item.shares > 0);
   const currency = baseCurrency ?? getPortfolioCurrency(portfolio) ?? undefined;
   const mixedCurrency = new Set(heldPortfolio.map((item) => item.currency)).size > 1;
-  const currentPortfolioValue = useMemo(() => startingValue ??
-    (mixedCurrency && currency ? getPortfolioValuation(portfolio, currency, Date.now(), fxProvenance).totalValue ?? NaN : getPortfolioMarketValue(portfolio)),
-    [portfolio, startingValue, mixedCurrency, currency, fxProvenance]);
+  // Valuation date for FX conversion, captured once when the simulator mounts.
+  const [valuationTime] = useState(() => Date.now());
+  const currentPortfolioValue = useMemo(() => {
+    const value = startingValue ??
+      (mixedCurrency && currency ? getPortfolioValuation(portfolio, currency, valuationTime, fxProvenance).totalValue ?? NaN : getPortfolioMarketValue(portfolio));
+    // Whole cents, so the box never shows float noise such as 8172.7000000000001.
+    return Math.round(value * 100) / 100;
+  }, [portfolio, startingValue, mixedCurrency, currency, fxProvenance, valuationTime]);
+  const contributionAmount = monthlyContribution && monthlyContribution > 0 ? monthlyContribution : 0;
+  const inflationRate = inflationPercent && inflationPercent > 0 ? inflationPercent / 100 : 0;
+  const goal = goalAmount && goalAmount > 0 ? goalAmount : 0;
 
   // Setup
   const [mode, setMode] = useState<SimulationMode>("resample");
@@ -214,12 +327,15 @@ export default function MonteCarloSimulator({
   const [statsPaths, setStatsPaths] = useState<number>(DEFAULT_STATS_PATHS);
   const [blockDays, setBlockDays] = useState(1);
   const [bandOverride, setBandOverride] = useState<boolean | null>(null);
+  const [returnModel, setReturnModel] = useState<ReturnModel>("past");
+  const [longRunPercent, setLongRunPercent] = useState<number>(DEFAULT_LONG_RUN_PERCENT);
+  const [todaysMoney, setTodaysMoney] = useState(false);
   // Do not invent a balance when the portfolio value is unavailable.
   const [initialInvestment, setInitialInvestment] = useState<number>(
     Number.isFinite(currentPortfolioValue) ? currentPortfolioValue : 0,
   );
   const [reuseSeed, setReuseSeed] = useState(false);
-  // Live quotes keep re-syncing the investment; only a typed change should ask for a re-run.
+  // Live quotes keep re-syncing the investment until the user types a value; the typed value then stays until reset.
   const [investmentEdited, setInvestmentEdited] = useState(false);
 
   // Run state
@@ -233,11 +349,10 @@ export default function MonteCarloSimulator({
   const [runSettings, setRunSettings] = useState<RunSettings | null>(null);
   const runningRef = useRef(false);
 
-  useEffect(() => {
-    if (currentPortfolioValue > 0) {
-      setInitialInvestment(currentPortfolioValue);
-    }
-  }, [currentPortfolioValue]);
+  // Follow live quotes until the user types their own value.
+  if (!investmentEdited && currentPortfolioValue > 0 && initialInvestment !== currentPortfolioValue) {
+    setInitialInvestment(currentPortfolioValue);
+  }
 
   // Load full history if needed
   const ensureFullHistory = useCallback(async (): Promise<Portfolio | null> => {
@@ -309,7 +424,7 @@ export default function MonteCarloSimulator({
     return historyPortfolio;
   }, [portfolio, mixedCurrency, currency, fxProvenance]);
 
-  /** Runs the given modes on the prepared inputs, skipping ones already done. */
+  /** Runs the given modes on the prepared inputs, skipping ones already done. A failure in one mode leaves the others. */
   const runModes = useCallback(async (modes: SimulationMode[], fresh = false) => {
     const inputs = preparedRef.current;
     if (!inputs || runningRef.current) return;
@@ -317,14 +432,19 @@ export default function MonteCarloSimulator({
     if (todo.length === 0) return;
     runningRef.current = true;
     setIsRunning(true);
-    // Let the button state paint before the synchronous run.
-    await new Promise((resolve) => setTimeout(resolve, 0));
     try {
-      const next: Partial<Record<SimulationMode, ModeOutcome>> = {};
-      for (const m of todo) next[m] = runMode(m, inputs);
-      setResults((prev) => ({ ...(fresh ? {} : prev), ...next }));
-    } catch (e: any) {
-      setError(e?.message ?? "Simulation failed.");
+      for (const [index, m] of todo.entries()) {
+        // Let the page respond between modes.
+        await yieldToBrowser();
+        let outcome: ModeOutcome;
+        try {
+          outcome = await runMode(m, inputs);
+        } catch (e: any) {
+          outcome = { mode: m, unavailable: `${MODE_INFO[m].name} could not run: ${e?.message ?? "unknown error"}.` };
+        }
+        const clear = fresh && index === 0;
+        setResults((prev) => ({ ...(clear ? {} : prev), [m]: outcome }));
+      }
     } finally {
       runningRef.current = false;
       setIsRunning(false);
@@ -333,6 +453,11 @@ export default function MonteCarloSimulator({
 
   // Prepare data for every portfolio asset, then run the visible mode(s).
   const prepareSimulation = useCallback(async () => {
+    // A balance the user typed as 0 or less is reported as such, not as a missing portfolio.
+    if (investmentEdited && !(initialInvestment > 0)) {
+      setError(BALANCE_MESSAGE);
+      return;
+    }
     if (portfolio.length === 0) {
       setError("Portfolio is empty.");
       return;
@@ -354,7 +479,11 @@ export default function MonteCarloSimulator({
       return;
     }
     if (!Number.isFinite(initialInvestment) || initialInvestment <= 0) {
-      setError("Enter a positive starting value to run the simulation.");
+      setError(BALANCE_MESSAGE);
+      return;
+    }
+    if (returnModel === "long" && !(Number.isFinite(longRunPercent) && longRunPercent > -100)) {
+      setError("Enter a long-run annual return above -100%.");
       return;
     }
 
@@ -362,6 +491,12 @@ export default function MonteCarloSimulator({
     if (!activePortfolio) return;
 
     setError(null);
+
+    const diagnosis = diagnoseHistory(activePortfolio);
+    if (!diagnosis.ok) {
+      setError(historyProblemMessage(diagnosis));
+      return;
+    }
 
     const weights = getEffectiveWeights(activePortfolio);
     const aligned = alignPriceHistories(activePortfolio);
@@ -379,25 +514,33 @@ export default function MonteCarloSimulator({
       return;
     }
 
+    const periodsPerYear = Math.max(1, Math.round(observationsPerYear(dates)));
+    // Single-day jumps that look like data errors are removed before anything is simulated.
+    const cleaned = dropOutlierDays(returnsMatrix);
+    const returnsForRun = returnModel === "long"
+      ? rebaseLogDrift(cleaned.returns, weights, Math.log(1 + longRunPercent / 100), periodsPerYear)
+      : cleaned.returns;
+
     // Only Randomize needs the covariance factor; a failure here disables that mode alone.
     let ridge = 0;
     let covarianceOk = true;
     try {
-      ({ ridge } = getRegularizedCholesky(calculateCovarianceMatrix(returnsMatrix)));
+      ({ ridge } = getRegularizedCholesky(calculateCovarianceMatrix(cleaned.returns)));
     } catch {
       covarianceOk = false;
     }
 
-    const portfolioValues = dates.map((_, day) => activePortfolio.reduce(
-      (sum, item, index) => sum + item.shares * prices[index][day], 0,
+    // Historical drift and volatility come from the weighted portfolio the simulation uses.
+    const index = dates.map((_, day) => weights.reduce(
+      (sum, w, i) => sum + w * (prices[i][day] / prices[i][0]), 0,
     ));
-    if (portfolioValues.some((value) => !Number.isFinite(value) || value <= 0)) {
+    if (index.some((value) => !Number.isFinite(value) || value <= 0)) {
       setError("Simulation history contains invalid portfolio values.");
       return;
     }
-    const portfolioReturns = calculateLogReturns(portfolioValues);
-    const sampleMean = portfolioReturns.reduce((sum, value) => sum + value, 0) / observationCount;
-    const sampleVariance = portfolioReturns.reduce(
+    const indexReturns = calculateLogReturns(index);
+    const sampleMean = indexReturns.reduce((sum, value) => sum + value, 0) / observationCount;
+    const sampleVariance = indexReturns.reduce(
       (sum, value) => sum + (value - sampleMean) ** 2, 0,
     ) / (observationCount - 1);
 
@@ -406,9 +549,12 @@ export default function MonteCarloSimulator({
       ridge,
       covarianceOk,
       seed: runSeed,
-      annualizedLogDrift: sampleMean * TRADING_DAYS,
-      annualizedVolatility: Math.sqrt(sampleVariance * TRADING_DAYS),
+      annualizedLogDrift: sampleMean * periodsPerYear,
+      annualizedVolatility: Math.sqrt(sampleVariance * periodsPerYear),
       observationCount,
+      periodsPerYear,
+      droppedDays: cleaned.dropped,
+      priceOnlyTickers: aligned.basis === "price" ? tickersWithoutAdjustedHistory(activePortfolio) : [],
       lookbackStart: dates[0],
       lookbackEnd: dates[dates.length - 1],
       basis: aligned.basis,
@@ -420,22 +566,25 @@ export default function MonteCarloSimulator({
       statsPaths,
       blockDays,
       initial: initialInvestment,
+      returnModel,
+      longRunPercent,
+      monthlyContribution: contributionAmount,
     };
     preparedRef.current = {
-      returns: returnsMatrix,
+      returns: returnsForRun,
       currentPrices: activePortfolio.map((item) => Number(item.price)),
       weights,
       seed: runSeed,
+      periodsPerYear,
       covarianceOk,
       settings,
     };
     setRunSettings(settings);
-    setInvestmentEdited(false);
     await runModes(compare ? MODE_ORDER : [mode], true);
   }, [
     portfolio, numSimulations, timeHorizonYears, statsPaths, blockDays, initialInvestment,
     currentPortfolioValue, ensureFullHistory, currency, fxProvenance, reuseSeed, modelStats,
-    runModes, compare, mode,
+    runModes, compare, mode, investmentEdited, returnModel, longRunPercent, contributionAmount,
   ]);
 
   // Switching mode or opening the comparison after a run reuses the prepared
@@ -446,22 +595,38 @@ export default function MonteCarloSimulator({
   }, [mode, compare, runModes]);
 
   const active = results[mode];
-  const result = active && "summary" in active ? active : null;
+  const activeResult = active && "summary" in active ? active : null;
   const unavailable = active && "unavailable" in active ? active.unavailable : null;
-  const settings = result?.settings ?? runSettings;
+  const settings = activeResult?.settings ?? runSettings;
   const settingsChanged = !!settings && (
     settings.years !== timeHorizonYears || settings.drawnPaths !== numSimulations ||
     settings.statsPaths !== statsPaths || settings.blockDays !== blockDays ||
+    settings.returnModel !== returnModel ||
+    (returnModel === "long" && settings.longRunPercent !== longRunPercent) ||
+    settings.monthlyContribution !== contributionAmount ||
     (investmentEdited && settings.initial !== initialInvestment)
   );
   const hasRun = Object.keys(results).length > 0;
   const showBand = bandOverride ?? mode !== "reshuffle";
 
+  const realView = inflationRate > 0 && todaysMoney;
+  /** A result as displayed: in today's money when that view is on. */
+  const present = (o: ModeOutcome | undefined): ModeOutcome | undefined =>
+    o && "summary" in o && realView ? presentResult(o, inflationRate) : o;
+  const result = activeResult ? (present(activeResult) as ModeResult) : null;
+
   const years = result?.settings.years ?? timeHorizonYears;
   const initial = result?.settings.initial ?? initialInvestment;
   const summary = result?.summary;
-  const medianCAGR = summary && initial > 0 ? Math.pow(summary.p50 / initial, 1 / years) - 1 : 0;
-  const percentageGrowth = summary && initial > 0 ? ((summary.p50 - initial) / initial) * 100 : 0;
+  // With monthly contributions the gain is measured on everything put in, not on the starting balance alone.
+  const monthlyIn = result?.settings.monthlyContribution ?? 0;
+  const totalIn = initial + monthlyIn * 12 * years;
+  const medianCAGR = summary && initial > 0
+    ? (monthlyIn > 0
+      ? impliedAnnualReturn(initial, monthlyIn, years, summary.p50) ?? 0
+      : Math.pow(summary.p50 / initial, 1 / years) - 1)
+    : 0;
+  const percentageGrowth = summary && totalIn > 0 ? ((summary.p50 - totalIn) / totalIn) * 100 : 0;
   const reshuffled = mode === "reshuffle";
 
   const horizonOptions = HORIZONS.includes(timeHorizonYears as (typeof HORIZONS)[number])
@@ -472,15 +637,18 @@ export default function MonteCarloSimulator({
 
   // Reshuffled paths all end together, so their spread is shown halfway through instead.
   const mid = result ? Math.floor((result.band.days.length - 1) / 2) : 0;
-  const tiles = summary ? [
+  const count = (result?.settings.statsPaths ?? statsPaths).toLocaleString();
+  /** A share from simulation is never exactly zero, so zero reads as "None" rather than 0%. */
+  const shareValue = (share: number) => (share > 0 ? pct(share) : "None");
+  const tiles = summary && result ? [
     reshuffled
       ? { label: "Ending value", value: formatCurrency(summary.p50, currency), note: "Every order ends at this value" }
       : { label: "Typical ending", value: formatCurrency(summary.p50, currency), note: "Half of paths finished above this" },
-    reshuffled && result
+    reshuffled
       ? {
           label: "Halfway range",
           value: `${formatCurrency(result.band.p10[mid], currency)} to ${formatCurrency(result.band.p90[mid], currency)}`,
-          note: `8 in 10 paths were between these around year ${(result.band.days[mid] / result.daysPerYear).toFixed(0)}`,
+          note: `8 in 10 paths were between these around year ${(result.band.days[mid] / result.periodsPerYear).toFixed(0)}`,
         }
       : {
           label: "Range",
@@ -490,14 +658,18 @@ export default function MonteCarloSimulator({
     reshuffled
       ? {
           label: "Dipped below start",
-          value: pct(summary.everBelowStart),
-          note: "Paths that fell below where they started at some point",
+          value: shareValue(summary.everBelowStart),
+          note: summary.everBelowStart > 0
+            ? "Paths that fell below where they started at some point"
+            : `None of the ${count} simulated paths fell below where they started`,
           tone: summary.everBelowStart > 0 ? "loss" : undefined,
         }
       : {
           label: "Chance of loss",
-          value: pct(summary.chanceOfLoss),
-          note: "Paths that ended below where they started",
+          value: shareValue(summary.chanceOfLoss),
+          note: summary.chanceOfLoss > 0
+            ? "Paths that ended below where they started"
+            : `None of the ${count} simulated paths ended below where they started`,
           tone: summary.chanceOfLoss > 0 ? "loss" : undefined,
         },
     {
@@ -505,14 +677,25 @@ export default function MonteCarloSimulator({
       value: `−${pct(summary.maxDrawdown.p90)}`,
       note: `1 in 10 paths fell at least this far from a high point. Typical: −${pct(summary.maxDrawdown.p50)}. Measured month to month.`,
     },
+    ...(goal > 0 ? [(() => {
+      const reaching = result.finals.filter((f) => f >= goal).length / Math.max(1, result.finals.length);
+      return {
+        label: `Chance of reaching ${formatCurrency(goal, currency)}`,
+        value: shareValue(reaching),
+        note: reaching > 0
+          ? "Paths that ended at or above this amount"
+          : `None of the ${count} simulated paths ended at or above this amount`,
+        tone: undefined,
+      };
+    })()] : []),
   ] : [];
 
   const fanFor = (r: ModeResult, compact: boolean) => (
     <PathFan
-      key={`${r.mode}-${r.settings.years}-${modelStats?.seed}-${compact}`}
+      key={`${r.mode}-${r.settings.years}-${modelStats?.seed}-${compact}-${realView}`}
       paths={r.drawn.paths}
       days={r.drawn.days}
-      daysPerYear={r.daysPerYear}
+      daysPerYear={r.periodsPerYear}
       years={r.settings.years}
       start={r.settings.initial}
       color={MC_MODE_COLOR[r.mode]}
@@ -530,13 +713,15 @@ export default function MonteCarloSimulator({
 
   const histogramFor = (r: ModeResult, compact: boolean) => (
     <OutcomeHistogram
-      bins={r.histogram}
+      bins={returnHistogram(r.finals.map((f) => f / r.settings.initial - 1), 30)}
       color={MC_MODE_COLOR[r.mode]}
       height={compact ? 120 : 220}
       compact={compact}
       label={`${MODE_INFO[r.mode].name}: ending returns of ${r.settings.statsPaths.toLocaleString()} paths. ${pct(r.summary.chanceOfLoss)} ended below the start.`}
     />
   );
+
+  const driftWarning = modelStats && (modelStats.annualizedLogDrift > DRIFT_WARN_HIGH || modelStats.annualizedLogDrift < DRIFT_WARN_LOW);
 
   return (
     <div className="@container flex min-h-full flex-col gap-6 [&>*]:shrink-0">
@@ -575,7 +760,8 @@ export default function MonteCarloSimulator({
                 annualReturn: medianCAGR,
                 yield: null,
                 projectedValue: summary.p50,
-                totalInvested: initial,
+                totalInvested: totalIn,
+                contributionsModeled: monthlyIn > 0,
                 dividends: null,
                 years,
                 scenario: `Monte Carlo median (${MODE_INFO[mode].name})`,
@@ -586,7 +772,7 @@ export default function MonteCarloSimulator({
                 value: result.band.p50[i],
                 min: result.band.p10[i],
                 max: result.band.p90[i],
-                date: `Y${(day / result.daysPerYear).toFixed(1)}`,
+                date: `Y${(day / result.periodsPerYear).toFixed(1)}`,
               }))}
             />
           )}
@@ -614,7 +800,7 @@ export default function MonteCarloSimulator({
         </div>
       </div>
 
-      {/* Setup: three plain questions */}
+      {/* Setup: plain questions */}
       <section aria-label="Simulation setup" className="ws-panel grid gap-x-8 gap-y-5 p-4 @2xl:grid-cols-[minmax(0,14rem)_1fr_auto] @2xl:p-6">
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -624,12 +810,15 @@ export default function MonteCarloSimulator({
             {currentPortfolioValue > 0 &&
               initialInvestment !== currentPortfolioValue && (
                 <button
-                  onClick={() => setInitialInvestment(currentPortfolioValue)}
+                  onClick={() => {
+                    setInvestmentEdited(false);
+                    setInitialInvestment(currentPortfolioValue);
+                  }}
                   className="inline-flex items-center gap-1 rounded text-sm text-compass hover:underline focus-visible:outline-2 focus-visible:outline-compass"
                   title="Reset to current portfolio value"
                 >
                   <RefreshCw className="h-3 w-3" aria-hidden="true" />
-                  Use my portfolio
+                  Use my portfolio value
                 </button>
               )}
           </div>
@@ -683,6 +872,42 @@ export default function MonteCarloSimulator({
             ))}
           </div>
         </div>
+
+        <div className="@2xl:col-span-full">
+          <div className="mb-2 text-sm text-muted" id="mc-return">Return assumption</div>
+          <div role="group" aria-labelledby="mc-return" className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              aria-pressed={returnModel === "past"}
+              onClick={() => setReturnModel("past")}
+              className={cn(chip, "min-h-10 px-4 text-sm")}
+            >
+              Past year
+            </button>
+            <button
+              type="button"
+              aria-pressed={returnModel === "long"}
+              onClick={() => setReturnModel("long")}
+              className={cn(chip, "min-h-10 px-4 text-sm")}
+            >
+              Long-run
+            </button>
+            {returnModel === "long" && (
+              <label className="flex items-center gap-2 text-sm text-body">
+                <span>Annual total return</span>
+                <input
+                  type="number"
+                  aria-label="Long-run annual return (%)"
+                  step="0.5"
+                  value={longRunPercent}
+                  onChange={(e) => setLongRunPercent(Number(e.target.value))}
+                  className="w-20 rounded border border-hairline bg-transparent px-2 py-1 tabular-nums text-ink outline-none focus-visible:outline-2 focus-visible:outline-compass"
+                />
+                <span>%</span>
+              </label>
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Mode switcher */}
@@ -725,7 +950,7 @@ export default function MonteCarloSimulator({
       </section>
 
       <p className="max-w-3xl text-sm leading-6 text-muted">
-        Illustrative scenarios, not forecasts or calibrated probabilities. {MODE_INFO[mode].method} Historical returns are total returns (distributions reinvested) when every holding has dividend-adjusted closes, and price returns otherwise; the model details panel says which. It assumes a buy-and-hold portfolio. Recurring contributions, withdrawals, rebalancing, fees, taxes, and extreme events are excluded.
+        Illustrative scenarios, not forecasts or calibrated probabilities. {MODE_INFO[mode].method} Historical returns are total returns (distributions reinvested) when every holding has dividend-adjusted closes, and price returns otherwise; the model details panel says which. It assumes a buy-and-hold portfolio. {contributionAmount > 0 ? "A monthly contribution is included; withdrawals" : "Recurring contributions, withdrawals"}, rebalancing, fees, taxes, and extreme events are excluded.
       </p>
       {mixedCurrency && fxProvenance && (
         <p className="text-sm text-muted">
@@ -756,7 +981,9 @@ export default function MonteCarloSimulator({
       {compare && hasRun && (
         <section aria-label="All three simulation types" className="flex flex-col gap-3">
           {MODE_ORDER.map((m, i) => {
-            const r = results[m];
+            const outcome = results[m];
+            const r = present(outcome);
+            const count = (outcome && "settings" in outcome ? outcome.settings.statsPaths : statsPaths).toLocaleString();
             return (
               <button
                 key={m}
@@ -776,8 +1003,8 @@ export default function MonteCarloSimulator({
                     <span className="text-sm text-body">
                       Typical {formatCurrency(r.summary.p50, currency)}
                       {m === "reshuffle"
-                        ? ` · dipped below start in ${pct(r.summary.everBelowStart)}`
-                        : ` · ${pct(r.summary.chanceOfLoss)} chance of loss`}
+                        ? ` · ${r.summary.everBelowStart > 0 ? `dipped below start in ${pct(r.summary.everBelowStart)}` : "never dipped below start"}`
+                        : ` · ${r.summary.chanceOfLoss > 0 ? `${pct(r.summary.chanceOfLoss)} chance of loss` : `none of the ${count} simulated paths lost money`}`}
                     </span>
                   )}
                 </div>
@@ -803,6 +1030,16 @@ export default function MonteCarloSimulator({
             className="flex flex-col gap-5"
           >
             <div>
+              {inflationRate > 0 && (
+                <button
+                  type="button"
+                  aria-pressed={todaysMoney}
+                  onClick={() => setTodaysMoney((v) => !v)}
+                  className={cn(chip, "mb-3 min-h-9 px-3 text-sm")}
+                >
+                  Show in today&apos;s money
+                </button>
+              )}
               <p className="text-sm text-muted">
                 {reshuffled
                   ? `In ${years} ${years === 1 ? "year" : "years"}, every reshuffled path ends at`
@@ -813,19 +1050,57 @@ export default function MonteCarloSimulator({
               </p>
               <p className="mt-2 text-sm text-body">
                 <span style={{ color: percentageGrowth >= 0 ? GAIN : LOSS }}>{signedPercent(percentageGrowth)}</span>{" "}
-                from {formatCurrency(initial, currency)}, or about{" "}
+                {monthlyIn > 0
+                  ? `on the ${formatCurrency(totalIn, currency)} put in (starting balance plus contributions), or about`
+                  : `from ${formatCurrency(initial, currency)}, or about`}{" "}
                 <span style={{ color: medianCAGR >= 0 ? GAIN : LOSS }}>{signedPercent(medianCAGR * 100)}</span>{" "}
                 a year.{" "}
                 {reshuffled
                   ? "Order does not change where you end up, only how bumpy the way there is."
                   : "Half of the simulated paths finished higher and half lower."}
               </p>
+              {realView && (
+                <p className="mt-2 text-sm text-muted">
+                  Values are in today&apos;s money, after {inflationPercent}% a year inflation.
+                </p>
+              )}
+              {modelStats?.basis === "price" && (
+                <p className="mt-3 rounded-md bg-surface-soft px-3 py-2 text-sm text-ink">
+                  Returns exclude dividends because {modelStats.priceOnlyTickers.length > 0 ? joinNames(modelStats.priceOnlyTickers) : "a holding"}{" "}
+                  {modelStats.priceOnlyTickers.length > 1 ? "have" : "has"} no dividend-adjusted history.
+                </p>
+              )}
+              {driftWarning && modelStats && (
+                <p className="mt-3 rounded-md bg-surface-soft px-3 py-2 text-sm text-ink">
+                  The past year&apos;s drift of {(modelStats.annualizedLogDrift * 100).toFixed(1)}% a year is unusually {modelStats.annualizedLogDrift > 0 ? "high" : "low"}.
+                  One year of history is a weak guide to the long run.
+                </p>
+              )}
               {modelStats && (
                 <p className="mt-2 text-sm text-muted">
                   The paths assume the returns of {modelStats.lookbackStart} to {modelStats.lookbackEnd} repeat
                   every year. From {modelStats.observationCount} days of history, that average is only known to within
-                  about ±{(196 * modelStats.annualizedVolatility / Math.sqrt(modelStats.observationCount / TRADING_DAYS)).toFixed(0)}{" "}
+                  about ±{(196 * modelStats.annualizedVolatility / Math.sqrt(modelStats.observationCount / modelStats.periodsPerYear)).toFixed(0)}{" "}
                   points a year (95% interval), so the middle path mostly reflects how that period went.
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1 text-sm text-muted">
+              <p>
+                {result.settings.returnModel === "long" ? (
+                  <>
+                    Assumes a long-run return of {result.settings.longRunPercent}% a year; <HelpTip term="volatility">volatility</HelpTip> and correlations come from the past year.
+                  </>
+                ) : (
+                  `Based on the past year's returns, repeated for ${years} ${years === 1 ? "year" : "years"}.`
+                )}
+                {result.settings.monthlyContribution > 0 &&
+                  ` Includes a contribution of ${formatCurrency(result.settings.monthlyContribution, currency)} a month.`}
+              </p>
+              {modelStats && modelStats.droppedDays > 0 && (
+                <p>
+                  {modelStats.droppedDays} unusual price {modelStats.droppedDays === 1 ? "jump was" : "jumps were"} ignored.
                 </p>
               )}
             </div>
@@ -953,7 +1228,9 @@ export default function MonteCarloSimulator({
                 <dd className="font-medium tabular-nums text-ink">{(modelStats.annualizedLogDrift * 100).toFixed(2)}%</dd>
               </div>
               <div>
-                <dt className="text-muted">Historical annualized volatility</dt>
+                <dt className="text-muted">
+                  <HelpTip term="volatility">Historical annualized volatility</HelpTip>
+                </dt>
                 <dd className="font-medium tabular-nums text-ink">{(modelStats.annualizedVolatility * 100).toFixed(2)}%</dd>
               </div>
               {mode === "randomize" ? (

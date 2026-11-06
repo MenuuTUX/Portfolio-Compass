@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { PortfolioItem } from "@/types";
 import {
@@ -10,8 +10,11 @@ import {
   getOptimizerBeta,
   getOptimizerReturnProxy,
   weightsFromShares,
+  RISK_FREE,
+  EQUITY_PREMIUM,
 } from "@/lib/optimizer";
 import { cn, formatCurrency } from "@/lib/utils";
+import { HelpLabel, HelpTip } from "@/components/ui/HelpTip";
 import { estimateAnnualCovariance } from "@/lib/math/covariance";
 import { loadRiskProfile } from "@/lib/risk-profile";
 
@@ -37,6 +40,8 @@ const STRATEGY_MODES = [
 type StrategyMode = (typeof STRATEGY_MODES)[number]["mode"];
 
 const DEFAULT_AMOUNT = 10000;
+/** Larger amounts are rejected: the model is for household portfolios, and huge budgets only slow the loop. */
+const MAX_AMOUNT = 1e12;
 
 export default function OptimizationPanel({
   portfolio,
@@ -44,17 +49,30 @@ export default function OptimizationPanel({
   onApply,
 }: OptimizationPanelProps) {
   const [amountText, setAmountText] = useState(String(DEFAULT_AMOUNT));
-  const amount = Math.max(0, Number(amountText) || 0);
+  const parsedAmount = amountText.trim() === "" ? 0 : Number(amountText);
+  const amountError = !Number.isFinite(parsedAmount)
+    ? "Enter a number, for example 10000."
+    : parsedAmount < 0
+      ? "Enter an amount of zero or more."
+      : parsedAmount > MAX_AMOUNT
+        ? "Enter an amount of 1 trillion or less."
+        : null;
+  const amount = amountError ? 0 : parsedAmount;
   // Start at the level the quiz produced; the user can still change it.
   const [strategyMode, setStrategyMode] = useState<StrategyMode>(() => loadRiskProfile()?.profile ?? "Balanced");
+  // null means the default: add to holdings when any shares are already held.
+  const [holdingMode, setHoldingMode] = useState<"add" | "replace" | null>(null);
   const [result, setResult] = useState<GreedyOptimizationResult | null>(null);
   const [appliedKey, setAppliedKey] = useState<string | null>(null);
 
   const riskProfile = STRATEGY_MODES.find((s) => s.mode === strategyMode)!.profile;
   const currency = portfolio[0]?.currency;
+  const alreadyHeld = portfolio.filter((p) => p.shares > 0).map((p) => p.ticker);
+  const addToHoldings = (holdingMode ?? (alreadyHeld.length > 0 ? "add" : "replace")) === "add";
 
-  // Risk and return use the same market exposure, so a fund the model prices
-  // as 80% equity is also treated as having 80%-equity volatility.
+  // Risk and return both come from the same market exposure. Return always
+  // uses it; risk uses it only for the single-index fallback, and switches to
+  // the sample covariance when every holding has enough shared price history.
   const covariance = useMemo(
     () => estimateAnnualCovariance(portfolio.map((p) => ({ ...p, beta: getOptimizerBeta(p) }))),
     [portfolio],
@@ -67,6 +85,12 @@ export default function OptimizationPanel({
     })),
     [portfolio],
   );
+  // Adding new money starts from the current shares, so the plan is the extra
+  // shares to buy. Replacing starts from nothing.
+  const startingShares = useMemo(
+    () => Object.fromEntries(portfolio.map((p) => [p.ticker, addToHoldings ? p.shares || 0 : 0])),
+    [portfolio, addToHoldings],
+  );
 
   useEffect(() => {
     if (portfolio.length < 2) {
@@ -76,18 +100,26 @@ export default function OptimizationPanel({
       }, 0);
       return () => clearTimeout(timer);
     }
+    if (amountError) {
+      onCalibrating?.(false);
+      return;
+    }
     onCalibrating?.(true);
     const timer = setTimeout(() => {
-      setResult(optimizePortfolioGreedy({
-        candidates,
-        covarianceMatrix: covariance.matrix,
-        riskProfile,
-        budget: amount,
-      }));
-      onCalibrating?.(false);
+      try {
+        setResult(optimizePortfolioGreedy({
+          candidates,
+          covarianceMatrix: covariance.matrix,
+          riskProfile,
+          budget: amount,
+          initialShares: startingShares,
+        }));
+      } finally {
+        onCalibrating?.(false);
+      }
     }, 250);
     return () => clearTimeout(timer);
-  }, [amount, portfolio.length, candidates, covariance, riskProfile, onCalibrating]);
+  }, [amount, amountError, portfolio.length, candidates, covariance, riskProfile, startingShares, onCalibrating]);
 
   useEffect(() => () => onCalibrating?.(false), [onCalibrating]);
 
@@ -99,7 +131,10 @@ export default function OptimizationPanel({
       shares: result.shares[p.ticker] || 0,
       weight: weights[p.ticker] || 0,
     }));
-    const invested = portfolio.reduce((sum, p) => sum + (result.shares[p.ticker] || 0) * (p.price || 0), 0);
+    const currentValue = portfolio.reduce((sum, p) => sum + (p.shares || 0) * (p.price || 0), 0);
+    const totalValue = portfolio.reduce((sum, p) => sum + (result.shares[p.ticker] || 0) * (p.price || 0), 0);
+    // New money in add mode; the whole plan in replace mode.
+    const invested = addToHoldings ? totalValue - currentValue : totalValue;
 
     // Equity share, only when every holding reports a mix; a missing mix
     // would otherwise read as 0% equity.
@@ -107,17 +142,32 @@ export default function OptimizationPanel({
       const a = p.allocation;
       return !!a && a.equities + a.bonds + a.cash > 0;
     };
-    const equityShare = invested > 0 && portfolio.every(hasMix)
+    const equityShare = totalValue > 0 && portfolio.every(hasMix)
       ? portfolio.reduce((sum, p) => {
           const a = p.allocation;
           return sum + (result.shares[p.ticker] || 0) * (p.price || 0) * (a.equities / (a.equities + a.bonds + a.cash));
-        }, 0) / invested
+        }, 0) / totalValue
       : null;
-    return { items, invested, leftover: result.remainingBudget, equityShare };
-  }, [portfolio, result]);
+    return { items, currentValue, totalValue, invested, leftover: result.remainingBudget, equityShare };
+  }, [portfolio, result, addToHoldings]);
 
-  const planKey = plan ? plan.items.map((i) => `${i.ticker}:${i.shares}`).join("|") : "";
+  const planKey = plan ? `${addToHoldings ? "add" : "replace"}|${plan.items.map((i) => `${i.ticker}:${i.shares}`).join("|")}` : "";
   const applied = appliedKey !== null && appliedKey === planKey;
+
+  // Why the plan buys nothing, in plain words. Null when it buys something.
+  const emptyPlanReason = (() => {
+    if (!plan || plan.invested > 0) return null;
+    if (!(amount > 0)) return "Enter an amount above zero to see a plan.";
+    const buyable = candidates.filter((c) => c.expectedReturn > 0 && c.price > 0);
+    if (buyable.length === 0) {
+      return "None of your funds has an expected return above zero, so the model buys none of them. Keep the money in cash, or add funds with a positive expected return.";
+    }
+    const cheapest = Math.min(...buyable.map((c) => c.price));
+    if (amount < cheapest) {
+      return `The amount is too small to buy one whole share of any fund you hold. The cheapest share costs ${formatCurrency(cheapest, currency)}.`;
+    }
+    return "The model could not find a whole-share plan for this amount. Try a larger amount.";
+  })();
 
   if (portfolio.length < 2) {
     return (
@@ -131,7 +181,6 @@ export default function OptimizationPanel({
   }
 
   const noPrices = portfolio.every((p) => !(p.price > 0));
-  const alreadyHeld = portfolio.filter((p) => p.shares > 0).map((p) => p.ticker);
 
   return (
     <div className="@container flex flex-col bg-surface-card ring-1 ring-hairline rounded-lg">
@@ -156,6 +205,8 @@ export default function OptimizationPanel({
                 min={0}
                 value={amountText}
                 onChange={(e) => setAmountText(e.target.value)}
+                aria-invalid={amountError ? true : undefined}
+                aria-describedby={amountError ? "optimizer-amount-error" : undefined}
                 className="block w-full pl-4 pr-14 py-3 bg-surface-soft rounded-xl text-xl font-bold text-ink tabular-nums placeholder:text-muted-soft focus-visible:ring-2 focus-visible:ring-compass outline-none"
                 placeholder="0"
               />
@@ -163,10 +214,15 @@ export default function OptimizationPanel({
                 {currency}
               </span>
             </div>
+            {amountError && (
+              <p id="optimizer-amount-error" role="alert" className="mt-1 text-xs text-rose-400">
+                {amountError}
+              </p>
+            )}
           </div>
 
           <div>
-            <span id="optimizer-risk-label" className="block text-xs text-muted mb-1">Risk level</span>
+            <span id="optimizer-risk-label" className="block text-xs text-muted mb-1"><HelpLabel term="Risk level" /></span>
             <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-soft p-1" role="radiogroup" aria-labelledby="optimizer-risk-label">
               {STRATEGY_MODES.map(({ mode, hint }) => (
                 <button
@@ -192,12 +248,45 @@ export default function OptimizationPanel({
             </p>
           </div>
         </div>
+
+        <div>
+          <span id="optimizer-holdings-label" className="block text-xs text-muted mb-1"><HelpTip term="new money">How the amount is used</HelpTip></span>
+          <div className="grid gap-1 rounded-xl bg-surface-soft p-1 @lg:grid-cols-2" role="radiogroup" aria-labelledby="optimizer-holdings-label">
+            {([
+              { mode: "add", label: "New money added to my current holdings" },
+              { mode: "replace", label: "Replace my current shares" },
+            ] as const).map(({ mode, label }) => (
+              <button
+                type="button"
+                key={mode}
+                role="radio"
+                aria-checked={(mode === "add") === addToHoldings}
+                onClick={() => setHoldingMode(mode)}
+                className={cn(
+                  "min-h-11 rounded-lg px-3 text-xs font-medium transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass",
+                  (mode === "add") === addToHoldings
+                    ? "bg-surface-card text-ink ring-1 ring-hairline"
+                    : "text-muted hover:text-ink",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {addToHoldings
+              ? "The plan is the extra shares to buy. Your current shares stay."
+              : "The plan replaces every current share with the new allocation."}
+          </p>
+        </div>
       </div>
 
       {noPrices ? (
         <p className="border-t border-hairline p-4 text-sm text-muted">Waiting for prices before the plan can be built.</p>
-      ) : !plan ? (
+      ) : amountError ? null : !plan ? (
         <p className="border-t border-hairline p-4 text-sm text-muted">Calculating…</p>
+      ) : emptyPlanReason ? (
+        <p className="border-t border-hairline p-4 text-sm leading-5 text-body" role="status">{emptyPlanReason}</p>
       ) : (
         <>
           <ul className="divide-y divide-hairline border-t border-hairline" aria-label="Suggested allocation">
@@ -230,8 +319,12 @@ export default function OptimizationPanel({
           </ul>
 
           <dl className="grid grid-cols-[1fr_auto] gap-y-2 border-t border-hairline px-4 py-3 text-sm">
-            <dt className="text-muted">Invested</dt>
+            <dt className="text-muted">Current value</dt>
+            <dd className="text-right tabular-nums text-ink">{formatCurrency(plan.currentValue, currency)}</dd>
+            <dt className="text-muted">{addToHoldings ? "New money invested" : "Invested"}</dt>
             <dd className="text-right font-bold tabular-nums text-ink">{formatCurrency(plan.invested, currency)}</dd>
+            <dt className="text-muted">New total</dt>
+            <dd className="text-right tabular-nums text-ink">{formatCurrency(plan.totalValue, currency)}</dd>
             <dt className="text-muted">Cash left over</dt>
             <dd className="text-right tabular-nums text-ink">{formatCurrency(plan.leftover, currency)}</dd>
             {plan.equityShare !== null && (
@@ -255,7 +348,7 @@ export default function OptimizationPanel({
               <button
                 type="button"
                 className="ws-pill"
-                disabled={plan.invested <= 0 || applied}
+                disabled={applied}
                 onClick={() => {
                   onApply(plan.items);
                   setAppliedKey(planKey);
@@ -264,9 +357,11 @@ export default function OptimizationPanel({
                 {applied ? <><Check className="w-4 h-4" aria-hidden="true" /> Applied</> : "Use this allocation"}
               </button>
               <p className="min-w-0 flex-1 text-xs text-muted">
-                {alreadyHeld.length > 0
-                  ? `Replaces your current shares (${alreadyHeld.join(", ")}) and target weights with this plan.`
-                  : `Sets the shares and target weights for all ${portfolio.length} holdings.`}
+                {addToHoldings
+                  ? `Adds the new shares to your current ones, then sets target weights from the new totals.`
+                  : alreadyHeld.length > 0
+                    ? `Replaces your current shares (${alreadyHeld.join(", ")}) and target weights with this plan.`
+                    : `Sets the shares and target weights for all ${portfolio.length} holdings.`}
               </p>
             </div>
           )}
@@ -282,16 +377,16 @@ export default function OptimizationPanel({
         </summary>
         <div className="flex flex-col gap-2 px-4 pb-4 text-xs leading-5 text-muted">
           <p>
-            Each fund gets an expected return of its yield plus 6% per unit of stock exposure. Stock exposure comes from the fund&apos;s reported stock/bond mix, or its beta when no mix is reported.
+            Each fund gets an <HelpTip term="expected return" showIcon={false}>expected return</HelpTip> of {(RISK_FREE * 100).toFixed(0)}% (<HelpTip term="risk-free rate" showIcon={false}>the risk-free rate</HelpTip>) plus {(EQUITY_PREMIUM * 100).toFixed(0)}% per unit of stock exposure. Stock exposure comes from the fund&apos;s reported stock/bond mix, or its beta when no mix is reported. Yield is part of that return, not added on top.
           </p>
           <p>
             {covariance.source === "history"
-              ? `Risk comes from ${covariance.samples} overlapping daily returns, so funds that move together are not treated as diversification.`
+              ? <>Risk comes from {covariance.samples} overlapping daily returns, so funds that move together are not treated as <HelpTip term="diversification" showIcon={false}>diversification</HelpTip>.</>
               : "Risk comes from each fund's stock exposure, because the holdings lack enough shared price history."}{" "}
-            The risk level sets how much extra return the model needs before it accepts more volatility.
+            The risk level sets how much extra return the model needs before it accepts more <HelpTip term="volatility" showIcon={false}>volatility</HelpTip>.
           </p>
           <p>
-            It buys whole shares one lot at a time until less than one share&apos;s worth of cash is left. These are model estimates, not advice, and they do not predict future returns.
+            It buys whole shares in lots, then one share at a time, until less than one share&apos;s worth of cash is left. These are model estimates, not advice, and they do not predict future returns.
           </p>
         </div>
       </details>

@@ -217,6 +217,7 @@ export function generateMonteCarloPaths(
   initialPortfolioValue: number,
   seed?: number,
   stepDays = 1,
+  contribution?: { amount: number; everySteps: number },
 ): number[][] {
   const numAssets = currentPrices.length;
   if (numAssets === 0 || weights.length !== numAssets || meanReturns.length !== numAssets) {
@@ -260,11 +261,14 @@ export function generateMonteCarloPaths(
   const Z = new Float64Array(numAssets);
   const simAssetPrices = new Float64Array(numAssets);
   const shares = weights.map((w, i) => (initialPortfolioValue * w) / currentPrices[i]);
+  // Each path's own share counts: a contribution changes them, so they cannot be shared.
+  const pathShares = new Float64Array(numAssets);
 
   for (let sim = 0; sim < numSimulations; sim++) {
     const path: number[] = new Array(numDays + 1);
     path[0] = initialPortfolioValue;
-    // Buy-and-hold: share counts fixed at t=0.
+    // Buy-and-hold: share counts fixed at t=0 unless contributions add to them.
+    pathShares.set(shares);
     for (let i = 0; i < numAssets; i++) simAssetPrices[i] = currentPrices[i];
 
     for (let day = 0; day < numDays; day++) {
@@ -282,9 +286,14 @@ export function generateMonteCarloPaths(
         if (!Number.isFinite(simAssetPrices[i]) || simAssetPrices[i] <= 0) {
           throw new RangeError("A simulated price became invalid.");
         }
-        totalValue += simAssetPrices[i] * shares[i];
+        totalValue += simAssetPrices[i] * pathShares[i];
       }
-      if (!Number.isFinite(totalValue) || totalValue <= 0) {
+      if (contribution && (day + 1) % contribution.everySteps === 0) {
+        applyContribution(pathShares, simAssetPrices, weights, contribution.amount);
+        totalValue = holdingsValue(pathShares, simAssetPrices);
+      }
+      // A zero value is only reachable after a withdrawal empties the portfolio.
+      if (!Number.isFinite(totalValue) || totalValue < 0 || (totalValue === 0 && !contribution)) {
         throw new RangeError("A simulated portfolio value became invalid.");
       }
       path[day + 1] = totalValue;
@@ -384,6 +393,11 @@ export interface SimulationInput {
   seed?: number;
   /** Resample only: consecutive days per bootstrap block. 1 is a plain bootstrap. */
   blockDays?: number;
+  /**
+   * Every `everyDays` simulated days, after that day's return, `amount` is added
+   * (bought by weight at the current prices). Negative amounts withdraw, floored at zero.
+   */
+  contribution?: { amount: number; everyDays: number };
 }
 
 export interface SimulationRun {
@@ -435,6 +449,11 @@ function validateSimulationInput(input: SimulationInput) {
   if (input.seed !== undefined && !Number.isFinite(input.seed)) {
     throw new RangeError("Simulation seed must be finite.");
   }
+  if (input.contribution !== undefined &&
+      (!Number.isFinite(input.contribution.amount) ||
+        !Number.isInteger(input.contribution.everyDays) || input.contribution.everyDays < 1)) {
+    throw new RangeError("Contribution must be a finite amount on a positive whole number of days.");
+  }
   return { n, T, stepDays };
 }
 
@@ -444,6 +463,85 @@ function recordedDays(numDays: number, stepDays: number): number[] {
   for (let d = stepDays; d < numDays; d += stepDays) days.push(d);
   days.push(numDays);
   return days;
+}
+
+/**
+ * Adds the same constant to every daily log return of every asset so that the
+ * weighted annual log drift equals `targetAnnualLogDrift`. Volatility,
+ * correlations and the shape of each series are unchanged. The input is not mutated.
+ */
+export function rebaseLogDrift(
+  returns: number[][],
+  weights: number[],
+  targetAnnualLogDrift: number,
+  periodsPerYear: number,
+): number[][] {
+  if (returns.length === 0 || weights.length !== returns.length) {
+    throw new RangeError("Returns and weights must cover the same nonzero number of assets.");
+  }
+  if (!Number.isFinite(targetAnnualLogDrift) || !Number.isFinite(periodsPerYear) || periodsPerYear <= 0) {
+    throw new RangeError("Target drift must be finite and periods per year must be positive.");
+  }
+  const weightSum = weights.reduce((sum, w) => sum + w, 0);
+  if (!Number.isFinite(weightSum) || weightSum <= 0) {
+    throw new RangeError("Weights must sum to a positive number.");
+  }
+  const currentAnnualDrift = returns.reduce(
+    (sum, row, i) => sum + weights[i] * calculateMean(row) * periodsPerYear,
+    0,
+  );
+  const shift = (targetAnnualLogDrift - currentAnnualDrift) / (periodsPerYear * weightSum);
+  return returns.map((row) => row.map((r) => r + shift));
+}
+
+/**
+ * Removes every date on which any asset's log return has an absolute value above
+ * `maxAbsLogReturn` (or is not finite), from all assets, so the rows stay aligned.
+ */
+export function dropOutlierDays(
+  returns: number[][],
+  maxAbsLogReturn = 0.35,
+): { returns: number[][]; dropped: number } {
+  if (!(maxAbsLogReturn >= 0)) {
+    throw new RangeError("The outlier limit must be a nonnegative number.");
+  }
+  if (returns.length === 0) return { returns: [], dropped: 0 };
+  const days = Math.min(...returns.map((row) => row.length));
+  const kept: number[] = [];
+  for (let t = 0; t < days; t++) {
+    if (returns.every((row) => Math.abs(row[t]) <= maxAbsLogReturn)) kept.push(t);
+  }
+  return {
+    returns: returns.map((row) => kept.map((t) => row[t])),
+    dropped: days - kept.length,
+  };
+}
+
+/** Value of `holdings` at `prices`, where holdings are dollars at relative prices or shares at market prices. */
+function holdingsValue(holdings: ArrayLike<number>, prices: ArrayLike<number>): number {
+  let total = 0;
+  for (let i = 0; i < holdings.length; i++) total += holdings[i] * prices[i];
+  return total;
+}
+
+/**
+ * Adds a contribution, bought by target weight at the current prices, or
+ * withdraws pro rata when `amount` is negative. Withdrawals stop at zero.
+ * Mutates `holdings`.
+ */
+function applyContribution(
+  holdings: Float64Array,
+  prices: ArrayLike<number>,
+  weights: ArrayLike<number>,
+  amount: number,
+): void {
+  if (amount >= 0) {
+    for (let i = 0; i < holdings.length; i++) holdings[i] += (amount * weights[i]) / prices[i];
+    return;
+  }
+  const total = holdingsValue(holdings, prices);
+  const scale = total > 0 ? Math.max(0, total + amount) / total : 0;
+  for (let i = 0; i < holdings.length; i++) holdings[i] *= scale;
 }
 
 /** Mean daily log return per asset and the regularized Cholesky factor of their covariance. */
@@ -461,7 +559,7 @@ export function fitReturnModel(returns: number[][]) {
  */
 export function simulatePaths(mode: SimulationMode, input: SimulationInput): SimulationRun {
   const { n, T, stepDays } = validateSimulationInput(input);
-  const { returns, currentPrices, weights, initialValue, numPaths, numDays, seed } = input;
+  const { returns, currentPrices, weights, initialValue, numPaths, numDays, seed, contribution } = input;
   const days = recordedDays(numDays, stepDays);
 
   if (mode === "randomize") {
@@ -469,9 +567,16 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
     if (numDays % stepDays !== 0) {
       throw new RangeError("Randomize needs a horizon that is a whole number of steps.");
     }
+    if (contribution && contribution.everyDays % stepDays !== 0) {
+      throw new RangeError("Randomize needs the contribution interval to be a whole number of steps.");
+    }
+    const stepContribution = contribution && {
+      amount: contribution.amount,
+      everySteps: contribution.everyDays / stepDays,
+    };
     const paths = generateMonteCarloPaths(
       currentPrices, weights, meanReturns, cholesky,
-      numPaths, numDays / stepDays, initialValue, seed, stepDays,
+      numPaths, numDays / stepDays, initialValue, seed, stepDays, stepContribution,
     );
     return { mode, paths, days, ridge };
   }
@@ -480,14 +585,18 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
   // Day-major copy so one historical day is a contiguous row.
   const R = new Float64Array(T * n);
   for (let i = 0; i < n; i++) for (let t = 0; t < T; t++) R[t * n + i] = returns[i][t];
-  const startValues = weights.map((w) => initialValue * w);
+  const startValues = Float64Array.from(weights, (w) => initialValue * w);
   const logPrice = new Float64Array(n);
+  const relativePrice = new Float64Array(n);
   const blockDays = mode === "resample" ? input.blockDays ?? 1 : 1;
   const order = mode === "reshuffle" ? new Int32Array(numDays) : null;
 
   // Marks one path given a function that returns the historical row for day d.
   const markPath = (rowFor: (d: number) => number): number[] => {
     logPrice.fill(0);
+    // Dollars held per asset at each price level. Without contributions this is
+    // the starting allocation itself, so the arithmetic is unchanged.
+    const holdings = contribution ? Float64Array.from(startValues) : startValues;
     const path = new Array<number>(days.length);
     path[0] = initialValue;
     let d = 0;
@@ -495,10 +604,15 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
       for (; d < days[k]; d++) {
         const base = rowFor(d) * n;
         for (let i = 0; i < n; i++) logPrice[i] += R[base + i];
+        if (contribution && (d + 1) % contribution.everyDays === 0) {
+          for (let i = 0; i < n; i++) relativePrice[i] = Math.exp(logPrice[i]);
+          applyContribution(holdings, relativePrice, weights, contribution.amount);
+        }
       }
       let value = 0;
-      for (let i = 0; i < n; i++) value += startValues[i] * Math.exp(logPrice[i]);
-      if (!Number.isFinite(value) || value <= 0) {
+      for (let i = 0; i < n; i++) value += holdings[i] * Math.exp(logPrice[i]);
+      // A zero value is only reachable after a withdrawal empties the portfolio.
+      if (!Number.isFinite(value) || value < 0 || (value === 0 && !contribution)) {
         throw new RangeError("A simulated portfolio value became invalid.");
       }
       path[k] = value;

@@ -14,6 +14,9 @@ import type { Frame } from "@/lib/lab/engine/frame";
 
 export type Period = "W" | "M" | "Q" | "Y";
 
+/** Target weights may sum to this much over 1 (float rounding) before the run is rejected as leverage. */
+export const WEIGHT_SUM_TOLERANCE = 1e-6;
+
 export interface BacktestConfig {
   initialCash: number;
   fill: "next-open" | "next-close";
@@ -98,7 +101,7 @@ function checkRow(targets: Float64Array, t: number, frame: Frame, warnings: Set<
     }
     sum += w;
   }
-  if (sum > 1 + 1e-6) {
+  if (sum > 1 + WEIGHT_SUM_TOLERANCE) {
     throw new Error(`Weights on ${frame.dates[t]} sum to ${sum.toFixed(4)}; leverage is not supported`);
   }
 }

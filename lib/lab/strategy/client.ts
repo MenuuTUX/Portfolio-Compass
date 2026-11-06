@@ -35,8 +35,8 @@ export function createStrategyClient(onStatus: (language: StrategyLanguage, mess
     w.onmessage = (e: MessageEvent<StrategyResponse>) => {
       const msg = e.data;
       if (msg.op === "status") return onStatus(language, msg.message);
-      // Any reply means the runtime is loaded, so later requests get the short limit.
-      booted.add(language);
+      // A reply means the runtime is loaded, so later requests get the short limit; a failed load does not.
+      if (!("bootFailed" in msg && msg.bootFailed)) booted.add(language);
       const p = pending.get(msg.id);
       if (!p) return;
       clearTimeout(p.timer);
@@ -73,7 +73,10 @@ export function createStrategyClient(onStatus: (language: StrategyLanguage, mess
     const limit = booted.has(language) || language === "typescript" ? RUN_LIMIT_MS : BOOT_LIMIT_MS;
     return new Promise((resolve) => {
       const timer = setTimeout(
-        () => kill(language, `Stopped after ${limit / 1000} s. Check for an endless loop, or shorten the period.`),
+        () => kill(
+          language,
+          `Stopped after ${limit / 1000} s. This can be an endless loop, or a strategy that is slow on a long period; shorten the period or simplify the code.`,
+        ),
         limit,
       );
       pending.set(id, { resolve, timer });

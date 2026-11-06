@@ -8,7 +8,7 @@ import { rowsFromPortfolio, TEMPLATES, toRequest, type LabForm, type PortfolioBa
 import { strategyTickers } from "@/lib/lab/no-code";
 import { noCodeToSource } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import CodeSettings from "./CodeSettings";
 import ModeSwitch from "./ModeSwitch";
 
@@ -370,6 +370,7 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
               <option value="fractional">Fractional</option>
               <option value="whole">Whole</option>
             </select>
+            <p className="mt-1 text-xs text-muted">Whole shares use today&apos;s split-adjusted prices, so lot sizes before a split are approximate.</p>
           </div>
           <div>
             <label htmlFor="lab-divs" className={label}>Dividends</label>

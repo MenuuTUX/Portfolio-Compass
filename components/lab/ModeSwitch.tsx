@@ -2,7 +2,7 @@
 
 import { applyLesson, isGuided, type LabForm } from "@/lib/lab/lab-form";
 import { LESSONS, lessonById } from "@/lib/lab/lessons";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 type Mode = "guided" | "no-code" | "code";
 

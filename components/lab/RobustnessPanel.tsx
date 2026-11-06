@@ -6,7 +6,8 @@ import { VARIANT_WARNING_AT } from "@/lib/lab/engine/variants";
 import type { LabRun } from "./useLabEngine";
 import { pct, signedPct } from "./format";
 import LabChart from "./LabChart";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { HelpTip } from "@/components/ui/HelpTip";
 
 export type RobustnessState = { status: "running" } | { status: "error"; error: string } | { status: "done"; result: RobustnessResult };
 
@@ -34,7 +35,7 @@ function SweepTable({ result, ownValue }: { result: RobustnessResult; ownValue: 
         <tr className="text-left text-xs text-muted">
           <th scope="col" className="py-1 font-normal">Days</th>
           <th scope="col" className="py-1 font-normal">Growth per year</th>
-          <th scope="col" className="py-1 font-normal">Sharpe</th>
+          <th scope="col" className="py-1 font-normal"><HelpTip term="Sharpe" showIcon={false}>Sharpe</HelpTip></th>
           <th scope="col" className="py-1 text-right font-normal">Worst drop</th>
         </tr>
       </thead>
@@ -83,7 +84,7 @@ function Deflation({ d }: { d: SweepDeflation }) {
         <span className="font-mono text-ink">{chance}%</span>. {verdict}
       </p>
       <p className="text-xs text-muted">
-        The best length has a Sharpe of {d.bestSharpe.toFixed(2)}. The best of {d.trials} rules with no edge would show about {d.luckSharpe.toFixed(2)} by luck alone (deflated Sharpe). It counts only the lengths in this sweep, so every other variant you have tried makes the true chance lower.
+        The best length has a Sharpe of {d.bestSharpe.toFixed(2)}. The best of {d.trials} rules with no edge would show about {d.luckSharpe.toFixed(2)} by luck alone (<HelpTip term="Deflated Sharpe Ratio" showIcon={false}>deflated Sharpe</HelpTip>). It counts only the lengths in this sweep, so every other variant you have tried makes the true chance lower.
       </p>
     </div>
   );
@@ -94,7 +95,7 @@ function WalkForward({ result }: { result: RobustnessResult }) {
   if (!wf) {
     return (
       <p className="text-xs text-muted">
-        Walk-forward needs at least 4 years of history (3 to choose, then 1 to test, twice over). This run is shorter, so it is skipped rather than shown on too little data.
+        Walk-forward needs about 5 years of history (3 to choose, then 1 to test, twice over). This run is shorter, so it is skipped rather than shown on too little data.
       </p>
     );
   }
@@ -119,7 +120,7 @@ function WalkForward({ result }: { result: RobustnessResult }) {
         <tbody>
           {rows.map(([label, f]) => (
             <tr key={label} className="border-t border-hairline">
-              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted">{label}</th>
+              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted"><HelpTip term={label} showIcon={false}>{label}</HelpTip></th>
               <td className="py-1.5 font-mono text-ink">{f(ins)}</td>
               <td className="py-1.5 font-mono text-ink">{f(oos)}</td>
             </tr>

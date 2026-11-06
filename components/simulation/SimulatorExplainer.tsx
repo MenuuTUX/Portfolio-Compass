@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp,
   Activity,
@@ -12,7 +12,7 @@ import {
   Binary,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { EASE } from "@/components/motion/Reveal";
 
 interface SimulatorExplainerProps {

@@ -37,6 +37,19 @@ interface PathFanProps {
   label: string;
 }
 
+/** Round log-axis ticks at 1, 2 and 5 times each power of ten inside [lo, hi]. */
+function logValueTicks(lo: number, hi: number): number[] {
+  const all: { v: number; m: number }[] = [];
+  for (let p = Math.floor(Math.log10(lo)); p <= Math.ceil(Math.log10(hi)); p++) {
+    for (const m of [1, 2, 5]) {
+      const v = m * 10 ** p;
+      if (v >= lo && v <= hi) all.push({ v, m });
+    }
+  }
+  const dense = all.length > 6 ? all.filter((t) => t.m === 1) : all;
+  return dense.map((t) => t.v);
+}
+
 /** Keeps at most MAX_POINTS evenly spaced indices, always including the last. */
 function sampleIndices(length: number): number[] {
   const stride = Math.max(1, Math.ceil(length / MAX_POINTS));
@@ -52,10 +65,12 @@ export default function PathFan({
 }: PathFanProps) {
   const clipId = useId().replace(/:/g, "");
   const [hover, setHover] = useState<number | null>(null);
+  const [logScale, setLogScale] = useState(false);
   const H = height;
   const xMax = years * daysPerYear;
 
-  const { yMin, yMax } = useMemo(() => {
+  // The log axis needs every plotted value above 0; otherwise the toggle is disabled.
+  const { yMin, yMax, canLog } = useMemo(() => {
     let lo = start;
     let hi = start;
     const scan = (arr: number[]) => {
@@ -70,12 +85,21 @@ export default function PathFan({
       scan(band.p10);
       scan(band.p90);
     }
+    const canLog = lo > 0;
+    if (logScale && canLog) {
+      const a = Math.log(lo);
+      const b = Math.log(hi);
+      const pad = (b - a) * 0.06 || 0.05;
+      return { yMin: a - pad, yMax: b + pad, canLog };
+    }
     const pad = (hi - lo) * 0.06 || start * 0.05;
-    return { yMin: Math.max(0, lo - pad), yMax: hi + pad };
-  }, [paths, highlight, band, showBand, start]);
+    return { yMin: Math.max(0, lo - pad), yMax: hi + pad, canLog };
+  }, [paths, highlight, band, showBand, start, logScale]);
 
+  const log = logScale && canLog;
+  const scaled = (v: number) => (log ? Math.log(v) : v);
   const x = (day: number) => (day / xMax) * W;
-  const y = (v: number) => H - ((v - yMin) / (yMax - yMin)) * H;
+  const y = (v: number) => H - ((scaled(v) - yMin) / (yMax - yMin)) * H;
 
   const idx = useMemo(() => sampleIndices(days.length), [days.length]);
   const toD = (values: number[]) =>
@@ -83,7 +107,7 @@ export default function PathFan({
 
   const pathDs = useMemo(() => paths.map(toD),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [paths, idx, yMin, yMax, xMax, H]);
+    [paths, idx, yMin, yMax, xMax, H, log]);
 
   const bandD = useMemo(() => {
     if (!band || !showBand) return null;
@@ -94,10 +118,12 @@ export default function PathFan({
     }).join("");
     return `${top}${bottom}Z`;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [band, showBand, yMin, yMax, xMax, H]);
+  }, [band, showBand, yMin, yMax, xMax, H, log]);
 
   const startY = y(start);
-  const yTicks = compact ? [] : valueTicks(yMin, yMax, 4);
+  const yTicks = compact ? [] : log
+    ? logValueTicks(Math.exp(yMin), Math.exp(yMax))
+    : valueTicks(yMin, yMax, 4);
   const hoverPoint = hover !== null && band ? {
     year: band.days[hover] / daysPerYear,
     p10: band.p10[hover], p50: band.p50[hover], p90: band.p90[hover],
@@ -117,6 +143,23 @@ export default function PathFan({
 
   return (
     <figure className="m-0" aria-label={label}>
+      {!compact && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 text-sm text-muted">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={log}
+              disabled={!canLog}
+              aria-describedby={canLog ? undefined : `${clipId}-log-hint`}
+              onChange={(e) => setLogScale(e.target.checked)}
+            />
+            Log scale
+          </label>
+          {!canLog && (
+            <span id={`${clipId}-log-hint`} className="text-xs">Needs every value above 0</span>
+          )}
+        </div>
+      )}
       <div className={compact ? "" : "grid grid-cols-[3.5rem_1fr] gap-x-2"}>
         {!compact && (
           <div className="relative" style={{ height: H }} aria-hidden="true">
