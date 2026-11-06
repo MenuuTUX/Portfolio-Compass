@@ -39,6 +39,15 @@ export const SUCCESSOR_REGISTRANTS: Record<number, number> = {
 };
 
 /**
+ * Share classes that are not one-for-one, as the weight of each class in the economically common class, keyed by
+ * CIK and then the class member name in the filing. Berkshire's Class A converts into 1,500 Class B shares.
+ * The weighted total is then in Class B equivalents, which is what the Class B price multiplies.
+ */
+const CLASS_WEIGHTS: Record<number, Record<string, number>> = {
+  1067983: { CommonClassAMember: 1500, CommonClassBMember: 1 },
+};
+
+/**
  * Live: asks the SEC for a company's facts and submissions, builds the summary,
  * and keeps the last 50 summaries for six hours (least recently used goes first).
  */
@@ -115,15 +124,15 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
     if (!filing) return c;
     try {
       const html = await client.filingHtml(filing.url);
-      const count = html ? coverShareCount(html) : null;
+      const count = html ? coverShareCount(html, CLASS_WEIGHTS[c.cik]) : null;
       const newest = [c.annual[c.annual.length - 1]?.end, c.trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
       // Same freshness rule as company-facts counts: not older than a year before the newest period.
       if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * 86_400_000)) return c;
       // Classes that are not one-for-one (Berkshire A is 1,500 B shares) make a raw sum badly wrong. A sum that cannot
       // be checked against, or is far from, the latest diluted average is left out, as for any filer without a count.
       const diluted = c.annual[c.annual.length - 1]?.items.dilutedShares?.value;
-      if (count.classes > 1 && (!diluted || count.value / diluted < 0.75 || count.value / diluted > 1.33)) return c;
-      return { ...c, sharesOutstanding: { ...count, accn: filing.accn } };
+      if (count.classes > 1 && !count.weighted && (!diluted || count.value / diluted < 0.75 || count.value / diluted > 1.33)) return c;
+      return { ...c, sharesOutstanding: { value: count.value, asOf: count.asOf, classes: count.classes, accn: filing.accn } };
     } catch {
       return c;
     }

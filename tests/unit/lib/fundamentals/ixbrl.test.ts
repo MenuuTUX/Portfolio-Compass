@@ -39,12 +39,28 @@ describe("coverShareCount", () => {
     const { coverShareCount } = await import("@/lib/fundamentals/ixbrl");
     const html = inst("a", "2026-10-16", member) + inst("b", "2026-10-16", member) + inst("old", "2026-07-01", member) +
       shares("a", "2,200,000,000") + shares("a", "2,200,000,000") + shares("b", "340,000,000") + shares("old", "9,999");
-    expect(coverShareCount(html)).toEqual({ value: 2_540_000_000, asOf: "2026-10-16", classes: 2 });
+    expect(coverShareCount(html)).toEqual({ value: 2_540_000_000, asOf: "2026-10-16", classes: 2, weighted: false });
   });
 
   it("returns null when there is no positive cover count", async () => {
     const { coverShareCount } = await import("@/lib/fundamentals/ixbrl");
     expect(coverShareCount(inst("a", "2026-10-16") + shares("a", "0"))).toBeNull();
     expect(coverShareCount("<html></html>")).toBeNull();
+  });
+});
+
+describe("coverShareCount with class weights", () => {
+  const ctx = (id: string, member: string) => `<xbrli:context id="${id}"><xbrli:entity><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">${member}</xbrldi:explicitMember></xbrli:segment></xbrli:entity><xbrli:period><xbrli:instant>2026-07-29</xbrli:instant></xbrli:period></xbrli:context>`;
+  const fact = (c: string, v: string) => `<ix:nonFraction contextRef="${c}" name="dei:EntityCommonStockSharesOutstanding" scale="0">${v}</ix:nonFraction>`;
+  const html = ctx("a", "us-gaap:CommonClassAMember") + ctx("b", "us-gaap:CommonClassBMember") + fact("a", "488,450") + fact("b", "1,408,035,161");
+
+  it("counts a class at its weight when every class has one (Berkshire: 1 A = 1,500 B)", async () => {
+    const { coverShareCount } = await import("@/lib/fundamentals/ixbrl");
+    expect(coverShareCount(html, { CommonClassAMember: 1500, CommonClassBMember: 1 })).toEqual({ value: 2_140_710_161, asOf: "2026-07-29", classes: 2, weighted: true });
+  });
+
+  it("falls back to a raw sum, unweighted, when a class has no weight", async () => {
+    const { coverShareCount } = await import("@/lib/fundamentals/ixbrl");
+    expect(coverShareCount(html, { CommonClassAMember: 1500 })).toEqual({ value: 1_408_523_611, asOf: "2026-07-29", classes: 2, weighted: false });
   });
 });

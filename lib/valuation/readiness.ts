@@ -150,10 +150,13 @@ export function checkReadiness(company: CompanyFilings, ctx: ReadinessContext): 
 
   const last = company.annual[company.annual.length - 1];
   if (!last) {
+    const files = (form: string) => company.filings.some((f) => f.form === form);
     reasons.push(
-      company.filings.some((f) => f.form === "10-Q")
-        ? "This registrant has filed quarterly reports but no annual report yet, which usually means a newly formed holding company or a recent listing. Its earlier financials sit under a predecessor registrant that is not linked here."
-        : "No annual report was found.",
+      files("10-K")
+        ? "This registrant files its annual report together with its parent, and the SEC's data carries no annual figures under this entity. Look up the parent company instead."
+        : files("10-Q")
+          ? "This registrant has filed quarterly reports but no annual report yet, which usually means a newly formed holding company or a recent listing. Its earlier financials sit under a predecessor registrant that is not linked here."
+          : "No annual report was found.",
     );
   } else {
     if (parseDay(ctx.today) > monthsLater(last.end, 15)) {

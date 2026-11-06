@@ -51,11 +51,47 @@ async function readEntry<T>(zip: string, entry: string): Promise<T | null> {
   return JSON.parse(text) as T;
 }
 
+
+/** CIK -> entity name for everything in the facts file, read once with python3 (head of each entry only) and kept. */
+async function nameIndex(): Promise<Map<number, string>> {
+  const path = join(DIR, "names.json");
+  if (!existsSync(path) || statSync(path).mtimeMs < statSync(join(DIR, "companyfacts.zip")).mtimeMs) {
+    const code = `import zipfile,re,json,sys\nz=zipfile.ZipFile(sys.argv[1]);o={}\nfor i in z.infolist():\n m=re.match(r"CIK(\\d{10})\\.json",i.filename)\n if not m: continue\n with z.open(i) as f: h=f.read(400).decode("utf8","ignore")\n n=re.search(r'"entityName":"([^"]*)"',h)\n if n: o[int(m.group(1))]=n.group(1)\njson.dump(o,open(sys.argv[2],"w"))`;
+    const proc = Bun.spawn(["python3", "-c", code, join(DIR, "companyfacts.zip"), path], { stdout: "inherit", stderr: "inherit" });
+    if ((await proc.exited) !== 0) throw new Error("Could not build the name index (needs python3).");
+  }
+  return new Map(Object.entries(JSON.parse(readFileSync(path, "utf8")) as Record<string, string>).map(([k, v]) => [Number(k), v]));
+}
+
+const STOP = /\b(holdings?|corp(oration)?|inc|incorporated|ltd|limited|group|plc|company|co|llc|the|md|nv|n v|de)\b/g;
+const stem = (n: string) => n.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(STOP, "").replace(/\s+/g, "");
+
+/** Predecessor candidates for a successor: same name stem and SIC, and a 15-12 filing within three weeks of its 8-K12B. */
+async function suggestPredecessors(cik: number, name: string, sub: SecSubmissions, names: Map<number, string>): Promise<string[]> {
+  const mine = stem(name);
+  if (mine.length < 5) return [];
+  const r = sub.filings.recent;
+  const k12 = r.filingDate.find((_, i) => r.form[i] === "8-K12B");
+  if (!k12) return [];
+  const out: string[] = [];
+  for (const [other, n] of names) {
+    const theirs = stem(n);
+    if (other === cik || theirs.length < 5 || !(theirs === mine || theirs.includes(mine) || mine.includes(theirs))) continue;
+    const old = await readEntry<SecSubmissions>("submissions.zip", `CIK${pad(other)}.json`);
+    if (!old || old.sic !== sub.sic) continue;
+    const o = old.filings.recent;
+    const term = o.filingDate.find((d, i) => o.form[i].startsWith("15-12") && Math.abs(Date.parse(d) - Date.parse(k12)) <= 21 * 864e5);
+    // Exxon-style: still filing, so no termination form, but the same SIC, name stem and a 10-K history.
+    out.push(`${other} ${n}${term ? ` (${o.form[o.filingDate.indexOf(term)]} ${term})` : " (no 15-12 filed)"}`);
+  }
+  return out;
+}
+
 interface Row { ticker: string; cik: number; name: string; note: string }
 const report = {
   universe: 0, notFilers: 0, filers: 0, noAnnual: 0, noAnnualWithQuarterly: 0, noShareCount: 0, staleShares: 0, errors: 0,
   daTagSum: 0,
-  crashes: [] as Row[], successors: [] as Row[], newRegistrants: [] as Row[], shareOutliers: [] as Row[], missingShares: [] as Row[],
+  crashes: [] as Row[], successors: [] as Row[], combinedFilers: [] as Row[], newRegistrants: [] as Row[], shareOutliers: [] as Row[], missingShares: [] as Row[],
 };
 
 async function check(args: string[]) {
@@ -95,8 +131,9 @@ async function check(args: string[]) {
         if (forms.has("10-Q")) {
           report.noAnnualWithQuarterly++;
           const old = SUCCESSOR_REGISTRANTS[cik];
-          (forms.has("8-K12B") ? report.successors : report.newRegistrants).push(row(
-            forms.has("8-K12B") ? (old ? `8-K12B, mapped to predecessor ${old}` : "8-K12B, NOT MAPPED (holding-company successor?)") : "new registrant, quarterlies only"));
+          if (forms.has("10-K")) report.combinedFilers.push(row("files a 10-K together with its parent; no annual facts under its own entity"));
+          else if (forms.has("8-K12B")) report.successors.push(row(old ? `8-K12B, mapped to predecessor ${old}` : "8-K12B, NOT MAPPED"));
+          else report.newRegistrants.push(row("new registrant, quarterlies only"));
         }
         return;
       }
@@ -123,7 +160,7 @@ async function check(args: string[]) {
   }));
 
   writeFileSync(join(DIR, "report.json"), JSON.stringify(report, null, 1));
-  const { crashes, successors, newRegistrants, shareOutliers, missingShares, ...counts } = report;
+  const { crashes, successors, combinedFilers, newRegistrants, shareOutliers, missingShares, ...counts } = report;
   console.log(JSON.stringify(counts), `${Math.round((Date.now() - t0) / 1000)}s`);
   const show = (title: string, rows: Row[], n = 15) => {
     console.log(`\n${title}: ${rows.length}`);
@@ -131,6 +168,16 @@ async function check(args: string[]) {
   };
   show("parser crashes", crashes);
   show("successor candidates (quarterlies, no annual, filed 8-K12B)", successors, 40);
+  const names = report.successors.length ? await nameIndex() : new Map<number, string>();
+  console.log("\nsuccessor suggestions (predecessor with the same name stem and SIC):");
+  for (const r of report.successors) {
+    const sub = await readEntry<SecSubmissions>("submissions.zip", `CIK${pad(r.cik)}.json`);
+    const found = sub ? await suggestPredecessors(r.cik, r.name, sub, names) : [];
+    const mapped = SUCCESSOR_REGISTRANTS[r.cik];
+    const agrees = mapped !== undefined && found.some((f) => f.startsWith(`${mapped} `));
+    console.log(`  ${r.ticker.padEnd(7)} ${mapped === undefined ? "UNMAPPED" : agrees ? "map agrees" : "MAP DISAGREES"}  ->  ${found.slice(0, 3).join(" | ") || "no candidate"}`);
+  }
+  show("combined filers (own CIK has a 10-K but no annual facts)", combinedFilers, 8);
   show("share counts far from the diluted average", shareOutliers);
   show("no share count at all", missingShares);
   console.log(`\nnew registrants with quarterlies only: ${newRegistrants.length} (full list in report.json)`);

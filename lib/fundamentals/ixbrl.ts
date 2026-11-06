@@ -46,26 +46,35 @@ export function extensionDepreciation(html: string, start: string, end: string):
  * EntityCommonStockSharesOutstanding when it is reported per share class (Meta, Visa, Mastercard, Berkshire), so
  * the per-class facts are read here and added up. Only the newest date on the cover counts, and each class once.
  */
-export function coverShareCount(html: string): { value: number; asOf: string; classes: number } | null {
-  const instants = new Map<string, string>();
+export function coverShareCount(html: string, weights: Record<string, number> = {}): { value: number; asOf: string; classes: number; weighted: boolean } | null {
+  const contexts = new Map<string, { at: string; member?: string }>();
   for (const m of html.matchAll(/<(?:xbrli:)?context\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:xbrli:)?context>/g)) {
     const at = m[2].match(/<(?:xbrli:)?instant>\s*([^<\s]+)/)?.[1];
-    if (at) instants.set(m[1], at);
+    if (at) contexts.set(m[1], { at, member: m[2].match(/<xbrldi:explicitMember[^>]*>\s*([^<\s]+)/)?.[1] });
   }
-  const perContext = new Map<string, { value: number; asOf: string }>();
+  const perContext = new Map<string, { value: number; asOf: string; member?: string }>();
   for (const m of html.matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/g)) {
     const attrs = m[1];
     if (attrs.match(/\bname="([^"]+)"/)?.[1] !== "dei:EntityCommonStockSharesOutstanding") continue;
     const ref = attrs.match(/\bcontextRef="([^"]+)"/)?.[1];
-    const asOf = ref ? instants.get(ref) : undefined;
-    if (!ref || !asOf || perContext.has(ref) || /\bsign="-"/.test(attrs)) continue;
+    const ctx = ref ? contexts.get(ref) : undefined;
+    if (!ref || !ctx || perContext.has(ref) || /\bsign="-"/.test(attrs)) continue;
     const text = m[2].replace(/<[^>]+>/g, "").replace(/[,\s]/g, "");
     const num = Number(text);
     const value = num * 10 ** Number(attrs.match(/\bscale="(-?\d+)"/)?.[1] ?? 0);
-    if (text !== "" && Number.isFinite(value) && value > 0) perContext.set(ref, { value, asOf });
+    if (text !== "" && Number.isFinite(value) && value > 0) perContext.set(ref, { value, asOf: ctx.at, member: ctx.member });
   }
   if (perContext.size === 0) return null;
   const latest = [...perContext.values()].reduce((m, f) => (f.asOf > m ? f.asOf : m), "");
   const rows = [...perContext.values()].filter((f) => f.asOf === latest);
-  return { value: rows.reduce((s, f) => s + f.value, 0), asOf: latest, classes: rows.length };
+  // Share classes that are not one-for-one are counted at their weight when every class is in `weights`
+  // (keyed by the member name without its prefix, such as CommonClassAMember).
+  const weightOf = (member?: string) => (member ? weights[member.split(":").pop()!] : undefined);
+  const weighted = rows.length > 0 && rows.every((r) => weightOf(r.member) !== undefined);
+  return {
+    value: rows.reduce((s, f) => s + f.value * (weighted ? weightOf(f.member)! : 1), 0),
+    asOf: latest,
+    classes: rows.length,
+    weighted,
+  };
 }

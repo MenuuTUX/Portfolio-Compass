@@ -190,4 +190,17 @@ describe("a registrant with quarterly reports but no annual report", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reasons).toContain("No annual report was found.");
   });
+
+  it("tells a registrant that files with its parent to look up the parent, not that it is new", () => {
+    const c = clone(fixtureCompany("aapl"));
+    c.annual = [];
+    c.trailing = null;
+    c.filings = [{ form: "10-K", filed: "2026-02-19", accn: "x-0", items: [], url: "u" }, { form: "10-Q", filed: "2026-11-02", accn: "x-1", items: [], url: "u" }];
+    const r = checkReadiness(c, ctx);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reasons.join(" ")).toContain("together with its parent");
+      expect(r.reasons.join(" ")).not.toContain("newly formed");
+    }
+  });
 });
