@@ -180,27 +180,31 @@ describe("holding-company successor registrants", () => {
 
 describe("D&A read from the filing's inline XBRL", () => {
   /** AAPL fixture with D&A reduced to a depreciation-plus-amortization sum; the filing document is served from `docFor`. */
-  function setup(docFor: (start: string, end: string, sum: number) => string | null) {
-    const { facts, sub } = loadFixture("AAPL");
+  function setup(docFor: (start: string, end: string, sum: number, trailingEnd: string | undefined) => string | null, name: "AAPL" | "NVDA" = "AAPL") {
+    const { facts, sub } = loadFixture(name);
+    const cik = name === "NVDA" ? 1045810 : 320193;
+    const tickers = { fields: tickerFile.fields, data: [[cik, name, name, "Nasdaq"]] };
     const f = structuredClone(facts) as typeof facts;
     const us = f.facts["us-gaap"] as Record<string, { units: Record<string, { val: number }[]> }>;
-    const donor = us.DepreciationDepletionAndAmortization;
+    const donor = us.DepreciationDepletionAndAmortization ?? us.Depreciation;
+    const dep = { units: { USD: donor.units.USD.map((x) => ({ ...x, val: x.val * 0.6 })) } };
     delete us.DepreciationDepletionAndAmortization;
-    us.Depreciation = { units: { USD: donor.units.USD.map((x) => ({ ...x, val: x.val * 0.6 })) } };
+    delete us.DepreciationAndAmortization;
+    us.Depreciation = dep;
     us.AmortizationOfIntangibleAssets = { units: { USD: donor.units.USD.map((x) => ({ ...x, val: x.val * 0.3 })) } };
-    const base = buildCompanyFilings(f, sub, { ticker: "AAPL", source: "snapshot" });
+    const base = buildCompanyFilings(f, sub, { ticker: name, source: "snapshot" });
     const last = base.annual.at(-1)!;
     const sum = last.items.depreciationAmortization!.value;
     expect(last.items.depreciationAmortization!.tag).toContain(" + ");
-    const doc = docFor(last.start, last.end, sum);
+    const doc = docFor(last.start, last.end, sum, base.trailing?.basis === "ytd" ? base.trailing.end : undefined);
     const fetchFn = (async (url: string) => {
-      if (url.includes("company_tickers")) return new Response(JSON.stringify(tickerFile));
+      if (url.includes("company_tickers")) return new Response(JSON.stringify(tickers));
       if (url.includes("companyfacts")) return new Response(JSON.stringify(f));
       if (url.includes("submissions")) return new Response(JSON.stringify(sub));
       if (url.includes("/Archives/")) return doc === null ? new Response("", { status: 500 }) : new Response(doc);
       return new Response("missing", { status: 404 });
     }) as unknown as typeof fetch;
-    return { sum, trailing: base.trailing, live: edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} })) };
+    return { sum, name, trailing: base.trailing, live: edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} })) };
   }
   const page = (start: string, end: string, value: number) =>
     `<xbrli:context id="c"><xbrli:period><xbrli:startDate>${start}</xbrli:startDate><xbrli:endDate>${end}</xbrli:endDate></xbrli:period></xbrli:context>` +
@@ -227,5 +231,23 @@ describe("D&A read from the filing's inline XBRL", () => {
   it("keeps the sum when the filing cannot be read", async () => {
     const { live } = setup(() => null);
     expect((await live.getCompany("AAPL"))!.annual.at(-1)!.items.depreciationAmortization!.tag).toContain(" + ");
+  });
+
+  it("takes year-to-date and prior year-to-date totals from the same filing when it carries them", async () => {
+    const day = 86_400_000;
+    const shift = (d: string, n: number) => new Date(Date.parse(d) + n * day).toISOString().slice(0, 10);
+    const ctx = (id: string, a: string, b: string) => `<xbrli:context id="${id}"><xbrli:period><xbrli:startDate>${a}</xbrli:startDate><xbrli:endDate>${b}</xbrli:endDate></xbrli:period></xbrli:context>`;
+    const fact = (id: string, v: number) => `<ix:nonFraction contextRef="${id}" name="aapl:DepreciationAmortizationAndOther" scale="0">${v}</ix:nonFraction>`;
+    const { sum, trailing, live } = setup((start, end, total, tEnd) => {
+      if (!tEnd) return page(start, end, Math.round(total * 1.25));
+      return ctx("y", start, end) + fact("y", Math.round(total * 1.25)) +
+        ctx("q", shift(end, 1), tEnd) + fact("q", 1000) +
+        ctx("p", start, shift(tEnd, -364)) + fact("p", 400);
+    }, "NVDA");
+    expect(trailing?.basis).toBe("ytd");
+    const c = (await live.getCompany("NVDA"))!;
+    const t = c.trailing!.items.depreciationAmortization!;
+    expect(t.tag).toBe("aapl:DepreciationAmortizationAndOther");
+    expect(t.value).toBe(Math.round(sum * 1.25) + 600);
   });
 });

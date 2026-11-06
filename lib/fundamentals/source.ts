@@ -49,25 +49,45 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       if (!found || found.value < da.value * 0.6 || found.value > da.value * 2) return c;
       const annual = c.annual.slice(0, -1);
       annual.push({ ...last, items: { ...last.items, depreciationAmortization: { ...da, value: found.value, tag: found.tag } } });
-      // Trailing = last year + year-to-date - prior year-to-date, so the correction carries over one for one. The
-      // in-year change still comes from the two tags, which the tag text and the note keep saying.
+      // Trailing = last year + year-to-date - prior year-to-date. When the 10-Q carries the same extension total for
+      // both year-to-date spans, all three come from filed totals. Otherwise the correction to the fiscal year moves
+      // trailing one for one and the in-year change stays built from the two tags, which the tag text says.
       const tda = c.trailing?.items.depreciationAmortization;
-      const trailing = c.trailing && tda && tda.tag === da.tag
-        ? {
+      let trailing = c.trailing;
+      if (c.trailing && tda && tda.tag === da.tag) {
+        const ytd = await quarterlyChange(tda.accn, last.end, c.trailing.end, last.start, found.tag, c.filings);
+        trailing = {
           ...c.trailing,
           items: {
             ...c.trailing.items,
             depreciationAmortization: {
               ...tda,
-              value: tda.value + (found.value - da.value),
-              tag: c.trailing.basis === "annual" ? found.tag : `${found.tag} + quarterly change from parts`,
+              value: c.trailing.basis === "annual" ? found.value : ytd !== null ? found.value + ytd : tda.value + (found.value - da.value),
+              tag: c.trailing.basis === "annual" || ytd !== null ? found.tag : `${found.tag} + quarterly change from parts`,
             },
           },
-        }
-        : c.trailing;
+        };
+      }
       return { ...c, annual, trailing };
     } catch {
       return c;
+    }
+  }
+
+  /** Year-to-date minus prior year-to-date for the given extension tag, read from the 10-Q's inline XBRL, or null. */
+  async function quarterlyChange(accn: string, yearEnd: string, ytdEnd: string, priorStart: string, tag: string, filings: CompanyFilings["filings"]): Promise<number | null> {
+    const filing = filings.find((f) => f.accn === accn);
+    if (!filing) return null;
+    try {
+      const html = await client.filingHtml(filing.url);
+      if (!html) return null;
+      const day = 86_400_000;
+      const shift = (d: string, n: number) => new Date(Date.parse(d) + n * day).toISOString().slice(0, 10);
+      const cur = extensionDepreciation(html, shift(yearEnd, 1), ytdEnd);
+      const prior = extensionDepreciation(html, priorStart, shift(ytdEnd, -364));
+      return cur && prior && cur.tag === tag && prior.tag === tag ? cur.value - prior.value : null;
+    } catch {
+      return null;
     }
   }
 
