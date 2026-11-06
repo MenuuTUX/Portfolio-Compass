@@ -2,9 +2,15 @@ import { afterEach, describe, expect, it } from "bun:test";
 import React, { useState } from "react";
 import { renderToString } from "react-dom/server";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import Providers from "@/components/Providers";
-import Home from "@/app/page";
-import GrowthScreen from "@/components/landing/GrowthScreen";
+import { mockModule } from "@/tests/helpers/mock-module";
+
+// next/image needs a browser origin; the logo is a same-origin path, so a plain img is enough here.
+await mockModule("next/image", () => ({
+  default: ({ alt }: { alt?: string }) => <img alt={alt} />,
+}));
+const { default: Providers } = await import("@/components/Providers");
+const { default: Home } = await import("@/app/page");
+const { default: GrowthScreen } = await import("@/components/landing/GrowthScreen");
 
 const HIDDEN = /opacity:\s*0[;"]|translateY\(110%\)/;
 

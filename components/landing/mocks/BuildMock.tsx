@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, animate, motion, useInView, useReducedMotion } from "framer-motion";
+import { AnimatePresence, animate, m as motion, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { EASE, RevealGroup, RevealItem } from "../../motion/Reveal";
 import PhoneMock from "../PhoneMock";
@@ -85,10 +85,11 @@ function useTween(target: number, duration: number) {
   const reduce = useReducedMotion();
   const [value, setValue] = useState(target);
   const current = useRef(target);
+  // Reduced motion jumps straight to the target.
+  if (reduce && value !== target) setValue(target);
   useEffect(() => {
     if (reduce) {
       current.current = target;
-      setValue(target);
       return;
     }
     const controls = animate(current.current, target, {

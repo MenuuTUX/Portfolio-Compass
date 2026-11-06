@@ -84,11 +84,11 @@
   --color-purple-900: #78591a;
 
   /* Negative states lean warm coral instead of neon rose */
-  --color-rose-400: var(--loss);
+  --color-rose-400: var(--loss-text);
   --color-rose-500: #e05a4e;
   --color-rose-600: #c74437;
   --color-rose-900: #7c2d24;
-  --color-red-400: var(--loss);
+  --color-red-400: var(--loss-text);
   --color-red-500: #e05a4e;
   --color-red-900: #7c2d24;
 
@@ -119,14 +119,16 @@
   --body-strong: #2e2c2b;
   --body: #4a4846;
   --muted: #6b6865;
-  --muted-soft: #8a8783;
+  --muted-soft: #666360;
   --panel: #fcfcfc;
   --panel-ring: rgba(28, 27, 27, 0.08);
 
   --gold-deep: #b08a28;
-  --emerald-400: #059669;
+  --emerald-400: #036b4f;
   --compass: #11745b;
   --loss: #c74437;
+  /* Text-safe loss red (4.5:1+ on light surfaces); --loss stays for charts */
+  --loss-text: #b43a2e;
   /* Monte Carlo modes: violet, teal, amber, each with a second tone for path variety */
   --mc-reshuffle: #6a58d6;
   --mc-reshuffle-alt: #3f7fd6;
@@ -162,7 +164,7 @@
   --body-strong: #e6e6e6;
   --body: #b6b6b6;
   --muted: #868686;
-  --muted-soft: #5f5f5f;
+  --muted-soft: #919191;
   --panel: #0f0f0f;
   --panel-ring: rgba(255, 255, 255, 0.05);
 
@@ -170,6 +172,7 @@
   --emerald-400: #6dc382;
   --compass: #6dc382;
   --loss: #f0777b;
+  --loss-text: #f0777b;
   --mc-reshuffle: #a49cf7;
   --mc-reshuffle-alt: #7fb3f5;
   --mc-resample: #6fd3b6;
@@ -505,3 +508,6 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 @keyframes mc-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .mc-reveal { transform-box: fill-box; transform-origin: left center; animation: mc-reveal 1.1s var(--ease-out) both; }
 @media (prefers-reduced-motion: reduce) { .mc-reveal { animation: none; } }
+
+/* Set by a script in app/layout.tsx for ?view=app links: keep the landing page from flashing before the app hydrates. */
+html[data-deeplink] #top { visibility: hidden; }

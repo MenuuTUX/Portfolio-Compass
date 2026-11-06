@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import InteractiveSlider from "../InteractiveSlider";
 import CountUp from "../motion/CountUp";
 import { EASE } from "../motion/Reveal";

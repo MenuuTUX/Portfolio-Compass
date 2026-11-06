@@ -3,6 +3,7 @@
 import {
   Activity,
   ArrowLeft,
+  House,
   PieChart,
   TrendingUp,
   BarChart3,
@@ -11,8 +12,8 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { m as motion } from "framer-motion";
+import { cn } from "@/lib/cn";
 import { EASE } from "@/components/motion/Reveal";
 
 type Tab = "TRENDING" | "PORTFOLIO" | "ETFS" | "STOCKS";
@@ -37,6 +38,7 @@ const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
 /**
  * Advanced-workspace status bar. Desktop: thin footer row under the panels.
  * Below lg: fixed 64px bottom tab bar (the page adds pb-16 to the main region).
+ * The phone bar scrolls sideways so all eight destinations fit at 320px.
  */
 export default function Navigation({
   activeTab,
@@ -133,54 +135,77 @@ export default function Navigation({
 
       <nav
         aria-label="Primary mobile"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-50 h-16 flex flex-row items-center justify-around px-2 bg-canvas border-t border-hairline"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 h-16 bg-canvas border-t border-hairline"
       >
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onTabChange(tab.id)}
-              aria-label={tab.label}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "flex flex-1 min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg transition-colors duration-[120ms]",
-                isActive
-                  ? "bg-surface-soft text-ink"
-                  : "text-muted hover:bg-white/5 hover:text-ink",
-                focusRing,
-              )}
-            >
-              <tab.icon className="h-5 w-5" aria-hidden="true" />
-              <span className="text-xs">{tab.label}</span>
-            </button>
-          );
-        })}
-        <Link
-          href="/lab"
-          className={cn(
-            "flex flex-1 min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
-            focusRing,
-          )}
-        >
-          <FlaskConical className="h-5 w-5" aria-hidden="true" />
-          <span className="text-xs">Backtest</span>
-        </Link>
-        {onOpenSettings && (
+        <div className="flex h-full items-stretch gap-1 overflow-x-auto px-2 snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
-            onClick={onOpenSettings}
-            aria-label="Settings"
+            onClick={onBackToLanding}
             className={cn(
-              "flex flex-1 min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
+              "flex w-[4.5rem] shrink-0 snap-start min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
               focusRing,
             )}
           >
-            <Settings className="h-5 w-5" aria-hidden="true" />
-            <span className="text-xs">Settings</span>
+            <House className="h-5 w-5" aria-hidden="true" />
+            <span className="text-xs">Home</span>
           </button>
-        )}
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange(tab.id)}
+                aria-label={tab.label}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "flex w-[4.5rem] shrink-0 snap-start min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg transition-colors duration-[120ms]",
+                  isActive
+                    ? "bg-surface-soft text-ink"
+                    : "text-muted hover:bg-white/5 hover:text-ink",
+                  focusRing,
+                )}
+              >
+                <tab.icon className="h-5 w-5" aria-hidden="true" />
+                <span className="text-xs">{tab.label}</span>
+              </button>
+            );
+          })}
+          <Link
+            href="/lab"
+            className={cn(
+              "flex w-[4.5rem] shrink-0 snap-start min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
+              focusRing,
+            )}
+          >
+            <FlaskConical className="h-5 w-5" aria-hidden="true" />
+            <span className="text-xs">Backtest</span>
+          </Link>
+          <Link
+            href="/tfsa"
+            className={cn(
+              "flex w-[4.5rem] shrink-0 snap-start min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
+              focusRing,
+            )}
+          >
+            <PiggyBank className="h-5 w-5" aria-hidden="true" />
+            <span className="text-xs">TFSA</span>
+          </Link>
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              aria-label="Settings"
+              className={cn(
+                "flex w-[4.5rem] shrink-0 snap-start min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-muted transition-colors duration-[120ms] hover:bg-white/5 hover:text-ink",
+                focusRing,
+              )}
+            >
+              <Settings className="h-5 w-5" aria-hidden="true" />
+              <span className="text-xs">Settings</span>
+            </button>
+          )}
+        </div>
       </nav>
     </>
   );

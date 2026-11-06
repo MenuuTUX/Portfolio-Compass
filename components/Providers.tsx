@@ -1,15 +1,15 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MotionConfig } from "framer-motion";
-import { useState } from "react";
+import { LazyMotion, MotionConfig } from "framer-motion";
+
+// The animation engine loads after first paint instead of in the first bundle.
+// domMax is needed for shared-layout animations (layoutId); until it arrives, elements render in their final state.
+const loadFeatures = () => import("@/lib/motion-features").then((mod) => mod.default);
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
-
   return (
-    <QueryClientProvider client={queryClient}>
+    <LazyMotion features={loadFeatures}>
       <MotionConfig reducedMotion="user">{children}</MotionConfig>
-    </QueryClientProvider>
+    </LazyMotion>
   );
 }

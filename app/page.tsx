@@ -1,119 +1,123 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import Navigation from '@/components/Navigation';
+import { useEffect, useLayoutEffect, useState, useTransition } from 'react';
 import Hero from '@/components/Hero';
 import dynamic from 'next/dynamic';
 import PurposeSection from '@/components/PurposeSection';
-import type { QuizResult } from '@/components/IntroQuiz';
+import type { Tab } from '@/components/AppView';
 
-// The app views only render after "Browse market" / "Get started", so keep them out of the landing bundle.
-const ComparisonEngine = dynamic(() => import('@/components/ComparisonEngine'));
-const PortfolioBuilder = dynamic(() => import('@/components/PortfolioBuilder'));
-const TrendingTab = dynamic(() => import('@/components/TrendingTab'));
-const SettingsDrawer = dynamic(() => import('@/components/SettingsDrawer'));
-const IntroQuiz = dynamic(() => import('@/components/IntroQuiz'));
-import { ETF, PortfolioItem } from '@/types';
-import { AnimatePresence, motion } from 'framer-motion';
-import { usePortfolio } from '@/hooks/usePortfolio';
-import { useAddStock } from '@/hooks/useAddStock';
-import { useUpdatePortfolioItem } from '@/hooks/useUpdatePortfolioItem';
-import { useRemoveStock } from '@/hooks/useRemoveStock';
-import { useQueryClient } from '@tanstack/react-query';
-import { loadPortfolio, savePortfolio } from '@/lib/storage';
-import { portfolioAfterQuiz, saveRiskProfile } from '@/lib/risk-profile';
+// The quiz and the app views only render after "Browse market" / "Get started", so their code
+// (and the storage, validation and query libraries they use) stays out of the landing bundle.
+const loading = () => <div role="status" aria-label="Loading" className="p-6 text-sm text-muted">Loading...</div>;
+const QuizScreen = dynamic(() => import('@/components/QuizScreen'), { loading });
+const AppView = dynamic(() => import('@/components/AppView'), { loading });
+import { AnimatePresence, m as motion } from 'framer-motion';
 import Footer from '@/components/Footer';
 import { EASE } from '@/components/motion/Reveal';
 
 type ViewMode = 'LANDING' | 'INTRO_QUIZ' | 'APP';
-type Tab = 'TRENDING' | 'PORTFOLIO' | 'ETFS' | 'STOCKS';
+
+const TAB_PARAM: Record<Tab, string> = {
+  TRENDING: 'trending',
+  PORTFOLIO: 'portfolio',
+  ETFS: 'etfs',
+  STOCKS: 'stocks',
+};
+const TAB_FROM_PARAM = Object.fromEntries(
+  Object.entries(TAB_PARAM).map(([tab, param]) => [param, tab]),
+) as Record<string, Tab>;
+
+/** The landing page has no view parameter, so a plain address is the landing page. */
+function viewFromParam(view: string | null): ViewMode {
+  if (view === 'app') return 'APP';
+  if (view === 'quiz') return 'INTRO_QUIZ';
+  return 'LANDING';
+}
+
+/** The address that shows this view and tab, keeping any other parameters. */
+function addressFor(view: ViewMode, tab: Tab): string {
+  const url = new URL(window.location.href);
+  if (view === 'LANDING') url.searchParams.delete('view');
+  else url.searchParams.set('view', view === 'APP' ? 'app' : 'quiz');
+  if (view === 'APP') url.searchParams.set('tab', TAB_PARAM[tab]);
+  else url.searchParams.delete('tab');
+  return url.pathname + url.search + url.hash;
+}
 
 export default function Home() {
+  // Server and first client render both show the landing; the URL is read after mount.
   const [viewMode, setViewMode] = useState<ViewMode>('LANDING');
   const [activeTab, setActiveTab] = useState<Tab>('TRENDING');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
-  const { data: portfolio = [] } = usePortfolio(
-    viewMode === "APP" && activeTab === "PORTFOLIO",
-  );
-  const addStockMutation = useAddStock();
-  const removeStockMutation = useRemoveStock();
-  const updatePortfolioItemMutation = useUpdatePortfolioItem();
-  const queryClient = useQueryClient();
+  // While the visitor reads the landing page, fetch the Markets code in the background so "Browse market" opens quickly.
+  // Skipped on data saver and slow connections.
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? '')) return;
+    const warm = () => {
+      void import('@/components/AppView');
+      void import('@/components/TrendingTab');
+    };
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const id = idle ? idle(warm) : window.setTimeout(warm, 2000);
+    return () => {
+      if (!idle) window.clearTimeout(id);
+    };
+  }, []);
 
-  const [hasHoldings, setHasHoldings] = useState(false);
+  // Read the address before paint so a deep link does not flash the landing page.
+  // Back and forward move between the views and tabs this page pushed.
+  useLayoutEffect(() => {
+    const readAddress = () => {
+      const params = new URLSearchParams(window.location.search);
+      setViewMode(viewFromParam(params.get('view')));
+      setActiveTab(TAB_FROM_PARAM[params.get('tab') ?? ''] ?? 'TRENDING');
+      // The early script in app/layout.tsx hid the landing for a deep link; the view is known now.
+      document.documentElement.removeAttribute('data-deeplink');
+    };
+    readAddress();
+    window.addEventListener('popstate', readAddress);
+    return () => window.removeEventListener('popstate', readAddress);
+  }, []);
+
+  const pushAddress = (view: ViewMode, tab: Tab) => {
+    const next = addressFor(view, tab);
+    if (next !== window.location.pathname + window.location.search + window.location.hash) {
+      window.history.pushState(null, '', next);
+    }
+  };
+
+  const showView = (view: ViewMode) => {
+    setViewMode(view);
+    pushAddress(view, activeTab);
+  };
 
   const handleStart = () => {
-    setHasHoldings(loadPortfolio().length > 0);
-    setViewMode('INTRO_QUIZ');
+    showView('INTRO_QUIZ');
   };
 
   const handleViewMarket = () => {
-    setViewMode('APP');
+    showView('APP');
   };
 
-  const handleQuizComplete = async (result: QuizResult) => {
-    if (result.isSkipped) {
+  const handleQuizDone = (destination: 'PORTFOLIO' | 'APP') => {
+    if (destination === 'PORTFOLIO') {
+      setActiveTab('PORTFOLIO');
       setViewMode('APP');
-      return;
+      pushAddress('APP', 'PORTFOLIO');
+    } else {
+      showView('APP');
     }
-
-    saveRiskProfile({ profile: result.profile, score: result.score });
-    // The example only fills an empty portfolio; real holdings are never replaced.
-    const next = portfolioAfterQuiz(loadPortfolio(), result.suggestedPortfolio);
-    if (next) {
-      savePortfolio(next);
-      await queryClient.invalidateQueries({ queryKey: ['portfolio'] });
-    }
-    setActiveTab('PORTFOLIO');
-    setViewMode('APP');
   };
 
-  const handleAddToPortfolio = async (etf: ETF) => {
-    // Pass the already-loaded asset so add works even if DB-backed search is down
-    await addStockMutation.mutateAsync({ ticker: etf.ticker, etf });
+  const switchTab = (tab: Tab) => {
+    startTransition(() => setActiveTab(tab));
+    pushAddress('APP', tab);
   };
-
-  const handleRemoveFromPortfolio = (ticker: string) => {
-    removeStockMutation.mutate(ticker);
-  };
-
-  const handleUpdateWeight = (ticker: string, weight: number) => {
-    updatePortfolioItemMutation.mutate({ ticker, weight });
-  };
-
-  const handleUpdateShares = (ticker: string, shares: number) => {
-    updatePortfolioItemMutation.mutate({ ticker, shares });
-  };
-
-  // One write for the whole plan: per-item mutations would each reload and
-  // resave storage and could interleave.
-  const handleApplyAllocation = (plan: { ticker: string; weight: number; shares: number }[]) => {
-    const byTicker = new Map(plan.map((p) => [p.ticker, p]));
-    const next = portfolio.map((item) => {
-      const p = byTicker.get(item.ticker);
-      return p ? { ...item, weight: p.weight, shares: p.shares } : item;
-    });
-    savePortfolio(next.map(({ ticker, weight, shares }) => ({ ticker, weight, shares })));
-    queryClient.setQueryData(['portfolio'], next);
-  };
-
-  const handleClearPortfolio = () => {
-    savePortfolio([]);
-    queryClient.setQueryData(['portfolio'], []);
-  };
-
-  const handleImportPortfolio = (items: PortfolioItem[]) => {
-    savePortfolio(items);
-    queryClient.setQueryData(['portfolio'], items);
-    startTransition(() => setActiveTab('PORTFOLIO'));
-  };
-
-  const switchTab = (tab: Tab) => startTransition(() => setActiveTab(tab));
 
   return (
-    <main className="min-h-screen bg-canvas overflow-hidden relative">
+    <main className="min-h-dvh bg-canvas overflow-hidden relative">
       <AnimatePresence mode="wait" initial={false}>
         {viewMode === 'LANDING' ? (
           <motion.div
@@ -123,7 +127,7 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.985 }}
             transition={{ duration: 0.4, ease: EASE }}
-            className="overflow-y-auto h-screen custom-scrollbar"
+            className="overflow-y-auto h-dvh custom-scrollbar"
           >
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
             <PurposeSection />
@@ -136,7 +140,7 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.985 }}
             transition={{ duration: 0.4, ease: EASE }}
-            className="h-screen flex items-center justify-center overflow-hidden"
+            className="min-h-dvh flex items-center justify-center overflow-y-auto"
           >
             <motion.div
               initial={{ opacity: 0, y: 24 }}
@@ -144,7 +148,7 @@ export default function Home() {
               transition={{ duration: 0.8, delay: 0.1, ease: EASE }}
               className="w-full flex items-center justify-center"
             >
-              <IntroQuiz onComplete={handleQuizComplete} hasExistingPortfolio={hasHoldings} />
+              <QuizScreen onDone={handleQuizDone} />
             </motion.div>
           </motion.div>
         ) : (
@@ -154,72 +158,12 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.985 }}
             transition={{ duration: 0.4, ease: EASE }}
-            className="h-screen flex flex-col bg-canvas p-2 gap-2"
+            className="h-dvh flex flex-col bg-canvas p-2 gap-2"
           >
-            <SettingsDrawer
-              isOpen={isSettingsOpen}
-              onClose={() => setIsSettingsOpen(false)}
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.05, ease: EASE }}
-              className="flex-1 min-h-0 relative max-lg:overflow-y-auto max-lg:pb-16 custom-scrollbar"
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0, transition: { duration: 0.28, ease: EASE } }}
-                  exit={{ opacity: 0, transition: { duration: 0.12 } }}
-                  className="lg:h-full min-h-0"
-                >
-                  {activeTab === 'TRENDING' && (
-                    <TrendingTab
-                      onAddToPortfolio={handleAddToPortfolio}
-                      portfolio={portfolio}
-                      onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                      onImportPortfolio={handleImportPortfolio}
-                      onNavigate={switchTab}
-                    />
-                  )}
-                  {activeTab === 'PORTFOLIO' && (
-                    <PortfolioBuilder
-                      portfolio={portfolio}
-                      onRemove={handleRemoveFromPortfolio}
-                      onUpdateWeight={handleUpdateWeight}
-                      onUpdateShares={handleUpdateShares}
-                      onClear={handleClearPortfolio}
-                      onApplyAllocation={handleApplyAllocation}
-                      onNavigate={switchTab}
-                    />
-                  )}
-                  {activeTab === 'ETFS' && (
-                    <ComparisonEngine
-                      onAddToPortfolio={handleAddToPortfolio}
-                      onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                      portfolio={portfolio}
-                      assetType="ETF"
-                    />
-                  )}
-                  {activeTab === 'STOCKS' && (
-                    <ComparisonEngine
-                      onAddToPortfolio={handleAddToPortfolio}
-                      onRemoveFromPortfolio={handleRemoveFromPortfolio}
-                      portfolio={portfolio}
-                      assetType="STOCK"
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
-
-            <Navigation
+            <AppView
               activeTab={activeTab}
               onTabChange={switchTab}
-              onBackToLanding={() => setViewMode('LANDING')}
-              onOpenSettings={() => setIsSettingsOpen(true)}
+              onBackToLanding={() => showView('LANDING')}
             />
           </motion.div>
         )}

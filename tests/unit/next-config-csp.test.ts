@@ -11,19 +11,20 @@ const policy = (rule: HeaderRule | undefined) =>
   rule?.headers.find((h) => h.key === "Content-Security-Policy")?.value ?? "";
 
 describe("Compass Lab content security policy", () => {
-  it("is sent with the /lab page and with JS chunks, where worker scripts come from", async () => {
+  it("is sent with every page and with JS chunks, where worker scripts come from", async () => {
     const all = await rules();
-    const lab = policy(all.find((r) => r.source === "/lab"));
+    const site = policy(all.find((r) => r.source === "/:path*"));
     const chunks = policy(all.find((r) => r.source === "/_next/static/chunks/:path*"));
-    expect(lab).not.toBe("");
-    expect(chunks).toBe(lab);
+    expect(site).not.toBe("");
+    expect(chunks).toBe(site);
+    expect(all.find((r) => r.source === "/lab")).toBeUndefined();
   });
 
-  it("lets strategy code reach only this site and the CDN", async () => {
-    const lab = policy((await rules()).find((r) => r.source === "/lab"));
+  it("lets strategy code reach only this site, the CDN and the Bank of Canada rate feed", async () => {
+    const lab = policy((await rules()).find((r) => r.source === "/:path*"));
     const connect = lab.split(";").map((d) => d.trim()).find((d) => d.startsWith("connect-src")) ?? "";
     const hosts = connect.split(/\s+/).slice(1).filter((t) => !t.startsWith("ws"));
-    expect(hosts.sort()).toEqual(["'self'", "https://cdn.jsdelivr.net"].sort());
+    expect(hosts.sort()).toEqual(["'self'", "https://cdn.jsdelivr.net", "https://www.bankofcanada.ca"].sort());
     expect(lab).toContain("object-src 'none'");
     expect(lab).toContain("frame-ancestors 'none'");
   });

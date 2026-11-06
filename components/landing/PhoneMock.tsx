@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useMotionValue, type MotionValue } from "framer-motion";
+import { m as motion, useMotionValue, type MotionValue } from "framer-motion";
 import { useEffect, type ReactNode, type RefObject } from "react";
 import CountUp from "../motion/CountUp";
 import { EASE, RevealGroup, RevealItem } from "../motion/Reveal";

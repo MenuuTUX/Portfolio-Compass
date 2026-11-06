@@ -24,19 +24,21 @@ const securityHeaders = [
 // reach the prototype's fetch, or start a nested worker), so the browser is told
 // to refuse the network instead. A worker takes its policy from the response
 // headers of its own script, so the same policy is sent with the JS chunks, and
-// the /lab page carries it too. Nothing here lets strategy code send data to a
-// host other than this site or the jsDelivr CDN that serves Monaco and Pyodide.
+// every page carries it too. Nothing here lets strategy code send data to a
+// host other than this site, the jsDelivr CDN that serves Monaco and Pyodide, and the Bank of Canada's public rate feed.
 // Strategy code can still read this site's own storage, but it cannot send it
 // anywhere.
 const dev = process.env.NODE_ENV !== 'production';
 const CDN = 'https://cdn.jsdelivr.net';
+// The browser reads the USD/CAD rate straight from the Bank of Canada (hooks/useBankOfCanadaFx.ts).
+const BANK_OF_CANADA = 'https://www.bankofcanada.ca';
 const labPolicy = [
     "default-src 'self'",
     // 'unsafe-eval' and 'wasm-unsafe-eval': strategies are compiled at run time and Pyodide is WebAssembly.
     // 'unsafe-inline': Next and next-themes inject inline scripts. Network egress is what this policy limits.
     `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: ${CDN}${dev ? ' https://va.vercel-scripts.com' : ''}`,
     "worker-src 'self' blob:",
-    `connect-src 'self' ${CDN}${dev ? ' ws: wss:' : ''}`,
+    `connect-src 'self' ${CDN} ${BANK_OF_CANADA}${dev ? ' ws: wss:' : ''}`,
     `style-src 'self' 'unsafe-inline' ${CDN}`,
     `font-src 'self' data: ${CDN}`,
     "img-src 'self' data: blob: https:",
@@ -71,8 +73,8 @@ const nextConfig = {
     async headers() {
         const csp = [{ key: 'Content-Security-Policy', value: labPolicy }];
         return [
-            { source: '/:path*', headers: securityHeaders },
-            { source: '/lab', headers: csp },
+            // The same policy on every page, so no page is left without the lab limits.
+            { source: '/:path*', headers: [...securityHeaders, ...csp] },
             // Ignored for a script a page loads; applied when the chunk is a worker's own script.
             { source: '/_next/static/chunks/:path*', headers: csp },
         ];
