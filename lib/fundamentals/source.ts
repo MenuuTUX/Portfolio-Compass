@@ -1,4 +1,5 @@
 import { buildCompanyFilings } from "./periods";
+import { extensionDepreciation } from "./ixbrl";
 import { normalizeTicker, type SecClient } from "./sec-client";
 import type { CompanyFilings, FilingsSourceId } from "./types";
 
@@ -31,10 +32,33 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
   const now = opts.now ?? Date.now;
   const cache = new Map<number, { value: CompanyFilings; expires: number }>();
 
+  /**
+   * When the latest year's D&A is a sum of two tags, the company may file a fuller total under its own extension
+   * tag that company-facts leaves out. The filing's inline XBRL is read for it, and a figure within a sane band of
+   * the sum replaces the sum. A failed or empty read keeps the sum.
+   */
+  async function refineDepreciation(c: CompanyFilings): Promise<CompanyFilings> {
+    const last = c.annual[c.annual.length - 1];
+    const da = last?.items.depreciationAmortization;
+    if (!last || !da || !da.tag.includes(" + ")) return c;
+    const filing = c.filings.find((f) => f.accn === da.accn);
+    if (!filing) return c;
+    try {
+      const html = await client.filingHtml(filing.url);
+      const found = html ? extensionDepreciation(html, last.start, last.end) : null;
+      if (!found || found.value < da.value * 0.6 || found.value > da.value * 2) return c;
+      const annual = c.annual.slice(0, -1);
+      annual.push({ ...last, items: { ...last.items, depreciationAmortization: { ...da, value: found.value, tag: found.tag } } });
+      return { ...c, annual };
+    } catch {
+      return c;
+    }
+  }
+
   async function buildOne(cik: number, ticker: string): Promise<CompanyFilings | null> {
     const [facts, sub] = await Promise.all([client.companyFacts(cik), client.submissions(cik)]);
     if (!facts || !sub) return null;
-    return buildCompanyFilings(facts, sub, { ticker, source: "edgar-live" });
+    return refineDepreciation(buildCompanyFilings(facts, sub, { ticker, source: "edgar-live" }));
   }
 
   /**

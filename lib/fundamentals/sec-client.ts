@@ -73,13 +73,13 @@ export function createSecClient(opts: SecClientOptions) {
   }
 
   /** One logical request: up to two attempts, the second only after 429 or 503. A 404 means not a filer: null. */
-  async function attempt<T>(url: string): Promise<T | null> {
+  async function attempt<T>(url: string, text = false): Promise<T | null> {
     for (let tries = 1; ; tries++) {
       await takeSlot();
       let res: Response;
       try {
         res = await doFetch(url, {
-          headers: { "User-Agent": opts.userAgent, Accept: "application/json" },
+          headers: { "User-Agent": opts.userAgent, Accept: text ? "text/html" : "application/json" },
           signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (e) {
@@ -89,7 +89,7 @@ export function createSecClient(opts: SecClientOptions) {
         throw e;
       }
       if (res.status === 404) return null;
-      if (res.ok) return (await res.json()) as T;
+      if (res.ok) return (text ? await res.text() : await res.json()) as T;
       if (tries === 1 && RETRY_STATUSES.has(res.status)) {
         await sleep(retryDelayMs(res.headers.get("Retry-After"), now()));
         continue;
@@ -99,12 +99,12 @@ export function createSecClient(opts: SecClientOptions) {
   }
 
   /** Concurrent callers share one attempt; a failure is remembered for 30 seconds. */
-  function getJson<T>(url: string): Promise<T | null> {
+  function getJson<T>(url: string, text = false): Promise<T | null> {
     const failed = failures.get(url);
     if (failed && failed.expires > now()) return Promise.reject(failed.error);
     const pending = inflight.get(url);
     if (pending) return pending as Promise<T | null>;
-    const task = attempt<T>(url).catch((error: unknown) => {
+    const task = attempt<T>(url, text).catch((error: unknown) => {
       failures.set(url, { error, expires: now() + FAILURE_TTL_MS });
       throw error;
     });
@@ -145,6 +145,8 @@ export function createSecClient(opts: SecClientOptions) {
     /** Null when the SEC has no submissions for the CIK. */
     submissions: (cik: number) =>
       getJson<SecSubmissions>(`https://data.sec.gov/submissions/CIK${padCik(cik)}.json`),
+    /** The text of one filing document (large: several megabytes). Null on a 404. */
+    filingHtml: (url: string) => getJson<string>(url, true),
     /** Null when the SEC has no company facts for the CIK. */
     companyFacts: (cik: number) =>
       getJson<SecCompanyFacts>(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padCik(cik)}.json`),

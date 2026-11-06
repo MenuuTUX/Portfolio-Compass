@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { createSecClient } from "@/lib/fundamentals/sec-client";
 import { edgarLiveSource, snapshotSource, withFallback, type FilingsSource } from "@/lib/fundamentals/source";
+import { buildCompanyFilings } from "@/lib/fundamentals/periods";
 import { fixtureCompany, loadFixture } from "./helpers";
 
 const UA = "Portfolio Compass test@example.com";
@@ -174,5 +175,51 @@ describe("holding-company successor registrants", () => {
     const c = (await live.getCompany("XOM"))!;
     expect(c.annual.length).toBe(0);
     expect(c.name).toBe("ExxonMobil Holdings Corp");
+  });
+});
+
+describe("D&A read from the filing's inline XBRL", () => {
+  /** AAPL fixture with D&A reduced to a depreciation-plus-amortization sum; the filing document is served from `docFor`. */
+  function setup(docFor: (start: string, end: string, sum: number) => string | null) {
+    const { facts, sub } = loadFixture("AAPL");
+    const f = structuredClone(facts) as typeof facts;
+    const us = f.facts["us-gaap"] as Record<string, { units: Record<string, { val: number }[]> }>;
+    const donor = us.DepreciationDepletionAndAmortization;
+    delete us.DepreciationDepletionAndAmortization;
+    us.Depreciation = { units: { USD: donor.units.USD.map((x) => ({ ...x, val: x.val * 0.6 })) } };
+    us.AmortizationOfIntangibleAssets = { units: { USD: donor.units.USD.map((x) => ({ ...x, val: x.val * 0.3 })) } };
+    const base = buildCompanyFilings(f, sub, { ticker: "AAPL", source: "snapshot" });
+    const last = base.annual.at(-1)!;
+    const sum = last.items.depreciationAmortization!.value;
+    expect(last.items.depreciationAmortization!.tag).toContain(" + ");
+    const doc = docFor(last.start, last.end, sum);
+    const fetchFn = (async (url: string) => {
+      if (url.includes("company_tickers")) return new Response(JSON.stringify(tickerFile));
+      if (url.includes("companyfacts")) return new Response(JSON.stringify(f));
+      if (url.includes("submissions")) return new Response(JSON.stringify(sub));
+      if (url.includes("/Archives/")) return doc === null ? new Response("", { status: 500 }) : new Response(doc);
+      return new Response("missing", { status: 404 });
+    }) as unknown as typeof fetch;
+    return { sum, live: edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} })) };
+  }
+  const page = (start: string, end: string, value: number) =>
+    `<xbrli:context id="c"><xbrli:period><xbrli:startDate>${start}</xbrli:startDate><xbrli:endDate>${end}</xbrli:endDate></xbrli:period></xbrli:context>` +
+    `<ix:nonFraction contextRef="c" name="aapl:DepreciationAmortizationAndOther" scale="0">${value.toLocaleString("en-US")}</ix:nonFraction>`;
+
+  it("replaces the sum with the company's own filed total", async () => {
+    const { sum, live } = setup((s, e, sum) => page(s, e, Math.round(sum * 1.25)));
+    const d = (await live.getCompany("AAPL"))!.annual.at(-1)!.items.depreciationAmortization!;
+    expect(d.tag).toBe("aapl:DepreciationAmortizationAndOther");
+    expect(d.value).toBe(Math.round(sum * 1.25));
+  });
+
+  it("keeps the sum when the filed figure is implausibly far from it", async () => {
+    const { live } = setup((s, e, sum) => page(s, e, Math.round(sum * 5)));
+    expect((await live.getCompany("AAPL"))!.annual.at(-1)!.items.depreciationAmortization!.tag).toContain(" + ");
+  });
+
+  it("keeps the sum when the filing cannot be read", async () => {
+    const { live } = setup(() => null);
+    expect((await live.getCompany("AAPL"))!.annual.at(-1)!.items.depreciationAmortization!.tag).toContain(" + ");
   });
 });
