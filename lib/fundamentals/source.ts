@@ -48,6 +48,16 @@ const CLASS_WEIGHTS: Record<number, Record<string, number>> = {
 };
 
 /**
+ * Whether a cover-page sum is far from the diluted average. Some filers tag the average in thousands or millions
+ * without scaling it (McDonald's tags 716 for 716 million), which would make any sum look wrong, so a diluted
+ * average that is about 1,000 or 1,000,000 times too small is read at the matching scale before comparing.
+ */
+function disagrees(sum: number, diluted: number): boolean {
+  const near = (r: number) => r >= 0.75 && r <= 1.33;
+  return ![1, 1e3, 1e6].some((scale) => near(sum / (diluted * scale)));
+}
+
+/**
  * Live: asks the SEC for a company's facts and submissions, builds the summary,
  * and keeps the last 50 summaries for six hours (least recently used goes first).
  */
@@ -133,7 +143,7 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       // With no diluted average to check against, the sum is kept: its classes count is above 1, which downstream
       // shows as an approximate per-share warning.
       const diluted = c.annual[c.annual.length - 1]?.items.dilutedShares?.value;
-      if (count.classes > 1 && !count.weighted && diluted && (count.value / diluted < 0.75 || count.value / diluted > 1.33)) return c;
+      if (count.classes > 1 && !count.weighted && diluted && disagrees(count.value, diluted)) return c;
       return { ...c, sharesOutstanding: { value: count.value, asOf: count.asOf, classes: count.classes, accn: filing.accn } };
     } catch {
       return c;

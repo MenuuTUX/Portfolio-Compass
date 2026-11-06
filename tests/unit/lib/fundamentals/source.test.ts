@@ -322,6 +322,12 @@ describe("cover share count read from the filing's inline XBRL", () => {
     expect(c.sharesOutstanding).toMatchObject({ value: 1000, classes: 2 });
   });
 
+  it("reads a diluted average filed in thousands at that scale instead of rejecting a sound sum (Dillard's)", async () => {
+    const live = setup((diluted, asOf) => inst("a", asOf) + inst("b", asOf) + fact("a", Math.round(diluted * 1000 * 0.9)) + fact("b", Math.round(diluted * 1000 * 0.1)));
+    const c = (await live.getCompany("AAPL"))!;
+    expect(c.sharesOutstanding?.classes).toBe(2);
+  });
+
   async function setupDiluted() {
     const { facts, sub } = loadFixture("AAPL");
     return buildCompanyFilings(facts, sub, { ticker: "AAPL", source: "snapshot" }).annual.at(-1)!.items.dilutedShares!.value;
