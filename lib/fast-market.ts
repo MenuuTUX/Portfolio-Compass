@@ -3,10 +3,11 @@ import pLimit from "p-limit";
 import { z } from "zod";
 import type { QuoteSession } from "@/lib/quote-session";
 import { calculateTTMYield, type DividendHistoryItem } from "@/lib/finance";
+import { fetchWithTimeout } from "@/lib/upstream";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
-const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"], fetch: fetchWithTimeout });
 
 export type ChartRange = "1D" | "1W" | "1M" | "1Y" | "5Y" | "MAX";
 
@@ -92,6 +93,9 @@ const RANGE_CONFIG = {
 } satisfies Record<ChartRange, RangeConfiguration>;
 
 const QUOTE_TTL_MS = 30_000;
+/** After a failed quote call, further calls fail fast for this long instead of piling onto a throttled Yahoo. */
+const QUOTE_COOLDOWN_MS = 5_000;
+let quotesDownUntil = 0;
 const DIVIDEND_HISTORY_TTL_MS = 30 * 60_000;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -119,6 +123,16 @@ function setCache<T>(key: string, entry: CacheEntry<T>): void {
 
 function isFiniteNumber(value: any): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+/** Share one in-flight call between identical concurrent requests; nothing is kept afterwards. */
+function coalesce<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const pending = inFlight.get(key);
+  // SAFETY: In-flight promises are keyed per caller and resolve to the same T as `fn`.
+  if (pending) return pending as Promise<T>;
+  const promise = fn().finally(() => inFlight.delete(key));
+  inFlight.set(key, promise);
+  return promise;
 }
 
 async function cached<T>(
@@ -326,24 +340,32 @@ export async function getFastQuotes(
   }
 
   if (misses.length > 0) {
-    try {
-      // validateResult:false keeps one symbol that fails Yahoo's strict schema
-      // (BRK-B has no price on some days) from rejecting the whole batch. The
-      // price filter below already drops entries that are unusable.
-      const raw = await yf.quote(misses, {}, { validateResult: false });
-      const quotes = Array.isArray(raw) ? raw : [raw];
-      for (const q of quotes) {
-        if (!q?.symbol || !isFiniteNumber(q.regularMarketPrice)) continue;
-        const mapped = mapQuote(q);
-        setCache(`q:${mapped.ticker}`, {
-          value: mapped,
-          expires: Date.now() + QUOTE_TTL_MS,
+    if (Date.now() < quotesDownUntil) {
+      if (options.throwOnError) throw new Error("Yahoo quotes are cooling down after a failure");
+    } else {
+      try {
+        // validateResult:false keeps one symbol that fails Yahoo's strict schema
+        // (BRK-B has no price on some days) from rejecting the whole batch. The
+        // price filter below already drops entries that are unusable.
+        // Identical concurrent batches share one Yahoo call.
+        const quotes = await coalesce(`qbatch:${[...misses].sort().join(",")}`, async () => {
+          const raw = await yf.quote(misses, {}, { validateResult: false });
+          return Array.isArray(raw) ? raw : [raw];
         });
-        result.set(mapped.ticker, mapped);
+        for (const q of quotes) {
+          if (!q?.symbol || !isFiniteNumber(q.regularMarketPrice)) continue;
+          const mapped = mapQuote(q);
+          setCache(`q:${mapped.ticker}`, {
+            value: mapped,
+            expires: Date.now() + QUOTE_TTL_MS,
+          });
+          result.set(mapped.ticker, mapped);
+        }
+      } catch (e) {
+        quotesDownUntil = Date.now() + QUOTE_COOLDOWN_MS;
+        console.warn("[FastMarket] Batch quote failed:", e);
+        if (options.throwOnError) throw e;
       }
-    } catch (e) {
-      console.warn("[FastMarket] Batch quote failed:", e);
-      if (options.throwOnError) throw e;
     }
   }
 

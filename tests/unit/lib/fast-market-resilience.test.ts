@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock, setSystemTime } from "bun:test";
 import { mockModule } from "@/tests/helpers/mock-module";
 
 const mockQuote = mock(async (..._args: unknown[]): Promise<unknown> => []);
@@ -19,11 +19,17 @@ await mockModule("yahoo-finance2", () => ({ default: FakeYahooFinance }));
 const fastMarket: typeof import("@/lib/fast-market") = await import("@/lib/fast-market?resilience");
 const { getFastQuotes, searchFastSymbols, invalidateMarketCache } = fastMarket;
 
+// A failed quote call starts a short cooldown. Each test begins a minute later
+// than the last so one test's failure never leaks into the next.
+let clock = Date.now();
 beforeEach(() => {
+  clock += 60_000;
+  setSystemTime(new Date(clock));
   mockQuote.mockReset();
   mockSearch.mockReset();
   invalidateMarketCache();
 });
+afterAll(() => setSystemTime());
 
 describe("getFastQuotes resilience", () => {
   it("asks Yahoo not to schema-validate, so one odd symbol cannot drop the batch", async () => {
@@ -48,9 +54,43 @@ describe("getFastQuotes resilience", () => {
     mockQuote.mockRejectedValue(new Error("Too Many Requests"));
     await expect(getFastQuotes(["VOO"], { throwOnError: true })).rejects.toThrow("Too Many Requests");
 
+    // Past the cooldown a lookup that finds nothing is "unknown ticker", not an outage.
+    setSystemTime(new Date(clock + 6_000));
     mockQuote.mockResolvedValue([]);
     const quotes = await getFastQuotes(["NOPE"], { throwOnError: true });
     expect(quotes.size).toBe(0);
+  });
+});
+
+describe("getFastQuotes load protection", () => {
+  it("makes one Yahoo call for identical concurrent lookups", async () => {
+    mockQuote.mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+      return [{ symbol: "AAPL", regularMarketPrice: 190, quoteType: "EQUITY" }];
+    });
+
+    const results = await Promise.all([1, 2, 3, 4, 5].map(() => getFastQuotes(["AAPL"], { bypassCache: true })));
+
+    expect(mockQuote.mock.calls.length).toBe(1);
+    for (const r of results) expect(r.get("AAPL")?.price).toBe(190);
+  });
+
+  it("does not call Yahoo again right after a failure", async () => {
+    mockQuote.mockRejectedValue(new Error("Too Many Requests"));
+    await getFastQuotes(["AAPL"]);
+    await getFastQuotes(["MSFT"]);
+    expect(mockQuote.mock.calls.length).toBe(1);
+  });
+
+  it("tries again once the cooldown has passed", async () => {
+    mockQuote.mockRejectedValueOnce(new Error("Too Many Requests"));
+    await getFastQuotes(["AAPL"]);
+
+    setSystemTime(new Date(clock + 6_000));
+    mockQuote.mockResolvedValue([{ symbol: "AAPL", regularMarketPrice: 190, quoteType: "EQUITY" }]);
+    const quotes = await getFastQuotes(["AAPL"]);
+
+    expect(quotes.get("AAPL")?.price).toBe(190);
   });
 });
 

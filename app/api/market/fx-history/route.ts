@@ -1,3 +1,4 @@
+import { cacheHeaders, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import type { HistoricalFxRate } from "@/lib/math/fx-history";
 
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { series },
-      { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=1800" } },
+      { headers: cacheHeaders(CACHE.fxHistory) },
     );
   } catch (error) {
     console.error("[API] Bank of Canada FX history failed:", error);

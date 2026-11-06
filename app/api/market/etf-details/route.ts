@@ -1,3 +1,4 @@
+import { cacheHeaders, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getFastEtfDetails,
@@ -30,9 +31,7 @@ export async function GET(request: NextRequest) {
     const details = await enrichEtfDetailsGaps(yahoo);
 
     return NextResponse.json(details, {
-      headers: {
-        "Cache-Control": "public, max-age=60, stale-while-revalidate=600",
-      },
+      headers: cacheHeaders(CACHE.etfDetails),
     });
   } catch (error) {
     console.error("[API] ETF details failed:", error);

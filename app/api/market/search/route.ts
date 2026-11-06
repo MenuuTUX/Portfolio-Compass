@@ -1,3 +1,4 @@
+import { cacheUnlessEmpty, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getFastQuotes,
@@ -80,9 +81,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(assets, {
-      headers: {
-        "Cache-Control": "public, max-age=5, stale-while-revalidate=15",
-      },
+      headers: cacheUnlessEmpty(CACHE.search, assets.length),
     });
   } catch (error) {
     console.error("[API] Fast market search failed:", error);

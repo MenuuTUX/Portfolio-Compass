@@ -1,3 +1,4 @@
+import { timeoutSignal } from '@/lib/upstream';
 import * as cheerio from 'cheerio';
 import { z } from 'zod';
 import { stockAnalysisPathForTicker } from '@/lib/asset-class';
@@ -71,6 +72,7 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
     const url = `https://stockanalysis.com/markets/${type}/`;
     const response = await fetch(url, {
         redirect: 'error',
+        signal: timeoutSignal(),
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
@@ -128,6 +130,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
     const response = await fetch(url, {
         redirect: 'error',
+        signal: timeoutSignal(),
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
@@ -229,6 +232,7 @@ export function parseMarketNumber(val: string): number | undefined {
 
 const fetchWithUserAgent = async (u: string) => fetch(u, {
   redirect: 'error',
+  signal: timeoutSignal(),
   headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
   }

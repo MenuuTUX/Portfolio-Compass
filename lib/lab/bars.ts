@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/upstream";
 import YahooFinance from "yahoo-finance2";
 import { toCompact, type CompactSeries } from "@/lib/lab/bar-types";
 import { mapChartResult } from "@/lib/lab/yahoo-bars";
@@ -8,7 +9,7 @@ import { mapChartResult } from "@/lib/lab/yahoo-bars";
 // response are consistent, and the client always replaces a ticker's history
 // whole rather than merging days from different responses.
 
-const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"], fetch: fetchWithTimeout });
 
 const DAY_MS = 86_400_000;
 const TTL_MS = 60 * 60_000;

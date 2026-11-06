@@ -6,9 +6,14 @@ import {
 import { getEtfDescription } from "@/lib/scrapers/etf-dot-com";
 import YahooFinance from "yahoo-finance2";
 import { z } from "zod";
+import { fetchWithTimeout } from "@/lib/upstream";
+import { cacheHeaders, CACHE } from "@/lib/http-cache";
+
+export const maxDuration = 30;
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
+  fetch: fetchWithTimeout,
 });
 
 const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
@@ -82,10 +87,13 @@ export async function GET(request: Request) {
 
   try {
     // Primary profile source
-    let profile: Partial<StockProfile> | null = await safely(() => getStockProfile(ticker));
-
-    // ETF.com descriptions are richer than Yahoo's, so they win when present
-    const etfDesc = await safely(() => getEtfDescription(ticker));
+    // The two scrapers are independent, so they run together instead of one after the other.
+    const [scraped, etfDesc] = await Promise.all([
+      safely(() => getStockProfile(ticker)),
+      // ETF.com descriptions are richer than Yahoo's, so they win when present
+      safely(() => getEtfDescription(ticker)),
+    ]);
+    let profile: Partial<StockProfile> | null = scraped;
     if (etfDesc) {
       profile = profile
         ? { ...profile, description: etfDesc }
@@ -154,11 +162,14 @@ export async function GET(request: Request) {
     // The profile card uses these descriptive fields only. Scraped analyst
     // targets lack a reliable as-of date and currency, so do not publish them
     // through this endpoint as though they were current advice.
-    return NextResponse.json({
-      sector: profile.sector,
-      industry: profile.industry,
-      description: profile.description,
-    });
+    return NextResponse.json(
+      {
+        sector: profile.sector,
+        industry: profile.industry,
+        description: profile.description,
+      },
+      { headers: cacheHeaders(CACHE.profile) },
+    );
   } catch (error) {
     console.error("Error fetching stock profile:", error);
 
