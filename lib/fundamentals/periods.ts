@@ -416,7 +416,10 @@ function latestSharesOutstanding(facts: SecCompanyFacts, notBefore?: string): Co
 }
 
 /** Sums the rows of the newest filing on the newest date. Earlier filings repeat old rows, so they are never added in. */
-function latestCount(list: SecFact[]): CompanyFilings["sharesOutstanding"] {
+function latestCount(all: SecFact[]): CompanyFilings["sharesOutstanding"] {
+  // A cover row of zero (a class not yet issued, or a placeholder) is not a count: dropped, so it can neither be the
+  // whole answer nor hide the older real count behind a stale-looking zero.
+  const list = all.filter((f) => f.val > 0);
   if (list.length === 0) return null;
   const latestEnd = list.reduce((m, f) => (f.end > m ? f.end : m), "");
   const onDate = list.filter((f) => f.end === latestEnd);

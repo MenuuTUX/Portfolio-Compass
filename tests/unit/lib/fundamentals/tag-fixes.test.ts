@@ -121,6 +121,13 @@ describe("cover-page share count", () => {
     expect(c.sharesOutstanding).toEqual({ value: 1050, asOf: "2026-01-20", accn: "a-2", classes: 3 });
   });
 
+  it("ignores a cover row of zero, so a placeholder is neither the count nor a reason to drop the real one", () => {
+    const onlyZero = buildCompanyFilings(dei([{ val: 0, accn: "a-2" }]), sub, { ticker: "t", source: "snapshot" });
+    expect(onlyZero.sharesOutstanding).toBeNull();
+    const zeroClass = buildCompanyFilings(dei([{ val: 0, accn: "a-2" }, { val: 900, accn: "a-2" }]), sub, { ticker: "t", source: "snapshot" });
+    expect(zeroClass.sharesOutstanding).toEqual({ value: 900, asOf: "2026-01-20", accn: "a-2", classes: 1 });
+  });
+
   it("does not double count class rows repeated in earlier filings for the same date", () => {
     const facts = dei([
       { val: 700, accn: "a-1", filed: "2026-02-01" },
