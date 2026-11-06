@@ -5,7 +5,7 @@ import { indexedDbBarStore, loadBars, memoryBarStore, type BarStore } from "@/li
 import type { BacktestReport, BacktestRequest, Targets } from "@/lib/lab/engine/backtest";
 import { DEFAULT_SMA_VALUES, sweepValues, type RobustnessRequest, type RobustnessResult, type TrendStrategy } from "@/lib/lab/engine/sweep";
 import type { WorkerRequest, WorkerResponse } from "@/lib/lab/engine/worker";
-import type { LabRequest } from "@/lib/lab/lab-form";
+import { warmupDaysFor, type LabRequest } from "@/lib/lab/lab-form";
 import { createStrategyClient, type StrategyClient } from "@/lib/lab/strategy/client";
 import type { LookaheadResult, Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
 
@@ -86,7 +86,10 @@ export function useLabEngine() {
     if (!w || !store.current || !strategies.current) throw new Error("The engine is still starting.");
     try {
       setStatus("loading-data");
-      const bars = await loadBars(request.tickers, request.start, request.end, { store: store.current });
+      const bars = await loadBars(request.tickers, request.start, request.end, {
+        store: store.current,
+        warmupDays: warmupDaysFor(request.strategy),
+      });
       const unavailable = bars.failed.filter((t) => !bars.series.some((s) => s.ticker === t));
       if (unavailable.length) {
         throw new Error(`Could not load ${unavailable.join(", ")} right now; the price service did not answer. Try again in a minute.`);
@@ -129,6 +132,7 @@ export function useLabEngine() {
         config: request.config,
         baseCurrency: "USD",
         targets,
+        start: request.start,
         benchmark: request.benchmark,
         strategy: strategy.kind === "code"
           ? { code: strategy.code, params: { language: strategy.language, universe: strategy.universe, ...strategy.params } }
@@ -169,7 +173,11 @@ export function useLabEngine() {
     const strategy = run.request.strategy;
     if (!w || !store.current) throw new Error("The engine is still starting.");
     if (strategy.kind !== "trend") throw new Error("Only the no-code trend rule can be swept.");
-    const bars = await loadBars(run.request.tickers, run.request.start, run.request.end, { store: store.current });
+    const values = sweepValues(strategy.smaDays, DEFAULT_SMA_VALUES);
+    const bars = await loadBars(run.request.tickers, run.request.start, run.request.end, {
+      store: store.current,
+      warmupDays: warmupDaysFor(strategy, Math.max(...values)),
+    });
     if (bars.failed.length || bars.missing.length) throw new Error("The price data for this run could not be loaded again. Try again in a minute.");
     const id = nextId.current++;
     const body: RobustnessRequest = {
@@ -177,7 +185,8 @@ export function useLabEngine() {
       config: run.request.config,
       baseCurrency: "USD",
       strategy: strategy as TrendStrategy,
-      values: sweepValues(strategy.smaDays, DEFAULT_SMA_VALUES),
+      values,
+      start: run.request.start,
       benchmark: run.request.benchmark,
     };
     const response = await new Promise<WorkerResponse>((resolve) => {

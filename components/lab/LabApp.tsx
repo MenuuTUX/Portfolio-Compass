@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import Link from "next/link";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import { motion } from "framer-motion";
-import { BLANK_FORM, isGuided, LAB_ACK_KEY, LAB_FORM_KEY, startGuided, toRequest, type LabForm } from "@/lib/lab/lab-form";
+import { BLANK_FORM, isGuided, LAB_ACK_KEY, LAB_FORM_KEY, startNoCode, toRequest, type LabForm } from "@/lib/lab/lab-form";
 import { extractTickers, lessonById, liveNotes } from "@/lib/lab/lessons";
 import { PaneResizer, RowResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
 import { EASE } from "@/components/motion/Reveal";
@@ -133,8 +133,8 @@ export default function LabApp() {
         // A corrupt draft is dropped.
       }
     } else {
-      // First visit: start in the first guided lesson.
-      setForm(startGuided());
+      // First visit: a no-code strategy, so nothing heavy downloads before the user asks for code.
+      setForm(startNoCode());
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);

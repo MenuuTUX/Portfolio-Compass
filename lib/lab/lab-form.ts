@@ -56,6 +56,8 @@ export interface LabForm {
   slippageBps: number;
   commissionBps: number;
   minCommission: number;
+  /** Percent a year on idle cash; also the risk-free rate Sharpe and Sortino subtract. */
+  cashRate: number;
   shares: BacktestConfig["shares"];
   dividends: BacktestConfig["dividends"];
   fill: BacktestConfig["fill"];
@@ -90,6 +92,7 @@ export const BLANK_FORM: LabForm = {
   slippageBps: 5,
   commissionBps: 0,
   minCommission: 0,
+  cashRate: 2,
   shares: "fractional",
   dividends: "reinvest",
   fill: "next-open",
@@ -125,13 +128,14 @@ export function applyLesson(form: LabForm, lesson: Lesson): LabForm {
     slippageBps: BLANK_FORM.slippageBps,
     commissionBps: BLANK_FORM.commissionBps,
     minCommission: BLANK_FORM.minCommission,
+    cashRate: BLANK_FORM.cashRate,
     shares: BLANK_FORM.shares,
     dividends: BLANK_FORM.dividends,
     fill: BLANK_FORM.fill,
   };
 }
 
-/** What a first-time visitor sees: the first lesson, loaded. */
+/** The first lesson, loaded. */
 export const startGuided = (): LabForm => applyLesson(BLANK_FORM, LESSONS[0]);
 
 export interface Template {
@@ -196,6 +200,12 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
+/**
+ * What a first-time visitor sees: the first template as a no-code form. It
+ * needs no code editor and no Python download, so it works on any network.
+ */
+export const startNoCode = (): LabForm => ({ ...BLANK_FORM, ...TEMPLATES[0].form() });
+
 export type PortfolioBasis = "value" | "target" | "equal";
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -232,6 +242,22 @@ export interface LabRequest {
   benchmark: string | undefined;
   start: string;
   end: string;
+}
+
+/** History a code strategy may need before the start date: about three years. */
+const CODE_WARMUP_DAYS = 1100;
+
+/**
+ * Calendar days of history to load before the start date so a strategy's
+ * indicators are already warm on the first day. `longestWindow` overrides a
+ * trend rule's own length, for a sweep that tries longer averages.
+ */
+export function warmupDaysFor(strategy: LabRequest["strategy"], longestWindow?: number): number {
+  const calendar = (tradingDays: number) => Math.ceil(tradingDays * 1.5) + 14;
+  if (strategy.kind === "code") return CODE_WARMUP_DAYS;
+  if (strategy.kind === "trend") return calendar(Math.max(strategy.smaDays, longestWindow ?? 0));
+  if (strategy.kind === "momentum") return calendar(strategy.lookbackDays);
+  return 0;
 }
 
 export interface CodeStrategy {
@@ -287,6 +313,7 @@ export function toRequest(form: LabForm): { request: LabRequest } | { errors: st
     if (!(v >= 0)) errors.push(`${label} must be 0 or more.`);
   }
   if (!Number.isFinite(form.contribution)) errors.push("The contribution must be a number.");
+  if (!(form.cashRate >= 0 && form.cashRate < 100)) errors.push("The cash interest rate must be between 0% and 100% a year.");
 
   if (errors.length) return { errors };
 
@@ -320,6 +347,7 @@ export function toRequest(form: LabForm): { request: LabRequest } | { errors: st
     shares: form.shares,
     dividends: form.dividends,
     rebalance,
+    cashRate: form.cashRate / 100,
     ...(form.contribution !== 0 ? { cashFlow: { amount: form.contribution, every: form.contributionEvery } } : {}),
   };
 

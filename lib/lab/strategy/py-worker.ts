@@ -25,6 +25,9 @@ interface Pyodide {
 const post = (msg: StrategyResponse) => (self as unknown as DedicatedWorkerGlobalScope).postMessage(msg);
 
 // Strategies may only reach the Pyodide CDN (to load packages such as scipy on import), nothing else.
+// This wrapper is a convenience and a clear error message; the real limit is the
+// Content-Security-Policy this worker is served with (see next.config.js),
+// because Python can reach the original fetch through the js module.
 const realFetch = self.fetch.bind(self);
 self.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;

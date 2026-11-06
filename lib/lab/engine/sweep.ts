@@ -1,6 +1,7 @@
 import type { BarSeries } from "@/lib/lab/bar-types";
-import { buildFrame, type Frame, type FxSeries } from "@/lib/lab/engine/frame";
-import { computeMetrics, dailyReturns } from "@/lib/lab/engine/metrics";
+import { buildFrame, sliceFrame, type FxSeries } from "@/lib/lab/engine/frame";
+import { deflatedSharpe, periodSharpe, returnMoments, sampleVariance } from "@/lib/lab/engine/deflated-sharpe";
+import { computeMetrics, dailyReturns, periodsPerYear } from "@/lib/lab/engine/metrics";
 import { runHash } from "@/lib/lab/engine/run-hash";
 import { simulate, type BacktestConfig } from "@/lib/lab/engine/simulate";
 import { compileStrategy, type NoCodeStrategy } from "@/lib/lab/no-code";
@@ -37,8 +38,22 @@ export interface RobustnessRequest {
   fx?: FxSeries;
   strategy: TrendStrategy;
   values: number[];
+  /** First date of the sweep; earlier bars in `series` only warm the moving averages. */
+  start?: string;
   benchmark?: string;
   riskFree?: number;
+}
+
+/** The best value's Sharpe after allowing for how many values were tried. */
+export interface SweepDeflation {
+  /** Variants in the sweep. */
+  trials: number;
+  /** Probability, 0 to 1, that the best value's edge is real once the trials are allowed for. */
+  probability: number;
+  /** Annualized Sharpe the best of this many no-edge variants would be expected to show. */
+  luckSharpe: number;
+  /** The best value's annualized Sharpe, for comparison. */
+  bestSharpe: number;
 }
 
 export interface RobustnessResult {
@@ -46,6 +61,8 @@ export interface RobustnessResult {
   points: SweepPoint[];
   /** The value with the best Sharpe in the sweep, chosen with hindsight. Null when no value has a Sharpe. */
   bestValue: number | null;
+  /** Null with fewer than two comparable values or too little history. */
+  deflated: SweepDeflation | null;
   /** Null when the history is too short for two walk-forward windows. */
   walkForward: WalkForwardResult | null;
   startDate: string;
@@ -58,18 +75,21 @@ export function sweepValues(own: number, defaults: number[] = DEFAULT_SMA_VALUES
 }
 
 export async function sweepTrend(req: RobustnessRequest): Promise<RobustnessResult> {
-  const frame: Frame = buildFrame(req.series, { baseCurrency: req.baseCurrency, fx: req.fx });
+  const full = buildFrame(req.series, { baseCurrency: req.baseCurrency, fx: req.fx });
+  const start = req.start ?? "";
+  const riskFree = req.riskFree ?? req.config.cashRate ?? 0;
+  const frame = sliceFrame(full, new Float64Array(0), start).frame;
   const values = [...new Set(req.values)].sort((a, b) => a - b);
   const points: SweepPoint[] = [];
   const returns: Float64Array[] = [];
   for (const value of values) {
     const strategy: TrendStrategy = { ...req.strategy, smaDays: value };
-    const sim = simulate(frame, compileStrategy(frame, strategy), req.config);
-    const m = computeMetrics(frame.dates, sim, { initialCash: req.config.initialCash, riskFree: req.riskFree });
+    const sim = simulate(frame, sliceFrame(full, compileStrategy(full, strategy), start).targets, req.config);
+    const m = computeMetrics(frame.dates, sim, { initialCash: req.config.initialCash, riskFree });
     // Same inputs as `runBacktest` hashes, so a swept value and a normal run of it share one identity.
     const hash = await runHash(
       frame,
-      { config: req.config, benchmark: req.benchmark ?? null, riskFree: req.riskFree ?? 0 },
+      { config: req.config, benchmark: req.benchmark ?? null, riskFree },
       { code: JSON.stringify(strategy) },
     );
     points.push({ value, hash, cagr: m.cagr, sharpe: m.sharpe, maxDrawdown: m.maxDrawdown ? m.maxDrawdown.depth : null });
@@ -85,17 +105,43 @@ export async function sweepTrend(req: RobustnessRequest): Promise<RobustnessResu
     }
   }
 
+  // Deflated Sharpe works in per-period units, on the best variant's own returns.
+  let deflated: SweepDeflation | null = null;
+  const best = points.findIndex((p) => p.value === bestValue);
+  if (best !== -1 && points.length >= 2) {
+    const ppy = periodsPerYear(frame.dates);
+    const perPeriod = returns.map((r) => periodSharpe(r.subarray(1), riskFree / ppy));
+    const bestReturns = returns[best].subarray(1);
+    const sr = perPeriod[best];
+    if (sr !== null && bestReturns.length > 2) {
+      const d = deflatedSharpe({
+        sharpe: sr,
+        observations: bestReturns.length,
+        ...returnMoments(bestReturns),
+        trials: points.length,
+        trialSharpeVariance: sampleVariance(perPeriod),
+      });
+      deflated = {
+        trials: points.length,
+        probability: d.probability,
+        luckSharpe: d.benchmarkSharpe * Math.sqrt(ppy),
+        bestSharpe: sr * Math.sqrt(ppy),
+      };
+    }
+  }
+
   return {
     parameter: "smaDays",
     points,
     bestValue,
+    deflated,
     walkForward: walkForward({
       dates: frame.dates,
       values,
       returns,
       trainBars: WALK_FORWARD_TRAIN_BARS,
       testBars: WALK_FORWARD_TEST_BARS,
-      riskFree: req.riskFree,
+      riskFree,
     }),
     startDate: frame.dates[0],
     endDate: frame.dates[frame.dates.length - 1],

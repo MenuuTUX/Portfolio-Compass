@@ -19,6 +19,33 @@ const securityHeaders = [
     },
 ];
 
+// Compass Lab runs code the user writes or pastes, in web workers. Removing
+// fetch() and friends inside a worker cannot be made airtight (a strategy can
+// reach the prototype's fetch, or start a nested worker), so the browser is told
+// to refuse the network instead. A worker takes its policy from the response
+// headers of its own script, so the same policy is sent with the JS chunks, and
+// the /lab page carries it too. Nothing here lets strategy code send data to a
+// host other than this site or the jsDelivr CDN that serves Monaco and Pyodide.
+// Strategy code can still read this site's own storage, but it cannot send it
+// anywhere.
+const dev = process.env.NODE_ENV !== 'production';
+const CDN = 'https://cdn.jsdelivr.net';
+const labPolicy = [
+    "default-src 'self'",
+    // 'unsafe-eval' and 'wasm-unsafe-eval': strategies are compiled at run time and Pyodide is WebAssembly.
+    // 'unsafe-inline': Next and next-themes inject inline scripts. Network egress is what this policy limits.
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: ${CDN}${dev ? ' https://va.vercel-scripts.com' : ''}`,
+    "worker-src 'self' blob:",
+    `connect-src 'self' ${CDN}${dev ? ' ws: wss:' : ''}`,
+    `style-src 'self' 'unsafe-inline' ${CDN}`,
+    `font-src 'self' data: ${CDN}`,
+    "img-src 'self' data: blob: https:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+].join('; ');
+
 const nextConfig = {
     images: {
         // /api/logo falls back to an SVG monogram; the CSP/attachment pair is Next's recommended hardening
@@ -42,7 +69,13 @@ const nextConfig = {
     // aliases can 500 if left as a bare external).
     serverExternalPackages: [],
     async headers() {
-        return [{ source: '/:path*', headers: securityHeaders }];
+        const csp = [{ key: 'Content-Security-Policy', value: labPolicy }];
+        return [
+            { source: '/:path*', headers: securityHeaders },
+            { source: '/lab', headers: csp },
+            // Ignored for a script a page loads; applied when the chunk is a worker's own script.
+            { source: '/_next/static/chunks/:path*', headers: csp },
+        ];
     },
 };
 

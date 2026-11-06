@@ -24,6 +24,8 @@ export interface BacktestConfig {
     | { mode: "on-change" }
     | { mode: "calendar"; every: Period }
     | { mode: "drift"; band: number };
+  /** Annual interest on cash balances, as a fraction (0.03 is 3%). Accrues by calendar day; unset means cash earns nothing. */
+  cashRate?: number;
   /** Added (or withdrawn when negative) on the first bar of each period, then invested at target weights. */
   cashFlow?: { amount: number; every: Exclude<Period, "W"> };
 }
@@ -131,6 +133,9 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
   let costsPaid = 0;
   let rebalanceDue = false;
   let invested = false;
+  // Tickers with a target weight but no price at the last rebalance (not yet
+  // listed, or a gap). The rebalance is retried on the first bar each one trades.
+  const blocked = new Set<number>();
 
   const roundShares = (s: number) => (config.shares === "whole" ? Math.floor(s + EPS) : s);
 
@@ -155,6 +160,7 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
   };
 
   const rebalance = (t: number, row: number) => {
+    blocked.clear();
     let value = cash;
     for (let j = 0; j < N; j++) {
       const p = fillPrices[t * N + j];
@@ -167,9 +173,10 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
       if (Number.isNaN(p)) {
         want[j] = shares[j];
         if (w > 0) {
+          blocked.add(j);
           warnings.add(Number.isNaN(lastClose[j])
-            ? `${tickers[j]} had a target weight before its first bar; that share stayed in cash.`
-            : `${tickers[j]} had no bar on a rebalance date; its position was left unchanged.`);
+            ? `${tickers[j]} had a target weight before its first bar; that share stayed in cash until it started trading.`
+            : `${tickers[j]} had no bar on a rebalance date; its position was left unchanged until its next bar.`);
         }
         continue;
       }
@@ -189,7 +196,14 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
     pendingReinvest.fill(0);
   };
 
+  const cashRate = config.cashRate ?? 0;
   for (let t = 0; t < T; t++) {
+    // 0. Interest on cash held since the previous bar.
+    if (cashRate > 0 && t > 0 && cash > 0) {
+      const elapsed = (Date.parse(`${dates[t]}T00:00:00Z`) - Date.parse(`${dates[t - 1]}T00:00:00Z`)) / 86_400_000;
+      cash *= (1 + cashRate) ** (elapsed / 365);
+    }
+
     // 1. Dividends go to shares held at the previous close.
     for (let j = 0; j < N; j++) {
       const d = frame.dividend[t * N + j];
@@ -213,8 +227,10 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
       if (invested) rebalanceDue = true;
     }
 
-    // 3. Orders decided at t-1 fill now.
-    if (t > 0 && rebalanceDue) {
+    // 3. Orders decided at t-1 fill now. A ticker that was blocked at the last
+    // rebalance and has a price today gets its turn, using the targets of t-1.
+    const unblocked = [...blocked].some((j) => !Number.isNaN(fillPrices[t * N + j]));
+    if (t > 0 && (rebalanceDue || unblocked)) {
       rebalance(t, t - 1);
       rebalanceDue = false;
     } else {

@@ -72,3 +72,34 @@ describe("sweepTrend", () => {
     expect(sweepValues(200)).toEqual([20, 50, 100, 150, 200, 250, 300]);
   });
 });
+
+describe("sweepTrend with a start date", () => {
+  it("reports from the start date while still using the history before it", async () => {
+    const n = 400;
+    const startDate = dates(n)[300];
+    const result = await sweepTrend({
+      ...base(n),
+      strategy: { ...strategy, smaDays: 200 },
+      values: [50, 200],
+      start: startDate,
+    });
+    expect(result.startDate).toBe(startDate);
+    expect(result.points).toHaveLength(2);
+  });
+});
+
+describe("sweepTrend deflation", () => {
+  it("reports how the best value holds up after trying every value", async () => {
+    const result = await sweepTrend({ ...base(800), values: [20, 50, 100, 150, 200] });
+    expect(result.deflated).not.toBeNull();
+    expect(result.deflated!.trials).toBe(5);
+    expect(result.deflated!.probability).toBeGreaterThanOrEqual(0);
+    expect(result.deflated!.probability).toBeLessThanOrEqual(1);
+    expect(result.deflated!.luckSharpe).toBeGreaterThan(0);
+  });
+
+  it("has nothing to deflate with a single value", async () => {
+    const result = await sweepTrend({ ...base(800), values: [50] });
+    expect(result.deflated).toBeNull();
+  });
+});

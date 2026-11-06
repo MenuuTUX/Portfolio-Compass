@@ -134,3 +134,21 @@ describe("loadBars", () => {
     expect(empty.missing).toEqual(["SPY"]);
   });
 });
+
+describe("loadBars warmup", () => {
+  const WIDE = ["2026-08-01", "2026-09-01", "2026-10-01", "2026-10-26"];
+  const store = () => memoryBarStore();
+
+  it("returns bars from before the start date so indicators can warm up", async () => {
+    const { fetchOne } = api((t, through) => ({ ok: true, series: compact(t, through, WIDE) }));
+    const r = await loadBars(["A"], "2026-10-01", "2026-10-29", { store: store(), fetchOne, now: TUESDAY, warmupDays: 45 });
+    expect(r.series[0].bars.map((b) => b.date)).toEqual(["2026-09-01", "2026-10-01", "2026-10-26"]);
+  });
+
+  it("still reports a ticker with no bars inside the window as missing", async () => {
+    const { fetchOne } = api((t, through) => ({ ok: true, series: compact(t, through, ["2026-08-20"]) }));
+    const r = await loadBars(["A"], "2026-10-01", "2026-10-29", { store: store(), fetchOne, now: TUESDAY, warmupDays: 60 });
+    expect(r.missing).toEqual(["A"]);
+    expect(r.series).toEqual([]);
+  });
+});

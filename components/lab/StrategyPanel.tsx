@@ -349,6 +349,13 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
             <Num id="lab-min" value={form.minCommission} min={0} step={1} suffix="$" onChange={(v) => set("minCommission", v)} />
           </div>
         </div>
+        <div>
+          <label htmlFor="lab-cash" className={label}>Cash interest and risk-free rate</label>
+          <Num id="lab-cash" value={form.cashRate} min={0} step={0.25} suffix="%/yr" onChange={(v) => set("cashRate", v)} />
+          <p className="mt-1 text-xs text-muted">
+            Idle cash earns this, and Sharpe and Sortino subtract it. One flat rate for the whole period, not the actual history of Treasury bills.
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
             <label htmlFor="lab-fill" className={label}>Fill at</label>

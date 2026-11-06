@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import type { RobustnessResult } from "@/lib/lab/engine/sweep";
+import type { RobustnessResult, SweepDeflation } from "@/lib/lab/engine/sweep";
 import { VARIANT_WARNING_AT } from "@/lib/lab/engine/variants";
 import type { LabRun } from "./useLabEngine";
 import { pct, signedPct } from "./format";
@@ -65,6 +65,27 @@ function SweepTable({ result, ownValue }: { result: RobustnessResult; ownValue: 
         ))}
       </tbody>
     </table>
+  );
+}
+
+function Deflation({ d }: { d: SweepDeflation }) {
+  const chance = Math.round(d.probability * 100);
+  const verdict =
+    chance < 50
+      ? "That is no better than luck would give."
+      : chance < 90
+        ? "That is not convincing yet."
+        : "That holds up better, though it is still one history.";
+  return (
+    <div role="note" className="space-y-1 rounded-lg p-3 text-sm text-body ring-1 ring-hairline">
+      <p>
+        Allowing for the {d.trials} lengths tried, the chance the best one has a real edge is{" "}
+        <span className="font-mono text-ink">{chance}%</span>. {verdict}
+      </p>
+      <p className="text-xs text-muted">
+        The best length has a Sharpe of {d.bestSharpe.toFixed(2)}. The best of {d.trials} rules with no edge would show about {d.luckSharpe.toFixed(2)} by luck alone (deflated Sharpe). It counts only the lengths in this sweep, so every other variant you have tried makes the true chance lower.
+      </p>
+    </div>
   );
 }
 
@@ -187,6 +208,7 @@ export default function RobustnessPanel({ run, variants, state, onRun }: Props) 
               <section aria-label="Parameter sweep" className="space-y-3 rounded-xl p-4 ring-1 ring-hairline">
                 <h4 className="text-sm font-medium text-ink">Moving-average length, {state.result.startDate} to {state.result.endDate}</h4>
                 <SweepTable result={state.result} ownValue={strategy.smaDays} />
+                {state.result.deflated && <Deflation d={state.result.deflated} />}
                 <p className="text-xs text-muted">
                   The best value in a sweep is optimistic: it was picked because it looked best on this history. If neighbouring lengths are close, the rule is not hanging on one setting. If only one stands out, treat it as luck until a test it was not picked on says otherwise.
                 </p>
