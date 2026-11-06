@@ -138,3 +138,41 @@ describe("withFallback", () => {
     await expect(chain.getCompany("AAPL")).rejects.toThrow(/No filings source answered/);
   });
 });
+
+describe("holding-company successor registrants", () => {
+  const holdco = { fields: tickerFile.fields, data: [[2115436, "ExxonMobil Holdings Corp", "XOM", "NYSE"]] };
+
+  /** The new CIK has only a cover-page share count and no annual report; the old CIK has the AAPL fixture history. */
+  function successorFetch(oldFails = false) {
+    const { facts, sub } = loadFixture("AAPL");
+    const emptyFacts = { cik: 2115436, entityName: "ExxonMobil Holdings Corp", facts: { dei: { EntityCommonStockSharesOutstanding: { units: { shares: [{ end: "2026-09-30", val: 4_079_222_444, accn: "0002115436-26-000020", form: "10-Q", filed: "2026-11-02", fy: 2026, fp: "Q3" }] } } } } };
+    const newSub = { ...sub, cik: "2115436", name: "ExxonMobil Holdings Corp", filings: { recent: { accessionNumber: ["0002115436-26-000020"], filingDate: ["2030-01-02"], reportDate: ["2026-09-30"], form: ["10-Q"], items: [""], primaryDocument: ["x.htm"] } } };
+    return (async (url: string) => {
+      if (url.includes("company_tickers")) return new Response(JSON.stringify(holdco));
+      if (url.includes("CIK0002115436") && url.includes("companyfacts")) return new Response(JSON.stringify(emptyFacts));
+      if (url.includes("CIK0002115436") && url.includes("submissions")) return new Response(JSON.stringify(newSub));
+      if (oldFails) return new Response("", { status: 500 });
+      if (url.includes("companyfacts")) return new Response(JSON.stringify(facts));
+      if (url.includes("submissions")) return new Response(JSON.stringify(sub));
+      return new Response("missing", { status: 404 });
+    }) as unknown as typeof fetch;
+  }
+
+  it("uses the predecessor's annual history with the holding company's name, cik and current share count", async () => {
+    const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: successorFetch(), sleep: async () => {} }));
+    const c = (await live.getCompany("XOM"))!;
+    expect(c.annual.length).toBeGreaterThan(3);
+    expect(c.name).toBe("ExxonMobil Holdings Corp");
+    expect(c.cik).toBe(2115436);
+    expect(c.ticker).toBe("XOM");
+    expect(c.sharesOutstanding?.value).toBe(4_079_222_444);
+    expect(c.filings[0].accn).toBe("0002115436-26-000020");
+  });
+
+  it("falls back to the registrant's own empty history when the predecessor cannot be read", async () => {
+    const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: successorFetch(true), sleep: async () => {} }));
+    const c = (await live.getCompany("XOM"))!;
+    expect(c.annual.length).toBe(0);
+    expect(c.name).toBe("ExxonMobil Holdings Corp");
+  });
+});

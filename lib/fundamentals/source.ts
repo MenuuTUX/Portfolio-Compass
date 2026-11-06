@@ -17,12 +17,47 @@ const LIVE_CACHE_MAX = 50;
 const LIVE_CACHE_TTL_MS = 6 * 3600_000;
 
 /**
+ * Holding-company reorganizations where the new registrant has no annual report yet: new CIK -> predecessor CIK.
+ * Each entry is a reviewed fact from the successor's 8-K12B, not a name guess.
+ * 2115436 ExxonMobil Holdings Corp (8-K12B filed 2026-07-01) succeeds 34088 Exxon Mobil Corporation.
+ */
+export const SUCCESSOR_REGISTRANTS: Record<number, number> = { 2115436: 34088 };
+
+/**
  * Live: asks the SEC for a company's facts and submissions, builds the summary,
  * and keeps the last 50 summaries for six hours (least recently used goes first).
  */
 export function edgarLiveSource(client: SecClient, opts: { now?: () => number } = {}): FilingsSource {
   const now = opts.now ?? Date.now;
   const cache = new Map<number, { value: CompanyFilings; expires: number }>();
+
+  async function buildOne(cik: number, ticker: string): Promise<CompanyFilings | null> {
+    const [facts, sub] = await Promise.all([client.companyFacts(cik), client.submissions(cik)]);
+    if (!facts || !sub) return null;
+    return buildCompanyFilings(facts, sub, { ticker, source: "edgar-live" });
+  }
+
+  /**
+   * A company that reorganized under a new holding company files under a new CIK with no annual report of its own.
+   * For the reorganizations listed in SUCCESSOR_REGISTRANTS, the predecessor's annual history and quarters are used
+   * with the holding company's name, current cover-page share count and filings on top.
+   */
+  async function buildFor(cik: number, ticker: string): Promise<CompanyFilings | null> {
+    const built = await buildOne(cik, ticker);
+    const predecessorCik = SUCCESSOR_REGISTRANTS[cik];
+    if (!built || built.annual.length > 0 || !predecessorCik) return built;
+    const old = await buildOne(predecessorCik, ticker).catch(() => null);
+    if (!old || old.annual.length === 0) return built;
+    return {
+      ...old,
+      cik: built.cik,
+      name: built.name,
+      sharesOutstanding: built.sharesOutstanding ?? old.sharesOutstanding,
+      filings: [...built.filings, ...old.filings].sort((a, b) => b.filed.localeCompare(a.filed)),
+      asOf: built.asOf > old.asOf ? built.asOf : old.asOf,
+    };
+  }
+
   return {
     id: "edgar-live",
     async getCompany(ticker) {
@@ -35,9 +70,8 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
         return { ...hit.value, ticker: entry.ticker };
       }
       cache.delete(entry.cik);
-      const [facts, sub] = await Promise.all([client.companyFacts(entry.cik), client.submissions(entry.cik)]);
-      if (!facts || !sub) return null;
-      const built = buildCompanyFilings(facts, sub, { ticker: entry.ticker, source: "edgar-live" });
+      const built = await buildFor(entry.cik, entry.ticker);
+      if (!built) return null;
       cache.set(entry.cik, { value: built, expires: now() + LIVE_CACHE_TTL_MS });
       while (cache.size > LIVE_CACHE_MAX) cache.delete(cache.keys().next().value!);
       return built;
