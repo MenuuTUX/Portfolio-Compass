@@ -49,7 +49,23 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       if (!found || found.value < da.value * 0.6 || found.value > da.value * 2) return c;
       const annual = c.annual.slice(0, -1);
       annual.push({ ...last, items: { ...last.items, depreciationAmortization: { ...da, value: found.value, tag: found.tag } } });
-      return { ...c, annual };
+      // Trailing = last year + year-to-date - prior year-to-date, so the correction carries over one for one. The
+      // in-year change still comes from the two tags, which the tag text and the note keep saying.
+      const tda = c.trailing?.items.depreciationAmortization;
+      const trailing = c.trailing && tda && tda.tag === da.tag
+        ? {
+          ...c.trailing,
+          items: {
+            ...c.trailing.items,
+            depreciationAmortization: {
+              ...tda,
+              value: tda.value + (found.value - da.value),
+              tag: c.trailing.basis === "annual" ? found.tag : `${found.tag} + quarterly change from parts`,
+            },
+          },
+        }
+        : c.trailing;
+      return { ...c, annual, trailing };
     } catch {
       return c;
     }

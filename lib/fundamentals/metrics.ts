@@ -7,7 +7,7 @@ export type Measure = { value: number; note?: string; reason?: undefined } | { v
 /** D&A built from two tags (depreciation plus intangible amortization) can differ a little from the cash-flow total the company files. */
 const approximateDaNote = (period: { items: Partial<Record<LineItem, { tag: string }>> } | null): string | undefined =>
   period?.items.depreciationAmortization?.tag.includes(" + ")
-    ? "D&A is depreciation plus intangible amortization; the cash-flow total the company files can differ by a few percent."
+    ? "Some of this D&A is depreciation plus intangible amortization added from two tags; the cash-flow total the company files can differ by a few percent."
     : undefined;
 
 const ok = (value: number, note?: string): Measure => {

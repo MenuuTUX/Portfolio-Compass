@@ -200,17 +200,23 @@ describe("D&A read from the filing's inline XBRL", () => {
       if (url.includes("/Archives/")) return doc === null ? new Response("", { status: 500 }) : new Response(doc);
       return new Response("missing", { status: 404 });
     }) as unknown as typeof fetch;
-    return { sum, live: edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} })) };
+    return { sum, trailing: base.trailing, live: edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} })) };
   }
   const page = (start: string, end: string, value: number) =>
     `<xbrli:context id="c"><xbrli:period><xbrli:startDate>${start}</xbrli:startDate><xbrli:endDate>${end}</xbrli:endDate></xbrli:period></xbrli:context>` +
     `<ix:nonFraction contextRef="c" name="aapl:DepreciationAmortizationAndOther" scale="0">${value.toLocaleString("en-US")}</ix:nonFraction>`;
 
   it("replaces the sum with the company's own filed total", async () => {
-    const { sum, live } = setup((s, e, sum) => page(s, e, Math.round(sum * 1.25)));
-    const d = (await live.getCompany("AAPL"))!.annual.at(-1)!.items.depreciationAmortization!;
+    const { sum, trailing, live } = setup((s, e, sum) => page(s, e, Math.round(sum * 1.25)));
+    const c = (await live.getCompany("AAPL"))!;
+    const d = c.annual.at(-1)!.items.depreciationAmortization!;
     expect(d.tag).toBe("aapl:DepreciationAmortizationAndOther");
     expect(d.value).toBe(Math.round(sum * 1.25));
+    // The trailing figure moves by the same correction and says its in-year change is still built from parts.
+    const before = trailing!.items.depreciationAmortization!.value;
+    const t = c.trailing!.items.depreciationAmortization!;
+    expect(t.value).toBe(before + (Math.round(sum * 1.25) - sum));
+    expect(t.tag).toBe(c.trailing!.basis === "annual" ? "aapl:DepreciationAmortizationAndOther" : "aapl:DepreciationAmortizationAndOther + quarterly change from parts");
   });
 
   it("keeps the sum when the filed figure is implausibly far from it", async () => {
