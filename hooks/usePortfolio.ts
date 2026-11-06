@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
-import { loadPortfolio, type LocalPortfolioItem } from "@/lib/storage";
+import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
 import { normalizeTicker, toPortfolioEtf } from "./normalize";
 import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
@@ -112,6 +112,13 @@ export function mergeLocalPortfolio(
   });
 }
 
+/** A holding with no usable price is retried at most this often while the market is closed. */
+const UNAVAILABLE_RETRY_MS = 30_000;
+
+/** Holdings and their weights and shares, as one string, so any edit changes it. */
+const holdingsSignature = (items: { ticker: string; weight: number; shares: number }[]) =>
+  items.map((item) => `${item.ticker}|${item.weight}|${item.shares}`).join(",");
+
 /**
  * Fetch portfolio prices first. Profiles and chart history hydrate afterward
  * so those slower requests do not hold up the current valuation.
@@ -119,6 +126,8 @@ export function mergeLocalPortfolio(
 export const usePortfolio = (refreshEnabled = false) => {
   const queryClient = useQueryClient();
   const wasRefreshEnabled = useRef(false);
+  // When quotes were last requested. Reused answers do not count, so the retry window stays fixed.
+  const lastNetworkFetch = useRef(0);
   const query = useQuery<Portfolio>({
     queryKey: ["portfolio"],
     queryFn: async ({ client }) => {
@@ -127,15 +136,20 @@ export const usePortfolio = (refreshEnabled = false) => {
 
       const tickers = localItems.map((item) => normalizeTicker(item.ticker));
       const previous = client.getQueryData<Portfolio>(["portfolio"]) ?? [];
-      const previousTickers = previous.map((item) => item.ticker).join(",");
-      if (
+      const sameHoldings =
         previous.length > 0 &&
-        previousTickers === tickers.join(",") &&
-        !isExtendedMarketSession()
-      ) {
+        holdingsSignature(previous) === holdingsSignature(
+          localItems.map((item) => ({ ticker: normalizeTicker(item.ticker), weight: item.weight, shares: item.shares })),
+        );
+      // Outside market hours the prices do not move, so the last answer is reused,
+      // except a holding with no price is retried (at most every 30 seconds).
+      const missingPrice = previous.some((item) => item.quoteStatus === "unavailable" || !(item.price > 0));
+      const retryDue = Date.now() - lastNetworkFetch.current >= UNAVAILABLE_RETRY_MS;
+      if (sameHoldings && !isExtendedMarketSession() && (!missingPrice || !retryDue)) {
         return previous;
       }
       const etfByTicker = new Map<string, ETF>();
+      lastNetworkFetch.current = Date.now();
 
       try {
         const response = await fetch(
@@ -180,6 +194,17 @@ export const usePortfolio = (refreshEnabled = false) => {
     refetchIntervalInBackground: false,
   });
   const { data, isStale, refetch } = query;
+
+  // Another tab changed the portfolio: refetch here so its edits show up.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === PORTFOLIO_STORAGE_KEY) {
+        void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [queryClient]);
 
   useEffect(() => {
     if (refreshEnabled && !wasRefreshEnabled.current && data && isStale) {

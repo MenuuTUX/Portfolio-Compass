@@ -14,7 +14,7 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from "recharts";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Portfolio } from "@/types";
 import { TickIcon } from "./TickIcon";

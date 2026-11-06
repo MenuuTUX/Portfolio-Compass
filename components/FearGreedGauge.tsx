@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { animate, useReducedMotion } from "framer-motion";
 import { EASE } from "./motion/Reveal";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { HelpTip } from "./ui/HelpTip";
 
-interface FearGreedData {
+export interface FearGreedData {
   score: number;
   rating: string;
   updatedAt: string;
@@ -16,6 +16,13 @@ interface FearGreedGaugeProps {
   className?: string;
   /** Panel-friendly form: no card chrome, tighter spacing, smaller dial. */
   compact?: boolean;
+  /**
+   * Reading supplied by a parent that already fetched it (null while unknown).
+   * When omitted, the gauge fetches the index itself.
+   */
+  data?: FearGreedData | null;
+  /** With `data`: the parent's fetch failed, so show the unavailable state. */
+  failed?: boolean;
 }
 
 interface Point {
@@ -67,18 +74,23 @@ function describeArc(
 /** Fear (red) through neutral (amber) to greed (green), shared with the watchlist mini bar. */
 export const FEAR_GREED_GRADIENT = ["#ed4f3c", "#e8a93a", "#6dc382"] as const;
 
-export default function FearGreedGauge({ className, compact = false }: FearGreedGaugeProps) {
-  const [data, setData] = useState<FearGreedData | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function FearGreedGauge({ className, compact = false, data: provided, failed: providedFailed = false }: FearGreedGaugeProps) {
+  const selfFetch = provided === undefined;
+  const [fetched, setFetched] = useState<FearGreedData | null>(null);
+  const [loading, setLoading] = useState(selfFetch);
   const [error, setError] = useState(false);
+  const data = selfFetch ? fetched : provided;
+  const failed = selfFetch ? error : providedFailed;
+  const waiting = selfFetch ? loading : provided === null && !providedFailed;
 
   useEffect(() => {
+    if (!selfFetch) return;
     async function fetchData() {
       try {
         const res = await fetch("/api/market/fear-greed");
         if (!res.ok) throw new Error("Failed to fetch");
         const json = await res.json();
-        setData(json);
+        setFetched(json);
       } catch (err) {
         console.error(err);
         setError(true);
@@ -87,18 +99,16 @@ export default function FearGreedGauge({ className, compact = false }: FearGreed
       }
     }
     fetchData();
-  }, []);
+  }, [selfFetch]);
 
   // Dial and number sweep up from 0 to the score
   const target = data?.score ?? null;
   const [shown, setShown] = useState(0);
   const reduce = useReducedMotion();
+  // Reduced motion shows the score at once.
+  if (reduce && target !== null && shown !== target) setShown(target);
   useEffect(() => {
-    if (target === null) return;
-    if (reduce) {
-      setShown(target);
-      return;
-    }
+    if (target === null || reduce) return;
     const controls = animate(0, target, {
       duration: 0.9,
       ease: EASE,
@@ -122,7 +132,7 @@ export default function FearGreedGauge({ className, compact = false }: FearGreed
   // Background full arc (track)
   const trackPath = describeArc(cx, cy, trackRadius, 180, 0);
 
-  if (loading) {
+  if (waiting) {
     return (
       <div
         className={cn(
@@ -135,7 +145,7 @@ export default function FearGreedGauge({ className, compact = false }: FearGreed
     );
   }
 
-  if (error || !data) {
+  if (failed || !data) {
     return (
       <div
         className={cn(

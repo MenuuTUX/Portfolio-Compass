@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { m as motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
 import {
   X,
@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   loadPortfolioBackup,
+  MAX_BACKUP_BYTES,
   mergePortfolioBackup,
   parsePortfolioBackup,
   savePortfolio,
@@ -77,6 +78,9 @@ export default function SettingsDrawer({
     if (!file) return;
 
     try {
+      if (file.size > MAX_BACKUP_BYTES) {
+        throw new Error("This backup file is larger than 1 MB.");
+      }
       let contents: unknown;
       try {
         contents = JSON.parse(await file.text());

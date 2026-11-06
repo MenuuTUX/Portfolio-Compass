@@ -4,10 +4,12 @@ import { mockModule } from "@/tests/helpers/mock-module";
 const mockQuote = mock(async (..._args: unknown[]): Promise<unknown> => []);
 const mockSearch = mock(async (..._args: unknown[]): Promise<unknown> => ({ quotes: [] }));
 
+const mockChart = mock(async (..._args: unknown[]): Promise<unknown> => ({ quotes: [] }));
+
 class FakeYahooFinance {
   quote = mockQuote;
   search = mockSearch;
-  chart = mock(async () => ({ quotes: [] }));
+  chart = mockChart;
   quoteSummary = mock(async () => ({}));
 }
 
@@ -27,6 +29,7 @@ beforeEach(() => {
   setSystemTime(new Date(clock));
   mockQuote.mockReset();
   mockSearch.mockReset();
+  mockChart.mockReset();
   invalidateMarketCache();
 });
 afterAll(() => setSystemTime());
@@ -105,5 +108,42 @@ describe("searchFastSymbols resilience", () => {
     });
 
     await expect(searchFastSymbols("apple")).resolves.toEqual(["AAPL", "SPY"]);
+  });
+});
+
+describe("dividend histories", () => {
+  const now = () => new Date(Date.now());
+  const fullYearChart = () => ({
+    quotes: [
+      { date: new Date(now().getTime() - 400 * 864e5) },
+      { date: new Date(now().getTime() - 864e5) },
+    ],
+    events: { dividends: [] },
+  });
+  const { getFastDividendHistories, getFastDividendHistory } = fastMarket;
+
+  it("does not hold a response for lookups that are slow, and keeps them for next time", async () => {
+    const chart = mock(async () => {
+      await new Promise((r) => setTimeout(r, 80));
+      return fullYearChart();
+    });
+    mockChart.mockImplementation(chart);
+
+    const early = await getFastDividendHistories(["VOO"], { budgetMs: 10 });
+    expect(early.has("VOO")).toBe(false);
+
+    await new Promise((r) => setTimeout(r, 120));
+    const later = await getFastDividendHistories(["VOO"], { budgetMs: 10 });
+    expect(later.get("VOO")).toEqual([]);
+    expect(chart.mock.calls.length).toBe(1);
+  });
+
+  it("remembers a failed lookup instead of asking Yahoo on every request", async () => {
+    mockChart.mockImplementation(async () => { throw new Error("Too Many Requests"); });
+
+    expect(await getFastDividendHistory("SPY")).toBeNull();
+    expect(await getFastDividendHistory("SPY")).toBeNull();
+
+    expect(mockChart.mock.calls.length).toBe(1);
   });
 });

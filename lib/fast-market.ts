@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { QuoteSession } from "@/lib/quote-session";
 import { calculateTTMYield, type DividendHistoryItem } from "@/lib/finance";
 import { fetchWithTimeout } from "@/lib/upstream";
+import { isTicker } from "@/lib/tickers";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -97,6 +98,15 @@ const QUOTE_TTL_MS = 30_000;
 const QUOTE_COOLDOWN_MS = 5_000;
 let quotesDownUntil = 0;
 const DIVIDEND_HISTORY_TTL_MS = 30 * 60_000;
+/** A failed dividend lookup is remembered this long, so a throttled Yahoo is not asked again on every request. */
+const DIVIDEND_FAILURE_TTL_MS = 60_000;
+/**
+ * How long a card-list response waits for dividend histories. Each ticker needs
+ * its own Yahoo call, so a cold list of 100 would otherwise add seconds. Tickers
+ * not done in time fall back to the quote's own yield (with its source label),
+ * and their lookups finish in the background for the next request.
+ */
+const DIVIDEND_BUDGET_MS = 2_500;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
@@ -168,12 +178,24 @@ function normalizeTickers(tickers: string[]): string[] {
     new Set(
       tickers
         .map((t) => t.trim().toUpperCase())
-        .filter((t) => /^[A-Z0-9.^=-]{1,12}$/.test(t)),
+        .filter(isTicker),
     ),
   );
 }
 
 export function mapQuote(q: any): FastQuote {
+  // Yahoo sometimes omits the change fields. Derive them from price and previous
+  // close so a missing value never shows as a flat 0.00%.
+  const prevClose = isFiniteNumber(q.regularMarketPreviousClose) ? q.regularMarketPreviousClose : undefined;
+  const derivedChange = isFiniteNumber(q.regularMarketPrice) && prevClose !== undefined
+    ? q.regularMarketPrice - prevClose
+    : undefined;
+  const regularChange = isFiniteNumber(q.regularMarketChange) ? q.regularMarketChange : derivedChange ?? 0;
+  const regularChangePercent = isFiniteNumber(q.regularMarketChangePercent)
+    ? q.regularMarketChangePercent
+    : derivedChange !== undefined && prevClose !== undefined && prevClose > 0
+      ? (derivedChange / prevClose) * 100
+      : 0;
   const low = q.regularMarketDayLow;
   const high = q.regularMarketDayHigh;
   const yearLow = q.fiftyTwoWeekLow;
@@ -247,15 +269,15 @@ export function mapQuote(q: any): FastQuote {
     quoteSession,
     retrievedAt: new Date().toISOString(),
     changePercent: hasPreMarketQuote
-      ? q.preMarketChangePercent ?? q.regularMarketChangePercent ?? 0
+      ? q.preMarketChangePercent ?? regularChangePercent
       : hasPostMarketQuote
-        ? q.postMarketChangePercent ?? q.regularMarketChangePercent ?? 0
-        : q.regularMarketChangePercent ?? 0,
+        ? q.postMarketChangePercent ?? regularChangePercent
+        : regularChangePercent,
     change: hasPreMarketQuote
-      ? q.preMarketChange ?? q.regularMarketChange ?? 0
+      ? q.preMarketChange ?? regularChange
       : hasPostMarketQuote
-        ? q.postMarketChange ?? q.regularMarketChange ?? 0
-        : q.regularMarketChange ?? 0,
+        ? q.postMarketChange ?? regularChange
+        : regularChange,
     assetType: q.quoteType === "ETF" ? "ETF" : "STOCK",
     marketCap: q.marketCap,
     volume: q.regularMarketVolume,
@@ -391,11 +413,31 @@ export function invalidateMarketCache(tickers?: string[]): void {
   }
   const clean = new Set(normalizeTickers(tickers));
   for (const key of [...cache.keys()]) {
-    // Keys look like q:AAPL, profile:AAPL, etfdetail:AAPL, hist:1M:AAPL,spark:…
-    const parts = key.split(/[:|,]/);
-    if (parts.some((p) => clean.has(p.toUpperCase()))) {
-      cache.delete(key);
-    }
+    // Only the ticker positions count: a range name such as MAX or 1M is not a ticker.
+    if (keyTickers(key).some((t) => clean.has(t))) cache.delete(key);
+  }
+}
+
+/** Tickers named in a cache key, read by the known key layouts. Unknown keys name none. */
+function keyTickers(key: string): string[] {
+  const [namespace, ...rest] = key.split(":");
+  switch (namespace) {
+    case "q":
+    case "profile":
+    case "etfdetail":
+    case "dividends":
+    case "website":
+      return [rest.join(":").toUpperCase()];
+    case "candles":
+    case "chart":
+    case "h":
+      // <namespace>:<range>:<ticker>
+      return [rest.slice(1).join(":").toUpperCase()];
+    case "spark":
+      // spark:<range>:<T1,T2,...>
+      return rest.slice(1).join(":").toUpperCase().split(",");
+    default:
+      return [];
   }
 }
 
@@ -562,12 +604,19 @@ async function fetchSparkChunk(
   return out;
 }
 
+/** Keep only the bars of the latest day present (ISO dates sort as text). */
+function lastTradingDay<T extends { date: string }>(bars: T[]): T[] {
+  const latest = bars.map((b) => b.date.slice(0, 10)).sort().at(-1);
+  return latest ? bars.filter((b) => b.date.slice(0, 10) === latest) : bars;
+}
+
 function rangeStart(range: ChartRange, now: Date): Date {
   const { range: yfRange } = RANGE_CONFIG[range];
   const period1 = new Date(now);
   switch (yfRange) {
     case "1d":
-      period1.setDate(now.getDate() - 1);
+      // Five calendar days so a weekend or Monday pre-open still reaches the last session.
+      period1.setDate(now.getDate() - 5);
       break;
     case "5d":
       period1.setDate(now.getDate() - 7);
@@ -601,7 +650,7 @@ async function fetchChartFallback(
     interval,
   });
 
-  return (res?.quotes || [])
+  const points = (res?.quotes || [])
     .filter((q) => q.close !== null && q.close !== undefined)
     .map((q): HistoryPoint => ({
       date: new Date(q.date).toISOString(),
@@ -611,6 +660,7 @@ async function fetchChartFallback(
         ? { adjPrice: q.adjclose }
         : {}),
     }));
+  return range === "1D" ? lastTradingDay(points) : points;
 }
 
 function isFiniteOhlc(q: {
@@ -650,7 +700,7 @@ export async function getFastCandles(
         close: q.close,
       });
     }
-    return out;
+    return range === "1D" ? lastTradingDay(out) : out;
   });
 }
 
@@ -843,18 +893,30 @@ export async function getFastDividendHistory(
     });
   } catch (error) {
     console.warn(`[FastMarket] Dividend history failed for ${symbol}:`, error);
+    setCache(`dividends:${symbol}`, { value: null, expires: Date.now() + DIVIDEND_FAILURE_TTL_MS });
     return null;
   }
 }
 
 export async function getFastDividendHistories(
   tickers: string[],
+  { budgetMs = DIVIDEND_BUDGET_MS }: { budgetMs?: number } = {},
 ): Promise<Map<string, DividendHistoryItem[] | null>> {
   const limit = pLimit(8);
-  const entries = await Promise.all(normalizeTickers(tickers).map((ticker) =>
-    limit(async () => [ticker, await getFastDividendHistory(ticker)] as const),
+  const done = new Map<string, DividendHistoryItem[] | null>();
+  let closed = false;
+  const all = Promise.all(normalizeTickers(tickers).map((ticker) =>
+    limit(async () => {
+      const history = await getFastDividendHistory(ticker);
+      if (!closed) done.set(ticker, history);
+    }),
   ));
-  return new Map(entries);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([all, new Promise<void>((resolve) => { timer = setTimeout(resolve, budgetMs); })]);
+  clearTimeout(timer);
+  closed = true;
+  // Late lookups keep running and fill the cache; a ticker missing here has no entry, as if never asked.
+  return new Map(done);
 }
 
 export function isChartRange(value: string): value is ChartRange {

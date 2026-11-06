@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching market movers:", error);
     return NextResponse.json(
       { error: "Failed to fetch market movers" },
-      { status: 500 },
+      { status: 502 },
     );
   }
 }

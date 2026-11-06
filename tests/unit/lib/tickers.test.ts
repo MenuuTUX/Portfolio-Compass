@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseTickers, toYahooSymbol } from "@/lib/tickers";
+import { isTicker, parseTickers, toYahooSymbol } from "@/lib/tickers";
 
 describe("parseTickers", () => {
   test("keeps valid symbols and drops junk", () => {
@@ -26,6 +26,20 @@ describe("toYahooSymbol", () => {
   test("leaves exchange suffixes and other symbols alone", () => {
     for (const t of ["XIC.TO", "ABC.V", "VOD.L", "AAPL", "^GSPC", "CAD=X", "BTC-USD"]) {
       expect(toYahooSymbol(t)).toBe(t);
+    }
+  });
+});
+
+describe("isTicker", () => {
+  test("accepts every symbol the app lets a user add", () => {
+    for (const t of ["AAPL", "brk.b", "BRK-B", "XIC.TO", "^GSPC", "CAD=X", "BTC-USD", "1COV.DE", "A".repeat(15)]) {
+      expect(isTicker(t)).toBe(true);
+    }
+  });
+
+  test("rejects junk, path tricks and over-long input", () => {
+    for (const t of ["", "..", ".", "-X", "=X", "A B", "A".repeat(16), "<script>", "AAPL/../x"]) {
+      expect(isTicker(t)).toBe(false);
     }
   });
 });

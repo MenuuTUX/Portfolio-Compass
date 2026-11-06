@@ -77,9 +77,10 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
     });
+    // Throw rather than return []: an empty list reads as "no movers today" and
+    // would be cached as a real answer.
     if (!response.ok) {
-        console.error(`Failed to fetch ${type}: ${response.status}`);
-        return [];
+        throw new Error(`Failed to fetch ${type}: ${response.status}`);
     }
     const html = await response.text();
     const $ = cheerio.load(html);

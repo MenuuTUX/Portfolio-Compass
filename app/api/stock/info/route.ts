@@ -3,7 +3,6 @@ import {
   getStockProfile,
   type StockProfile,
 } from "@/lib/scrapers/stock-analysis";
-import { getEtfDescription } from "@/lib/scrapers/etf-dot-com";
 import YahooFinance from "yahoo-finance2";
 import { z } from "zod";
 import { fetchWithTimeout } from "@/lib/upstream";
@@ -87,18 +86,7 @@ export async function GET(request: Request) {
 
   try {
     // Primary profile source
-    // The two scrapers are independent, so they run together instead of one after the other.
-    const [scraped, etfDesc] = await Promise.all([
-      safely(() => getStockProfile(ticker)),
-      // ETF.com descriptions are richer than Yahoo's, so they win when present
-      safely(() => getEtfDescription(ticker)),
-    ]);
-    let profile: Partial<StockProfile> | null = scraped;
-    if (etfDesc) {
-      profile = profile
-        ? { ...profile, description: etfDesc }
-        : { sector: "Unknown", industry: "Unknown", description: etfDesc };
-    }
+    let profile: Partial<StockProfile> | null = await safely(() => getStockProfile(ticker));
 
     // Fall back to Yahoo when description or basic info is still missing
     if (!profile || isBoilerplateDescription(profile.description)) {

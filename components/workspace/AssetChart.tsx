@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { m as motion, useReducedMotion } from "framer-motion";
 import { EASE } from "../motion/Reveal";
 import Shimmer from "./Shimmer";
 import { LineChart as LineChartIcon, RefreshCw } from "lucide-react";

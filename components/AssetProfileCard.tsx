@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 interface StockInfo {
   sector: string;

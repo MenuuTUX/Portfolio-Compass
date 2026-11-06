@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 
 interface SectorPieChartProps {
   sectors?: { [key: string]: number };

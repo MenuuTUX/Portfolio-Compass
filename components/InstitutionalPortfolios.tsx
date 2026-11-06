@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   Check,
   Plus,
@@ -19,7 +19,7 @@ import {
   INSTITUTIONAL_DATA,
   Institution,
 } from "@/lib/institutional-portfolios";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { COLORS } from "./SectorPieChart";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { EASE } from "./motion/Reveal";
@@ -204,7 +204,7 @@ export default function InstitutionalPortfolios({
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25, ease: EASE }}
                 onClick={closeInstitutional}
-                className="fixed inset-0 z-50 overflow-y-auto bg-canvas/55 backdrop-blur-2xl backdrop-saturate-150"
+                className="ws-scrim fixed inset-0 z-50 overflow-y-auto"
               >
                 <div
                   ref={dialogRef}

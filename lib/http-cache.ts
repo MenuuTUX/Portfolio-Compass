@@ -39,4 +39,5 @@ export const CACHE = {
   movers: { browser: 60, cdn: 120, swr: 600 },
   fearGreed: { browser: 300, cdn: 600, swr: 3600 },
   profile: { browser: 3600, cdn: 21_600, swr: 86_400 },
+  valuation: { browser: 60, cdn: 300, swr: 3600 },
 } satisfies Record<string, CacheSpec>;

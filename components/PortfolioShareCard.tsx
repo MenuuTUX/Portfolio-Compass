@@ -32,6 +32,8 @@ export interface ShareCardProps {
     scenario: string;
     growthType: "Simple" | "Monte Carlo";
     percentageGrowth: number;
+    /** True when a Monte Carlo run included monthly contributions, so totalInvested is the starting balance plus them. */
+    contributionsModeled?: boolean;
   };
   chartData: {
     value: number;
@@ -284,7 +286,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-neutral-500 text-xs font-bold  mb-2">
               {metrics.dividends == null
-                ? metrics.growthType === "Monte Carlo" ? "Starting Balance" : "Total Amount Invested"
+                ? metrics.growthType === "Monte Carlo" && !metrics.contributionsModeled ? "Starting Balance" : "Total Amount Invested"
                 : "Estimated Dividends"}
             </div>
             <div className="text-3xl font-bold text-body-strong tracking-tight mb-1">
@@ -292,7 +294,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-xs text-neutral-500 font-medium">
               {metrics.dividends == null
-                ? metrics.growthType === "Monte Carlo" ? "No contributions modeled" : "Starting balance plus contributions"
+                ? metrics.growthType === "Monte Carlo" && !metrics.contributionsModeled ? "No contributions modeled" : "Starting balance plus contributions"
                 : "Reinvested in the model"}
             </div>
           </div>
@@ -303,7 +305,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-neutral-500 text-xs font-bold  mb-2">
               {metrics.growthType === "Monte Carlo"
-                ? "Median Simulated CAGR"
+                ? (metrics.contributionsModeled ? "Median Yearly Return" : "Median Simulated CAGR")
                 : "Assumed Annual Return"}
             </div>
             <div className="text-3xl font-bold text-ink tracking-tight mb-1">
@@ -311,7 +313,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-xs text-neutral-500 font-medium">
               {metrics.growthType === "Monte Carlo"
-                ? "Derived from the median path"
+                ? (metrics.contributionsModeled ? "On money put in, from the median path" : "Derived from the median path")
                 : "Used as a constant model input"}
             </div>
           </div>

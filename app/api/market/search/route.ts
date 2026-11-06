@@ -8,7 +8,7 @@ import {
   quoteToAsset,
 } from "@/lib/fast-market";
 import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
-import { toYahooSymbol } from "@/lib/tickers";
+import { isTicker, toYahooSymbol } from "@/lib/tickers";
 
 export const maxDuration = 30;
 
@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
     if (query) {
       const exactTicker = toYahooSymbol(query);
       // US tickers have at most 5 letters, so a longer all-letter word is a name.
-      const isTicker =
-        /^[A-Z0-9.^=-]{1,12}$/.test(exactTicker) && !/^[A-Z]{6,}$/.test(exactTicker);
-      triedAsTicker = isTicker;
-      tickers = isTicker
+      const looksLikeTicker =
+        isTicker(exactTicker) && !/^[A-Z]{6,}$/.test(exactTicker);
+      triedAsTicker = looksLikeTicker;
+      tickers = looksLikeTicker
         ? [exactTicker]
         : await searchFastSymbols(query, assetType, 20);
     } else {

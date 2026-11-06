@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { fetchWithTimeout, UPSTREAM_TIMEOUT_MS } from "@/lib/upstream";
 import { getMarketMovers, getStockProfile } from "@/lib/scrapers/stock-analysis";
-import { getEtfDescription } from "@/lib/scrapers/etf-dot-com";
 import { fetchFearAndGreedIndex } from "@/lib/scrapers/fear-greed";
 
 const realFetch = globalThis.fetch;
@@ -33,11 +32,10 @@ describe("upstream timeouts", () => {
   it("every scraper request carries an abort signal", async () => {
     const signals = stubFetch();
     await getStockProfile("AAPL");
-    await getMarketMovers("gainers");
-    await getEtfDescription("VOO");
+    await getMarketMovers("gainers").catch(() => undefined); // an upstream failure now throws
     await fetchFearAndGreedIndex().catch(() => undefined);
 
-    expect(signals.length).toBeGreaterThanOrEqual(4);
+    expect(signals.length).toBeGreaterThanOrEqual(3);
     for (const s of signals) expect(s).toBeInstanceOf(AbortSignal);
   });
 });

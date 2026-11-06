@@ -10,15 +10,9 @@ const mockGetStockProfile = mock<AsyncMockFn>(async () => ({
   description: 'Apple Inc. designs...'
 }));
 
-const mockGetEtfDescription = mock<AsyncMockFn>(async () => null);
-
 // Mock the modules
 await mockModule('@/lib/scrapers/stock-analysis', () => ({
   getStockProfile: mockGetStockProfile
-}));
-
-await mockModule('@/lib/scrapers/etf-dot-com', () => ({
-  getEtfDescription: mockGetEtfDescription
 }));
 
 // Mock yahoo-finance2
@@ -40,7 +34,6 @@ const { GET } = await import('../../../app/api/stock/info/route');
 describe('GET /api/stock/info', () => {
   beforeEach(() => {
     mockGetStockProfile.mockClear();
-    mockGetEtfDescription.mockClear();
     mockQuoteSummary.mockClear();
   });
 
@@ -81,17 +74,14 @@ describe('GET /api/stock/info', () => {
     });
   });
 
-  it('should try ETF.com if description is missing, then fallback to Yahoo', async () => {
+  it('falls back to Yahoo when the scraped description is missing', async () => {
     // 1. StockAnalysis returns no description
     mockGetStockProfile.mockResolvedValueOnce({
         sector: 'Tech',
         industry: 'Chips',
         description: ''
     });
-    // 2. ETF.com returns null (simulating not found or error)
-    mockGetEtfDescription.mockResolvedValueOnce(null);
-
-    // 3. Yahoo returns data
+    // 2. Yahoo returns data
     mockQuoteSummary.mockResolvedValueOnce({
         summaryProfile: {
             longBusinessSummary: 'Yahoo description',
@@ -105,41 +95,16 @@ describe('GET /api/stock/info', () => {
     const json = await res.json();
 
     expect(mockGetStockProfile).toHaveBeenCalledWith('NVDA');
-    expect(mockGetEtfDescription).toHaveBeenCalledWith('NVDA');
     expect(mockQuoteSummary).toHaveBeenCalledWith('NVDA', expect.anything());
     expect(json.description).toBe('Yahoo description');
     expect(json.sector).toBe('Tech');
   });
 
-  it('should use ETF.com description if StockAnalysis description is missing', async () => {
-      mockGetStockProfile.mockResolvedValueOnce({
-          sector: 'Financial',
-          industry: 'ETF',
-          description: ''
-      });
-      mockGetEtfDescription.mockResolvedValueOnce('ETF.com Analysis & Insights');
+  it('lets the CDN keep a successful profile, and nothing else', async () => {
+    const ok = await GET(new Request('http://localhost/api/stock/info?ticker=AAPL'));
+    expect(ok.headers.get('Vercel-CDN-Cache-Control')).toContain('max-age=');
 
-      const req = new Request('http://localhost/api/stock/info?ticker=SLV');
-      const res = await GET(req);
-      const json = await res.json();
-
-      expect(mockGetEtfDescription).toHaveBeenCalledWith('SLV');
-      expect(json.description).toBe('ETF.com Analysis & Insights');
-      expect(mockQuoteSummary).not.toHaveBeenCalled();
-  });
-
-  it('should use ETF.com description if StockAnalysis sector is Unknown (implying poor data)', async () => {
-       mockGetStockProfile.mockResolvedValueOnce({
-           sector: 'Unknown',
-           industry: 'Unknown',
-           description: 'Some weak description'
-       });
-       mockGetEtfDescription.mockResolvedValueOnce('Better ETF description');
-
-       const req = new Request('http://localhost/api/stock/info?ticker=BADDATA');
-       const res = await GET(req);
-       const json = await res.json();
-
-       expect(json.description).toBe('Better ETF description');
+    const bad = await GET(new Request('http://localhost/api/stock/info'));
+    expect(bad.headers.get('Vercel-CDN-Cache-Control')).toBeNull();
   });
 });

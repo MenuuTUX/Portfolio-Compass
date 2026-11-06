@@ -1,6 +1,6 @@
 import { ImageOff } from "lucide-react";
 import { PortfolioItem } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 interface ImportPortfolioCardProps {
   onImport: (portfolio: PortfolioItem[]) => void;

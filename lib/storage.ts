@@ -1,3 +1,4 @@
+import { isTicker } from "@/lib/tickers";
 import { z } from "zod";
 
 /**
@@ -5,8 +6,14 @@ import { z } from "zod";
  * Nothing is written to a server database.
  *
  * Key: portfolio_compass_v1
- * Shape: [{ ticker, weight, shares }, ...]
+ * Shape: { v: 2, items: [{ ticker, weight, shares }, ...] }
+ * Older saves wrote the bare array; loads accept both and the next save migrates.
  */
+
+/** A backup file larger than this is refused before it is parsed. */
+export const MAX_BACKUP_BYTES = 1_000_000;
+/** More holdings than this in a backup is refused; no real portfolio gets close. */
+export const MAX_BACKUP_HOLDINGS = 500;
 
 /**
  * A blank number input yields NaN and a pasted "-5" yields a negative holding.
@@ -27,6 +34,9 @@ export const LocalPortfolioSchema = z.array(LocalPortfolioItemSchema);
 
 /** Validate a backup and normalize ticker identity before preview or restore. */
 export function parsePortfolioBackup(input: unknown): LocalPortfolioItem[] {
+  if (Array.isArray(input) && input.length > MAX_BACKUP_HOLDINGS) {
+    throw new Error(`A backup can hold at most ${MAX_BACKUP_HOLDINGS} holdings.`);
+  }
   const result = LocalPortfolioSchema.safeParse(input);
   if (!result.success) {
     throw new Error("Backup must be an array of holdings with a ticker, target weight, and non-negative shares.");
@@ -35,8 +45,8 @@ export function parsePortfolioBackup(input: unknown): LocalPortfolioItem[] {
   const seen = new Set<string>();
   return result.data.map((item) => {
     const ticker = item.ticker.trim().toUpperCase();
-    if (!/^[A-Z0-9.-]{1,12}$/.test(ticker)) {
-      throw new Error(`“${item.ticker}” is not a valid ticker. Use 1–12 letters, numbers, dots, or dashes.`);
+    if (!isTicker(ticker)) {
+      throw new Error(`“${item.ticker}” is not a valid ticker. Use 1–15 letters, numbers, dots, dashes, ^ or =.`);
     }
     if (seen.has(ticker)) {
       throw new Error(`Backup contains ${ticker} more than once.`);
@@ -64,6 +74,18 @@ export function mergePortfolioBackup(
 }
 
 const STORAGE_KEY = "portfolio_compass_v1";
+/** The LocalStorage key that holds the portfolio; other tabs write to it too. */
+export const PORTFOLIO_STORAGE_KEY = STORAGE_KEY;
+const ENVELOPE_VERSION = 2;
+
+/** Return the holdings from either the v2 envelope or the older bare array. */
+function holdingsFrom(parsed: unknown): unknown {
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const envelope = parsed as { v?: unknown; items?: unknown };
+    if (envelope.v === ENVELOPE_VERSION) return envelope.items;
+  }
+  return parsed;
+}
 
 export function savePortfolio(items: LocalPortfolioItem[]) {
   if (!globalThis.window) return;
@@ -71,8 +93,12 @@ export function savePortfolio(items: LocalPortfolioItem[]) {
   // Validate schema - will throw ZodError if invalid
   const validItems = LocalPortfolioSchema.parse(items);
 
-  // Save to storage - will throw if quota exceeded
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(validItems));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: ENVELOPE_VERSION, items: validItems }));
+  } catch {
+    // Quota exceeded or storage disabled (private mode): say so in plain words.
+    throw new Error("Your browser blocked saving your portfolio (storage is full or disabled)");
+  }
 }
 
 export function loadPortfolio(): LocalPortfolioItem[] {
@@ -89,7 +115,8 @@ export function loadPortfolio(): LocalPortfolioItem[] {
       return [];
     }
 
-    const result = LocalPortfolioSchema.safeParse(parsed);
+    const holdings = holdingsFrom(parsed);
+    const result = LocalPortfolioSchema.safeParse(holdings);
     if (result.success) return result.data;
 
     // One bad holding must not make the whole portfolio look empty, because the
@@ -97,7 +124,7 @@ export function loadPortfolio(): LocalPortfolioItem[] {
     // ticker, reset unusable numbers to 0, and keep the raw text for recovery.
     preserveCorruptPortfolio(raw);
     console.warn("Local portfolio data partly invalid, repaired:", result.error);
-    return repairPortfolio(parsed);
+    return repairPortfolio(holdings);
   } catch (error) {
     console.error("Failed to load portfolio from local storage:", error);
     return [];
@@ -145,7 +172,7 @@ export function loadPortfolioBackup(): LocalPortfolioItem[] {
   if (raw === null) return [];
 
   try {
-    return parsePortfolioBackup(JSON.parse(raw));
+    return parsePortfolioBackup(holdingsFrom(JSON.parse(raw)));
   } catch {
     throw new Error("Stored portfolio data is corrupted and could not be exported.");
   }
