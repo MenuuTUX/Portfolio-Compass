@@ -3,18 +3,11 @@
 import { useId, useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { compactMoney } from "@/lib/format";
+import type { FanBand } from "@/lib/monte-carlo-run";
 import { valueTicks, yearTicks } from "./format";
 
 const W = 1000;
 const MAX_POINTS = 160;
-
-export interface FanBand {
-  /** Trading day of each point. */
-  days: number[];
-  p10: number[];
-  p50: number[];
-  p90: number[];
-}
 
 interface PathFanProps {
   /** Values per path at each of `days`. */
