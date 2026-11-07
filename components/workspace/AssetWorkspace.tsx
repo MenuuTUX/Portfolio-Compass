@@ -39,7 +39,6 @@ interface AssetWorkspaceProps {
   onRemove: (ticker: string) => void;
   detailsOpen: boolean;
   onToggleDetails: () => void;
-  /** Returns to the market overview (heatmap) when provided. */
   onBack?: () => void;
 }
 

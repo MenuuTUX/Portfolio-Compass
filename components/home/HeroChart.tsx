@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { m as motion } from "framer-motion";
 import { EASE } from "@/lib/motion";
 
-export interface HeroPoint {
+interface HeroPoint {
   t: number | string;
   v: number;
 }
@@ -13,9 +13,7 @@ interface HeroChartProps {
   points: HeroPoint[];
   positive?: boolean;
   height?: number;
-  /** Formats a value for the tooltip and the screen reader summary. */
   formatValue?: (v: number) => string;
-  /** Formats a point label (date). */
   formatLabel?: (t: number | string) => string;
   label?: string;
 }

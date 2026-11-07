@@ -2,12 +2,11 @@
 
 import { animate, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import { EASE } from "@/lib/motion";
 
 interface CountUpProps {
   value: number;
-  /** Formats the in-flight value, e.g. currency. */
   format?: (v: number) => string;
-  /** Seconds. */
   duration?: number;
   className?: string;
 }
@@ -27,7 +26,7 @@ export default function CountUp({ value, format = (v) => Math.round(v).toLocaleS
     if (!inView || reduce) return;
     const controls = animate(previous.current, value, {
       duration,
-      ease: [0.16, 1, 0.3, 1],
+      ease: EASE,
       onUpdate: (v) => setDisplay(v),
     });
     previous.current = value;

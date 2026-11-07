@@ -38,7 +38,6 @@ function formatAxisDate(date: string, range: ChartRange) {
   return Number.isNaN(d.getTime()) ? "" : AXIS_DATE[range](d);
 }
 
-/** Round-number gridline values inside [min, max]. */
 function niceTicks(min: number, max: number, count = 4) {
   const raw = (max - min || 1) / count;
   const mag = 10 ** Math.floor(Math.log10(raw));
@@ -125,7 +124,6 @@ export function AssetChart({
     measure();
   }, []);
 
-  // Colour follows the overall change of the plotted series
   const isUp = n > 1 ? data[n - 1].price >= data[0].price : chart.isPositive;
   const color = isUp ? GAIN : LOSS;
 
@@ -181,7 +179,6 @@ export function AssetChart({
   const x = (i: number) => (n > 1 ? (i / (n - 1)) * w : w / 2);
   const y = (v: number) => PAD_TOP + (1 - (v - min) / span) * plotH;
 
-  // Candle geometry: its own scale from highs/lows, one slot per bar
   const cn_ = chart.candles.length;
   let cMin = Infinity;
   let cMax = -Infinity;
@@ -221,7 +218,6 @@ export function AssetChart({
     if (i !== null) setHover(i);
   };
 
-  // Per-point value/position, shared by the line and candle modes
   const valueAt = (i: number) => (showCandles ? chart.candles[i].close : data[i].price);
   const dateAt = (i: number) => (showCandles ? chart.candles[i].date : data[i].date);
   const px = (i: number) => (showCandles ? cx_(i) : x(i));
@@ -236,7 +232,6 @@ export function AssetChart({
           maximumFractionDigits: step >= 1 ? 0 : step >= 0.1 ? 1 : 2,
         });
 
-  // Axes, extremes and moving average (advanced charts only)
   const { ticks: yTicks, step: yStep } = advanced && w > 0 ? niceTicks(sMin, sMax) : { ticks: [], step: 1 };
   const xCount = w < 420 ? 3 : 5;
   const xTicks =
@@ -274,7 +269,6 @@ export function AssetChart({
     avgLine = linePath(avg, x, y);
   }
 
-  // Drag-to-measure: change between where the drag began and where it is now
   const measuring = advanced && anchor !== null && hover !== null && hover !== anchor && anchor < m;
   const mFrom = measuring ? Math.min(anchor, hover) : 0;
   const mTo = measuring ? Math.max(anchor, hover) : 0;
@@ -282,11 +276,9 @@ export function AssetChart({
   const mPct = measuring && valueAt(mFrom) !== 0 ? (mDelta / Math.abs(valueAt(mFrom))) * 100 : 0;
   const signed = (v: number, digits = 2) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(digits)}`;
   const mColor = mDelta >= 0 ? GAIN : LOSS;
-  // Hovered point vs the start of the range
   const hoverPct = !compare && !bar && first !== 0 ? ((ap.price - first) / first) * 100 : null;
   const labelAnchor = (px_: number) => (px_ < 44 ? "start" : px_ > w - 44 ? "end" : "middle");
 
-  // Tag slides from left-aligned at the left edge to right-aligned at the right edge
   const tagShift = w > 0 ? (ax / w) * 100 : 50;
 
   // New data (asset or range change) remounts the plot so the line redraws
@@ -608,7 +600,6 @@ export function AssetChart({
   );
 }
 
-/** Range chips: 1D 1W 1M 1Y 5Y MAX. A pill slides to the active chip. */
 export function ChartRangeBar({
   chart,
   className,
