@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   X,
   Activity,
@@ -1090,7 +1090,7 @@ export default function ETFDetailsDrawer({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 z-40"
+            className="fixed inset-0 bg-black/50 z-50"
           />
           <motion.div
             ref={dialogRef}
@@ -1102,10 +1102,10 @@ export default function ETFDetailsDrawer({
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 320 }}
-            className="fixed bottom-0 left-0 right-0 h-[85dvh] bg-surface-card ring-1 ring-hairline rounded-t-2xl z-50 overflow-hidden shadow-2xl flex flex-col"
+            className="app-bottom-safe fixed bottom-0 left-0 right-0 h-[85dvh] bg-surface-card ring-1 ring-hairline rounded-t-2xl z-[60] overflow-hidden shadow-2xl flex flex-col"
           >
             {header}
-            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar">
               <div className="max-w-2xl mx-auto w-full">{content}</div>
             </div>
           </motion.div>

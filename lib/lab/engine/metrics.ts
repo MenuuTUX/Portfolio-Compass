@@ -4,7 +4,7 @@ import type { SimResult, Trade } from "@/lib/lab/engine/simulate";
 // each day's external cash flow is removed before computing that day's
 // return, so contributions do not count as performance.
 
-const TRADING_DAYS = 252;
+const DEFAULT_PERIODS_PER_YEAR = 252;
 
 export interface Drawdown {
   depth: number;
@@ -32,7 +32,11 @@ export interface Metrics {
   alpha: number | null;
   positiveMonths: number | null;
   monthlyReturns: { month: string; return: number }[];
-  /** Average annual one-way turnover as a fraction of equity. */
+  /**
+   * Average annual turnover: the smaller of purchases and sales, as a fraction
+   * of average equity. Funding the portfolio and reinvesting dividends are
+   * purchases only, so buy and hold is about 0.
+   */
   turnover: number;
   costsPaid: number;
   dividendsReceived: number;
@@ -65,6 +69,18 @@ function std(xs: ArrayLike<number>): number {
   let s = 0;
   for (let i = 0; i < xs.length; i++) s += (xs[i] - m) ** 2;
   return Math.sqrt(s / (xs.length - 1));
+}
+
+/**
+ * Return observations per year, read from the dates. An equity calendar gives
+ * about 252 and is kept at 252 by convention; a market that trades every day
+ * (crypto) gives about 365, so volatility and Sharpe are not understated.
+ */
+export function periodsPerYear(dates: string[]): number {
+  const years = days(dates[0], dates[dates.length - 1]) / 365.25;
+  if (!(years > 0) || dates.length < 3) return DEFAULT_PERIODS_PER_YEAR;
+  const observed = (dates.length - 1) / years;
+  return Math.abs(observed - DEFAULT_PERIODS_PER_YEAR) <= 12 ? DEFAULT_PERIODS_PER_YEAR : Math.round(observed);
 }
 
 const days = (a: string, b: string) => (Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000;
@@ -111,6 +127,7 @@ export function computeMetrics(
   for (let t = 1; t < T; t++) index[t] = index[t - 1] * (1 + r[t]);
 
   const years = days(dates[0], dates[T - 1]) / 365.25;
+  const TRADING_DAYS = periodsPerYear(dates);
   const totalReturn = index[T - 1] - 1;
   const cagr = years > 0 && index[T - 1] > 0 ? index[T - 1] ** (1 / years) - 1 : 0;
   const volatility = std(rs) * Math.sqrt(TRADING_DAYS);
@@ -153,10 +170,15 @@ export function computeMetrics(
     ? monthlyReturns.filter((m) => m.return > 0).length / monthlyReturns.length
     : null;
 
-  let traded = 0;
-  for (const tr of sim.trades as Trade[]) traded += Math.abs(tr.shares * tr.price);
+  let bought = 0;
+  let sold = 0;
+  for (const tr of sim.trades as Trade[]) {
+    const notional = tr.shares * tr.price;
+    if (notional > 0) bought += notional;
+    else sold -= notional;
+  }
   const avgEquity = mean(sim.equity);
-  const turnover = years > 0 && avgEquity > 0 ? traded / 2 / avgEquity / years : 0;
+  const turnover = years > 0 && avgEquity > 0 ? Math.min(bought, sold) / avgEquity / years : 0;
 
   let netContributions = initialCash;
   for (const f of sim.flows) netContributions += f;

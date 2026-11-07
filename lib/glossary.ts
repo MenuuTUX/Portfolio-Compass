@@ -203,10 +203,30 @@ const entries = {
     what: "A method that generates random paths from specified return, volatility, and correlation assumptions.",
     means: "Shows a distribution of model outcomes. The result is not a forecast and depends on the assumptions.",
   },
-  sharpe: {
+  "reshuffle": {
+    label: "Reshuffle",
+    what: "A Monte Carlo method that replays the actual historical returns in a random order.",
+    means: "Every path ends at the same value, so it isolates sequence risk: how bumpy the route is, not where it ends.",
+  },
+  "resample": {
+    label: "Resample (bootstrap)",
+    what: "A Monte Carlo method that builds paths from historical days picked at random, with repeats allowed.",
+    means: "Endings differ because some paths draw more good or bad days. It keeps the real shape of past returns instead of assuming a bell curve.",
+  },
+  "randomize": {
+    label: "Randomize (parametric)",
+    what: "A Monte Carlo method that draws returns from a distribution fitted to history, here geometric Brownian motion.",
+    means: "Produces smooth outcome ranges, but only as realistic as the fitted average, volatility and correlations.",
+  },
+  "deflated sharpe ratio": {
+    label: "Deflated Sharpe Ratio",
+    what: "A Sharpe ratio adjusted for how many strategies were tried and how uneven the returns are. It estimates how likely the result is to be real rather than luck.",
+    means: "A low value suggests the best result may come from testing many variants. It is an estimate under stated assumptions, not proof that a strategy works.",
+  },
+  "sharpe ratio": {
     label: "Sharpe Ratio",
     what: "Return earned per unit of risk (volatility), after a risk-free rate.",
-    means: "A higher historical value means more excess return per unit of measured volatility. The result changes with the period, data, and risk-free rate.",
+    means: "A higher historical value means more excess return per unit of measured volatility. The result changes with the period, data, and risk-free rate. Compass Lab subtracts the cash interest rate you set under Costs and execution.",
   },
   volatility: {
     label: "Volatility",
@@ -242,6 +262,106 @@ const entries = {
     label: "Bond",
     what: "A loan to a company or government that pays interest.",
     means: "Bonds can add income and diversification, but their prices still respond to interest rates, credit risk, and market conditions.",
+  },
+  cagr: {
+    label: "CAGR",
+    what: "Compound annual growth rate: the steady yearly rate that would turn a starting amount into its ending amount over a set period.",
+    means: "It smooths out year-to-year swings, so it can hide how bumpy the path was. Read it together with volatility and drawdown.",
+  },
+  drawdown: {
+    label: "Drawdown",
+    what: "The drop from a portfolio's previous peak to a later low, shown as a percentage of that peak.",
+    means: "A 50% drawdown needs a 100% gain to recover. Maximum drawdown is the worst such drop in the period you tested.",
+  },
+  rebalance: {
+    label: "Rebalance",
+    what: "Selling some holdings and buying others to bring a portfolio back to its target weights.",
+    means: "It keeps the risk mix you chose, but each trade can carry costs and, in a taxable account, tax consequences.",
+  },
+  backtest: {
+    label: "Backtest",
+    what: "A test that applies a strategy's rules to historical prices to see how it would have behaved.",
+    means: "Past results are a model, not a promise. Costs, timing and data gaps can change the outcome, so check the assumptions shown.",
+  },
+  tfsa: {
+    label: "TFSA",
+    what: "Tax-Free Savings Account: a Canadian registered account where investment growth and withdrawals are not taxed.",
+    means: "Unused contribution room carries forward, but over-contributing can trigger a penalty tax. Rules can change, so check current CRA guidance.",
+  },
+  percentile: {
+    label: "Percentile",
+    what: "The value that a given share of results falls below. The 5th percentile is the value that 5% of results fall below.",
+    means: "In a simulation it marks a bad but not worst-case outcome. It says nothing about results beyond that point.",
+  },
+  "total return": {
+    label: "Total Return",
+    what: "The overall gain or loss over the whole test, as a percentage, with money added later left out.",
+    means: "It shows the full result but not the pace. Compare it with Growth per year when runs have different lengths.",
+  },
+  sortino: {
+    label: "Sortino Ratio",
+    what: "A Sharpe-style ratio that counts only downside swings, the losing periods, as risk.",
+    means: "Useful when losses matter more to you than gains. Like the Sharpe Ratio, it depends on the cash rate and the period tested.",
+  },
+  calmar: {
+    label: "Calmar Ratio",
+    what: "Growth per year (CAGR) divided by the max drawdown: the return for each unit of worst-case loss.",
+    means: "Higher is better, but it rests on one worst drop, so a single bad event can move it a lot. The Lab does not show it for runs under one year.",
+  },
+  turnover: {
+    label: "Turnover",
+    what: "How much of the portfolio is traded in a year, counting the smaller of total buys and total sells.",
+    means: "Higher turnover means more trades, which add costs and may create taxes. Money you add and dividends you reinvest are not counted.",
+  },
+  alpha: {
+    label: "Alpha",
+    what: "The yearly return left over after removing the part that moves with the benchmark (beta).",
+    means: "A positive alpha suggests the strategy did better than its market exposure explains. It is a historical estimate, and a few lucky periods can produce it.",
+  },
+  "positive months": {
+    label: "Positive Months",
+    what: "The share of calendar months that ended higher than they started.",
+    means: "It shows how often the strategy made money, not how large the gains or losses were. A few big losing months can outweigh many small gains.",
+  },
+  "max drawdown": {
+    label: "Max Drawdown",
+    what: "The largest fall from a previous high to a later low, shown as a percentage of that high.",
+    means: "It shows the worst loss you would have sat through. The past worst case does not cap future losses.",
+  },
+  "risk-free rate": {
+    label: "Risk-Free Rate",
+    what: "The return on an investment treated as free of default risk, such as a short-term government bill.",
+    means: "Return measures subtract it, so a strategy must beat that baseline to show extra return. Its level changes over time, so an assumed rate can make results look better or worse.",
+  },
+  slippage: {
+    label: "Slippage",
+    what: "The gap between the price you expected and the price a trade actually fills at.",
+    means: "The Lab adds a flat percentage to each trade's price. Real slippage varies with liquidity and order size, so the estimate can be too low for large or thinly traded holdings.",
+  },
+  "warm-up": {
+    label: "Warm-Up",
+    what: "Extra price history loaded before the test starts, so moving averages and other indicators have values on day one.",
+    means: "It only sets up indicators, so a longer warm-up means more data is fetched, not a longer test.",
+  },
+  "expected return": {
+    label: "Expected Return",
+    what: "The average return a model assigns to an investment, based on assumptions rather than past results.",
+    means: "It is an estimate, not a forecast. Actual returns can land far above or below it.",
+  },
+  "efficient frontier": {
+    label: "Efficient Frontier",
+    what: "The curve of portfolios that give the highest expected return for each level of risk.",
+    means: "Portfolios below the curve take more risk than their return justifies. The curve depends on the estimates behind it, so treat it as a model output, not a recommendation.",
+  },
+  "risk level": {
+    label: "Risk Level",
+    what: "How much swing in value you accept in exchange for a chance at higher returns.",
+    means: "Higher levels accept more volatility and can mean larger losses in a bad market. The setting changes the mix the model picks; it does not guarantee a result.",
+  },
+  "new money": {
+    label: "New Money",
+    what: "Cash you are adding now, on top of the shares you already hold.",
+    means: "The plan then buys only extra shares, and your current shares stay. Replace mode instead rebuilds every holding from the plan.",
   },
 } satisfies Record<string, GlossaryEntry>;
 
@@ -285,6 +405,8 @@ export function getGlossaryEntry(label: string): GlossaryEntry | null {
     [/^aum\b/, "assets"],
     [/^net\s*asset/, "assets"],
     [/^ttm\s*div/, "dividend (ttm)"],
+    // Must run before the soft match, which would otherwise find "deflated sharpe ratio" first.
+    [/^sharpe$/, "sharpe ratio"],
   ];
 
   for (const [re, target] of aliases) {

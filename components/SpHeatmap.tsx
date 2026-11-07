@@ -1,14 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m as motion } from "framer-motion";
 import { Check, ChevronDown, X } from "lucide-react";
 import { DEFAULT_HEATMAP_GROUP, HEATMAP_GROUPS, type HeatmapGroupId } from "@/config/sp500-heatmap";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { EASE } from "./motion/Reveal";
 import { squarify } from "@/lib/treemap";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import type { HeatmapPayload, HeatmapStock } from "@/app/api/market/heatmap/route";
 
 // Layout runs in CSS px against the measured container
@@ -101,12 +101,16 @@ export default function SpHeatmap({ onSelectTicker, className, fill = false }: S
   const closeGroup = useCallback(() => setOpenGroup(null), []);
   const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(openGroup), closeGroup);
 
-  const boxRef = useCallback((el: HTMLDivElement | null) => {
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = boxRef.current;
     if (!el) return;
     const measure = () =>
       setBox({ w: el.clientWidth || FALLBACK_WIDTH, h: el.clientHeight || FALLBACK_HEIGHT });
-    new ResizeObserver(measure).observe(el);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
     measure();
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -355,7 +359,7 @@ export default function SpHeatmap({ onSelectTicker, className, fill = false }: S
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2, ease: EASE }}
                 onClick={closeGroup}
-                className="fixed inset-0 z-50 flex items-end justify-center bg-canvas/50 p-4 backdrop-blur-xl sm:items-center"
+                className="ws-scrim fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
               >
                 <div
                   ref={dialogRef}

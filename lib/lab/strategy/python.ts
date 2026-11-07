@@ -1,5 +1,7 @@
 // Python sources installed into Pyodide by the Python strategy worker.
 
+import { WEIGHT_SUM_TOLERANCE } from "@/lib/lab/engine/simulate";
+
 /** Pinned Pyodide build, the one measured in Phase 0. Served by jsDelivr, not by this site. */
 export const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/";
 
@@ -59,6 +61,10 @@ import pandas as pd
 import compass
 
 
+# Days may total 1 at most (the rest stays in cash). Same tolerance as the engine.
+_LAB_MAX_TOTAL = ${1 + WEIGHT_SUM_TOLERANCE}
+
+
 class _LabContext:
     def __init__(self, params):
         self.params = params
@@ -80,8 +86,9 @@ class _Book:
     """Indicator series for one run, each computed once over the whole column and read at day t.
     It lives for a single _lab_weights call, so the lookahead reruns on cut-off history stay honest."""
 
-    def __init__(self, prices):
+    def __init__(self, prices, closes):
         self.prices = prices
+        self.closes = closes
         self.dates = [d.strftime("%Y-%m-%d") for d in prices.index]
         self.cache = {}
 
@@ -96,6 +103,8 @@ class _Book:
         if key not in self.cache:
             px = self.prices[ticker]
             if kind == "price":
+                s = self.closes[ticker]
+            elif kind == "adj_price":
                 s = px
             elif kind == "average":
                 s = compass.sma(px, n)
@@ -120,8 +129,14 @@ class _Day:
         self.date = book.dates[t]
 
     def price(self, ticker):
-        """Today's closing price. NaN before the fund existed."""
+        """Today's split-adjusted closing price, not adjusted for dividends. NaN before the fund existed.
+        Good for absolute price levels. For returns and moving averages use adj_price()."""
         return float(self._book.get("price", ticker)[self._t])
+
+    def adj_price(self, ticker):
+        """Today's closing price adjusted for splits and dividends. NaN before the fund existed.
+        This is the series average(), change(), high() and low() use, so compare against those with it."""
+        return float(self._book.get("adj_price", ticker)[self._t])
 
     def average(self, ticker, days):
         """Average closing price over the last days days. NaN until that much history exists."""
@@ -144,7 +159,12 @@ class _Day:
         return float(self._book.get("rsi", ticker, days)[self._t])
 
 
-def _lab_row(out, columns):
+def _lab_total_message(total, day):
+    hint = " Use fractions: 0.6 means 60%." if total <= 100.0001 else ""
+    return f"Your weights on {day} add up to {total:g}, but they must total 1 or less (the rest stays in cash).{hint}"
+
+
+def _lab_row(out, columns, day):
     if out is None:
         return {}
     if isinstance(out, str):
@@ -165,21 +185,20 @@ def _lab_row(out, columns):
             raise ValueError("Weights cannot be negative. Short selling is not supported.")
         row[ticker] = row.get(ticker, 0.0) + w
     total = sum(row.values())
-    if total > 1.0001:
-        hint = " Use fractions: 0.6 means 60%." if total <= 100.0001 else ""
-        raise ValueError(f"Your weights add up to {total:g}, but they must total 1 or less (the rest stays in cash).{hint}")
+    if total > _LAB_MAX_TOTAL:
+        raise ValueError(_lab_total_message(total, day))
     return row
 
 
-def _lab_decide(decide, prices, params):
-    book = _Book(prices)
+def _lab_decide(decide, prices, closes, params):
+    book = _Book(prices, closes)
     columns = {name: j for j, name in enumerate(prices.columns)}
     arr = np.zeros((len(prices), len(columns)))
     for t in range(len(prices)):
-        for ticker, weight in _lab_row(decide(_Day(book, t, params)), columns).items():
+        for ticker, weight in _lab_row(decide(_Day(book, t, params)), columns, book.dates[t]).items():
             arr[t, columns[ticker]] = weight
     for (kind, ticker, n), series in book.cache.items():
-        if kind == "price":
+        if kind in ("price", "adj_price"):
             continue
         ok = np.flatnonzero(~np.isnan(series))
         label = {
@@ -195,16 +214,16 @@ def _lab_decide(decide, prices, params):
     return arr.ravel()
 
 
-def _lab_weights(ns, adj, rows, cols, dates, tickers, overrides_json):
-    # adj arrives as a JS Float64Array; to_py() shares its memory without copying through Python objects.
-    prices = pd.DataFrame(
-        np.asarray(adj.to_py(), dtype=float).reshape(rows, cols),
-        index=pd.DatetimeIndex(list(dates)),
-        columns=list(tickers),
-    )
+def _lab_weights(ns, adj, rows, cols, dates, tickers, overrides_json, close=None):
+    # adj and close arrive as JS Float64Arrays; to_py() shares their memory without copying through Python objects.
+    # Without close, price() falls back to the adjusted series.
+    index = pd.DatetimeIndex(list(dates))
+    prices = pd.DataFrame(np.asarray(adj.to_py(), dtype=float).reshape(rows, cols), index=index, columns=list(tickers))
+    raw = adj if close is None else close
+    closes = pd.DataFrame(np.asarray(raw.to_py(), dtype=float).reshape(rows, cols), index=index, columns=list(tickers))
     params = {**ns.get("PARAMS", {}), **json.loads(overrides_json)}
     if not callable(ns.get("weights")):
-        return _lab_decide(ns["decide"], prices, params)
+        return _lab_decide(ns["decide"], prices, closes, params)
     out = ns["weights"](prices, _LabContext(params))
     if isinstance(out, pd.Series):
         raise TypeError("weights() returned a Series; return a DataFrame with one column per ticker.")
@@ -224,6 +243,12 @@ def _lab_weights(ns, adj, rows, cols, dates, tickers, overrides_json):
         arr = out.astype(float)
     else:
         raise TypeError("weights() must return a pandas DataFrame or a 2-D numpy array.")
-    return np.nan_to_num(arr, nan=0.0).ravel()
+    arr = np.nan_to_num(arr, nan=0.0)
+    totals = arr.sum(axis=1)
+    over = np.flatnonzero(totals > _LAB_MAX_TOTAL)
+    if len(over):
+        t = int(over[0])
+        raise ValueError(_lab_total_message(float(totals[t]), prices.index[t].strftime("%Y-%m-%d")))
+    return arr.ravel()
 
 `;

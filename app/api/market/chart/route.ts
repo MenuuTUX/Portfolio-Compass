@@ -1,3 +1,4 @@
+import { cacheHeaders, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getFastCandles, getFastHistory, isChartRange } from "@/lib/fast-market";
 import { parseTickers } from "@/lib/tickers";
@@ -24,9 +25,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { range: rangeParam, candles },
         {
-          headers: {
-            "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
-          },
+          headers: cacheHeaders(CACHE.chart),
         },
       );
     } catch (error) {
@@ -48,9 +47,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { range: rangeParam, series: payload },
       {
-        headers: {
-          "Cache-Control": "public, max-age=30, stale-while-revalidate=300",
-        },
+        headers: cacheHeaders(CACHE.chart),
       },
     );
   } catch (error) {

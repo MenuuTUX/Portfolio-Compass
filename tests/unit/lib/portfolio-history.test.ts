@@ -31,3 +31,17 @@ describe("range helpers", () => {
     expect(sliceIndex(points, "ALL")).toEqual(points);
   });
 });
+
+describe("portfolio history date keys", () => {
+  it("matches an ISO timestamp with a date-only string for the same day", () => {
+    const item = (ticker: string, dates: string[]) => ({
+      ticker, weight: 50, shares: 1, price: 10,
+      history: dates.map((date, i) => ({ date, price: 10 + i })),
+    }) as unknown as Parameters<typeof buildPortfolioIndex>[0][number];
+    const points = buildPortfolioIndex([
+      item("A", ["2024-01-02T00:00:00.000Z", "2024-01-03T00:00:00.000Z"]),
+      item("B", ["2024-01-02", "2024-01-03"]),
+    ]);
+    expect(points.map((p) => p.t)).toEqual(["2024-01-02", "2024-01-03"]);
+  });
+});

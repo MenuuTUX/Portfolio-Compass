@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { analyzeEtf, VerdictEntry } from "@/lib/etf-analysis";
 import { ETF } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { useState } from "react";
 
 interface Explanation {

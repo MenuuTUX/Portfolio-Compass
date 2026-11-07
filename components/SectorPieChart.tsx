@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 
 interface SectorPieChartProps {
   sectors?: { [key: string]: number };
@@ -11,21 +11,11 @@ interface SectorPieChartProps {
   onSectorClick?: (sectorName: string) => void;
 }
 
-// Extended color palette to cover all 11 GICS sectors + others
-export const COLORS = [
-  "#e5e5e5",
-  "#a3a3a3",
-  "#737373",
-  "#d4d4d4",
-  "#8a8f98",
-  "#5f6368",
-  "#bfc3c9",
-  "#9ca3af",
-  "#6b7280",
-  "#cfd2d6",
-  "#4b5057",
-  "#b4b8bd",
-];
+// Twelve shades of the ink colour (11 GICS sectors + other). Built from the
+// theme token, so every slice keeps contrast on both the light and dark canvas.
+export const COLORS = [92, 80, 70, 62, 55, 49, 44, 40, 36, 32, 29, 26].map(
+  (pct) => `color-mix(in srgb, var(--ink) ${pct}%, var(--canvas))`,
+);
 
 interface ActiveSectorRenderProps {
   cx: number;

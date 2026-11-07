@@ -3,7 +3,7 @@
 import { RotateCcw } from "lucide-react";
 import { applyLesson, type LabForm } from "@/lib/lab/lab-form";
 import { applyTweak, extractTickers, lessonById, LESSONS, liveNotes, setupText } from "@/lib/lab/lessons";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import ModeSwitch from "./ModeSwitch";
 
 const field =
@@ -11,7 +11,8 @@ const field =
 const label = "block text-xs font-medium text-muted mb-1";
 
 const TOOLS: [call: string, text: string][] = [
-  ['day.price("SPY")', "today's closing price"],
+  ['day.adj_price("SPY")', "today's closing price, adjusted for splits and dividends"],
+  ['day.price("SPY")', "today's closing price, split-adjusted only (for price levels)"],
   ['day.average("SPY", 50)', "average price over the last 50 days"],
   ['day.change("SPY", 126)', "growth over the last 126 days (0.05 = up 5%)"],
   ['day.high("SPY", 252)', "highest close of the last 252 days"],
@@ -65,7 +66,7 @@ export default function GuidePanel({ form, onChange, onRunWith, onRun, running, 
               onClick={() => open(i)}
               className={cn(
                 "h-8 min-w-8 rounded-md px-2 font-mono text-xs font-semibold ring-1 transition-colors duration-75",
-                i === index ? "bg-amber-400/90 text-black ring-amber-400" : "text-muted ring-hairline hover:text-ink",
+                i === index ? "bg-ink text-canvas ring-ink" : "text-muted ring-hairline hover:text-ink",
               )}
             >
               {i + 1}
@@ -75,7 +76,7 @@ export default function GuidePanel({ form, onChange, onRunWith, onRun, running, 
       </section>
 
       <section className="space-y-2 px-4 pt-4">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-amber-400">Lesson {index + 1} of {LESSONS.length}</p>
+        <p className="text-xs font-medium text-compass">Lesson {index + 1} of {LESSONS.length}</p>
         <h2 className="text-lg font-bold text-ink">{lesson.title}</h2>
         <p className="text-xs text-muted">{lesson.subtitle}</p>
         <p className="text-sm text-body">{lesson.idea}</p>
@@ -91,7 +92,7 @@ export default function GuidePanel({ form, onChange, onRunWith, onRun, running, 
           <ol className="space-y-2">
             {notes.map((n) => (
               <li key={`${n.line}-${n.match}`} className="flex gap-2 text-sm text-body">
-                <span className="mt-0.5 h-5 shrink-0 rounded bg-amber-400/15 px-1.5 font-mono text-[11px] leading-5 text-amber-400">line {n.line}</span>
+                <span className="mt-0.5 h-5 shrink-0 rounded bg-surface-soft px-1.5 font-mono text-xs leading-5 text-body-strong">line {n.line}</span>
                 <span>{n.text}</span>
               </li>
             ))}
@@ -180,7 +181,7 @@ export default function GuidePanel({ form, onChange, onRunWith, onRun, running, 
           {running ? "Running…" : "Run it"}
           <kbd className="ml-2 hidden text-[10px] opacity-60 sm:inline">⌘↵</kbd>
         </button>
-        <p className="text-center text-[11px] text-muted" aria-live="polite">
+        <p className="text-center text-xs text-muted" aria-live="polite">
           {pythonStatus && pythonStatus !== "Python ready" ? pythonStatus : "The first run downloads Python (about 14 MB), once."}
         </p>
       </div>

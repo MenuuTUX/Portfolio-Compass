@@ -35,7 +35,7 @@ export default function NotFound() {
           href="/"
           className="inline-flex min-h-11 items-center rounded-full bg-ink px-6 text-sm font-medium text-canvas transition-colors duration-[70ms] hover:bg-body-strong focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-compass"
         >
-          Back to PortfolioCompass
+          Back to Portfolio Compass
         </Link>
         <a
           href="https://github.com/MenuuTUX/Portfolio-Compass/issues"

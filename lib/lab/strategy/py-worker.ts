@@ -25,6 +25,9 @@ interface Pyodide {
 const post = (msg: StrategyResponse) => (self as unknown as DedicatedWorkerGlobalScope).postMessage(msg);
 
 // Strategies may only reach the Pyodide CDN (to load packages such as scipy on import), nothing else.
+// This wrapper is a convenience and a clear error message; the real limit is the
+// Content-Security-Policy this worker is served with (see next.config.js),
+// because Python can reach the original fetch through the js module.
 const realFetch = self.fetch.bind(self);
 self.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
@@ -88,8 +91,8 @@ self.onmessage = async (event: MessageEvent<StrategyRequest>) => {
     py = await boot();
   } catch (error) {
     const text = `Python could not load: ${error instanceof Error ? error.message : String(error)}. Check your connection; it comes from cdn.jsdelivr.net.`;
-    if (msg.op === "run") post({ id: msg.id, op: "run", result: { ok: false, error: { message: text }, logs: [] } });
-    else post({ id: msg.id, op: "inspect", params: null, error: { message: text } });
+    if (msg.op === "run") post({ id: msg.id, op: "run", result: { ok: false, error: { message: text }, logs: [] }, bootFailed: true });
+    else post({ id: msg.id, op: "inspect", params: null, error: { message: text }, bootFailed: true });
     return;
   }
 
@@ -116,10 +119,10 @@ self.onmessage = async (event: MessageEvent<StrategyRequest>) => {
   try {
     const started = performance.now();
     const frame = buildFrame(msg.series, { baseCurrency: msg.baseCurrency });
-    const prices: PriceMatrix = { dates: frame.dates, tickers: frame.tickers, adjClose: frame.adjClose };
+    const prices: PriceMatrix = { dates: frame.dates, tickers: frame.tickers, adjClose: frame.adjClose, close: frame.close };
     ns = call<PyProxy>(py, "_lab_load", msg.code);
     const compute = (p: PriceMatrix) => {
-      const out = call<PyProxy>(py, "_lab_weights", ns, p.adjClose, p.dates.length, p.tickers.length, p.dates, p.tickers, JSON.stringify(msg.params));
+      const out = call<PyProxy>(py, "_lab_weights", ns, p.adjClose, p.dates.length, p.tickers.length, p.dates, p.tickers, JSON.stringify(msg.params), p.close ?? p.adjClose);
       const arr = Float64Array.from(out.toJs() as ArrayLike<number>);
       out.destroy();
       return arr;

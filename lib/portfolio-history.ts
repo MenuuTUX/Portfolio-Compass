@@ -30,11 +30,15 @@ export function buildPortfolioIndexWithBasis(portfolio: PortfolioItem[]): Portfo
     const byDate = new Map<string, number>();
     for (const point of item.history ?? []) {
       if (!Number.isFinite(point.price) || point.price <= 0) continue;
-      if (basis === "price") byDate.set(point.date, point.price);
+      // "2024-01-02T00:00:00.000Z" and "2024-01-02" are the same trading day.
+      const parsed = Date.parse(point.date);
+      if (!Number.isFinite(parsed)) continue;
+      const day = new Date(parsed).toISOString().slice(0, 10);
+      if (basis === "price") byDate.set(day, point.price);
       else {
         // A date without an adjusted close is dropped for every holding.
         const adj = validAdjusted(point);
-        if (adj !== null) byDate.set(point.date, adj);
+        if (adj !== null) byDate.set(day, adj);
       }
     }
     return byDate;

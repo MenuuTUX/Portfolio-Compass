@@ -19,7 +19,7 @@ Two registers share one token set. Product name and logo stay Portfolio Compass.
 
 ### Font
 
-OpenAI Sans is the only typeface (`--font-openai-sans`, loaded in `app/layout.tsx`). `font-sans`, `font-display`, `font-serif`, and `font-mono` all resolve to it. Do not add another font.
+Inter is the only typeface (`--font-app`, loaded with `next/font/google` in `app/layout.tsx`, open source under the SIL Open Font License). `font-sans`, `font-display`, `font-serif`, and `font-mono` all resolve to it. Do not add another font.
 
 ### Tokens
 

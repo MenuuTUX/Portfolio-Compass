@@ -14,10 +14,11 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from "recharts";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Portfolio } from "@/types";
 import { TickIcon } from "./TickIcon";
+import { HAIRLINE, LOSS, MUTED } from "@/lib/chart-colors";
 
 interface PortfolioBarChartProps {
   portfolio: Portfolio;
@@ -76,18 +77,19 @@ const CustomYAxisTick = (props: any) => {
 
   return (
     <g transform={`translate(${x},${y})`}>
-      <TickIcon ticker={ticker} x={0} y={0} assetType={assetType} />
+      {/* Layout inside the 150px axis, right to left: label ends at -8, logo at -124..-104, warning at -150..-130. */}
+      <TickIcon ticker={ticker} x={-44} y={0} assetType={assetType} />
 
       {isAboveTwentyPercent && (
-        <g transform="translate(-115, -9)">
+        <g transform="translate(-147, -7)">
           <circle
             cx={7}
             cy={7}
             r={10}
-            fill={CONCENTRATION_COLORS.ABOVE_20}
-            fillOpacity={0.2}
+            fill={LOSS}
+            fillOpacity={0.15}
           />
-          <AlertTriangle size={14} color={CONCENTRATION_COLORS.ABOVE_20} />
+          <AlertTriangle size={14} color={LOSS} />
         </g>
       )}
 
@@ -96,11 +98,12 @@ const CustomYAxisTick = (props: any) => {
         y={4}
         textAnchor="end"
         fill={
+          // Text uses theme tokens: the pastel bar fills are unreadable as text on the light canvas.
           isAboveTwentyPercent
-            ? CONCENTRATION_COLORS.ABOVE_20
+            ? LOSS
             : isAboveTenPercent
-              ? CONCENTRATION_COLORS.TEN_TO_20
-              : "#e5e5e5"
+              ? "var(--gold-deep)"
+              : "var(--body-strong)"
         }
         fontSize={12}
         fontWeight={isAboveTenPercent ? "600" : "400"}
@@ -132,6 +135,8 @@ export default function PortfolioBarChart({
       portfolio.forEach((item) => {
         const itemWeight = item.weight;
         const sourceName = item.ticker;
+        // A 0% holding adds nothing but an empty legend entry.
+        if (!(itemWeight > 0)) return;
 
         if (item.holdings && item.holdings.length > 0) {
           uniqueSources.add(sourceName);
@@ -265,21 +270,22 @@ export default function PortfolioBarChart({
 
   if (portfolio.length === 0) {
     return (
-      <div className="w-full h-full min-h-[400px] flex items-center justify-center text-muted glass-panel rounded-lg">
+      <div className="w-full min-h-[200px] flex items-center justify-center text-muted glass-panel rounded-lg">
         No assets in portfolio
       </div>
     );
   }
 
-  const chartHeight = Math.max(450, chartData.length * 45); // Slightly taller rows
+  // Sized to the rows; the surrounding drawer scrolls, so no inner scroll box.
+  const chartHeight = Math.max(220, chartData.length * 36 + 70);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="w-full h-full glass-panel p-6 rounded-lg flex flex-col border border-hairline bg-surface-card"
+      className="w-full glass-panel p-4 rounded-lg flex flex-col border border-hairline bg-surface-card"
     >
-      <div className="flex flex-col gap-1 mb-8">
+      <div className="flex flex-col gap-1 mb-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <h3 className="text-lg font-bold text-ink tracking-tight sm:text-xl">
             Target Portfolio Look-Through
@@ -333,13 +339,13 @@ export default function PortfolioBarChart({
         </p>
       </div>
 
-      <div className="flex-1 overflow-auto custom-scrollbar pr-2">
-        <div style={{ height: chartHeight, minHeight: 400, width: "100%" }}>
+      <div>
+        <div style={{ height: chartHeight, width: "100%" }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
               layout="vertical"
-              margin={{ top: 10, right: 30, left: 100, bottom: 20 }}
+              margin={{ top: 4, right: 16, left: 0, bottom: 4 }}
               barSize={20}
             >
               <defs>
@@ -420,16 +426,15 @@ export default function PortfolioBarChart({
               <CartesianGrid
                 strokeDasharray="4 4"
                 horizontal={false}
-                stroke="#ffffff"
-                strokeOpacity={0.03}
+                stroke={HAIRLINE}
               />
 
               <XAxis
                 type="number"
                 domain={[0, maxWeight]}
-                stroke="#525252"
+                stroke={MUTED}
                 tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
-                tick={{ fill: "#737373", fontSize: 12 }}
+                tick={{ fill: MUTED, fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -437,7 +442,7 @@ export default function PortfolioBarChart({
               <YAxis
                 type="category"
                 dataKey="name"
-                width={120}
+                width={150}
                 stroke="transparent"
                 tick={
                   <CustomYAxisTick
@@ -449,7 +454,7 @@ export default function PortfolioBarChart({
               />
 
               <Tooltip
-                cursor={{ fill: "rgba(50,48,47,0.04)" }}
+                cursor={{ fill: "var(--surface-soft)", fillOpacity: 0.5 }}
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;

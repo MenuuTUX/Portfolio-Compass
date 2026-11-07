@@ -20,12 +20,11 @@ export default function CountUp({ value, format = (v) => Math.round(v).toLocaleS
   const [display, setDisplay] = useState(reduce ? value : 0);
   const previous = useRef(0);
 
+  // Reduced motion jumps straight to the value once it is in view.
+  if (reduce && inView && display !== value) setDisplay(value);
+
   useEffect(() => {
-    if (!inView) return;
-    if (reduce) {
-      setDisplay(value);
-      return;
-    }
+    if (!inView || reduce) return;
     const controls = animate(previous.current, value, {
       duration,
       ease: [0.16, 1, 0.3, 1],

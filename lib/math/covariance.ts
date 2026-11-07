@@ -116,6 +116,23 @@ function alignedReturns(
   };
 }
 
+/**
+ * Shrinks off-diagonal covariances toward zero when a sample is short for the
+ * number of assets. Intensity is lambda = clamp((10 - observations / assets) / 20, 0, 0.5),
+ * so nothing changes once there are 10 observations per asset. Scaling the
+ * off-diagonal terms by (1 - lambda) is a blend of the sample matrix and its
+ * diagonal, so the result stays positive semi-definite. Variances are unchanged.
+ */
+export function shrinkOffDiagonal(matrix: number[][], observations: number): number[][] {
+  const n = matrix.length;
+  if (n === 0) return [];
+  const lambda = Math.min(0.5, Math.max(0, (10 - observations / n) / 20));
+  if (!(lambda > 0)) return matrix.map((row) => [...row]);
+  return matrix.map((row, i) =>
+    row.map((value, j) => (i === j ? value : value * (1 - lambda))),
+  );
+}
+
 export function estimateAnnualCovariance(
   portfolio: PortfolioItem[],
 ): CovarianceEstimate {
@@ -133,12 +150,13 @@ export function estimateAnnualCovariance(
   }
 
   const perStep = calculateCovarianceMatrix(aligned.returns);
-  const matrix = perStep.map((row, i) =>
+  const annual = perStep.map((row, i) =>
     row.map((value, j) => {
-      const annual = value * aligned.samplesPerYear;
-      return i === j ? Math.max(MIN_VARIANCE, annual) : annual;
+      const scaled = value * aligned.samplesPerYear;
+      return i === j ? Math.max(MIN_VARIANCE, scaled) : scaled;
     }),
   );
+  const matrix = shrinkOffDiagonal(annual, aligned.samples);
 
   return { matrix, source: "history", samples: aligned.samples, basis: aligned.basis };
 }

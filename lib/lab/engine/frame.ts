@@ -78,3 +78,28 @@ export function buildFrame(
 
   return { dates, tickers, currency: baseCurrency, open, close, adjClose, dividend };
 }
+
+/**
+ * The frame from the first date on or after `start`, with the matching rows of
+ * `targets`. Strategies are computed on the whole frame so their indicators are
+ * warm at `start`; the simulation and every report then begin there.
+ */
+export function sliceFrame(frame: Frame, targets: Float64Array, start: string): { frame: Frame; targets: Float64Array } {
+  if (!start) return { frame, targets };
+  const first = frame.dates.findIndex((d) => d >= start);
+  if (first === -1) throw new Error(`No prices on or after ${start}`);
+  if (first === 0) return { frame, targets };
+  const N = frame.tickers.length;
+  const from = first * N;
+  return {
+    frame: {
+      ...frame,
+      dates: frame.dates.slice(first),
+      open: frame.open.slice(from),
+      close: frame.close.slice(from),
+      adjClose: frame.adjClose.slice(from),
+      dividend: frame.dividend.slice(from),
+    },
+    targets: targets.slice(from),
+  };
+}

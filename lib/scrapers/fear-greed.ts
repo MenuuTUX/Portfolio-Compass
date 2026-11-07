@@ -1,5 +1,6 @@
 
 import { z } from "zod";
+import { timeoutSignal } from "@/lib/upstream";
 
 export interface FearAndGreedData {
   score: number;
@@ -20,6 +21,7 @@ export async function fetchFearAndGreedIndex(): Promise<FearAndGreedData> {
 
   try {
     const response = await fetch(url, {
+      signal: timeoutSignal(),
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },

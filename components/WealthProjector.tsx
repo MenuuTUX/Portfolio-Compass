@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
 import { Portfolio } from "@/types";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ArrowLeft, Sparkles, RefreshCw } from "lucide-react";
 import MonteCarloSimulator from "./simulation/MonteCarloSimulator";
 import SimulatorExplainer from "./simulation/SimulatorExplainer";
@@ -24,6 +24,21 @@ import {
 } from "@/lib/math/portfolio-returns";
 import { projectContributionScenario } from "@/lib/math/scenario";
 import { PortfolioShareButton } from "./PortfolioShareButton";
+import { GAIN, HAIRLINE, HAIRLINE_STRONG, MUTED } from "@/lib/chart-colors";
+import { horizonYearsFromAge, loadRiskProfile } from "@/lib/risk-profile";
+
+const NOTE = "Started from your quiz answers";
+
+/** The quiz answers that seed the projector, or null when none were saved. */
+function readQuizPrefill(): { monthlyContribution?: number; goalInput?: string; years?: number } | null {
+  const saved = loadRiskProfile();
+  if (!saved) return null;
+  const prefill: { monthlyContribution?: number; goalInput?: string; years?: number } = {};
+  if (saved.monthlyContribution !== undefined) prefill.monthlyContribution = saved.monthlyContribution;
+  if (saved.goalAmount !== undefined && saved.goalAmount > 0) prefill.goalInput = String(saved.goalAmount);
+  if (saved.ageBand) prefill.years = horizonYearsFromAge(saved.ageBand);
+  return Object.keys(prefill).length > 0 ? prefill : null;
+}
 
 interface WealthProjectorProps {
   portfolio: Portfolio;
@@ -59,30 +74,50 @@ export default function WealthProjector({
   });
   const [startingBalanceEdited, setStartingBalanceEdited] = useState(false);
 
-  const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
-  const [years, setYears] = useState<number>(20);
+  // Start from the quiz answers once, on the first render. Later edits are never overwritten.
+  const [quizPrefill] = useState(readQuizPrefill);
+  const prefilled = quizPrefill !== null;
+
+  const [monthlyContribution, setMonthlyContribution] = useState<number>(quizPrefill?.monthlyContribution ?? 500);
+  const [years, setYears] = useState<number>(quizPrefill?.years ?? 20);
   const [annualReturnInput, setAnnualReturnInput] = useState("7");
   const enteredReturn = Number(annualReturnInput);
   const annualReturnAssumption = Number.isFinite(enteredReturn)
     ? Math.max(-0.99, Math.min(1, enteredReturn / 100))
     : 0;
 
+  // Monte Carlo only inputs. Inflation 0 means off; an empty goal means none.
+  const [inflationPercent, setInflationPercent] = useState<number>(2);
+  const [goalInput, setGoalInput] = useState(quizPrefill?.goalInput ?? "");
+  const goalValue = Number(goalInput);
+  const goalAmount = goalInput.trim() !== "" && Number.isFinite(goalValue) && goalValue > 0
+    ? goalValue
+    : undefined;
+
+
   // Follow quote updates until the user enters their own starting balance.
+  // Object.is treats NaN as equal to itself, so a NaN value cannot loop renders.
+  const hasCurrentValue = Number.isFinite(currentPortfolioValue) && currentPortfolioValue >= 0;
   const [prevPortfolioValue, setPrevPortfolioValue] = useState(
     currentPortfolioValue,
   );
-  if (currentPortfolioValue !== prevPortfolioValue) {
+  if (!Object.is(currentPortfolioValue, prevPortfolioValue)) {
     setPrevPortfolioValue(currentPortfolioValue);
-    if (Number.isFinite(currentPortfolioValue) && currentPortfolioValue >= 0 && !startingBalanceEdited) {
+    if (hasCurrentValue && !startingBalanceEdited) {
       setInitialInvestment(currentPortfolioValue);
     }
   }
 
+  // Amounts past this are not meaningful to project and can overflow to Infinity.
+  const MAX_AMOUNT = 1_000_000_000_000;
+  const amountTooLarge = [initialInvestment, monthlyContribution]
+    .some((v) => !Number.isFinite(v) || v > MAX_AMOUNT);
+
   const projectionData = useMemo(
-    () => projectContributionScenario(
+    () => amountTooLarge ? [] : projectContributionScenario(
       initialInvestment, monthlyContribution, years, annualReturnAssumption,
     ),
-    [initialInvestment, monthlyContribution, years, annualReturnAssumption],
+    [amountTooLarge, initialInvestment, monthlyContribution, years, annualReturnAssumption],
   );
 
   const finalAmount =
@@ -123,13 +158,71 @@ export default function WealthProjector({
             Switch to Simple Projection
           </button>
         </div>
-        <MonteCarloSimulator
-          portfolio={portfolio}
-          baseCurrency={currency}
-          startingValue={initialInvestment}
-          fxProvenance={mixedCurrency ? fxProvenance : undefined}
-          onBack={onBack}
-        />
+        {prefilled && <p className="mb-4 text-xs text-muted">{NOTE}</p>}
+        <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-3">
+          <div>
+            <label htmlFor="mc-monthly-contribution" className="text-sm text-muted block mb-2">
+              Monthly Contribution ({currency})
+            </label>
+            <input
+              id="mc-monthly-contribution"
+              type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
+              value={monthlyContribution}
+              onChange={(e) => setMonthlyContribution(Math.max(0, Number(e.target.value) || 0))}
+              className="w-full bg-surface-soft border border-hairline rounded-lg px-3 py-2 text-ink focus:border-hairline focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="mc-inflation" className="text-sm text-muted block mb-2">
+              Inflation (%)
+            </label>
+            <input
+              id="mc-inflation"
+              type="number"
+              min={0}
+              step="0.1"
+              inputMode="decimal"
+              value={inflationPercent}
+              onChange={(e) => setInflationPercent(Math.max(0, Number(e.target.value) || 0))}
+              className="w-full bg-surface-soft border border-hairline rounded-lg px-3 py-2 text-ink focus:border-hairline focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="mc-goal" className="text-sm text-muted block mb-2">
+              Goal Amount ({currency})
+            </label>
+            <input
+              id="mc-goal"
+              type="number"
+              min={0}
+              step="any"
+              inputMode="decimal"
+              placeholder="Optional"
+              value={goalInput}
+              onChange={(e) => setGoalInput(e.target.value)}
+              className="w-full bg-surface-soft border border-hairline rounded-lg px-3 py-2 text-ink focus:border-hairline focus:outline-none"
+            />
+          </div>
+        </div>
+        {amountTooLarge ? (
+          <p role="status" className="text-muted">Enter an amount below 1,000,000,000,000</p>
+        ) : initialInvestment <= 0 ? (
+          <p role="status" className="text-muted">Enter a starting balance above 0</p>
+        ) : (
+          <MonteCarloSimulator
+            portfolio={portfolio}
+            baseCurrency={currency}
+            startingValue={initialInvestment}
+            monthlyContribution={monthlyContribution}
+            inflationPercent={inflationPercent}
+            goalAmount={goalAmount}
+            fxProvenance={mixedCurrency ? fxProvenance : undefined}
+            onBack={onBack}
+          />
+        )}
       </section>
     );
   }
@@ -196,6 +289,7 @@ export default function WealthProjector({
             </button>
           </div>
         </div>
+        {prefilled && <p className="mb-6 text-xs text-muted">{NOTE}</p>}
         {fxProvenance && mixedCurrency && (
           <p className="mb-6 text-xs text-muted">
             Starting value converted to {currency} using Bank of Canada FXUSDCAD daily average dated {fxProvenance.date} ({fxProvenance.usdCad} CAD per USD). Future FX changes are not modeled.
@@ -203,7 +297,7 @@ export default function WealthProjector({
         )}
         {mixedCurrency && (
           <p className="mb-6 text-xs text-muted">
-            Monte Carlo converts historical USD prices to CAD using dated Bank of Canada daily FX averages. Future exchange rate changes are excluded; simulated results remain illustrative price-only model assumptions.
+            Monte Carlo converts historical USD prices to CAD using dated Bank of Canada daily FX averages. Future exchange rate changes are excluded; simulated results remain illustrative model assumptions.
           </p>
         )}
 
@@ -312,7 +406,7 @@ export default function WealthProjector({
                 step="0.1"
                 value={annualReturnInput}
                 onChange={(e) => setAnnualReturnInput(e.target.value)}
-                onBlur={() => setAnnualReturnInput(String(annualReturnAssumption * 100))}
+                onBlur={() => setAnnualReturnInput(String(+(annualReturnAssumption * 100).toFixed(4)))}
                 className="w-full bg-surface-soft border border-hairline rounded-lg px-3 py-2 text-ink focus:border-hairline focus:outline-none"
               />
             </div>
@@ -337,6 +431,10 @@ export default function WealthProjector({
 
           {/* Chart */}
           <div className="lg:col-span-3 p-6 rounded-2xl flex flex-col bg-surface-card ring-1 ring-hairline">
+            {amountTooLarge && (
+              <p role="status" className="mb-6 text-muted">Enter an amount below 1,000,000,000,000</p>
+            )}
+            {!amountTooLarge && (<>
             <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-x-6 gap-y-4">
               <div>
                 <div className="text-sm text-muted">
@@ -370,25 +468,25 @@ export default function WealthProjector({
                 <AreaChart data={projectionData}>
                   <defs>
                     <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6dc382" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#6dc382" stopOpacity={0} />
+                      <stop offset="5%" stopColor={GAIN} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={GAIN} stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
-                    stroke="#333"
+                    stroke={HAIRLINE}
                     vertical={false}
                   />
                   <XAxis
                     dataKey="year"
-                    stroke="#666"
-                    tick={{ fill: "#666" }}
+                    stroke={HAIRLINE_STRONG}
+                    tick={{ fill: MUTED, fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    stroke="#666"
-                    tick={{ fill: "#666" }}
+                    stroke={HAIRLINE_STRONG}
+                    tick={{ fill: MUTED, fontSize: 12 }}
                     axisLine={false}
                     tickLine={false}
                     width={88}
@@ -406,7 +504,7 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="balance"
                     name="Balance Under Assumptions"
-                    stroke="#6dc382"
+                    stroke={GAIN}
                     fillOpacity={1}
                     fill="url(#colorBalance)"
                     animationDuration={1100}
@@ -416,7 +514,7 @@ export default function WealthProjector({
                     type="monotone"
                     dataKey="invested"
                     name="Total Invested"
-                    stroke="#525252"
+                    stroke={MUTED}
                     strokeDasharray="5 5"
                     fill="transparent"
                     animationBegin={200}
@@ -447,6 +545,7 @@ export default function WealthProjector({
                 </tbody>
               </table>
             </div>
+            </>)}
           </div>
         </div>
 

@@ -5,6 +5,7 @@ import { buildFrame } from "@/lib/lab/engine/frame";
 import { computeMetrics, dailyReturns, drawdowns } from "@/lib/lab/engine/metrics";
 import { runHash } from "@/lib/lab/engine/run-hash";
 import { DEFAULT_CONFIG, simulate, type BacktestConfig } from "@/lib/lab/engine/simulate";
+import type { NoCodeStrategy } from "@/lib/lab/no-code";
 import recorded from "@/tests/fixtures/lab-spy-agg-2023-2024.json";
 
 const NO_COSTS: BacktestConfig = {
@@ -305,5 +306,84 @@ describe("golden runs on recorded SPY and AGG, 2023-2024", () => {
     expect(c.hash).not.toBe(a.hash);
     const frame = buildFrame(data, { baseCurrency: "USD" });
     expect(await runHash(frame, {}, { code: "x" })).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+const consecutive = (n: number) =>
+  Array.from({ length: n }, (_, i) => new Date(Date.UTC(2024, 0, 2) + i * 864e5).toISOString().slice(0, 10));
+
+describe("tickers that start trading after the first bar", () => {
+  it("buys a late-listed ticker once it has a price, without churning the rest", () => {
+    const days = consecutive(10);
+    const frame = buildFrame([
+      series("A", days.map((d) => [d, 10, 10])),
+      series("NEW", days.slice(3).map((d) => [d, 10, 10])),
+    ], { baseCurrency: "USD" });
+
+    const sim = simulate(frame, fixedTargets(frame, { A: 0.5, NEW: 0.5 }), NO_COSTS);
+
+    const last = days.length - 1;
+    expect(sim.holdings[last * 2 + 1]).toBe(50);
+    expect(sim.cash[last]).toBeCloseTo(0, 6);
+    // One buy of A at the start and one buy of NEW when it listed.
+    expect(sim.trades.map((t) => t.ticker)).toEqual(["A", "NEW"]);
+  });
+
+  it("invests a benchmark that lists after the strategy's first bar", async () => {
+    const days = consecutive(30);
+    const report = await runBacktest({
+      series: [
+        series("OLD", days.map((d, i) => [d, 100 + i, 100 + i])),
+        series("BM", days.slice(5).map((d, i) => [d, 50 + i, 50 + i])),
+      ],
+      config: NO_COSTS,
+      baseCurrency: "USD",
+      targets: { OLD: 1 },
+      benchmark: "BM",
+    });
+    expect(report.benchmark!.equity[report.dates.length - 1]).toBeGreaterThan(1000);
+  });
+});
+
+describe("indicator warmup before the start date", () => {
+  const days = consecutive(60);
+  const rising = series("A", days.map((d, i) => [d, 100 + i, 100 + i]));
+  const momentum: NoCodeStrategy = { kind: "momentum", universe: ["A"], lookbackDays: 20, top: 1, absolute: true };
+
+  it("uses earlier history so the first window bar already has a signal", async () => {
+    const report = await runBacktest({
+      series: [rising],
+      config: NO_COSTS,
+      baseCurrency: "USD",
+      start: days[30],
+      targets: { strategy: momentum },
+    });
+    expect(report.dates[0]).toBe(days[30]);
+    expect(report.sim.trades[0].date).toBe(report.dates[1]);
+  });
+
+  it("starts from the first bar when no start is given", async () => {
+    const report = await runBacktest({
+      series: [rising],
+      config: NO_COSTS,
+      baseCurrency: "USD",
+      targets: { strategy: momentum },
+    });
+    expect(report.dates[0]).toBe(days[0]);
+    expect(report.sim.trades[0].date).toBe(days[21]);
+  });
+});
+
+describe("run hash", () => {
+  it("changes when a code strategy returns different weights", async () => {
+    const s = [series("A", consecutive(5).map((d) => [d, 10, 10]))];
+    const run = (w: number) => runBacktest({
+      series: s,
+      config: NO_COSTS,
+      baseCurrency: "USD",
+      targets: new Float64Array(5).fill(w),
+      strategy: { code: "Math.random()" },
+    });
+    expect((await run(0.2)).hash).not.toBe((await run(0.9)).hash);
   });
 });

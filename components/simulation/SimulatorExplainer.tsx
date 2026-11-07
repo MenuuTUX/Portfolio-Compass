@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp,
   Activity,
@@ -12,7 +12,7 @@ import {
   Binary,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { EASE } from "@/components/motion/Reveal";
 
 interface SimulatorExplainerProps {
@@ -26,7 +26,7 @@ const steps = [
     subtitle: "Compound Interest Model",
     icon: TrendingUp,
     description:
-      "The simple projection compounds a constant annual return and regular contributions. It shows how those assumptions accumulate over time; it does not model market volatility.",
+      "The simple projection compounds a constant annual return, converted to a monthly rate, with a contribution at the start of each month. It shows how those assumptions accumulate over time; it does not model market volatility.",
     details: [
       {
         label: "Total Return",
@@ -48,24 +48,24 @@ const steps = [
   {
     id: "monte_carlo",
     title: "Stochastic Simulation",
-    subtitle: "Geometric Brownian Motion",
+    subtitle: "Reshuffle, Resample, Randomize",
     icon: GitBranch,
     description:
-      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily returns using geometric Brownian motion. Returns come from dividend-adjusted closes (total return) when every holding has them, and from price alone otherwise, with the basis shown after each run. Percentiles are not calibrated probabilities or forecasts.",
+      "The Monte Carlo model generates illustrative paths from at least 200 aligned daily returns in three ways. Reshuffle replays the past year's days in a random order, so every path ends at the same value and only the route changes. Resample picks past days at random with repeats, so endings differ. Randomize draws returns from geometric Brownian motion fitted to the same history. Returns come from dividend-adjusted closes (total return) when every holding has them, and from price alone otherwise, with the basis shown after each run. Percentiles are not calibrated probabilities or forecasts.",
     details: [
       {
-        label: "Drift (μ)",
-        text: "Mean aligned daily return (total return when adjusted closes exist)",
-        icon: ArrowRight,
-      },
-      {
-        label: "Shock (σ)",
-        text: "Historical volatility of the same returns, with no separate yield term",
+        label: "Reshuffle",
+        text: "Same days, new order: shows sequence risk",
         icon: Shuffle,
       },
       {
-        label: "All Assets",
-        text: "Holdings linked through sample covariance",
+        label: "Resample",
+        text: "Real days drawn with repeats, optionally in blocks",
+        icon: ArrowRight,
+      },
+      {
+        label: "Randomize",
+        text: "Drift (μ), volatility (σ) and sample covariance, no separate yield term",
         icon: Binary,
       },
     ],
@@ -135,7 +135,7 @@ export default function SimulatorExplainer({
                       {term("A", "FV", "font-semibold text-ink")}
                       <span className="text-muted">=</span>
                       <span className="whitespace-nowrap">
-                        {term("P", <>P(1+r)<sup className="text-sm">t</sup></>)}
+                        {term("P", <>P(1+i)<sup className="text-sm">n</sup></>)}
                       </span>
                       <span className="text-muted">+</span>
                       <span className="inline-flex items-center gap-2">
@@ -143,16 +143,19 @@ export default function SimulatorExplainer({
                         <span className="text-muted">×</span>
                         <span className="inline-flex flex-col items-center text-base">
                           <span className="border-b border-hairline-strong px-1 pb-0.5">
-                            (1+r)<sup className="text-xs">t</sup> − 1
+                            (1+i)<sup className="text-xs">n</sup> − 1
                           </span>
-                          <span>r</span>
+                          <span>i</span>
                         </span>
+                        <span className="text-muted">×</span>
+                        {term("due", "(1+i)")}
                       </span>
                     </div>
                     <p className="mt-3 min-h-10 text-center text-sm text-muted" aria-live="polite">
-                      {hoveredTerm === "A" && "FV, future value: the account balance after t years."}
-                      {hoveredTerm === "P" && "P, the starting balance, compounded annually at r."}
-                      {hoveredTerm === "PMT" && "PMT, the regular contribution, added to the balance each period."}
+                      {hoveredTerm === "A" && "FV, future value: the balance after n = 12 × years months."}
+                      {hoveredTerm === "P" && "P, the starting balance, compounded monthly at i = (1 + r)^(1/12) − 1, the monthly rate equal to an annual return r."}
+                      {hoveredTerm === "PMT" && "PMT, the monthly contribution."}
+                      {hoveredTerm === "due" && "Contributions go in at the start of each month, so each one earns that month's return."}
                       {!hoveredTerm && "Hover or focus a term to see what it means."}
                     </p>
                   </div>
@@ -187,7 +190,7 @@ export default function SimulatorExplainer({
                       {term("shock", "σS dW", "underline decoration-dashed decoration-2 underline-offset-8")}
                     </div>
                     <p className="mt-3 min-h-10 text-center text-sm text-muted" aria-live="polite">
-                      {hoveredTerm === "drift" && "Drift (solid underline): the average daily price trend, μ."}
+                      {hoveredTerm === "drift" && "Drift (solid underline): μ, set from the mean daily log return, which already nets out the volatility drag (σ²/2). So the median path follows μ, and the average path sits above it."}
                       {hoveredTerm === "shock" && "Random shock (dashed underline): daily price noise scaled by volatility, σ."}
                       {!hoveredTerm && "Hover or focus a term to see what it means."}
                     </p>

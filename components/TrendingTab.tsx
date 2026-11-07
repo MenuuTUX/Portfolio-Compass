@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useSyncExternalStore, type ReactNode } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe, ChevronDown } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { ETFSchema } from "@/schemas/assetSchema";
@@ -19,12 +19,12 @@ import {
 } from "./workspace/PaneResizer";
 import { useAssetChart } from "./workspace/useAssetChart";
 import { mergeAssetData, useAssetDetails } from "./workspace/useAssetDetails";
-import FearGreedGauge, { FEAR_GREED_GRADIENT } from "./FearGreedGauge";
+import FearGreedGauge, { FEAR_GREED_GRADIENT, type FearGreedData } from "./FearGreedGauge";
 import { RevealGroup, RevealItem, EASE } from "./motion/Reveal";
 import TrendingSection from "./TrendingSection";
 import PageHeader from "./home/PageHeader";
 import SummaryCard from "./home/SummaryCard";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import Sparkline from "./Sparkline";
 import SpHeatmap from "./SpHeatmap";
@@ -177,7 +177,8 @@ export default function TrendingTab({
   const [selectedItem, setSelectedItem] = useState<ETF | null>(null);
 
   const batchAddMutation = useBatchAddPortfolio();
-  const [fearGreed, setFearGreed] = useState<{ score: number; rating: string } | null>(null);
+  const [fearGreed, setFearGreed] = useState<FearGreedData | null>(null);
+  const [fearFailed, setFearFailed] = useState(false);
   const [sideTab, setSideTab] = useState<"holdings" | "watchlist">("holdings");
 
   // lg+ workspace state
@@ -216,11 +217,20 @@ export default function TrendingTab({
     fetch("/api/market/fear-greed")
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
-        if (!cancelled && json && typeof json.score === "number") {
-          setFearGreed({ score: json.score, rating: String(json.rating ?? "") });
+        if (cancelled) return;
+        if (json && typeof json.score === "number") {
+          setFearGreed({
+            score: json.score,
+            rating: String(json.rating ?? ""),
+            updatedAt: typeof json.updatedAt === "string" ? json.updatedAt : new Date().toISOString(),
+          });
+        } else {
+          setFearFailed(true);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setFearFailed(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -234,7 +244,9 @@ export default function TrendingTab({
     sideTab === "holdings" && sidePortfolio.length > 0 ? sidePortfolio : sideWatch;
 
   const handleInstitutionalAdd = async (items: BatchAddItem[]) => {
-    await batchAddMutation.mutateAsync({ items, replace: true });
+    const result = await batchAddMutation.mutateAsync({ items, replace: true });
+    // The portfolio is loaded without the tickers that did not resolve; say which, so a gap is not silent.
+    if (result?.failed?.length) throw new Error(`Loaded, but could not add: ${result.failed.join(", ")}.`);
   };
 
   useEffect(() => {
@@ -403,10 +415,10 @@ export default function TrendingTab({
       <div className="bg-surface-card ring-1 ring-hairline rounded-2xl divide-y divide-hairline">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3 h-[60px]">
-            <div className="w-10 h-10 rounded-xl bg-surface-soft" />
+            <div className="ws-skeleton w-10 h-10 rounded-xl" />
             <div className="space-y-1.5">
-              <div className="h-3 w-16 rounded bg-surface-soft" />
-              <div className="h-3 w-28 rounded bg-surface-soft" />
+              <div className="ws-skeleton h-3 w-16 rounded" />
+              <div className="ws-skeleton h-3 w-28 rounded" />
             </div>
           </div>
         ))}
@@ -437,7 +449,7 @@ export default function TrendingTab({
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="ws-card flex items-center justify-center px-4 py-3 sm:row-span-2">
-              <FearGreedGauge compact className="mx-auto max-w-[260px]" />
+              <FearGreedGauge compact data={fearGreed} failed={fearFailed} className="mx-auto max-w-[260px]" />
             </div>
             <MoverCard title="Biggest gainer today" item={biggestMover} />
             <MoverCard title="Biggest loser today" item={biggestLoser} />
@@ -680,7 +692,7 @@ export default function TrendingTab({
                 inert={!fearOpen}
                 className="overflow-hidden"
               >
-                {fearOpen && <FearGreedGauge compact className="mx-auto max-w-[240px]" />}
+                {fearOpen && <FearGreedGauge compact data={fearGreed} failed={fearFailed} className="mx-auto max-w-[240px]" />}
               </motion.div>
             </section>
             {loadingStocks ? (

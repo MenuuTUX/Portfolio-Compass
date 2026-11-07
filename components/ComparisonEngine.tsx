@@ -16,7 +16,7 @@ import { getAssetIconUrl } from "@/lib/etf-providers";
 import { ETF, PortfolioItem } from "@/types";
 import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
-import { motion, useReducedMotion } from "framer-motion";
+import { m as motion, useReducedMotion } from "framer-motion";
 import Reveal, { EASE } from "./motion/Reveal";
 import HoldingIcon from "./workspace/HoldingIcon";
 import Shimmer from "./workspace/Shimmer";
@@ -39,6 +39,7 @@ import MarketFilters, {
   MarketFilterState,
   applyMarketFilters,
 } from "./MarketFilters";
+import { GAIN, LOSS } from "@/lib/chart-colors";
 
 interface ETFRowProps {
   etf: ETF;
@@ -52,8 +53,6 @@ interface ETFRowProps {
   onView: (etf: ETF) => void;
 }
 
-const GAIN_HEX = "#6dc382";
-const LOSS_HEX = "#f87171";
 
 // One dense list row. Memoized to isolate state updates (like flash animations)
 const ETFRow = memo(
@@ -68,6 +67,7 @@ const ETFRow = memo(
     onView,
   }: ETFRowProps) => {
     const reduceMotion = useReducedMotion();
+    const sparklineVisible = useSparklineVisible();
     const quoteUnavailable = etf.quoteStatus === "unavailable";
     const change = etf.changePercent;
     const iconUrl = getAssetIconUrl(etf.ticker, etf.name, etf.assetType);
@@ -142,11 +142,13 @@ const ETFRow = memo(
           </span>
           {displayHistory.length > 0 ? (
             <span className="hidden sm:block lg:hidden shrink-0">
-              <Sparkline
-                data={displayHistory}
-                color={isGraphPositive ? GAIN_HEX : LOSS_HEX}
-                name={etf.ticker}
-              />
+              {sparklineVisible && (
+                <Sparkline
+                  data={displayHistory}
+                  color={isGraphPositive ? GAIN : LOSS}
+                  name={etf.ticker}
+                />
+              )}
             </span>
           ) : (
             <span className="hidden sm:block lg:hidden shrink-0 text-xs text-muted-soft">
@@ -216,6 +218,20 @@ function useIsLg() {
   );
 }
 
+// The row sparkline is shown from sm up and hidden at lg+ (where the full chart replaces it).
+const SPARKLINE_QUERY = "(min-width: 640px) and (max-width: 1023.98px)";
+function useSparklineVisible() {
+  return useSyncExternalStore(
+    (callback) => {
+      const mq = window.matchMedia(SPARKLINE_QUERY);
+      mq.addEventListener("change", callback);
+      return () => mq.removeEventListener("change", callback);
+    },
+    () => window.matchMedia(SPARKLINE_QUERY).matches,
+    () => false,
+  );
+}
+
 // Debounce helper
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -243,15 +259,16 @@ export default function ComparisonEngine({
   const [etfs, setEtfs] = useState<ETF[]>([]);
   const [otherTypeEtfs, setOtherTypeEtfs] = useState<ETF[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  // True from the first render: the first page is always requested on mount, so there is no empty flash.
+  const [loading, setLoading] = useState(true);
   const [suggestions, setSuggestions] = useState<ETF[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedETF, setSelectedETF] = useState<ETF | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [listCollapsed, setListCollapsed] = useState(false);
-  const left = useResizableWidth("left", LEFT_PANE.initial, LEFT_PANE.min, maxLeftPane);
-  const right = useResizableWidth("right", RIGHT_PANE.initial, RIGHT_PANE.min, maxRightPane);
+  const { paneRef: leftPaneRef, ...left } = useResizableWidth("left", LEFT_PANE.initial, LEFT_PANE.min, maxLeftPane);
+  const { paneRef: rightPaneRef, ...right } = useResizableWidth("right", RIGHT_PANE.initial, RIGHT_PANE.min, maxRightPane);
   const [messageDrawer, setMessageDrawer] = useState<{
     isOpen: boolean;
     title: string;
@@ -270,22 +287,22 @@ export default function ComparisonEngine({
   // Pagination and sorting state
   const [visibleCount, setVisibleCount] = useState(24);
   const [hasMoreServer, setHasMoreServer] = useState(true);
-  const [recentTickers, setRecentTickers] = useState<string[]>([]);
+  // Recent tickers are read from localStorage once, on the client only.
+  // Server render and first client render both start from [] when nothing
+  // is stored, and the list stays empty until etfs load, so markup matches.
+  const [recentTickers, setRecentTickers] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const stored = localStorage.getItem("recent_tickers");
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error("Failed to load recent tickers", e);
+      return [];
+    }
+  });
   const [filters, setFilters] = useState<MarketFilterState>({
     ...DEFAULT_MARKET_FILTERS,
   });
-
-  // Load recent tickers on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("recent_tickers");
-      if (stored) {
-        setRecentTickers(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("Failed to load recent tickers", e);
-    }
-  }, []);
 
   const addToRecent = useCallback((ticker: string) => {
     setRecentTickers((prev) => {
@@ -381,7 +398,6 @@ export default function ComparisonEngine({
 
   const fetchEtfs = useCallback(
     async (query: string, skip = 0, signal?: AbortSignal) => {
-      if (skip === 0) setLoading(true);
       const buildUrl = (includeDetails: boolean) => {
         let url = `/api/market/search?query=${encodeURIComponent(query)}&skip=${skip}&limit=24`;
         if (assetType) url += `&type=${encodeURIComponent(assetType)}`;
@@ -468,19 +484,26 @@ export default function ComparisonEngine({
     [assetType],
   );
 
+  // Reset pagination when search or asset type changes. Adjusting state while
+  // rendering (instead of in an effect) keeps the reset in the same commit.
+  const [paginationKey, setPaginationKey] = useState({ debouncedSearch, assetType });
+  if (
+    paginationKey.debouncedSearch !== debouncedSearch ||
+    paginationKey.assetType !== assetType
+  ) {
+    setPaginationKey({ debouncedSearch, assetType });
+    setHasMoreServer(true);
+    setVisibleCount(24);
+    setLoading(true);
+  }
+
   // Effect for main search/grid
   useEffect(() => {
-    // Reset server pagination state on new search
-    setHasMoreServer(true);
     const controller = new AbortController();
-    fetchEtfs(debouncedSearch, 0, controller.signal);
+    // Started from a microtask: the request's results arrive asynchronously, and nothing here sets state synchronously.
+    queueMicrotask(() => { void fetchEtfs(debouncedSearch, 0, controller.signal); });
     return () => controller.abort();
   }, [debouncedSearch, fetchEtfs]);
-
-  // Reset pagination when search or asset type changes
-  useEffect(() => {
-    setVisibleCount(24);
-  }, [debouncedSearch, assetType]);
 
   const handleLoadMore = async () => {
     // If we have more local items to show, just increase visible count
@@ -498,7 +521,23 @@ export default function ComparisonEngine({
 
   // Effect to handle "No Results Found" drawer (Search returns 0)
   // We only trigger this if search is active (debouncedSearch) and both lists are empty.
-  useEffect(() => {
+  // Tracks the inputs of the check below so it runs only when one of them
+  // changes, the same as the effect it replaces.
+  const [noResultsInputs, setNoResultsInputs] = useState({
+    loading,
+    debouncedSearch,
+    etfs,
+    otherTypeEtfs,
+    assetType,
+  });
+  if (
+    noResultsInputs.loading !== loading ||
+    noResultsInputs.debouncedSearch !== debouncedSearch ||
+    noResultsInputs.etfs !== etfs ||
+    noResultsInputs.otherTypeEtfs !== otherTypeEtfs ||
+    noResultsInputs.assetType !== assetType
+  ) {
+    setNoResultsInputs({ loading, debouncedSearch, etfs, otherTypeEtfs, assetType });
     if (
       !loading &&
       debouncedSearch &&
@@ -514,20 +553,12 @@ export default function ComparisonEngine({
         type: "info",
       });
     }
-  }, [loading, debouncedSearch, etfs, otherTypeEtfs, assetType]);
-
-  // Handle typing to show suggestions
-  useEffect(() => {
-    if (search.length > 0) {
-      setShowSuggestions(true);
-    } else {
-      setShowSuggestions(false);
-    }
-  }, [search]);
+  }
 
   const handleSuggestionClick = (etf: ETF) => {
     setSearch(etf.ticker);
-    setShowSuggestions(false);
+    // Suggestions reopen only when the search text actually changes.
+    setShowSuggestions(etf.ticker.length > 0 && etf.ticker !== search);
   };
 
   const handleAdvancedView = useCallback(
@@ -664,6 +695,7 @@ export default function ComparisonEngine({
     // Clear the search so closing returns to the browse list, not an empty grid.
     if (messageDrawer.type === "info" && search) {
       setSearch("");
+      setShowSuggestions(false);
     }
   };
 
@@ -687,11 +719,9 @@ export default function ComparisonEngine({
 
   // Never leave the lg+ workspace empty: select the first result once loaded
   const firstResult = displayedEtfs[0];
-  useEffect(() => {
-    if (isLg && !loading && !selectedETF && firstResult) {
-      setSelectedETF(firstResult);
-    }
-  }, [isLg, loading, selectedETF, firstResult]);
+  if (isLg && !loading && !selectedETF && firstResult) {
+    setSelectedETF(firstResult);
+  }
   const resolvedAssetType: "STOCK" | "ETF" =
     assetType === "STOCK" ? "STOCK" : "ETF";
 
@@ -787,20 +817,18 @@ export default function ComparisonEngine({
       <div className="flex flex-col gap-2 lg:gap-0 lg:flex-row lg:flex-1 lg:min-h-0 lg:h-full">
         {/* Left: watchlist-style list (collapses to a 48px strip at lg+) */}
         <motion.div
+          ref={leftPaneRef}
           initial={{ opacity: 0, y: 12 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            ...(isLg ? { width: collapsedList ? "3rem" : `${left.width}px` } : {}),
-          }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{
             opacity: { duration: 0.5, ease: EASE },
             y: { duration: 0.5, ease: EASE },
-            width: { duration: left.dragging ? 0 : 0.28, ease: EASE },
           }}
+          style={isLg ? { width: collapsedList ? "3rem" : `${left.width}px` } : undefined}
           className={cn(
             panel,
             "relative flex flex-col lg:shrink-0 lg:min-h-0 lg:h-full lg:overflow-hidden",
+            isLg && !left.dragging && "transition-[width] duration-[280ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
           )}
         >
           {collapsedList && (
@@ -900,6 +928,8 @@ export default function ComparisonEngine({
                     .toUpperCase()
                     .replace(/[^A-Z0-9.\s-&]/g, "");
                   setSearch(value);
+                  // Suggestions open when the search text actually changes to non-empty.
+                  if (value !== search) setShowSuggestions(value.length > 0);
                 }}
                 onFocus={() => {
                   if (search) setShowSuggestions(true);
@@ -949,6 +979,8 @@ export default function ComparisonEngine({
             <PaneResizer
               label="Resize markets list"
               width={left.width}
+              valueMin={LEFT_PANE.min}
+              valueMax={maxLeftPane()}
               direction={1}
               onResize={left.setWidth}
               onCommit={left.persist}
@@ -986,6 +1018,8 @@ export default function ComparisonEngine({
           <PaneResizer
             label="Resize details panel"
             width={right.width}
+            valueMin={RIGHT_PANE.min}
+            valueMax={maxRightPane()}
             direction={-1}
             onResize={right.setWidth}
             onCommit={right.persist}
@@ -997,18 +1031,22 @@ export default function ComparisonEngine({
         {/* Right: details (lg+ docked; below lg opens as bottom sheet) */}
         {isLg && (
           <motion.div
+            ref={rightPaneRef}
             initial={{ opacity: 0, y: 12 }}
             animate={{
               opacity: detailsOpen ? 1 : 0,
               y: 0,
-              width: detailsOpen ? right.width : 0,
             }}
             transition={{
               opacity: { duration: detailsOpen ? 0.5 : 0.2, ease: EASE, delay: detailsOpen ? 0.12 : 0 },
               y: { duration: 0.5, ease: EASE, delay: 0.12 },
-              width: { duration: right.dragging ? 0 : 0.28, ease: EASE },
             }}
-            className={cn(panel, "shrink-0 min-h-0 h-full overflow-hidden")}
+            style={{ width: detailsOpen ? right.width : 0 }}
+            className={cn(
+              panel,
+              "shrink-0 min-h-0 h-full overflow-hidden",
+              !right.dragging && "transition-[width] duration-[280ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
+            )}
           >
             <div inert={!detailsOpen} className="h-full w-full min-w-0">
               <ETFDetailsDrawer

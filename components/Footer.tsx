@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import Reveal, { RevealGroup, RevealItem } from "./motion/Reveal";
 
@@ -13,10 +14,9 @@ export default function Footer() {
         <div className="grid gap-16 md:grid-cols-[1fr_auto] md:gap-24">
           <Reveal>
             <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="" width={40} height={40} className="h-10 w-10 rounded-xl" />
-              <span className="font-display font-bold text-ink" style={{ fontSize: "clamp(32px, 5vw, 56px)", lineHeight: 1.1, letterSpacing: "0.005em" }}>
-                PortfolioCompass
+              <Image src="/logo.png" alt="" width={40} height={40} sizes="40px" className="h-10 w-10 rounded-xl" />
+              <span className="font-display font-bold text-ink" style={{ fontSize: "clamp(32px, 5vw, 56px)", lineHeight: 1.1, letterSpacing: "-0.035em" }}>
+                Portfolio Compass
               </span>
             </div>
             <p className="mt-4 max-w-[40ch] text-body">Compare funds, build an allocation and test its assumptions in your browser.</p>

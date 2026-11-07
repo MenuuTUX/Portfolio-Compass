@@ -1,3 +1,5 @@
+import { isTicker } from "@/lib/tickers";
+import { cacheUnlessEmpty, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getFastQuotes,
@@ -24,6 +26,14 @@ const MAX_RESULTS = 50;
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+/** Whole numbers only ("12abc" and "1.5" are refused); null when out of range. */
+function parseCount(value: string | null, fallback: number, min: number, max: number): number | null {
+  if (value === null) return fallback;
+  if (!/^\d+$/.test(value)) return null;
+  const n = Number(value);
+  return n >= min && n <= max ? n : null;
+}
+
 function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
   return value === "STOCK" || value === "ETF" ? value : undefined;
 }
@@ -44,8 +54,14 @@ export async function GET(request: NextRequest) {
   const query = (searchParams.get("query") || "").trim();
   const assetType = parseAssetType(searchParams.get("type"));
   const tickersParam = searchParams.get("tickers");
-  const limitParam = searchParams.get("limit");
-  const skipParam = searchParams.get("skip");
+  const skip = parseCount(searchParams.get("skip"), 0, 0, 10_000);
+  const limit = parseCount(searchParams.get("limit"), MAX_RESULTS, 1, MAX_RESULTS);
+  if (skip === null || limit === null) {
+    return NextResponse.json(
+      { error: "skip must be a whole number from 0 to 10000 and limit from 1 to 50" },
+      { status: 400 },
+    );
+  }
   const isFullHistoryRequested = searchParams.get("full") === "true";
   const includeHistory =
     searchParams.get("includeHistory") === "true" || isFullHistoryRequested;
@@ -61,7 +77,7 @@ export async function GET(request: NextRequest) {
       tickers = tickersParam
         .split(",")
         .map((t) => t.trim().toUpperCase())
-        .filter((t) => t.length > 0 && /^[A-Z0-9.-]{1,12}$/.test(t))
+        .filter(isTicker)
         .slice(0, MAX_TICKERS_PER_REQUEST);
     } else if (query) {
       // Free-text / exact ticker search via Yahoo autocomplete
@@ -74,7 +90,7 @@ export async function GET(request: NextRequest) {
       const asTicker = query
         .split(",")
         .map((t) => t.trim().toUpperCase())
-        .filter((t) => /^[A-Z0-9.-]{1,12}$/.test(t) && !t.includes(" "));
+        .filter(isTicker);
       tickers = Array.from(new Set([...asTicker, ...symbols])).slice(0, 20);
     } else {
       // Browse defaults
@@ -84,11 +100,6 @@ export async function GET(request: NextRequest) {
           : assetType === "STOCK"
             ? TOP_STOCKS
             : [...TOP_STOCKS, ...TOP_ETFS];
-      const skip = Math.max(0, parseInt(skipParam || "0", 10) || 0);
-      const limit = Math.min(
-        MAX_RESULTS,
-        Math.max(1, parseInt(limitParam || "50", 10) || 50),
-      );
       tickers = Array.from(new Set(curated)).slice(skip, skip + limit);
     }
 
@@ -133,9 +144,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(assets, {
-      headers: {
-        "Cache-Control": "public, max-age=5, stale-while-revalidate=15",
-      },
+      headers: cacheUnlessEmpty(CACHE.search, assets.length),
     });
   } catch (error) {
     console.error("[API] Error searching ETFs (live):", error);

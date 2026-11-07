@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Download, Loader2, Check } from "lucide-react";
-import { toPng } from "html-to-image";
 import { PortfolioShareCard, ShareCardProps } from "./PortfolioShareCard";
 
 interface PortfolioShareButtonProps {
@@ -35,6 +34,8 @@ export function PortfolioShareButton({
       const element = document.getElementById("portfolio-share-card");
       if (!element) return;
 
+      // Loaded when the user asks for an image, not with the Portfolio tab.
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(element, {
         cacheBust: true,
         backgroundColor: "#FAFAFA",

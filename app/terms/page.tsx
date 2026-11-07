@@ -33,8 +33,8 @@ export default function TermsPage() {
           to.
         </p>
         <p>
-          Projections and Monte Carlo paths apply geometric Brownian motion to
-          historical estimates. They describe a model, not the future. Past
+          Projections and Monte Carlo paths reorder or resample historical daily
+          returns, or apply geometric Brownian motion to historical estimates. They describe a model, not the future. Past
           performance does not predict future results, and simulated results
           carry limitations that real trading does not.
         </p>

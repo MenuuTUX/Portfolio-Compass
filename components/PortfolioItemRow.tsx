@@ -1,5 +1,5 @@
-import { memo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { memo, useEffect, useState } from "react";
+import { AnimatePresence, m as motion } from "framer-motion";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { EASE } from "./motion/Reveal";
 import { getAssetIconUrl } from "@/lib/etf-providers";
@@ -27,6 +27,13 @@ interface PortfolioItemRowProps {
   hideValues?: boolean;
 }
 
+/** Shares as a non-negative number, or null while the text is blank or invalid. */
+function parseShares(text: string): number | null {
+  if (text.trim() === "") return null;
+  const n = Number(text);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 const PortfolioItemRow = memo(
   ({
     item,
@@ -41,6 +48,15 @@ const PortfolioItemRow = memo(
     hideValues = false,
   }: PortfolioItemRowProps) => {
     const [imgError, setImgError] = useState(false);
+    // Typed text is kept locally so a field can be cleared and retyped; only valid numbers reach the portfolio.
+    const [sharesText, setSharesText] = useState(() => String(item.shares || 0));
+    const sharesValue = parseShares(sharesText);
+    const sharesInvalid = sharesValue === null;
+    const sharesErrorId = `shares-error-${item.ticker}`;
+    useEffect(() => {
+      // Follow outside changes (optimizer, batch add) without overwriting a value the user is still typing.
+      setSharesText((prev) => (parseShares(prev) === (item.shares || 0) ? prev : String(item.shares || 0)));
+    }, [item.shares]);
     const iconUrl = getAssetIconUrl(item.ticker, item.name, item.assetType);
     const quoteFreshness = getQuoteFreshness(item.quoteAsOf, now);
     const quoteLabel = quoteSessionLabel(item.quoteSession);
@@ -210,13 +226,31 @@ const PortfolioItemRow = memo(
                 <input
                   id={`shares-${item.ticker}`}
                   type="number"
-                  value={item.shares || 0}
-                  onChange={(e) =>
-                    onUpdateShares(item.ticker, parseFloat(e.target.value))
-                  }
+                  min={0}
+                  step="any"
+                  value={sharesText}
+                  onChange={(e) => {
+                    setSharesText(e.target.value);
+                    const next = parseShares(e.target.value);
+                    if (next !== null) onUpdateShares(item.ticker, next);
+                  }}
+                  onBlur={() => {
+                    if (sharesValue === null) {
+                      setSharesText(String(item.shares || 0));
+                    } else if (sharesValue !== (item.shares || 0)) {
+                      onUpdateShares(item.ticker, sharesValue);
+                    }
+                  }}
+                  aria-invalid={sharesInvalid}
+                  aria-describedby={sharesInvalid ? sharesErrorId : undefined}
                   className="w-full bg-surface-soft ring-1 ring-hairline rounded-lg px-2 py-1 min-h-[44px] md:min-h-0 text-ink text-right focus-visible:ring-2 focus-visible:ring-compass focus:outline-none [color-scheme:dark] text-sm tabular-nums"
                   aria-label={`Shares for ${item.ticker}`}
                 />
+                {sharesInvalid && (
+                  <p id={sharesErrorId} className="mt-1 text-xs text-rose-400">
+                    Enter 0 or more
+                  </p>
+                )}
               </div>
             </div>
 

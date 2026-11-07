@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 const STORAGE_PREFIX = "pc:pane-width:";
 
-/** A pane width in px, persisted per key. Clamps to [min, max()] on every set. */
+/**
+ * A pane width in px, persisted per key. Clamps to [min, max()] on every set.
+ *
+ * While a drag is in progress and `paneRef` is attached to the pane element, the
+ * width is written straight to that element's style. React state (and so the whole
+ * pane) only updates when the drag ends, so pointer moves do not re-render the page.
+ * Callers that never attach `paneRef` keep the plain state behaviour.
+ */
 export function useResizableWidth(
   key: string,
   initial: number,
@@ -13,7 +20,10 @@ export function useResizableWidth(
   max: () => number,
 ) {
   const [width, setWidthState] = useState(initial);
-  const [dragging, setDragging] = useState(false);
+  const [dragging, setDraggingState] = useState(false);
+  const paneRef = useRef<HTMLDivElement | null>(null);
+  const draggingRef = useRef(false);
+  const liveRef = useRef<number | null>(null);
 
   useEffect(() => {
     try {
@@ -28,11 +38,26 @@ export function useResizableWidth(
   const setWidth = useCallback(
     (next: number) => {
       const clamped = Math.round(Math.max(min, Math.min(Math.max(min, max()), next)));
-      setWidthState(clamped);
+      const pane = paneRef.current;
+      if (draggingRef.current && pane) {
+        pane.style.width = `${clamped}px`;
+        liveRef.current = clamped;
+      } else {
+        setWidthState(clamped);
+      }
       return clamped;
     },
     [min, max],
   );
+
+  const setDragging = useCallback((value: boolean) => {
+    draggingRef.current = value;
+    setDraggingState(value);
+    if (!value && liveRef.current !== null) {
+      setWidthState(liveRef.current);
+      liveRef.current = null;
+    }
+  }, []);
 
   const persist = useCallback(
     (value: number) => {
@@ -45,7 +70,15 @@ export function useResizableWidth(
     [key],
   );
 
-  return { width, setWidth, persist, dragging, setDragging, reset: () => persist(setWidth(initial)) };
+  return {
+    width,
+    setWidth,
+    persist,
+    dragging,
+    setDragging,
+    paneRef,
+    reset: () => persist(setWidth(initial)),
+  };
 }
 
 interface PaneResizerProps {
@@ -59,6 +92,10 @@ interface PaneResizerProps {
   onDraggingChange: (dragging: boolean) => void;
   onReset: () => void;
   className?: string;
+  /** Smallest allowed width, announced to assistive tech. */
+  valueMin?: number;
+  /** Largest allowed width, announced to assistive tech. */
+  valueMax?: number;
 }
 
 /** Vertical drag handle that lives in the 8px gutter between two panes. */
@@ -71,6 +108,8 @@ export function PaneResizer({
   onDraggingChange,
   onReset,
   className,
+  valueMin,
+  valueMax,
 }: PaneResizerProps) {
   const start = useRef<{ x: number; w: number } | null>(null);
   const [active, setActive] = useState(false);
@@ -81,6 +120,8 @@ export function PaneResizer({
       aria-orientation="vertical"
       aria-label={label}
       aria-valuenow={width}
+      aria-valuemin={valueMin}
+      aria-valuemax={valueMax}
       tabIndex={0}
       onPointerDown={(e) => {
         e.currentTarget.setPointerCapture(e.pointerId);

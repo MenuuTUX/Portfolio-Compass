@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   BrainCircuit,
   TrendingUp,
@@ -14,7 +14,7 @@ import {
   Calculator,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 const steps = [
   {
@@ -24,11 +24,11 @@ const steps = [
     icon: Target,
     color: "emerald",
     description:
-      "The score subtracts a variance penalty from a return proxy. The optimizer searches for whole-share purchases that improve that score; it does not test every possible portfolio.",
+      "The score subtracts a variance penalty from a return proxy. The optimizer spends the budget in whole-share lots, each time choosing the lot that leaves the best score; it does not test every possible portfolio.",
     details: [
       {
         label: "Return Proxy (μ)",
-        text: "Dividend yield plus beta multiplied by 6%",
+        text: "Risk-free rate (2%) plus beta multiplied by 6%. Yield is part of this return, not added on top",
         icon: TrendingUp,
       },
       {
@@ -50,7 +50,7 @@ const steps = [
     icon: BrainCircuit,
     color: "blue",
     description:
-      "Finding the theoretical maximum for integer-constrained portfolios is computationally expensive. We use a greedy heuristic that simulates buying small batches of shares and picks the one that improves the score the most.",
+      "Finding the theoretical maximum for integer-constrained portfolios is computationally expensive. We use a greedy heuristic that simulates buying small batches of shares and picks the one with the best score change per dollar, until the cash left is less than one share.",
     details: [
       {
         label: "Simulation",
@@ -64,7 +64,7 @@ const steps = [
       },
       {
         label: "Selection",
-        text: "Buy the candidate with the largest score increase",
+        text: "Buy the lot with the best score change per dollar, until the budget is spent",
         icon: ArrowRight,
       },
     ],
@@ -90,7 +90,7 @@ const steps = [
       },
       {
         label: "Rebalancing",
-        text: "Scores new purchases alongside existing holdings",
+        text: "Adding new money scores purchases alongside existing holdings; replacing starts from no shares",
         icon: TrendingUp,
       },
     ],
@@ -169,7 +169,7 @@ export default function AlgorithmExplainer() {
                   >
                     {/* The Equation */}
                     <div className="relative">
-                      <div className="relative bg-surface-card ring-1 ring-hairline px-4 py-5 @lg:px-10 @lg:py-8 rounded-2xl flex flex-wrap items-center justify-center gap-x-3 gap-y-1 @lg:gap-4 text-2xl @lg:text-3xl @2xl:text-4xl text-white">
+                      <div className="relative bg-surface-card ring-1 ring-hairline px-4 py-5 @lg:px-10 @lg:py-8 rounded-2xl flex flex-wrap items-center justify-center gap-x-3 gap-y-1 @lg:gap-4 text-2xl @lg:text-3xl @2xl:text-4xl text-ink">
                         <span
                           className={cn(
                             "transition-colors cursor-help italic font-bold",
@@ -253,7 +253,7 @@ export default function AlgorithmExplainer() {
                                 {hoveredTerm === "U" &&
                                   "Estimated return minus a variance penalty."}
                                 {hoveredTerm === "mu" &&
-                                  "Weighted sum of yield-and-beta proxies."}
+                                  "Weighted sum of return proxies: risk-free rate plus beta times 6%."}
                                 {hoveredTerm === "lambda" &&
                                   "Penalty multiplier for volatility."}
                                 {hoveredTerm === "sigma" &&
@@ -325,7 +325,7 @@ export default function AlgorithmExplainer() {
                               }}
                               transition={{ type: "spring", stiffness: 100 }}
                             >
-                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-card text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
+                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-card text-ink text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-hairline z-10">
                                 Score:{" "}
                                 {Math.max(
                                   0,
@@ -371,6 +371,7 @@ export default function AlgorithmExplainer() {
                       </span>
                       <span>-</span>
                       <span>U(w)</span>
+                      <span className="text-muted">per $ spent</span>
                     </div>
 
                     {/* Simulation Stage */}
@@ -508,7 +509,7 @@ export default function AlgorithmExplainer() {
                               className="flex flex-col items-center gap-3"
                             >
                               <div className="text-sm text-ink font-medium">
-                                In this example, Asset D has the largest score increase (+55).
+                                In this example, Asset D has the largest score increase per dollar spent (+55).
                               </div>
                               <button
                                 type="button"

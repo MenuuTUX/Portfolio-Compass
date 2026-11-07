@@ -48,18 +48,28 @@ export default function TfsaPlanner() {
   const [yearTurned18, setYearTurned18] = useState(2022);
   const [contributed, setContributed] = useState(0);
   const [withdrawn, setWithdrawn] = useState(0);
+  const [contributedThisYear, setContributedThisYear] = useState(0);
   const [monthly, setMonthly] = useState(250);
   const [years, setYears] = useState(20);
+  // Read once on mount; the table only knows announced years.
+  const [calendarYear] = useState(() => new Date().getFullYear());
 
   const valid =
     Number.isInteger(yearTurned18) && yearTurned18 >= 1900 && yearTurned18 <= TFSA_LATEST_YEAR &&
-    contributed >= 0 && withdrawn >= 0 && monthly >= 0 && Number.isInteger(years) && years >= 1 && years <= 60;
+    contributed >= 0 && withdrawn >= 0 && contributedThisYear >= 0 && monthly >= 0 && Number.isInteger(years) && years >= 1 && years <= 60;
 
   const result = useMemo(() => {
     if (!valid) return null;
-    const room = availableRoom({ yearTurned18, year: TFSA_LATEST_YEAR, contributedBefore: contributed, withdrawnBefore: withdrawn });
+    const room = availableRoom({
+      yearTurned18,
+      year: TFSA_LATEST_YEAR,
+      contributedBefore: contributed,
+      withdrawnBefore: withdrawn,
+      contributedThisYear,
+    });
     const planned = monthly * 12;
-    const excess = Math.max(0, planned - Math.max(room, 0));
+    // Negative room is an existing excess, so it adds to whatever the plan puts in.
+    const excess = Math.max(0, planned - room);
     return {
       room,
       planned,
@@ -67,14 +77,15 @@ export default function TfsaPlanner() {
       monthlyTax: overContributionTax(excess, 1),
       paths: SCENARIOS.map((r) => ({ r, points: projectContributions({ monthly, years, annualReturn: r }) })),
     };
-  }, [valid, yearTurned18, contributed, withdrawn, monthly, years]);
+  }, [valid, yearTurned18, contributed, withdrawn, contributedThisYear, monthly, years]);
 
   return (
     <div className="space-y-8">
       <section aria-label="Your numbers" className="grid gap-4 rounded-2xl bg-surface-card p-5 ring-1 ring-hairline sm:grid-cols-2">
-        <NumberField label="Year you turned 18" hint="Room starts building that year, or 2009 if later." value={yearTurned18} onChange={setYearTurned18} min={1900} />
+        <NumberField label="First year you were 18 or older and a Canadian resident" hint="Room builds from that year, or from 2009 if later." value={yearTurned18} onChange={setYearTurned18} min={1900} />
         <NumberField label="Put in so far" hint={`Across every TFSA you have, through ${TFSA_LATEST_YEAR - 1}.`} value={contributed} onChange={setContributed} step={100} />
         <NumberField label="Taken out so far" hint={`Withdrawals through ${TFSA_LATEST_YEAR - 1}. They return to your room each January 1.`} value={withdrawn} onChange={setWithdrawn} step={100} />
+        <NumberField label="Already contributed this year" hint={`Put in during ${TFSA_LATEST_YEAR} so far. It comes off your room.`} value={contributedThisYear} onChange={setContributedThisYear} step={100} />
         <NumberField label="Planned each month" hint="What you could put in every month." value={monthly} onChange={setMonthly} step={25} />
         <NumberField label="Years to look ahead" hint="Whole years, 1 to 60." value={years} onChange={setYears} min={1} />
       </section>
@@ -85,6 +96,11 @@ export default function TfsaPlanner() {
         <>
           <section aria-label="Contribution room" className="space-y-3 rounded-2xl p-5 ring-1 ring-hairline">
             <p className="text-sm text-body">Your TFSA room for {TFSA_LATEST_YEAR}, from the CRA formula</p>
+            {calendarYear > TFSA_LATEST_YEAR && (
+              <p role="status" className="text-sm text-rose-400">
+                This page only has CRA limits through {TFSA_LATEST_YEAR}, so it leaves out the room added on January 1, {calendarYear}. Check the CRA&apos;s published limit for {calendarYear} and add it to your room.
+              </p>
+            )}
             <p className="font-display text-4xl font-bold tabular-nums text-ink">{cad.format(result.room)}</p>
             {result.room < 0 && (
               <p className="text-sm text-rose-400">That is negative, which means you are over your limit. The CRA taxes the excess at {OVER_CONTRIBUTION_RATE_PER_MONTH * 100}% for each month it stays in the account. Check your CRA My Account before adding more.</p>

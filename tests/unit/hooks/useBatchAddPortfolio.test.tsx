@@ -28,9 +28,19 @@ function Harness() {
   })}>Replace</button>;
 }
 
-function mount() {
+function MergeHarness() {
+  const mutation = useBatchAddPortfolio();
+  return <button onClick={() => mutation.mutateAsync({
+    items: [{ ticker: "A", weight: 60, shares: 0 }, { ticker: "B", weight: 40, shares: 0 }],
+  }).then((result) => document.body.dataset.result = JSON.stringify({ failed: result.failed }))
+    .catch((error) => {
+      document.body.dataset.result = error.message;
+    })}>Merge</button>;
+}
+
+function mount(ui: React.ReactElement = <Harness />) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}><Harness /></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
 
 afterEach(() => {
@@ -68,5 +78,27 @@ describe("useBatchAddPortfolio replacement", () => {
       { ticker: "A", weight: 60, shares: 0 },
       { ticker: "B", weight: 40, shares: 0 },
     ]);
+  });
+});
+
+describe("useBatchAddPortfolio merge", () => {
+  it("reports tickers that could not be resolved and keeps target weights at 100", async () => {
+    savePortfolio([{ ticker: "EXISTING", weight: 100, shares: 3 }]);
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      if (String(input).includes("/api/etfs/search")) return Response.json([quote("A")]);
+      return Response.json([]);
+    }) as unknown as typeof fetch;
+
+    mount(<MergeHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Merge" }));
+
+    await waitFor(() => expect(document.body.dataset.result).toContain("failed"));
+    expect(JSON.parse(document.body.dataset.result!)).toEqual({ failed: ["B"] });
+
+    const merged = loadPortfolio();
+    const total = merged.reduce((sum, item) => sum + (item.weight || 0), 0);
+    expect(total).toBeCloseTo(100, 6);
+    expect(merged.find((item) => item.ticker === "A")?.weight).toBeCloseTo(37.5, 6);
+    expect(merged.find((item) => item.ticker === "EXISTING")?.weight).toBeCloseTo(62.5, 6);
   });
 });

@@ -1,10 +1,6 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { Decimal } from "./decimal";
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export { cn } from "./cn";
 
 export function formatCurrency(value: number | Decimal, currency?: string) {
   const val = Decimal.isDecimal(value) ? value.toNumber() : value;

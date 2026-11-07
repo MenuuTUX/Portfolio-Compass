@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getFastWebsiteDomain } from "@/lib/fast-market";
-import { parseTickers } from "@/lib/tickers";
+import { isTicker } from "@/lib/tickers";
+import { cacheHeaders } from "@/lib/http-cache";
 
 export const maxDuration = 20;
 
@@ -74,12 +75,14 @@ function monogram(ticker: string) {
 }
 
 function respond(logo: Logo) {
+  // Real logos are cached at Vercel's CDN as well; monograms only in the browser.
+  const cache = logo.found
+    ? cacheHeaders({ browser: 86_400, cdn: 86_400, swr: 604_800 })
+    : { "Cache-Control": "public, max-age=3600" };
   return new Response(logo.body, {
     headers: {
       "Content-Type": logo.contentType,
-      "Cache-Control": logo.found
-        ? "public, max-age=86400, stale-while-revalidate=604800"
-        : "public, max-age=3600",
+      ...cache,
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
     },
@@ -91,9 +94,14 @@ export async function GET(
   { params }: { params: Promise<{ ticker: string }> },
 ) {
   const { ticker: raw } = await params;
-  const [ticker] = parseTickers([decodeURIComponent(raw)], 1);
-  if (!ticker) return new Response("Invalid ticker", { status: 400 });
-  const key = ticker.toUpperCase();
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    return new Response("Invalid ticker", { status: 400 });
+  }
+  if (!isTicker(decoded)) return new Response("Invalid ticker", { status: 400 });
+  const key = decoded.toUpperCase();
 
   const hit = cache.get(key);
   if (hit && hit.expires > Date.now()) return respond(hit);

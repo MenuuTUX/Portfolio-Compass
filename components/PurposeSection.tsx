@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion, useTransform } from "framer-motion";
+import { m as motion, useReducedMotion, useTransform } from "framer-motion";
+import Image from "next/image";
 import { useRef, useState, type ReactNode } from "react";
 import LocalFirstDiagram from "./LocalFirstDiagram";
 import { useElementProgress } from "./landing/PhoneMock";
@@ -24,7 +25,7 @@ function ArrowIcon() {
 const INDEX = [
   { label: "Compare", id: "compare" },
   { label: "Build", id: "build" },
-  { label: "Test", id: "test" },
+  { label: "Backtest", id: "test" },
   { label: "Learn", id: "learn" },
 ];
 
@@ -50,8 +51,7 @@ function IndexWord({ id, label }: { id: string; label: string }) {
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/logo.png" alt="" width={20} height={20} className="h-5 w-5 rounded-md" />
+      <Image src="/logo.png" alt="" width={20} height={20} sizes="20px" className="h-5 w-5 rounded-md" />
       <span className="text-sm font-medium text-ink">{children}</span>
     </div>
   );
@@ -130,7 +130,7 @@ export default function PurposeSection() {
   const share = async () => {
     try {
       if (navigator.share) {
-        await navigator.share({ title: "PortfolioCompass", text: "PortfolioCompass: ETF comparison and portfolio tools", url: window.location.href });
+        await navigator.share({ title: "Portfolio Compass", text: "Portfolio Compass: ETF comparison and portfolio tools", url: window.location.href });
       } else {
         await navigator.clipboard.writeText(window.location.href);
         setShareStatus("Link copied.");
@@ -181,8 +181,8 @@ export default function PurposeSection() {
 
       <Band
         id="test"
-        eyebrow="Test"
-        title={<>Test what it assumes.</>}
+        eyebrow="Backtest"
+        title={<>Backtest what it assumes.</>}
         text="Run historical checks and Monte Carlo paths. Results are model scenarios based on past estimates, not forecasts."
         next="learn"
         tint="bg-[linear-gradient(135deg,rgba(182,165,230,0.16),rgba(229,112,63,0.10))]"

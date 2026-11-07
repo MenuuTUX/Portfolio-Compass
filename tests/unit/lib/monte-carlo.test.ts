@@ -149,6 +149,8 @@ describe('Monte Carlo Math Library', () => {
     expect(calculateCone([])).toEqual({
       median: [],
       p05: [],
+      p10: [],
+      p90: [],
       p95: [],
       dates: [],
     });
@@ -160,4 +162,46 @@ describe('Monte Carlo Math Library', () => {
     expect(calculateQuantile([10, 20, 30, 40], 0.95)).toBeCloseTo(38.5);
   });
 
+});
+
+describe('generateMonteCarloPaths stepDays', () => {
+  it('a 21-day step matches 21 daily steps in drift and in variance of the log value', async () => {
+    const { generateMonteCarloPaths } = await import('@/lib/monte-carlo');
+    const mu = 0.0003;
+    const sigma = 0.01;
+    // No shock: one year as 12 monthly steps equals 252 daily steps exactly.
+    const daily = generateMonteCarloPaths([100], [1], [mu], [[0]], 1, 252, 1000, 1);
+    const monthly = generateMonteCarloPaths([100], [1], [mu], [[0]], 1, 12, 1000, 1, 21);
+    expect(monthly[0][12]).toBeCloseTo(daily[0][252], 8);
+
+    // With shock: the variance of the 1-year log value is 252·σ² for both.
+    const paths = generateMonteCarloPaths([100], [1], [0], [[sigma]], 4000, 12, 1, 7, 21);
+    const logs = paths.map((p) => Math.log(p[12]));
+    const mean = logs.reduce((a, b) => a + b, 0) / logs.length;
+    const variance = logs.reduce((a, b) => a + (b - mean) ** 2, 0) / (logs.length - 1);
+    expect(variance).toBeGreaterThan(252 * sigma ** 2 * 0.9);
+    expect(variance).toBeLessThan(252 * sigma ** 2 * 1.1);
+  });
+});
+
+describe('getRegularizedCholesky', () => {
+  it('returns the plain factor and no ridge for a well-conditioned matrix', async () => {
+    const { getRegularizedCholesky } = await import('@/lib/monte-carlo');
+    const { L, ridge } = getRegularizedCholesky([[0.04, 0.01], [0.01, 0.09]]);
+    expect(ridge).toBe(0);
+    expect(L[0][0]).toBeCloseTo(0.2, 12);
+  });
+
+  it('adds a small ridge for two identical holdings instead of failing', async () => {
+    const { getRegularizedCholesky, getCholeskyDecomposition } = await import('@/lib/monte-carlo');
+    const v = 0.0002;
+    const singular = [[v, v], [v, v]];
+    expect(() => getCholeskyDecomposition(singular)).toThrow();
+    const { L, ridge } = getRegularizedCholesky(singular);
+    expect(ridge).toBeGreaterThan(0);
+    expect(ridge).toBeLessThanOrEqual(1e-4);
+    // L·Lᵀ reproduces the matrix to within the ridge.
+    expect(L[1][0] * L[0][0]).toBeCloseTo(v, 10);
+    expect(L[1][0] ** 2 + L[1][1] ** 2).toBeCloseTo(v * (1 + ridge), 10);
+  });
 });
