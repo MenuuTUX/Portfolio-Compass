@@ -61,7 +61,21 @@ Not built yet: sweeps and walk-forward for code strategies and for the momentum 
 
 Hosting runs the Next.js app and its API proxies. Clearing site data clears the portfolio, so export a JSON backup first. The `/api` routes are limited to 120 requests per minute per IP in `proxy.ts`.
 
-Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CSS, Recharts, Pyodide and Monaco (Lab only). CI runs typecheck, lint and 390+ unit tests on every pull request.
+Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CSS, Recharts, Pyodide and Monaco (Lab only). CI runs typecheck, lint and 1,000+ unit tests on every pull request.
+
+## Repository map
+
+| Path | What lives there |
+|------|------------------|
+| `app/` | Next.js routes: the pages, and `api/` proxies for quotes, charts, search, fund details, FX and DCF |
+| `components/` | UI. Feature folders: `lab/` (backtesting), `simulation/` (Monte Carlo), `workspace/` (asset view), `landing/`, `tfsa/`, `dcf/` |
+| `lib/lab/` | Compass Lab: the fill and metrics engine, bar cache, strategy runners (Python and TypeScript), run hashing |
+| `lib/math/` | Statistics, covariance, beta, portfolio returns and history, FX conversion |
+| `lib/valuation/`, `lib/fundamentals/` | DCF and WACC, and SEC filings parsing |
+| `lib/` (top level) | Formatting, dates, storage, the optimizer, Monte Carlo, provenance text, and the market data layer in `fast-market.ts` |
+| `hooks/` | Portfolio and data hooks on TanStack Query |
+| `tests/` | Unit tests mirroring the source tree, plus API and security tests |
+| `docs/` | Design notes, the Lab plan, a worked backtest, and the demo media |
 
 ## How I built it
 
