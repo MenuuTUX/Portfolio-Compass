@@ -1,4 +1,4 @@
-import { isTicker } from "@/lib/tickers";
+import { isTicker, normalizeTicker } from "@/lib/tickers";
 import { z } from "zod";
 
 /**
@@ -22,7 +22,7 @@ export const MAX_BACKUP_HOLDINGS = 500;
  */
 const nonNegative = z.number().nonnegative();
 
-export const LocalPortfolioItemSchema = z.object({
+const LocalPortfolioItemSchema = z.object({
   ticker: z.string().min(1),
   weight: nonNegative,
   shares: nonNegative,
@@ -44,7 +44,7 @@ export function parsePortfolioBackup(input: unknown): LocalPortfolioItem[] {
 
   const seen = new Set<string>();
   return result.data.map((item) => {
-    const ticker = item.ticker.trim().toUpperCase();
+    const ticker = normalizeTicker(item.ticker);
     if (!isTicker(ticker)) {
       throw new Error(`“${item.ticker}” is not a valid ticker. Use 1–15 letters, numbers, dots, dashes, ^ or =.`);
     }
@@ -56,26 +56,18 @@ export function parsePortfolioBackup(input: unknown): LocalPortfolioItem[] {
   });
 }
 
-/** Imported values replace same-ticker records while other local holdings stay. */
+/** Both lists come from parsePortfolioBackup, so tickers are already normalized. */
 export function mergePortfolioBackup(
   current: LocalPortfolioItem[],
   imported: LocalPortfolioItem[],
 ): LocalPortfolioItem[] {
   const merged = new Map<string, LocalPortfolioItem>();
-  for (const item of current) {
-    const ticker = item.ticker.trim().toUpperCase();
-    merged.set(ticker, { ticker, weight: item.weight, shares: item.shares });
-  }
-  for (const item of imported) {
-    const ticker = item.ticker.trim().toUpperCase();
-    merged.set(ticker, { ticker, weight: item.weight, shares: item.shares });
-  }
+  for (const item of [...current, ...imported]) merged.set(item.ticker, item);
   return [...merged.values()];
 }
 
-const STORAGE_KEY = "portfolio_compass_v1";
 /** The LocalStorage key that holds the portfolio; other tabs write to it too. */
-export const PORTFOLIO_STORAGE_KEY = STORAGE_KEY;
+export const PORTFOLIO_STORAGE_KEY = "portfolio_compass_v1";
 const ENVELOPE_VERSION = 2;
 
 /** Return the holdings from either the v2 envelope or the older bare array. */
@@ -90,11 +82,10 @@ function holdingsFrom(parsed: unknown): unknown {
 export function savePortfolio(items: LocalPortfolioItem[]) {
   if (!globalThis.window) return;
 
-  // Validate schema - will throw ZodError if invalid
   const validItems = LocalPortfolioSchema.parse(items);
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: ENVELOPE_VERSION, items: validItems }));
+    localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify({ v: ENVELOPE_VERSION, items: validItems }));
   } catch {
     // Quota exceeded or storage disabled (private mode): say so in plain words.
     throw new Error("Your browser blocked saving your portfolio (storage is full or disabled)");
@@ -104,7 +95,7 @@ export function savePortfolio(items: LocalPortfolioItem[]) {
 export function loadPortfolio(): LocalPortfolioItem[] {
   if (!globalThis.window) return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
     if (!raw) return [];
 
     let parsed: unknown;
@@ -131,7 +122,7 @@ export function loadPortfolio(): LocalPortfolioItem[] {
   }
 }
 
-export const CORRUPT_BACKUP_KEY = `${STORAGE_KEY}_corrupt_backup`;
+export const CORRUPT_BACKUP_KEY = `${PORTFOLIO_STORAGE_KEY}_corrupt_backup`;
 
 function preserveCorruptPortfolio(raw: string) {
   try {
@@ -149,7 +140,7 @@ function toNonNegative(value: unknown): number {
 }
 
 /** Keep holdings with a usable ticker; invalid weights or shares become 0. */
-export function repairPortfolio(input: unknown): LocalPortfolioItem[] {
+function repairPortfolio(input: unknown): LocalPortfolioItem[] {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
   const items: LocalPortfolioItem[] = [];
@@ -157,7 +148,7 @@ export function repairPortfolio(input: unknown): LocalPortfolioItem[] {
     if (!item || typeof item !== "object") continue;
     const { ticker, weight, shares } = item as Record<string, unknown>;
     if (typeof ticker !== "string" || !ticker.trim()) continue;
-    const key = ticker.trim().toUpperCase();
+    const key = normalizeTicker(ticker);
     if (seen.has(key)) continue;
     seen.add(key);
     items.push({ ticker: ticker.trim(), weight: toNonNegative(weight), shares: toNonNegative(shares) });
@@ -168,7 +159,7 @@ export function repairPortfolio(input: unknown): LocalPortfolioItem[] {
 /** Read local holdings strictly for backup export, where corruption must not look empty. */
 export function loadPortfolioBackup(): LocalPortfolioItem[] {
   if (!globalThis.window) return [];
-  const raw = localStorage.getItem(STORAGE_KEY);
+  const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
   if (raw === null) return [];
 
   try {

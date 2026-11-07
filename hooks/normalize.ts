@@ -1,4 +1,5 @@
 import { ETF } from "@/types";
+import { normalizeTicker } from "@/lib/tickers";
 
 function finiteNumber(value: any): number {
   const parsed = Number(value);
@@ -7,7 +8,7 @@ function finiteNumber(value: any): number {
 
 /** Normalize a market/search payload into a portfolio-ready ETF shape. */
 export function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
-  const ticker = (raw?.ticker || fallbackTicker).toUpperCase();
+  const ticker = normalizeTicker(raw?.ticker || fallbackTicker);
   return {
     ticker,
     name: raw?.name || ticker,
@@ -20,21 +21,8 @@ export function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
     isDeepAnalysisLoaded: Boolean(raw?.isDeepAnalysisLoaded),
     history: Array.isArray(raw?.history) ? raw.history : [],
     metrics: {
-      mer: raw?.metrics?.mer === undefined ? undefined : raw.metrics.mer,
-      merSource: raw?.metrics?.merSource,
-      merRetrievedAt: raw?.metrics?.merRetrievedAt,
-      merSourceField: raw?.metrics?.merSourceField,
-      merInputUnit: raw?.metrics?.merInputUnit,
-      merNormalization: raw?.metrics?.merNormalization,
-      merMeasurementDate: raw?.metrics?.merMeasurementDate,
+      ...raw?.metrics,
       yield: raw?.metrics?.yield === undefined ? raw?.dividendYield : raw.metrics.yield,
-      yieldSource: raw?.metrics?.yieldSource,
-      yieldRetrievedAt: raw?.metrics?.yieldRetrievedAt,
-      yieldSourceField: raw?.metrics?.yieldSourceField,
-      yieldInputUnit: raw?.metrics?.yieldInputUnit,
-      yieldNormalization: raw?.metrics?.yieldNormalization,
-      yieldMeasurementDate: raw?.metrics?.yieldMeasurementDate,
-      betaSource: raw?.metrics?.betaSource,
     },
     // A missing mix stays null; zeros would read as a known 0% equity fund.
     allocation: raw?.allocation

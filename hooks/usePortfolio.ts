@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import { toPortfolioEtf } from "./normalize";
 import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
@@ -136,13 +137,13 @@ export const usePortfolio = (refreshEnabled = false) => {
   // When quotes were last requested. Reused answers do not count, so the retry window stays fixed.
   const lastNetworkFetch = useRef(0);
   const query = useQuery<Portfolio>({
-    queryKey: ["portfolio"],
+    queryKey: PORTFOLIO_QUERY_KEY,
     queryFn: async ({ client }) => {
       const localItems = loadPortfolio();
       if (localItems.length === 0) return [];
 
       const tickers = localItems.map((item) => normalizeTicker(item.ticker));
-      const previous = client.getQueryData<Portfolio>(["portfolio"]) ?? [];
+      const previous = client.getQueryData<Portfolio>(PORTFOLIO_QUERY_KEY) ?? [];
       const sameHoldings =
         previous.length > 0 &&
         holdingsSignature(previous) === holdingsSignature(
@@ -206,7 +207,7 @@ export const usePortfolio = (refreshEnabled = false) => {
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key === PORTFOLIO_STORAGE_KEY) {
-        void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+        void queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
       }
     };
     window.addEventListener("storage", onStorage);
@@ -232,7 +233,7 @@ export const usePortfolio = (refreshEnabled = false) => {
         const detailsByTicker = new Map(
           assets.map((asset) => [normalizeTicker(asset.ticker), asset]),
         );
-        queryClient.setQueryData<Portfolio>(["portfolio"], (current) => {
+        queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (current) => {
           if (!current || current.map((item) => item.ticker).join(",") !== tickersKey) {
             return current;
           }
@@ -268,7 +269,7 @@ export const usePortfolio = (refreshEnabled = false) => {
         funds.filter(Boolean).map((fund) => [normalizeTicker(fund.ticker), fund]),
       );
       if (fundByTicker.size === 0) return;
-      queryClient.setQueryData<Portfolio>(["portfolio"], (current) =>
+      queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (current) =>
         current?.map((item) => mergeFundProfile(item, fundByTicker.get(item.ticker))),
       );
     });

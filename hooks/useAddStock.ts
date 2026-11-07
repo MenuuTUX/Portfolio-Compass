@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import { toPortfolioEtf } from "./normalize";
 
 interface AddStockParams {
@@ -27,7 +28,7 @@ async function resolveStock(
     return toPortfolioEtf(provided, target);
   }
 
-  // Exact ticker match via DB-backed search (enriches history/holdings when available)
+  // Exact ticker match (enriches history/holdings when available)
   const exactRes = await fetch(
     `/api/etfs/search?tickers=${encodeURIComponent(target)}&includeHistory=true&adjusted=true`,
   );
@@ -56,7 +57,7 @@ async function resolveStock(
     }
   }
 
-  // Surface non-OK search status so callers see real failures (not silent 200s)
+  // Surface a real search failure instead of reporting "not found"
   if (!exactRes.ok && exactRes.status !== 404) {
     throw new Error(
       `Failed to fetch stock details (${exactRes.status})`,
@@ -68,7 +69,6 @@ async function resolveStock(
 
 /**
  * Hook to add a stock/ETF to the local portfolio.
- * Local-first: writes to LocalStorage; optional API enrich is best-effort.
  */
 export const useAddStock = () => {
   const queryClient = useQueryClient();
@@ -102,7 +102,7 @@ export const useAddStock = () => {
       return stock;
     },
     onSuccess: (newStock) => {
-      queryClient.setQueryData<Portfolio>(["portfolio"], (oldPortfolio) => {
+      queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (oldPortfolio) => {
         if (!oldPortfolio) {
           return [
             {
@@ -133,7 +133,7 @@ export const useAddStock = () => {
         ];
       });
 
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
     },
   });
 };

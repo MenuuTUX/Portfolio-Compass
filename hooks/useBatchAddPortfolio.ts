@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import { toPortfolioEtf } from "./normalize";
 import { z } from "zod";
 import { ETFSchema } from "@/schemas/assetSchema";
@@ -26,7 +27,7 @@ async function fetchStocksByTickers(tickers: string[]): Promise<ETF[]> {
   const unique = Array.from(new Set(tickers.map(normalizeTicker)));
   const found = new Map<string, ETF>();
 
-  // Primary: DB-backed bulk search
+  // Primary: bulk search
   try {
     const response = await fetch(
       `/api/etfs/search?tickers=${encodeURIComponent(unique.join(","))}&includeHistory=true&adjusted=true`,
@@ -49,8 +50,7 @@ async function fetchStocksByTickers(tickers: string[]): Promise<ETF[]> {
     console.warn("Batch etfs/search failed, trying market fallback", e);
   }
 
-  // Fallback: fast market search for any missing tickers
-  const missing = unique.filter((t) => !found.has(t));
+    const missing = unique.filter((t) => !found.has(t));
   if (missing.length > 0) {
     await Promise.all(
       missing.map(async (ticker) => {
@@ -149,7 +149,7 @@ export const useBatchAddPortfolio = () => {
     onSuccess: (data) => {
       const { stocks, updatedPortfolio } = data;
 
-      queryClient.setQueryData<Portfolio>(["portfolio"], (oldPortfolio) => {
+      queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (oldPortfolio) => {
         const oldMap = new Map<string, Portfolio[number]>();
         if (oldPortfolio) {
           oldPortfolio.forEach((p) =>
@@ -172,7 +172,7 @@ export const useBatchAddPortfolio = () => {
         });
       });
 
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
     },
   });
 };

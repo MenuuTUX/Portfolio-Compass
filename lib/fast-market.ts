@@ -3,10 +3,17 @@ import pLimit from "p-limit";
 import { z } from "zod";
 import type { QuoteSession } from "@/lib/quote-session";
 import { calculateTTMYield, type DividendHistoryItem } from "@/lib/finance";
-import type { AllocationWeights } from "@/lib/asset-class";
+import {
+  detectFundClass,
+  normalizeExpenseRatioWithProvenance,
+  parseBondRatings,
+  pickBeta,
+  positionsToAllocation,
+  type AllocationWeights,
+} from "@/lib/asset-class";
 import { estimateMarketBeta, MARKET_PROXY, type BetaEstimate } from "@/lib/math/beta";
-import { fetchWithTimeout } from "@/lib/upstream";
-import { isTicker } from "@/lib/tickers";
+import { fetchWithTimeout, timeoutSignal } from "@/lib/upstream";
+import { isTicker, normalizeTicker } from "@/lib/tickers";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -179,7 +186,7 @@ function normalizeTickers(tickers: string[]): string[] {
   return Array.from(
     new Set(
       tickers
-        .map((t) => t.trim().toUpperCase())
+        .map(normalizeTicker)
         .filter(isTicker),
     ),
   );
@@ -444,6 +451,7 @@ function keyTickers(key: string): string[] {
 }
 
 const PROFILE_TTL_MS = 6 * 60 * 60_000; // sectors/industries rarely change
+const PROFILE_FAILURE_TTL_MS = 30 * 60_000;
 
 export interface FastProfile {
   ticker: string;
@@ -506,7 +514,7 @@ export async function getFastProfiles(
           const empty: FastProfile = { ticker };
           setCache(`profile:${ticker}`, {
             value: empty,
-            expires: Date.now() + 30 * 60_000,
+            expires: Date.now() + PROFILE_FAILURE_TTL_MS,
           });
           result.set(ticker, empty);
         }
@@ -599,7 +607,7 @@ async function fetchSparkChunk(
 
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-    signal: AbortSignal.timeout(8000),
+    signal: timeoutSignal(),
   });
   if (!res.ok) throw new Error(`spark ${res.status}`);
   parseSparkPayload(await res.json(), out);
@@ -1079,19 +1087,10 @@ const EtfQuoteSchema = z.object({
 export async function getFastEtfDetails(
   ticker: string,
 ): Promise<FastEtfDetails | null> {
-  const key = `etfdetail:${ticker.trim().toUpperCase()}`;
+  const key = `etfdetail:${normalizeTicker(ticker)}`;
 
   try {
     return await cached(key, ETF_DETAILS_TTL_MS, async () => {
-      // Lazy import to keep the hot quote path free of this module's deps graph
-      const {
-        detectFundClass,
-        positionsToAllocation,
-        parseBondRatings,
-        normalizeExpenseRatioWithProvenance,
-        pickBeta,
-      } = await import("@/lib/asset-class");
-
       const [rawData, rawQuote] = await Promise.all([
         yf.quoteSummary(ticker, {
           modules: [
@@ -1184,7 +1183,7 @@ export async function getFastEtfDetails(
       const volume = quote?.regularMarketVolume ?? undefined;
 
       return {
-        ticker: ticker.toUpperCase(),
+        ticker: normalizeTicker(ticker),
         description,
         expenseRatio,
         expenseRatioSource,
@@ -1232,9 +1231,6 @@ export async function enrichEtfDetailsGaps(
   try {
     const { getStockProfile, getEtfHoldings } = await import(
       "@/lib/scrapers/stock-analysis"
-    );
-    const { normalizeExpenseRatioWithProvenance, pickBeta } = await import(
-      "@/lib/asset-class"
     );
 
     const [profile, scrapedHoldings] = await Promise.all([

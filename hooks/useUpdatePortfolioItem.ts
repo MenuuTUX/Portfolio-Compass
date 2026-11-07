@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Portfolio } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
+import { normalizeTicker } from "@/lib/tickers";
 
 interface UpdateParams {
   ticker: string;
@@ -13,10 +15,9 @@ export const useUpdatePortfolioItem = () => {
 
   return useMutation({
     mutationFn: async ({ ticker, weight, shares }: UpdateParams) => {
-      // Update Local Storage
       const currentItems = loadPortfolio();
       const newItems = currentItems.map((item) => {
-        if (item.ticker.toUpperCase() === ticker.toUpperCase()) {
+        if (normalizeTicker(item.ticker) === normalizeTicker(ticker)) {
           return {
             ...item,
             weight: weight !== undefined ? weight : item.weight,
@@ -30,19 +31,14 @@ export const useUpdatePortfolioItem = () => {
       return { ticker, weight, shares };
     },
     onMutate: async ({ ticker, weight, shares }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["portfolio"] });
+      await queryClient.cancelQueries({ queryKey: PORTFOLIO_QUERY_KEY });
 
-      // Snapshot the previous value
-      const previousPortfolio = queryClient.getQueryData<Portfolio>([
-        "portfolio",
-      ]);
+      const previousPortfolio = queryClient.getQueryData<Portfolio>(PORTFOLIO_QUERY_KEY);
 
-      // Optimistically update
-      queryClient.setQueryData<Portfolio>(["portfolio"], (old) => {
+      queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (old) => {
         if (!old) return [];
         return old.map((item) => {
-          if (item.ticker.toUpperCase() === ticker.toUpperCase()) {
+          if (normalizeTicker(item.ticker) === normalizeTicker(ticker)) {
             return {
               ...item,
               weight: weight !== undefined ? weight : item.weight,
@@ -57,11 +53,11 @@ export const useUpdatePortfolioItem = () => {
     },
     onError: (err, variables, context) => {
       if (context?.previousPortfolio) {
-        queryClient.setQueryData(["portfolio"], context.previousPortfolio);
+        queryClient.setQueryData(PORTFOLIO_QUERY_KEY, context.previousPortfolio);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
     },
   });
 };
