@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { m as motion } from "framer-motion";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { Check } from "lucide-react";
 import { PortfolioItem } from "@/types";
 import {

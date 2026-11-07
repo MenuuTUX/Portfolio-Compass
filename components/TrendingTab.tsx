@@ -15,11 +15,12 @@ import {
   maxRightPane,
   PaneResizer,
   useResizableWidth,
-} from "./workspace/PaneResizer";
+} from "./ui/PaneResizer";
 import { useAssetChart } from "./workspace/useAssetChart";
 import { mergeAssetData, useAssetDetails } from "./workspace/useAssetDetails";
 import FearGreedGauge, { FEAR_GREED_GRADIENT } from "./FearGreedGauge";
-import { RevealGroup, RevealItem, EASE } from "./motion/Reveal";
+import { RevealGroup, RevealItem } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import TrendingSection from "./TrendingSection";
 import PageHeader from "./home/PageHeader";
 import SummaryCard from "./home/SummaryCard";

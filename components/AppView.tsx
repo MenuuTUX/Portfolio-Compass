@@ -11,7 +11,7 @@ import { useAddStock } from "@/hooks/useAddStock";
 import { useUpdatePortfolioItem } from "@/hooks/useUpdatePortfolioItem";
 import { useRemoveStock } from "@/hooks/useRemoveStock";
 import { savePortfolio } from "@/lib/storage";
-import { EASE } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import type { ETF, PortfolioItem } from "@/types";
 

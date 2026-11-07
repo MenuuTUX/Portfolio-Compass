@@ -2,7 +2,8 @@
 
 import { m as motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, AlertTriangle, CheckCircle, Info } from "lucide-react";
-import { RevealGroup, RevealItem, EASE } from "@/components/motion/Reveal";
+import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface MessageDrawerProps {

@@ -1,7 +1,7 @@
 import { memo, useEffect, useState } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
 import { ChevronDown, Trash2 } from "lucide-react";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { getQuoteFreshness } from "@/lib/math/portfolio-returns";
 import { quoteSessionLabel } from "@/lib/quote-session";

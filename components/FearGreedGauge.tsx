@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { animate, useReducedMotion } from "framer-motion";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "./ui/HelpTip";
 import { fetchFearGreed, type FearGreedData } from "@/lib/api-client";

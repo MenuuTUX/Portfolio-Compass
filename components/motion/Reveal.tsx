@@ -4,7 +4,6 @@ import { m as motion, type HTMLMotionProps } from "framer-motion";
 
 import { EASE } from "@/lib/motion";
 
-export { EASE };
 
 interface RevealProps extends Omit<HTMLMotionProps<"div">, "initial" | "animate" | "whileInView" | "transition"> {
   /** Seconds to wait before the reveal starts. */

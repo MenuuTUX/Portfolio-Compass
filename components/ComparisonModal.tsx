@@ -25,7 +25,7 @@ import { cn } from "@/lib/cn";
 import { formatCurrency, formatSectorName } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import SectorPieChart from "./SectorPieChart";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { fetchSnapshot } from "@/lib/api-client";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";

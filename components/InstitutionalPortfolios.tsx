@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/cn";
 import { COLORS } from "./SectorPieChart";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 interface InstitutionalPortfoliosProps {
   onBatchAdd: (items: BatchAddItem[]) => Promise<void>;

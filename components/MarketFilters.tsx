@@ -26,11 +26,11 @@ export type SortKey =
   | "industry_asc"
   | "sector_asc";
 
-export type PerformanceFilter = "all" | "gainers" | "losers" | "flat";
-export type YieldFilter = "all" | "any" | "high" | "none";
-export type SizeFilter = "all" | "mega" | "large" | "mid" | "small";
-export type PeFilter = "all" | "value" | "growth" | "none";
-export type MerFilter = "all" | "ultra_low" | "low" | "any";
+type PerformanceFilter = "all" | "gainers" | "losers" | "flat";
+type YieldFilter = "all" | "any" | "high" | "none";
+type SizeFilter = "all" | "mega" | "large" | "mid" | "small";
+type PeFilter = "all" | "value" | "growth" | "none";
+type MerFilter = "all" | "ultra_low" | "low" | "any";
 
 export interface MarketFilterState {
   sort: SortKey;

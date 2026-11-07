@@ -27,7 +27,7 @@ import { PortfolioShareButton } from "./PortfolioShareButton";
 import { GAIN, HAIRLINE, HAIRLINE_STRONG, MUTED } from "@/lib/chart-colors";
 import { horizonYearsFromAge, loadRiskProfile } from "@/lib/risk-profile";
 import { fxSourceLabel } from "@/lib/fx-copy";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 const NOTE = "Started from your quiz answers";
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { m as motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { RevealGroup, RevealItem, EASE } from "@/components/motion/Reveal";
+import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import {
   X,

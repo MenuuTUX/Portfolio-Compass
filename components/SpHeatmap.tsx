@@ -6,7 +6,7 @@ import { AnimatePresence, m as motion } from "framer-motion";
 import { Check, ChevronDown, X } from "lucide-react";
 import { DEFAULT_HEATMAP_GROUP, HEATMAP_GROUPS, type HeatmapGroupId } from "@/config/sp500-heatmap";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { squarify } from "@/lib/treemap";
 import { cn } from "@/lib/cn";
 import type { HeatmapPayload, HeatmapStock } from "@/app/api/market/heatmap/route";

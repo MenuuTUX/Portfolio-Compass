@@ -4,7 +4,8 @@ import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/utils";
 import { RefreshCw, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { AnimatePresence, animate, m as motion, useReducedMotion } from "framer-motion";
-import Reveal, { EASE } from "./motion/Reveal";
+import Reveal from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import HeroChart from "./home/HeroChart";
 import RangeChips from "./home/RangeChips";
 import { availableRanges, buildPortfolioIndexWithBasis, sliceIndex, type IndexRange } from "@/lib/portfolio-history";
@@ -34,7 +35,7 @@ import {
   maxRightPane,
   PaneResizer,
   useResizableWidth,
-} from "./workspace/PaneResizer";
+} from "./ui/PaneResizer";
 
 type NavTab = "TRENDING" | "ETFS" | "STOCKS" | "PORTFOLIO";
 type DrawerTab = "ALLOCATION" | "OPTIMIZER" | "RISK";

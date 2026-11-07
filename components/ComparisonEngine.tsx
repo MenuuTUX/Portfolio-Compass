@@ -17,7 +17,8 @@ import { ETF, PortfolioItem } from "@/types";
 import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
 import { m as motion, useReducedMotion } from "framer-motion";
-import Reveal, { EASE } from "./motion/Reveal";
+import Reveal from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import HoldingIcon from "./workspace/HoldingIcon";
 import Shimmer from "./workspace/Shimmer";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
@@ -31,7 +32,7 @@ import {
   maxRightPane,
   PaneResizer,
   useResizableWidth,
-} from "./workspace/PaneResizer";
+} from "./ui/PaneResizer";
 import { useAssetChart } from "./workspace/useAssetChart";
 import { useAssetDetails } from "./workspace/useAssetDetails";
 import MarketFilters, {

@@ -6,7 +6,8 @@ import BrushArt from "./landing/BrushArt";
 import GrowthScreen from "./landing/GrowthScreen";
 import Phone25D from "./landing/Phone25D";
 import PhoneMock, { PhoneEntrance, useLandingScroll } from "./landing/PhoneMock";
-import Reveal, { EASE } from "./motion/Reveal";
+import Reveal from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { useEffect, useState } from "react";
 
 const WIDE_QUERY = "(min-width: 900px)";

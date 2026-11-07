@@ -12,7 +12,7 @@ import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
 import { quoteSessionLabel } from "@/lib/quote-session";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { useFlash } from "@/hooks/useFlash";
 
 interface TrendingSectionProps {

@@ -13,7 +13,7 @@ const QuizScreen = dynamic(() => import('@/components/QuizScreen'), { loading })
 const AppView = dynamic(() => import('@/components/AppView'), { loading });
 import { AnimatePresence, m as motion } from 'framer-motion';
 import Footer from '@/components/Footer';
-import { EASE } from '@/components/motion/Reveal';
+import { EASE } from "@/lib/motion";
 
 type ViewMode = 'LANDING' | 'INTRO_QUIZ' | 'APP';
 
