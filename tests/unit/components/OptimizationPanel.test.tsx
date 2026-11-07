@@ -2,15 +2,6 @@ import { afterEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PortfolioItem } from "@/types";
-import { mockModule } from "@/tests/helpers/mock-module";
-
-await mockModule("@/lib/math/covariance", () => ({
-  estimateAnnualCovariance: () => ({
-    matrix: [[0.02, 0.005], [0.005, 0.03]],
-    source: "single-index",
-    samples: 0,
-  }),
-}));
 
 import OptimizationPanel from "@/components/OptimizationPanel";
 import { saveRiskProfile } from "@/lib/risk-profile";

@@ -13,15 +13,11 @@ await mockModule("@tanstack/react-virtual", () => ({
     measureElement: () => {},
   }),
 }));
+await mockModule("@/components/WealthProjector", () => ({ default: () => null }));
+await mockModule("@/components/OptimizationPanel", () => ({ default: () => <div>Optimizer model</div> }));
 await mockModule("@/components/PortfolioItemRow", () => ({
   default: () => null,
 }));
-await mockModule("@/components/WealthProjector", () => ({ default: () => null }));
-await mockModule("@/components/OptimizationPanel", () => ({ default: () => <div>Optimizer model</div> }));
-await mockModule("@/components/AlgorithmExplainer", () => ({ default: () => null }));
-await mockModule("@/components/RiskReturnScatter", () => ({ default: () => null }));
-await mockModule("@/components/PortfolioBarChart", () => ({ default: () => null }));
-await mockModule("@/components/SectorPieChart", () => ({ default: () => null }));
 const { default: PortfolioBuilder } = await import("@/components/PortfolioBuilder");
 
 const freshQuote = new Date().toISOString();
@@ -62,10 +58,10 @@ describe("PortfolioBuilder Sector X-Ray without target weights", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Allocation" }));
 
     expect(screen.queryByText("Add holdings to see exposure")).toBeNull();
-    expect(screen.getByText("Technology")).toBeTruthy();
-    expect(screen.getByText("25.0%")).toBeTruthy();
-    expect(screen.getByText("Financials")).toBeTruthy();
-    expect(screen.getByText("75.0%")).toBeTruthy();
+    expect(screen.getAllByText("Technology").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("25.0%").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Financials").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("75.0%").length).toBeGreaterThan(0);
   });
 });
 

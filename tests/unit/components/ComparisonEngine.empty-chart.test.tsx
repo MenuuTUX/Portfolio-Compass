@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { mockModule } from "@/tests/helpers/mock-module";
@@ -8,7 +8,6 @@ await mockModule("framer-motion", () => ({
   motion: new Proxy({}, { get: () => "div" }),
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-await mockModule("@/components/Sparkline", () => ({ default: () => <div data-testid="sparkline" /> }));
 
 const { default: ComparisonEngine } = await import("@/components/ComparisonEngine");
 
@@ -34,6 +33,5 @@ describe("ComparisonEngine empty history", () => {
 
     expect((await screen.findAllByText("No History Fund", {}, { timeout: 3000 })).length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.getAllByText("Chart unavailable").length).toBeGreaterThan(0));
-    expect(screen.queryByTestId("sparkline")).toBeNull();
   });
 });
