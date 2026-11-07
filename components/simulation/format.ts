@@ -1,16 +1,3 @@
-export function compactMoney(v: number, currency?: string) {
-  const code = currency && /^[A-Z]{3}$/.test(currency) ? currency : undefined;
-  return new Intl.NumberFormat("en-CA", {
-    ...(code ? { style: "currency" as const, currency: code, currencyDisplay: "narrowSymbol" as const } : {}),
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(v);
-}
-
-/** Signed percent with a true minus sign, e.g. +4.2% or −3.0%. Input is already in percent. */
-export const signedPercent = (v: number, digits = 1) =>
-  `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(digits)}%`;
-
 /** Whole years for an axis, thinned so long horizons stay readable. */
 export function yearTicks(years: number) {
   const step = years <= 10 ? 1 : years <= 20 ? 2 : 5;

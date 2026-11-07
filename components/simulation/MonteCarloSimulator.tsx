@@ -48,7 +48,7 @@ import { PortfolioShareButton } from "../PortfolioShareButton";
 import SimulatorExplainer from "./SimulatorExplainer";
 import PathFan, { type FanBand } from "./PathFan";
 import OutcomeHistogram from "./OutcomeHistogram";
-import { signedPercent } from "./format";
+import { signedPercent } from "@/lib/format";
 import { impliedAnnualReturn } from "@/lib/math/scenario";
 import { EASE } from "@/components/motion/Reveal";
 import { HelpTip } from "@/components/ui/HelpTip";

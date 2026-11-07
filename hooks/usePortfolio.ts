@@ -2,7 +2,8 @@ import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
-import { normalizeTicker, toPortfolioEtf } from "./normalize";
+import { normalizeTicker } from "@/lib/tickers";
+import { toPortfolioEtf } from "./normalize";
 import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
 

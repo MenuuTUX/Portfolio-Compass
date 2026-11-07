@@ -2,8 +2,12 @@
 // The first character must be a letter, digit or ^, so ".." and "-X" never pass.
 // Every route, the backup importer and the quote layer share this one rule;
 // the scrapers keep their own, stricter rule because they build URLs from it.
-export const MAX_TICKER_LENGTH = 15;
 const TICKER_PATTERN = /^[A-Z0-9^][A-Z0-9.^=-]{0,14}$/i;
+
+/** The one spelling of a ticker used for storage keys, cache keys and comparisons. */
+export function normalizeTicker(ticker: string): string {
+  return ticker.trim().toUpperCase();
+}
 
 export function isTicker(value: string): boolean {
   return TICKER_PATTERN.test(value);
@@ -15,7 +19,7 @@ export function isTicker(value: string): boolean {
  * (London) are real exchange codes and must stay as typed.
  */
 export function toYahooSymbol(ticker: string): string {
-  const t = ticker.trim().toUpperCase();
+  const t = normalizeTicker(ticker);
   return /^[A-Z]{1,5}\.[ABC]$/.test(t) ? t.replace(".", "-") : t;
 }
 

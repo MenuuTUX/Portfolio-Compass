@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import type { RobustnessResult, SweepDeflation } from "@/lib/lab/engine/sweep";
 import { VARIANT_WARNING_AT } from "@/lib/lab/engine/variants";
 import type { LabRun } from "./useLabEngine";
-import { pct, signedPct } from "./format";
+import { pct, signedPct } from "@/lib/format";
 import LabChart from "./LabChart";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "@/components/ui/HelpTip";

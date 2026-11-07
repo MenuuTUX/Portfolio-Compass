@@ -5,7 +5,8 @@ import { Download, LineChart } from "lucide-react";
 import { m as motion } from "framer-motion";
 import type { LabRun } from "./useLabEngine";
 import LabChart, { type ChartSeries } from "./LabChart";
-import { compactMoney, isShortRun, money, pct, rebaseToCommonStart, SHORT_RUN, signedPct } from "./format";
+import { compactMoney, money, pct, signedPct } from "@/lib/format";
+import { isShortRun, rebaseToCommonStart, SHORT_RUN } from "./format";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { splitMetrics, type SliceStats } from "@/lib/lab/engine/holdout";
@@ -420,7 +421,7 @@ export default function ResultsPanel({ run, compare, guided, variants, robustnes
               dates={report.dates}
               series={series.lines}
               log={log}
-              format={(v) => compactMoney(v, report.currency)}
+              format={(v) => compactMoney(v, report.currency, "en-US")}
               summary={`Growth of ${money(report.sim.equity[0], report.currency)} from ${m.startDate} to ${m.endDate}: ${money(series.final, report.currency)}${report.benchmark ? `, against ${money(series.lines[1].values[series.lines[1].values.length - 1], report.currency)} for ${report.benchmark.ticker}` : ""}.`}
             />
             <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-hairline sm:grid-cols-4">

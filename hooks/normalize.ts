@@ -1,9 +1,5 @@
 import { ETF } from "@/types";
 
-export function normalizeTicker(ticker: string): string {
-  return ticker.trim().toUpperCase();
-}
-
 function finiteNumber(value: any): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;

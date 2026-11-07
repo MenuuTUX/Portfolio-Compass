@@ -2,7 +2,8 @@
 
 import { useId, useMemo, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { compactMoney, valueTicks, yearTicks } from "./format";
+import { compactMoney } from "@/lib/format";
+import { valueTicks, yearTicks } from "./format";
 
 const W = 1000;
 const MAX_POINTS = 160;

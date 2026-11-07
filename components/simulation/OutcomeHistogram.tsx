@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { HistogramBin } from "@/lib/monte-carlo";
 import { LOSS } from "@/lib/chart-colors";
-import { signedPercent } from "./format";
+import { signedPercent } from "@/lib/format";
 
 const W = 1000;
 

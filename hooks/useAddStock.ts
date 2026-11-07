@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
-import { normalizeTicker, toPortfolioEtf } from "./normalize";
+import { normalizeTicker } from "@/lib/tickers";
+import { toPortfolioEtf } from "./normalize";
 
 interface AddStockParams {
   ticker: string;
