@@ -74,6 +74,7 @@ export function getRegularizedCholesky(matrix: number[][]): { L: number[][]; rid
       try {
         return { L: getCholeskyDecomposition(bumped), ridge };
       } catch {
+        // Still not positive definite: try the next, larger ridge.
       }
     }
     throw error;
