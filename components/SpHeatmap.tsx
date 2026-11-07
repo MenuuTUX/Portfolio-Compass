@@ -126,6 +126,7 @@ export default function SpHeatmap({ onSelectTicker, className, fill = false }: S
     const stopTimer = startVisibleInterval(() => {
       getJson<HeatmapPayload | null>(`/api/market/heatmap?group=${group}`, null, { signal: controller.signal })
         .then((json) => json && setPayload(json))
+        // getJson still throws on network or parse errors; a failed refresh keeps the last map.
         .catch(() => {});
     });
     return () => {

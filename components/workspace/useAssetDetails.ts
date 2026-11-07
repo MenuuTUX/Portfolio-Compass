@@ -73,6 +73,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
           );
           if (snap) setFreshEtf((prev) => mergeAssetData(prev || etf, snap));
         })
+        // Best-effort: getJson throws on network or parse errors, and the next poll retries.
         .catch(() => {});
     void pullQuote();
     const stopQuoteTimer = startVisibleInterval(() => void pullQuote());
@@ -124,6 +125,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
           return mergeAssetData(base, patch);
         });
       })
+      // Best-effort: getJson throws on network or parse errors, and the drawer works without this data.
       .catch(() => {});
 
     // Whatever the DB already knows (sectors, holdings from a past sync)
@@ -133,6 +135,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
         const match = data.find((item) => item.ticker === etf.ticker);
         if (match) setFreshEtf((prev) => mergeAssetData(prev || etf, match));
       })
+      // Best-effort: getJson throws on network or parse errors, and the drawer works without this data.
       .catch(() => {});
 
     // Background deep sync; merge when it lands
