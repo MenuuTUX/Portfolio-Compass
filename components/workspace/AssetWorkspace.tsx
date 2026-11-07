@@ -14,7 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import EtfVerdictCard from "../EtfVerdictCard";
 import AssetProfileCard from "../AssetProfileCard";

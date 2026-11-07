@@ -10,7 +10,8 @@ import {
   memo,
 } from "react";
 import { Search, ChevronDown, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, ListFilter } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { ETF, PortfolioItem } from "@/types";
 import { ETFSchema } from "@/schemas/assetSchema";

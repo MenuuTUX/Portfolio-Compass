@@ -1,4 +1,4 @@
-import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { getSourcedExpenseRatio } from "@/lib/provenance";
 import { formatSectorName } from "@/lib/utils";
 import type { Portfolio } from "@/types";
 

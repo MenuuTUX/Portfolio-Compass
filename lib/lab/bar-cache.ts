@@ -1,4 +1,4 @@
-import { fromCompact, lastCompletedSession, type BarSeries, type CompactSeries } from "@/lib/lab/bar-types";
+import { fromCompact, lastCompletedSession, RECHECK_MS, type BarSeries, type CompactSeries } from "@/lib/lab/bar-types";
 import { idbGet, idbPut } from "@/lib/lab/db";
 import { shiftIsoDate } from "@/lib/dates";
 
@@ -23,8 +23,6 @@ export type FetchResult =
   /** `expected` is the session the server wanted, when it rejected ours (clocks disagree). */
   | { ok: false; status: number; retryAfter?: number; expected?: string };
 
-/** Same as the server's CDN lifetime for a history that stops short of `through`. */
-export const RECHECK_MS = 30 * 60_000;
 
 function isFresh(hit: CachedRecord | undefined, through: string, now: Date): boolean {
   if (hit?.v !== 1 || hit.through < through) return false;

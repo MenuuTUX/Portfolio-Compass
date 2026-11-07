@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import { m as motion } from "framer-motion";
@@ -17,22 +17,13 @@ import RunsPanel from "./RunsPanel";
 import { StrategyRunError, useLabEngine, type LabRun } from "./useLabEngine";
 import { countVariants } from "@/lib/lab/engine/variants";
 import type { RobustnessState } from "./RobustnessPanel";
+import { useIsLg } from "@/hooks/useMediaQuery";
 import CodePane, { type ConsoleState } from "./CodePane";
 import type { Params, StrategyError } from "@/lib/lab/strategy/types";
 
 const MAX_COMPARE = 5;
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
-
-const LG_QUERY = "(min-width: 1024px)";
-function subscribeLg(callback: () => void) {
-  const mq = window.matchMedia(LG_QUERY);
-  mq.addEventListener("change", callback);
-  return () => mq.removeEventListener("change", callback);
-}
-function useIsLg() {
-  return useSyncExternalStore(subscribeLg, () => window.matchMedia(LG_QUERY).matches, () => false);
-}
 
 // Leaves the results below the editor at least 220px.
 const maxCodeH = () => Math.max(160, window.innerHeight - 260);

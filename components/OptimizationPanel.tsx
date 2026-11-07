@@ -14,7 +14,8 @@ import {
   RISK_FREE,
   EQUITY_PREMIUM,
 } from "@/lib/optimizer";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { HelpLabel, HelpTip } from "@/components/ui/HelpTip";
 import { estimateAnnualCovariance } from "@/lib/math/covariance";
 import { loadRiskProfile } from "@/lib/risk-profile";

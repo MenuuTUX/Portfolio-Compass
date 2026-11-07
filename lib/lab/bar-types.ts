@@ -139,3 +139,6 @@ export function isAcceptedThrough(through: string, now = new Date()): boolean {
   const current = lastCompletedSession(now);
   return through === current || through === previousWeekday(current);
 }
+
+/** How long a history that stops short of the last completed session is trusted, in the browser cache and at the server CDN alike. */
+export const RECHECK_MS = 30 * 60_000;

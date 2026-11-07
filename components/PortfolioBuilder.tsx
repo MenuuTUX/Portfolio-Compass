@@ -1,6 +1,7 @@
 "use client";
 
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { RefreshCw, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { AnimatePresence, animate, m as motion, useReducedMotion } from "framer-motion";
 import Reveal, { EASE } from "./motion/Reveal";

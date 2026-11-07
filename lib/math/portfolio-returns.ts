@@ -1,5 +1,5 @@
 import { Portfolio, PortfolioItem } from "@/types";
-import { isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { isUnverifiedProviderYield } from "@/lib/provenance";
 
 /**
  * Shared portfolio return / weight / dividend helpers used by

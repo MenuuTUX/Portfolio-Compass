@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test';
-import { calculateRiskMetric, cn, formatCurrency } from '../../../lib/utils';
+import { calculateRiskMetric, formatCurrency } from '../../../lib/utils';
+import { cn } from '../../../lib/cn';
 
 describe('calculateRiskMetric', () => {
   it('should return default safe values for empty history', () => {

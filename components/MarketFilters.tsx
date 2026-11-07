@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "./ui/HelpTip";
-import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
-import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
+import { getSourcedExpenseRatio } from "@/lib/provenance";
 
 export type SortKey =
   | "relevance"

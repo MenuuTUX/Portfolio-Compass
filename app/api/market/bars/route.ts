@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAcceptedThrough, lastCompletedSession } from "@/lib/lab/bar-types";
+import { isAcceptedThrough, lastCompletedSession, RECHECK_MS } from "@/lib/lab/bar-types";
 import { getTickerHistory } from "@/lib/lab/bars";
 import { parseUpperTickers } from "@/lib/api";
 import { NO_STORE } from "@/lib/http-cache";
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     // A history that reaches `through` will not change today. One that stops short
     // (a holiday, or Yahoo settling late) is rechecked within the hour.
     const complete = series.d[series.d.length - 1] === through;
-    return NextResponse.json(series, { headers: complete ? cached(DAY, DAY) : cached(1800, 1800) });
+    return NextResponse.json(series, { headers: complete ? cached(DAY, DAY) : cached(RECHECK_MS / 1000, RECHECK_MS / 1000) });
   } catch (error) {
     console.error(`[API] Lab bars failed for ${symbol}:`, error);
     // Never cache an upstream failure: one Yahoo outage would otherwise reach every user.

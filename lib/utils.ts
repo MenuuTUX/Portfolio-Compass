@@ -1,7 +1,5 @@
 import { Decimal } from "./decimal";
 
-export { cn } from "./cn";
-
 export function formatCurrency(value: number | Decimal, currency?: string) {
   const val = Decimal.isDecimal(value) ? value.toNumber() : value;
   if (!currency || !/^[A-Z]{3}$/.test(currency)) {

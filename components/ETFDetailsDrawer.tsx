@@ -15,15 +15,16 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { ETF } from "@/types";
-import { cn, formatCurrency, calculateRiskMetric, formatSectorName } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency, calculateRiskMetric, formatSectorName } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import SectorPieChart, { COLORS } from "./SectorPieChart";
 import AssetProfileCard from "./AssetProfileCard";
 import EtfVerdictCard from "./EtfVerdictCard";
 import ComparisonModal from "./ComparisonModal";
 import { HelpTip } from "./ui/HelpTip";
-import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
-import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { describeYieldProvenance, getSourcedYield } from "@/lib/provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
 import { quoteSessionLabel } from "@/lib/quote-session";
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { getRedditCommunities } from "@/config/tickers";
