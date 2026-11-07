@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchChart } from "@/lib/api-client";
 import type { Candle, ChartRange } from "@/lib/fast-market";
+import { DAY_MS } from "@/lib/dates";
 
 export const RANGE_META = {
   "1D": { intraday: true },
@@ -135,7 +136,7 @@ export function useAssetChart(
 
     if (compare && spyHistory.length > 0) {
       // Both series share range/interval, so align by nearest timestamp
-      const tolerance = RANGE_META[range].intraday ? 30 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000;
+      const tolerance = RANGE_META[range].intraday ? 30 * 60 * 1000 : 3 * DAY_MS;
       const spyTimes = spyHistory.map((p) => new Date(p.date).getTime());
       const spyPriceAt = (target: number) => {
         let best = 0;

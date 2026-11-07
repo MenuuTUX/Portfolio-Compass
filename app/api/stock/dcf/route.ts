@@ -10,6 +10,7 @@ import { MARKET_PROXY } from "@/lib/math/beta";
 import { olsBeta, simpleReturns, weeklyPairs } from "@/lib/valuation/beta";
 import { blumeAdjustBeta } from "@/lib/valuation/wacc";
 import type { DcfResponse } from "@/lib/valuation/response";
+import { isoDay } from "@/lib/dates";
 
 export const maxDuration = 30;
 
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
     warnings.push("Not enough price history to estimate beta, so a beta of 1.0 is assumed.");
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = isoDay(Date.now());
   // Market cap over price counts every share class; the quote's own share count can be one class only (Alphabet).
   const impliedShares = quote.marketCap && quote.marketCap > 0 ? quote.marketCap / quote.price : quote.sharesOutstanding;
   const base = { today, price: quote.price, riskFree, rawBeta, currentShares: impliedShares };

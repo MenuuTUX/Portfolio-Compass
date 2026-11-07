@@ -30,6 +30,7 @@ import {
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { deleteLabDb } from "@/lib/lab/db";
 import { LAB_ACK_KEY, LAB_FORM_KEY } from "@/lib/lab/lab-form";
+import { isoDay } from "@/lib/dates";
 
 interface SettingsDrawerProps {
   isOpen: boolean;
@@ -63,7 +64,7 @@ export default function SettingsDrawer({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `portfolio-compass-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `portfolio-compass-${isoDay(Date.now())}.json`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setStatus({ type: "success", message: `Exported ${holdings.length} local holding${holdings.length === 1 ? "" : "s"}.` });

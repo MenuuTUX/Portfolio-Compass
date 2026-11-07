@@ -20,10 +20,11 @@ import type { RobustnessState } from "./RobustnessPanel";
 import { useIsLg } from "@/hooks/useMediaQuery";
 import CodePane, { type ConsoleState } from "./CodePane";
 import type { Params, StrategyError } from "@/lib/lab/strategy/types";
+import { isoDay } from "@/lib/dates";
 
 const MAX_COMPARE = 5;
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => isoDay(Date.now());
 
 // Leaves the results below the editor at least 220px.
 const maxCodeH = () => Math.max(160, window.innerHeight - 260);

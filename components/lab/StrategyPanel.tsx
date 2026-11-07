@@ -13,6 +13,7 @@ import type { Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy
 import { cn } from "@/lib/cn";
 import CodeSettings from "./CodeSettings";
 import ModeSwitch from "./ModeSwitch";
+import { DAY_MS, isoDay } from "@/lib/dates";
 
 const field =
   "h-9 w-full rounded-md bg-surface-soft px-2.5 text-sm text-ink ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-compass";
@@ -80,8 +81,8 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
     const lastClose: Record<string, number> = {};
     let asOf = "";
     if (items.every((i) => i.shares > 0)) {
-      const end = new Date().toISOString().slice(0, 10);
-      const start = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
+      const end = isoDay(Date.now());
+      const start = isoDay(Date.now() - 14 * DAY_MS);
       try {
         // Same cache as a run, so importing warms the data the next backtest needs.
         const { series } = await loadBars(items.map((i) => i.ticker.toUpperCase()), start, end, { store: indexedDbBarStore() });

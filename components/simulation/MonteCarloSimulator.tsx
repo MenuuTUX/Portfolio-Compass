@@ -58,6 +58,7 @@ import {
 import { EASE } from "@/lib/motion";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { cn } from "@/lib/cn";
+import { isoDay, shiftIsoDate } from "@/lib/dates";
 
 const HORIZONS = [5, 10, 15, 20, 30] as const;
 const PATH_COUNTS = [20, 50, 100] as const;
@@ -243,12 +244,12 @@ export default function MonteCarloSimulator({
         }
         const historyDates = historyPortfolio.flatMap((item) => (item.history ?? []).map((point) => point.date))
           .filter((date) => Number.isFinite(Date.parse(date)))
-          .map((date) => new Date(Date.parse(date)).toISOString().slice(0, 10))
+          .map((date) => isoDay(date))
           .sort();
         const earliestDate = historyDates[0];
         const latestDate = historyDates[historyDates.length - 1];
         if (!earliestDate || !latestDate) throw new Error("Historical prices are unavailable for FX conversion.");
-        const start = new Date(Date.parse(earliestDate) - 10 * 86_400_000).toISOString().slice(0, 10);
+        const start = shiftIsoDate(earliestDate, -10);
         const response = await fetch(`/api/market/fx-history?start_date=${start}&end_date=${latestDate}`);
         if (!response.ok) throw new Error("Historical FX data is unavailable.");
         const data = await response.json();

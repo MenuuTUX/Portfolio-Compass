@@ -30,6 +30,7 @@ import { useDialogA11y } from "@/hooks/useDialogA11y";
 import { fetchChart, fetchSnapshot, searchMarket } from "@/lib/api-client";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
 import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
+import { DAY_MS } from "@/lib/dates";
 
 interface ComparisonModalProps {
   baseAsset: ETF;
@@ -313,7 +314,7 @@ export default function ComparisonModal({
         const ptB = filteredB.find(
           (p) =>
             Math.abs(new Date(p.date).getTime() - dateObj.getTime()) <
-            3 * 24 * 60 * 60 * 1000,
+            3 * DAY_MS,
         );
 
         if (!ptB) return null;

@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { splitMetrics, type SliceStats } from "@/lib/lab/engine/holdout";
 import RobustnessPanel, { VariantNotice, type RobustnessState } from "./RobustnessPanel";
+import { YEAR_DAYS, YEAR_MS } from "@/lib/dates";
 
 const TABS = ["Overview", "Drawdown", "Robustness", "Monthly", "Holdings", "Trades", "Compare"] as const;
 type Tab = (typeof TABS)[number];
@@ -196,12 +197,10 @@ function TradesTable({ run }: { run: LabRun }) {
 }
 
 
-const YEAR_MS = 365.25 * 86_400_000;
-
 function span(days: number) {
   if (days < 45) return `${Math.round(days)} days`;
   if (days < 700) return `${Math.round(days / 30.4)} months`;
-  return `${(days / 365.25).toFixed(1)} years`;
+  return `${(days / YEAR_DAYS).toFixed(1)} years`;
 }
 
 /** The result in plain words: what the money did, against simply holding the benchmark, and the worst stretch. */

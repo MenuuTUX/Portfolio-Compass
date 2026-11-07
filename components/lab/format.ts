@@ -1,4 +1,4 @@
-const DAY_MS = 86_400_000;
+import { DAY_MS } from "@/lib/dates";
 
 /** Shown in place of CAGR and Calmar when a run is too short to annualize. */
 export const SHORT_RUN = "n/a (under 1 year)";
