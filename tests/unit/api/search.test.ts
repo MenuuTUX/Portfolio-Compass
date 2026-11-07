@@ -1,5 +1,6 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { NextRequest } from 'next/server';
+import { fastQuote } from '@/tests/helpers/quotes';
 import { mockModule } from '@/tests/helpers/mock-module';
 
 type AsyncMockFn = (...args: any[]) => Promise<any>;
@@ -22,23 +23,6 @@ await mockModule('@/lib/fast-market', () => ({
 
 const { GET } = await import('../../../app/api/etfs/search/route');
 const { ETFSchema } = await import('../../../schemas/assetSchema');
-
-function quote(
-  ticker: string,
-  overrides: Record<string, unknown> = {},
-) {
-  return {
-    ticker,
-    name: `${ticker} Name`,
-    price: 100,
-    changePercent: 1,
-    change: 1,
-    assetType: 'STOCK' as const,
-    dividendYield: 0.5,
-    expenseRatio: 0,
-    ...overrides,
-  };
-}
 
 describe('API: /api/etfs/search (live, no DB)', () => {
   beforeEach(() => {
@@ -65,7 +49,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
       NOMIX: { allocation: undefined },
     };
     mockGetFastQuotes.mockResolvedValue(new Map(
-      ['VOO', 'BND', 'GLD', 'NOMIX'].map((t) => [t, quote(t, { assetType: 'ETF' })]),
+      ['VOO', 'BND', 'GLD', 'NOMIX'].map((t) => [t, fastQuote(t, { assetType: 'ETF' })]),
     ));
     mockGetFastEtfDetails.mockImplementation(async (t: string) => details[t] ?? null);
     mockGetFastMarketBetas.mockResolvedValue(new Map([
@@ -88,7 +72,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
   });
 
   it('skips fund details and beta on browse and display paths', async () => {
-    mockGetFastQuotes.mockResolvedValue(new Map([['VOO', quote('VOO', { assetType: 'ETF' })]]));
+    mockGetFastQuotes.mockResolvedValue(new Map([['VOO', fastQuote('VOO', { assetType: 'ETF' })]]));
     const res = await GET(new NextRequest('http://localhost/api/etfs/search?tickers=VOO&includeHistory=true'));
 
     expect(mockGetFastEtfDetails).not.toHaveBeenCalled();
@@ -100,7 +84,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
 
   it('returns live quotes for tickers param', async () => {
     mockGetFastQuotes.mockResolvedValue(
-      new Map([['AAPL', quote('AAPL', { price: 190, name: 'Apple Inc.' })]]),
+      new Map([['AAPL', fastQuote('AAPL', { price: 190, name: 'Apple Inc.' })]]),
     );
     mockGetFastHistory.mockResolvedValue(
       new Map([['AAPL', [{ date: '2024-01-01', price: 180 }]]]),
@@ -127,7 +111,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
   });
 
   it('asks for adjusted history only when the caller needs it, and keeps adjPrice through the schema', async () => {
-    mockGetFastQuotes.mockResolvedValue(new Map([['AAPL', quote('AAPL', { price: 190, name: 'Apple Inc.' })]]));
+    mockGetFastQuotes.mockResolvedValue(new Map([['AAPL', fastQuote('AAPL', { price: 190, name: 'Apple Inc.' })]]));
     mockGetFastHistory.mockResolvedValue(new Map([['AAPL', [{ date: '2024-01-01', price: 180, adjPrice: 175 }]]]));
 
     const adjusted = await GET(new NextRequest('http://localhost/api/etfs/search?tickers=AAPL&includeHistory=true&adjusted=true'));
@@ -153,7 +137,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
   it('resolves free-text query via Yahoo search + live quotes', async () => {
     mockSearchFastSymbols.mockResolvedValue(['MSFT']);
     mockGetFastQuotes.mockResolvedValue(
-      new Map([['MSFT', quote('MSFT', { name: 'Microsoft', price: 400 })]]),
+      new Map([['MSFT', fastQuote('MSFT', { name: 'Microsoft', price: 400 })]]),
     );
 
     const request = new NextRequest(
@@ -168,7 +152,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
 
   it('resolves many tickers in a single quote batch', async () => {
     mockGetFastQuotes.mockImplementation(async (tickers: string[]) =>
-      new Map(tickers.map((t) => [t, quote(t, { assetType: 'ETF' })])),
+      new Map(tickers.map((t) => [t, fastQuote(t, { assetType: 'ETF' })])),
     );
     const tickers = Array.from({ length: 20 }, (_, i) => `T${i}`).join(',');
     const response = await GET(new NextRequest(`http://localhost/api/etfs/search?tickers=${tickers}`));
@@ -181,7 +165,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
   // Input hardening: a caller must not be able to fan out unbounded upstream work or inject odd symbols.
   it('caps the tickers sent upstream at 50', async () => {
     mockGetFastQuotes.mockImplementation(async (tickers: string[]) =>
-      new Map(tickers.map((t) => [t, quote(t, { assetType: 'ETF' })])),
+      new Map(tickers.map((t) => [t, fastQuote(t, { assetType: 'ETF' })])),
     );
     const huge = Array.from({ length: 1000 }, (_, i) => `T${i}`).join(',');
     const response = await GET(new NextRequest(`http://localhost/api/etfs/search?tickers=${huge}`));
@@ -195,7 +179,7 @@ describe('API: /api/etfs/search (live, no DB)', () => {
 
   it('drops malformed ticker symbols before they reach the data layer', async () => {
     mockGetFastQuotes.mockImplementation(async (tickers: string[]) =>
-      new Map(tickers.map((t) => [t, quote(t, { assetType: 'ETF' })])),
+      new Map(tickers.map((t) => [t, fastQuote(t, { assetType: 'ETF' })])),
     );
     const bad = encodeURIComponent('VALID,<script>,GOOD,../../etc/passwd');
     await GET(new NextRequest(`http://localhost/api/etfs/search?tickers=${bad}`));

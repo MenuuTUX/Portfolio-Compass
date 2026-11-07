@@ -1,11 +1,30 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { NextRequest } from "next/server";
+import { fastQuote } from "@/tests/helpers/quotes";
 import { mockModule } from "@/tests/helpers/mock-module";
 import type { FastQuote } from "@/lib/fast-market";
 
 const getFastQuotes = mock(async (): Promise<Map<string, FastQuote>> => new Map());
 const getFastHistory = mock(async () => new Map());
 const getFastDividendHistories = mock(async () => new Map());
+const searchFastSymbols = mock(async (): Promise<string[]> => []);
+const quoteToAsset = mock((quote: Record<string, unknown>, history: unknown[] = []) => ({
+  ...quote,
+  history,
+}));
+
+await mockModule("@/lib/fast-market", () => ({
+  getFastQuotes,
+  getFastHistory,
+  getFastDividendHistories,
+  searchFastSymbols,
+  quoteToAsset,
+}));
+
+const { GET } = await import("../../../app/api/market/search/route");
+
+const quote = (ticker: string, name: string) => fastQuote(ticker, { name, price: 100, changePercent: 0 }) as FastQuote;
+
 const searchFastSymbols = mock(async (): Promise<string[]> => []);
 const quoteToAsset = mock((quote: Record<string, unknown>, history: unknown[] = []) => ({
   ...quote,
