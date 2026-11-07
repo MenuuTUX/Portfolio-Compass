@@ -1,4 +1,5 @@
 import type { SimResult, Trade } from "@/lib/lab/engine/simulate";
+import { mean, std } from "@/lib/math/stats";
 import { daysBetween, YEAR_DAYS } from "@/lib/dates";
 
 // Performance statistics for a Compass Lab run. Returns are time-weighted:
@@ -56,20 +57,6 @@ export function dailyReturns(equity: Float64Array, flows: Float64Array): Float64
     r[t] = base > 0 ? equity[t] / base - 1 : 0;
   }
   return r;
-}
-
-const mean = (xs: ArrayLike<number>) => {
-  let s = 0;
-  for (let i = 0; i < xs.length; i++) s += xs[i];
-  return xs.length ? s / xs.length : 0;
-};
-
-function std(xs: ArrayLike<number>): number {
-  if (xs.length < 2) return 0;
-  const m = mean(xs);
-  let s = 0;
-  for (let i = 0; i < xs.length; i++) s += (xs[i] - m) ** 2;
-  return Math.sqrt(s / (xs.length - 1));
 }
 
 /**
