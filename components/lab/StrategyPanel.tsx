@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { loadPortfolio } from "@/lib/storage";
@@ -273,7 +274,7 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
           </button>
           {usesWeights && (
             <span className={cn("text-xs font-mono", weightTotal > 100.0001 ? "text-rose-400" : "text-muted")}>
-              Total {weightTotal.toFixed(1)}%{weightTotal < 99.9999 ? `, ${(100 - weightTotal).toFixed(1)}% cash` : ""}
+              Total {percent(weightTotal, 1)}{weightTotal < 99.9999 ? `, ${(100 - weightTotal).toFixed(1)}% cash` : ""}
             </span>
           )}
         </div>

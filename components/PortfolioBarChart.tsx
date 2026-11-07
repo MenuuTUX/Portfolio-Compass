@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import React, { useMemo } from "react";
 import {
   BarChart,
@@ -294,7 +295,7 @@ export default function PortfolioBarChart({
                 type="number"
                 domain={[0, maxWeight]}
                 stroke={MUTED}
-                tickFormatter={(val) => `${Number(val).toFixed(0)}%`}
+                tickFormatter={(val) => percent(Number(val), 0)}
                 tick={{ fill: MUTED, fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
@@ -336,7 +337,7 @@ export default function PortfolioBarChart({
                             className="font-mono font-bold text-base"
                             style={{ color: getConcentrationColor(d.totalWeight) }}
                           >
-                            {d.totalWeight.toFixed(2)}%
+                            {percent(d.totalWeight, 2)}
                           </span>
                         </div>
 
@@ -372,7 +373,7 @@ export default function PortfolioBarChart({
                                   </span>
                                 </div>
                                 <span className="text-muted font-mono font-medium">
-                                  {Number(entry.value).toFixed(2)}%
+                                  {percent(Number(entry.value), 2)}
                                 </span>
                               </div>
                             ))}

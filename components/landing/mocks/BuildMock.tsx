@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { AnimatePresence, animate, m as motion, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { RevealGroup, RevealItem } from "../../motion/Reveal";
@@ -343,7 +344,7 @@ export default function BuildMock() {
             <p className="text-3xl font-semibold tracking-tight text-ink tabular-nums">{money(headline)}</p>
             <p className={`text-sm tabular-nums ${change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {change >= 0 ? "+" : ""}
-              {change.toFixed(1)}% over {range}
+              {percent(change, 1)} over {range}
             </p>
           </div>
 

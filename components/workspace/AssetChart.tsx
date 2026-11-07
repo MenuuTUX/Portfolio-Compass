@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useCallback, useId, useRef, useState } from "react";
 import { m as motion, useReducedMotion } from "framer-motion";
 import { EASE } from "@/lib/motion";
@@ -542,7 +543,7 @@ export function AssetChart({
                 <>
                   <span className="font-semibold text-ink tabular-nums">
                     {compare
-                      ? `${ticker} ${ap.price.toFixed(2)}%`
+                      ? `${ticker} ${percent(ap.price, 2)}`
                       : bar
                         ? `O ${formatCurrency(bar.open, currency)} H ${formatCurrency(bar.high, currency)} L ${formatCurrency(bar.low, currency)} C ${formatCurrency(bar.close, currency)}`
                         : formatCurrency(ap.price, currency)}
@@ -557,7 +558,7 @@ export function AssetChart({
                   )}
                   {compare && ap.spyPrice != null && (
                     <span className="ml-2 text-muted tabular-nums">
-                      SPY {ap.spyPrice.toFixed(2)}%
+                      SPY {percent(ap.spyPrice, 2)}
                     </span>
                   )}
                   <span className="ml-2 text-muted">{formatTag(ap.date, range)}</span>
@@ -567,7 +568,7 @@ export function AssetChart({
           )}
           <span className="sr-only" aria-live="polite">
             {hover !== null
-              ? `${compare ? `${ap.price.toFixed(2)}%` : formatCurrency(ap.price, currency)} on ${formatTag(ap.date, range)}`
+              ? `${compare ? percent(ap.price, 2) : formatCurrency(ap.price, currency)} on ${formatTag(ap.date, range)}`
               : ""}
           </span>
         </div>
@@ -587,11 +588,11 @@ export function AssetChart({
               <td>{new Date(item.date).toLocaleDateString()}</td>
               <td>
                 {compare
-                  ? `${item.price.toFixed(2)}%`
+                  ? percent(item.price, 2)
                   : formatCurrency(item.price, currency)}
               </td>
               {compare && (
-                <td>{item.spyPrice != null ? `${item.spyPrice.toFixed(2)}%` : "N/A"}</td>
+                <td>{item.spyPrice != null ? percent(item.spyPrice, 2) : "N/A"}</td>
               )}
             </tr>
           ))}

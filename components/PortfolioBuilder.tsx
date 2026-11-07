@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/utils";
 import { RefreshCw, Eye, EyeOff, ChevronDown } from "lucide-react";
@@ -357,7 +358,7 @@ export default function PortfolioBuilder({
             <div key={entry.name} className="flex items-center gap-2 text-xs text-muted">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
               <span className="truncate">{entry.name}</span>
-              <span className="ml-auto text-ink tabular-nums">{entry.value.toFixed(1)}%</span>
+              <span className="ml-auto text-ink tabular-nums">{percent(entry.value, 1)}</span>
             </div>
           ))}
         </div>
@@ -724,7 +725,7 @@ export default function PortfolioBuilder({
               <h2 className="text-sm font-bold text-ink">Target allocation</h2>
               <p className={cn("mt-1 text-[32px] font-bold leading-[38px] tabular-nums", portfolio.length > 0 && !isValid ? "text-rose-400" : "text-ink")}>
                 {portfolio.length > 0 ? (
-                  <AnimatedText value={totalWeight.toNumber()} format={(v) => `${v.toFixed(1)}%`} />
+                  <AnimatedText value={totalWeight.toNumber()} format={(v) => percent(v, 1)} />
                 ) : "0.0%"}
               </p>
               {portfolio.length > 0 && !isValid && <p className="text-xs text-rose-400">Should be 100%</p>}
@@ -753,7 +754,7 @@ export default function PortfolioBuilder({
                   {weighted.map((item, index) => (
                     <motion.div
                       key={item.ticker}
-                      title={`${item.ticker} ${(item.weight || 0).toFixed(1)}%`}
+                      title={`${item.ticker} ${percent(item.weight || 0, 1)}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${(item.weight / totalWeight.toNumber()) * 100}%` }}
                       transition={{ duration: 0.6, ease: EASE, delay: 0.2 + index * 0.06 }}
@@ -769,7 +770,7 @@ export default function PortfolioBuilder({
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} aria-hidden="true" />
                         <span className="truncate text-body-strong">{item.ticker}</span>
                       </span>
-                      <span className="text-right tabular-nums">{(item.weight || 0).toFixed(1)}%</span>
+                      <span className="text-right tabular-nums">{percent(item.weight || 0, 1)}</span>
                     </li>
                   ))}
                 </ul>

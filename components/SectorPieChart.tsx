@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from "recharts";
 import { m as motion, AnimatePresence } from "framer-motion";
@@ -189,7 +190,7 @@ export default function SectorPieChart({
                 {activeItem.name}
               </span>
               <span className="text-base font-bold text-ink">
-                {activeItem.value.toFixed(1)}%
+                {percent(activeItem.value, 1)}
               </span>
             </motion.div>
           ) : (
@@ -220,7 +221,7 @@ export default function SectorPieChart({
           {processedData.map((item, index) => (
             <tr key={index}>
               <td>{item.name}</td>
-              <td>{item.value.toFixed(2)}%</td>
+              <td>{percent(item.value, 2)}</td>
             </tr>
           ))}
         </tbody>

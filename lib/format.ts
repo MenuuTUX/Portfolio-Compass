@@ -40,3 +40,6 @@ export function compactMoney(v: number, currency?: string, locale = "en-CA") {
     maximumFractionDigits: 1,
   }).format(v);
 }
+
+/** A value already in percent units, no scaling: 4.2 -> "4.2%". */
+export const percent = (v: number, digits = 1) => `${v.toFixed(digits)}%`;

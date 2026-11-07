@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { m as motion } from "framer-motion";
 import InteractiveSlider from "../InteractiveSlider";
 import CountUp from "../motion/CountUp";
@@ -117,7 +118,7 @@ export default function GrowthScreen({ years, annualReturn, onYears, onReturn, i
           <text x="368" y="172" textAnchor="end" className="fill-muted text-xs">Year {years}</text>
         </svg>
         <figcaption className="mt-2 text-xs text-muted">
-          Modeled change: {growth >= 0 ? "+" : ""}{growth.toFixed(0)}%. Dashed line marks the starting balance.
+          Modeled change: {growth >= 0 ? "+" : ""}{percent(growth, 0)}. Dashed line marks the starting balance.
         </figcaption>
       </figure>
 

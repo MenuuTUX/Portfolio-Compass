@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import React, { useState } from "react";
 import {
   ScatterChart,
@@ -183,12 +184,12 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                             Sourced Yield:
                           </span>
                           <span className="text-ink">
-                            {d.y.toFixed(2)}%
+                            {percent(d.y, 2)}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
                           <span className="text-muted">Target Weight:</span>
-                          <span className="text-ink">{d.z.toFixed(2)}%</span>
+                          <span className="text-ink">{percent(d.z, 2)}</span>
                         </div>
                       </div>
                     </div>

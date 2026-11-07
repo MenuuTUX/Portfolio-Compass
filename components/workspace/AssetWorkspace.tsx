@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import Image from "next/image";
 import { useId, useRef, useState } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
@@ -187,7 +188,7 @@ export default function AssetWorkspace({
               )}
             >
               {chart.isPositive ? "+" : ""}
-              {chart.percentageChange.toFixed(2)}%{" "}
+              {percent(chart.percentageChange, 2)}{" "}
               <span className="text-muted font-normal">{rangeLabel}</span>
             </motion.span>
           </AnimatePresence>

@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useState, useMemo, useEffect } from "react";
 import { m as motion } from "framer-motion";
 import { EASE } from "@/lib/motion";
@@ -298,7 +299,7 @@ export default function OptimizationPanel({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="truncate text-sm font-bold text-ink">{item.ticker}</p>
-                      <p className="shrink-0 text-sm font-bold tabular-nums text-ink">{row.weight.toFixed(1)}%</p>
+                      <p className="shrink-0 text-sm font-bold tabular-nums text-ink">{percent(row.weight, 1)}</p>
                     </div>
                     <div className="mt-1.5 h-1.5 w-full bg-surface-soft rounded-full overflow-hidden">
                       <motion.div

@@ -1,4 +1,5 @@
 import React from "react";
+import { percent } from "@/lib/format";
 import Image from "next/image";
 import { Portfolio } from "@/types";
 import { formatCurrency } from "@/lib/utils";
@@ -219,7 +220,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className={`text-3xl font-bold tracking-tight mb-1 ${metrics.percentageGrowth < 0 ? "text-rose-400" : "text-emerald-400"}`}>
               {metrics.percentageGrowth >= 0 ? "+" : ""}
-              {metrics.percentageGrowth.toFixed(0)}%
+              {percent(metrics.percentageGrowth, 0)}
             </div>
             <div className="text-xs text-neutral-500 font-medium">
               {metrics.growthType} Model
@@ -321,7 +322,7 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="flex justify-between items-end">
               <span className="text-neutral-400 text-xs font-medium">Provider-reported expense ratio</span>
               <span className="text-xl font-bold text-ink">
-                {expenseRatio == null ? "N/A" : `${expenseRatio.toFixed(2)}%`}
+                {expenseRatio == null ? "N/A" : percent(expenseRatio, 2)}
               </span>
             </div>
             {expenseRatio != null && (
@@ -586,7 +587,7 @@ export const PortfolioShareCard = React.forwardRef<
                         {item.ticker}
                       </span>
                       <span className="font-mono text-emerald-400 text-sm font-bold">
-                        {item.weight.toFixed(1)}%
+                        {percent(item.weight, 1)}
                       </span>
                     </div>
                     <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden">
