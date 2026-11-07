@@ -16,7 +16,7 @@ const base = {
 };
 
 function firstPathD(container: HTMLElement) {
-  const path = container.querySelector("path.mc-path");
+  const path = container.querySelector("svg.mc-wave path");
   return path?.getAttribute("d") ?? "";
 }
 

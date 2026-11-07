@@ -8,8 +8,13 @@ import { valueTicks, yearTicks } from "./format";
 
 const W = 1000;
 const MAX_POINTS = 160;
-/** Window over which path start times are spread, so the fan builds up instead of appearing at once. */
-const STAGGER_MS = 1400;
+/**
+ * The fan builds up in waves. Each wave is its own <svg>, so the browser keeps
+ * it on a separate layer and fades it in with opacity and transform alone: no
+ * per-frame repaint of the paths, which is what makes this cheap on slow devices.
+ */
+const WAVES = 8;
+const WAVE_STEP_MS = 160;
 
 // One id per paths array, so a new run replays the draw but a log-scale toggle does not.
 const runIds = new WeakMap<object, number>();
@@ -114,6 +119,12 @@ export default function PathFan({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [paths, idx, yMin, yMax, xMax, H, log]);
 
+  const waves = useMemo(() => {
+    const out: { d: string; i: number }[][] = Array.from({ length: Math.min(WAVES, pathDs.length) }, () => []);
+    pathDs.forEach((d, i) => out[i % out.length].push({ d, i }));
+    return out;
+  }, [pathDs]);
+
   const bandD = useMemo(() => {
     if (!band || !showBand) return null;
     const top = band.days.map((d, i) => `${i === 0 ? "M" : "L"}${x(d).toFixed(1)},${y(band.p90[i]).toFixed(1)}`).join("");
@@ -192,12 +203,21 @@ export default function PathFan({
               <line key={t} x1="0" x2={W} y1={y(t)} y2={y(t)} stroke="var(--hairline)" vectorEffect="non-scaling-stroke" />
             ))}
             {bandD && <path d={bandD} fill={color} fillOpacity={0.12} stroke="none" />}
-            <g key={runIdOf(paths)} fill="none" strokeLinejoin="round">
-              {pathDs.map((d, i) => (
+          </svg>
+          {waves.map((wave, w) => (
+            <svg
+              key={`${runIdOf(paths)}-${w}`}
+              viewBox={`0 0 ${W} ${H}`}
+              preserveAspectRatio="none"
+              className="mc-wave pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+              style={{ animationDelay: `${w * WAVE_STEP_MS}ms` }}
+              aria-hidden="true"
+              fill="none"
+              strokeLinejoin="round"
+            >
+              {wave.map(({ d, i }) => (
                 <path
                   key={i}
-                  className="mc-path"
-                  style={{ animationDelay: `${Math.round((i / pathDs.length) * STAGGER_MS)}ms` }}
                   d={d}
                   stroke={`color-mix(in oklab, ${color} ${100 - ((i * 37) % 100)}%, ${colorAlt})`}
                   strokeOpacity={paths.length > 60 ? 0.35 : 0.55}
@@ -205,10 +225,25 @@ export default function PathFan({
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
-              {highlight && (
-                <path className="mc-path" style={{ animationDelay: `${STAGGER_MS}ms` }} d={toD(highlight)} stroke="var(--ink)" strokeWidth={compact ? 1.75 : 2.25} vectorEffect="non-scaling-stroke" />
-              )}
-            </g>
+            </svg>
+          ))}
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+            aria-hidden="true"
+          >
+            {highlight && (
+              <path
+                className="mc-wave"
+                style={{ animationDelay: `${WAVES * WAVE_STEP_MS}ms` }}
+                d={toD(highlight)}
+                fill="none"
+                stroke="var(--ink)"
+                strokeWidth={compact ? 1.75 : 2.25}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
             <line x1="0" x2={W} y1={startY} y2={startY} stroke="var(--muted)" strokeDasharray="5 5" vectorEffect="non-scaling-stroke" />
             {hoverPoint && (
               <line x1={x(band!.days[hover!])} x2={x(band!.days[hover!])} y1="0" y2={H} stroke="var(--hairline-strong)" vectorEffect="non-scaling-stroke" />
