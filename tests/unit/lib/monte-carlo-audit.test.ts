@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
+import { calculateCovarianceMatrix } from "@/lib/math/stats";
 import {
-  calculateCovarianceMatrix,
   createRandom,
   dropOutlierDays,
   rebaseLogDrift,

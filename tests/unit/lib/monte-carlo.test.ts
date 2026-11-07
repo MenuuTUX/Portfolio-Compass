@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'bun:test';
+import { calculateLogReturns, calculateCovarianceMatrix } from '@/lib/math/stats';
 import {
-  calculateLogReturns,
-  calculateCovarianceMatrix,
   getCholeskyDecomposition,
   generateMonteCarloPaths,
   calculateCone,

@@ -16,6 +16,7 @@ let capturedCalls: Array<{ mode: string; numDays: number; numPaths: number; step
 let throwMode: string | null = null;
 
 const realMonteCarlo = { ...(await import('@/lib/monte-carlo')) };
+const realStats = { ...(await import('@/lib/math/stats')) };
 
 // Mock rechart components to avoid rendering issues in test env
 await mockModule('recharts', () => ({
@@ -36,15 +37,19 @@ await mockModule('@/components/PortfolioShareButton', () => ({
     PortfolioShareButton: () => <button type="button">Share</button>,
 }));
 
-// Capture the inputs and delegate to the real engine.
-await mockModule('@/lib/monte-carlo', () => ({
-    ...realMonteCarlo,
+await mockModule('@/lib/math/stats', () => ({
+    ...realStats,
     calculateLogReturns: (prices: number[]) => {
         capturedReturnPrices.push(prices);
         return prices.slice(1).map((price, index) => Math.log(price / prices[index]));
     },
     calculateCovarianceMatrix: (returns: number[][]) =>
         returns.map((_, i) => returns.map((__, j) => breakCovariance ? (i === j ? -1 : 0) : (i === j ? 0.0002 : 0.0001))),
+}));
+
+// Capture the inputs and delegate to the real engine.
+await mockModule('@/lib/monte-carlo', () => ({
+    ...realMonteCarlo,
     simulatePaths: (mode: any, input: any) => {
         capturedSimulation = { prices: input.currentPrices, weights: input.weights, mode, blockDays: input.blockDays, seed: input.seed };
         capturedModes.push(mode);

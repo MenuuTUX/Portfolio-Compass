@@ -11,9 +11,8 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
+import { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
 import {
-  calculateLogReturns,
-  calculateCovarianceMatrix,
   getRegularizedCholesky,
   returnHistogram,
   rebaseLogDrift,

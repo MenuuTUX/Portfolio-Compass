@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { shrinkOffDiagonal } from "@/lib/math/covariance";
-import { calculateCovarianceMatrix, createRandom, getCholeskyDecomposition } from "@/lib/monte-carlo";
+import { createRandom, getCholeskyDecomposition } from "@/lib/monte-carlo";
+import { calculateCovarianceMatrix } from "@/lib/math/stats";
 
 const randomReturns = (seed: number, assets: number, observations: number) => {
   const random = createRandom(seed);

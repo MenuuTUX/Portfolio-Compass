@@ -1,7 +1,5 @@
 import { calculateCovarianceMatrix, mean } from "@/lib/math/stats";
 
-export { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
-
 /**
  * Calculates a linearly interpolated quantile from an unsorted sample.
  */
