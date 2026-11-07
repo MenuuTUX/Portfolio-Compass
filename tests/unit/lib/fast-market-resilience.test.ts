@@ -1,19 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it, mock, setSystemTime } from "bun:test";
 import { mockModule } from "@/tests/helpers/mock-module";
+import { createFakeYahoo } from "@/tests/helpers/fake-yahoo";
 
-const mockQuote = mock(async (..._args: unknown[]): Promise<unknown> => []);
-const mockSearch = mock(async (..._args: unknown[]): Promise<unknown> => ({ quotes: [] }));
+const yahoo = createFakeYahoo();
+const { quote: mockQuote, search: mockSearch, chart: mockChart } = yahoo;
 
-const mockChart = mock(async (..._args: unknown[]): Promise<unknown> => ({ quotes: [] }));
-
-class FakeYahooFinance {
-  quote = mockQuote;
-  search = mockSearch;
-  chart = mockChart;
-  quoteSummary = mock(async () => ({}));
-}
-
-await mockModule("yahoo-finance2", () => ({ default: FakeYahooFinance }));
+await mockModule("yahoo-finance2", () => ({ default: yahoo.FakeYahooFinance }));
 
 // The query string gives this file its own copy of the module, so its
 // `new YahooFinance()` picks up the mock even if another test loaded the real one.

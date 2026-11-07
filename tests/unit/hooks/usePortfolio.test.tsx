@@ -4,17 +4,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { savePortfolio } from "@/lib/storage";
+import { withFetch } from "@/tests/helpers/fetch";
 
 // Saturday 7 November 2026, midday New York time: the market is closed all weekend.
 const SATURDAY = new Date("2026-11-07T16:00:00Z").getTime();
-const realFetch = globalThis.fetch;
 
 type Quote = { ticker: string; price: number; name?: string };
 let snapshotPrice = 0;
 let snapshotCalls = 0;
 
 function stubFetch() {
-  globalThis.fetch = (async (input: RequestInfo | URL) => {
+  withFetch(async (input: RequestInfo | URL) => {
     const url = String(input);
     const body = (value: unknown) => new Response(JSON.stringify(value), { status: 200 });
     if (url.includes("/api/market/snapshot")) {
@@ -32,7 +32,7 @@ function stubFetch() {
     }
     if (url.includes("/api/market/etf-details")) return body(null);
     return body([]);
-  }) as typeof fetch;
+  });
 }
 
 function setup() {
@@ -54,7 +54,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  globalThis.fetch = realFetch;
 });
 
 afterAll(() => setSystemTime());

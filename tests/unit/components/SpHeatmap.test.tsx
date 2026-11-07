@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, render } from "@testing-library/react";
 import SpHeatmap from "@/components/SpHeatmap";
+import { withFetch } from "@/tests/helpers/fetch";
 
 const originalRO = globalThis.ResizeObserver;
-const originalFetch = globalThis.fetch;
 let created: Array<{ disconnected: boolean }> = [];
 
 beforeEach(() => {
@@ -22,13 +22,12 @@ beforeEach(() => {
   }
   globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
   // Never resolves: keeps the component in its loading state for the test.
-  globalThis.fetch = (() => new Promise(() => {})) as unknown as typeof fetch;
+  withFetch(() => new Promise(() => {}));
 });
 
 afterEach(() => {
   cleanup();
   globalThis.ResizeObserver = originalRO;
-  globalThis.fetch = originalFetch;
 });
 
 describe("SpHeatmap", () => {

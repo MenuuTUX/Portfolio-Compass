@@ -4,10 +4,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { mockModule } from "@/tests/helpers/mock-module";
 import Providers from "@/components/Providers";
 
-// next/image resolves remote loader URLs, which happy-dom cannot parse
-await mockModule("next/image", () => ({
-  default: ({ alt }: any) => <img alt={alt} />,
-}));
 
 const { default: Home } = await import("@/app/page");
 

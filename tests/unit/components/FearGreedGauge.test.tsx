@@ -2,24 +2,22 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import FearGreedGauge from "@/components/FearGreedGauge";
-
-const originalFetch = globalThis.fetch;
+import { withFetch } from "@/tests/helpers/fetch";
 let calls = 0;
 
 beforeEach(() => {
   calls = 0;
-  globalThis.fetch = (async () => {
+  withFetch(async () => {
     calls += 1;
     return new Response(JSON.stringify({ score: 33, rating: "Fear", updatedAt: "2026-11-05T00:00:00Z" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
-  }) as unknown as typeof fetch;
+  });
 });
 
 afterEach(() => {
   cleanup();
-  globalThis.fetch = originalFetch;
 });
 
 const provided = { score: 71, rating: "Greed", updatedAt: "2026-11-05T00:00:00Z" };

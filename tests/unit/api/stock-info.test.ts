@@ -1,5 +1,6 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { mockModule } from '@/tests/helpers/mock-module';
+import { createFakeYahoo } from '@/tests/helpers/fake-yahoo';
 
 // Define mock functions (loosely typed so tests can stub varying shapes)
 type AsyncMockFn = (...args: any[]) => Promise<any>;
@@ -15,18 +16,10 @@ await mockModule('@/lib/scrapers/stock-analysis', () => ({
   getStockProfile: mockGetStockProfile
 }));
 
-// Mock yahoo-finance2
-const mockQuoteSummary = mock<AsyncMockFn>(async () => ({}));
+const yahoo = createFakeYahoo();
+const mockQuoteSummary = yahoo.quoteSummary;
 
-// Create a mock class
-class MockYahooFinance {
-  quoteSummary = mockQuoteSummary;
-  // Add other methods if needed
-}
-
-await mockModule('yahoo-finance2', () => ({
-    default: MockYahooFinance
-}));
+await mockModule('yahoo-finance2', () => ({ default: yahoo.FakeYahooFinance }));
 
 // Import the module under test dynamically to ensure the mock is applied
 const { GET } = await import('../../../app/api/stock/info/route');
@@ -95,7 +88,7 @@ describe('GET /api/stock/info', () => {
     const json = await res.json();
 
     expect(mockGetStockProfile).toHaveBeenCalledWith('NVDA');
-    expect(mockQuoteSummary).toHaveBeenCalledWith('NVDA', expect.anything());
+    expect(mockQuoteSummary.mock.calls[0][0]).toBe('NVDA');
     expect(json.description).toBe('Yahoo description');
     expect(json.sector).toBe('Tech');
   });

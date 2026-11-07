@@ -4,6 +4,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { ETF } from '@/types';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import { mockModule } from '@/tests/helpers/mock-module';
+import { withFetch } from "@/tests/helpers/fetch";
 
 expect.extend(matchers);
 
@@ -18,10 +19,6 @@ await mockModule('recharts', () => ({
     Tooltip: () => <div />,
 }));
 
-// next/image resolves remote loader URLs, which happy-dom cannot parse
-await mockModule('next/image', () => ({
-    default: ({ alt }: any) => <img alt={alt} />,
-}));
 
 const { default: ETFDetailsDrawer } = await import('@/components/ETFDetailsDrawer');
 
@@ -75,17 +72,12 @@ const unattributedYieldStock: ETF = {
 };
 
 describe('ETFDetailsDrawer sparse-data handling', () => {
-    const originalFetch = global.fetch;
-
     beforeEach(() => {
         // Drawer fetches fresh data on open; fail fast so isLoading resolves
-        global.fetch = mock(() =>
-            Promise.reject(new Error('offline test')),
-        ) as unknown as typeof fetch;
+        withFetch(() => Promise.reject(new Error('offline test')));
     });
 
     afterEach(() => {
-        global.fetch = originalFetch;
         cleanup();
     });
 

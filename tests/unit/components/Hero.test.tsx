@@ -3,10 +3,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { act, cleanup, render } from "@testing-library/react";
 import { mockModule } from "@/tests/helpers/mock-module";
 
-// next/image needs a browser origin; the logo is a same-origin path, so a plain img is enough here.
-await mockModule("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <img alt={alt} />,
-}));
 const { default: Hero } = await import("@/components/Hero");
 
 type MqStub = { matches: boolean; addEventListener: () => void; removeEventListener: () => void };

@@ -12,12 +12,9 @@ describe("projectContributionScenario", () => {
 
   it("applies each contribution at the beginning of the month", () => {
     const points = projectContributionScenario(0, 100, 1, 0.12);
-    const rate = Math.pow(1.12, 1 / 12) - 1;
-    const expected = Array.from({ length: 12 }).reduce<number>(
-      (balance) => (balance + 100) * (1 + rate), 0,
-    );
-    expect(points[1].balance).toBeCloseTo(expected, 8);
-    expect(points[1].gain).toBeCloseTo(expected - 1200, 8);
+    // Annuity due: 100 * (1 + r) * ((1 + r)^12 - 1) / r with r = 1.12^(1/12) - 1.
+    expect(points[1].balance).toBeCloseTo(1276.6497908, 6);
+    expect(points[1].gain).toBeCloseTo(76.6497908, 6);
   });
 
   it("rejects invalid inputs rather than producing misleading numbers", () => {
