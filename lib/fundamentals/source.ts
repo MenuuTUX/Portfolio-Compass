@@ -67,6 +67,17 @@ function disagrees(sum: number, diluted: number): boolean {
 }
 
 /**
+ * Whether a cover-page sum agrees with any of the diluted averages given (newest first: the year-to-date average,
+ * then the last fiscal year's). A company that grew its share count since its last fiscal year, as after an IPO,
+ * agrees with the newer average; one that disagrees with all of them has classes that are not one-for-one.
+ * With no average to compare, the sum is kept.
+ */
+export function sumAgreesWithDiluted(sum: number, averages: (number | undefined)[]): boolean {
+  const known = averages.filter((d): d is number => typeof d === "number" && d > 0);
+  return known.length === 0 || known.some((d) => !disagrees(sum, d));
+}
+
+/**
  * Live: asks the SEC for a company's facts and submissions, builds the summary,
  * and keeps the last 50 summaries for six hours (least recently used goes first).
  */
@@ -155,8 +166,8 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       // CLASS_WEIGHTS) or double count (an Up-C voting class). A sum far from the latest diluted average is left out.
       // With no diluted average to check against, the sum is kept: its classes count is above 1, which downstream
       // shows as an approximate per-share warning.
-      const diluted = c.annual[c.annual.length - 1]?.items.dilutedShares?.value;
-      if (count.classes > 1 && !count.weighted && diluted && disagrees(count.value, diluted)) return c;
+      const averages = [c.trailing?.items.dilutedShares?.value, c.annual[c.annual.length - 1]?.items.dilutedShares?.value];
+      if (count.classes > 1 && !count.weighted && !sumAgreesWithDiluted(count.value, averages)) return c;
       return { ...c, sharesOutstanding: { value: Math.round(count.value), asOf: count.asOf, classes: count.classes, accn: filing.accn } };
     } catch {
       return c;

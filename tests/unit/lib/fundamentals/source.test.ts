@@ -333,3 +333,17 @@ describe("cover share count read from the filing's inline XBRL", () => {
     return buildCompanyFilings(facts, sub, { ticker: "AAPL", source: "snapshot" }).annual.at(-1)!.items.dilutedShares!.value;
   }
 });
+
+describe("sumAgreesWithDiluted", () => {
+  it("accepts a sum that matches the newer year-to-date average even when the last fiscal year's is far off (a recent IPO)", async () => {
+    const { sumAgreesWithDiluted } = await import("@/lib/fundamentals/source");
+    expect(sumAgreesWithDiluted(2_838e6, [2_845e6, 1_322e6])).toBe(true);
+    expect(sumAgreesWithDiluted(2_838e6, [undefined, 1_322e6])).toBe(false);
+  });
+  it("rejects a sum far from every average, reads thousands-scaled averages, and keeps a sum with nothing to compare", async () => {
+    const { sumAgreesWithDiluted } = await import("@/lib/fundamentals/source");
+    expect(sumAgreesWithDiluted(360e6, [190e6, 143e6])).toBe(false);
+    expect(sumAgreesWithDiluted(15_619_451, [undefined, 15_655])).toBe(true);
+    expect(sumAgreesWithDiluted(1000, [undefined, undefined])).toBe(true);
+  });
+});
