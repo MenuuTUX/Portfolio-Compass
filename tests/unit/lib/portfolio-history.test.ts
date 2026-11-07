@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import type { PortfolioItem } from "@/types";
-import { availableRanges, buildPortfolioIndex, sliceIndex } from "@/lib/portfolio-history";
+import { availableRanges, buildPortfolioIndexWithBasis, sliceIndex } from "@/lib/portfolio-history";
+
+const buildPortfolioIndex = (portfolio: PortfolioItem[]) => buildPortfolioIndexWithBasis(portfolio).points;
 
 const item = (ticker: string, weight: number, prices: number[]) =>
   ({

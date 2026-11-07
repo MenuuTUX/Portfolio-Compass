@@ -2,7 +2,7 @@
 // at request time, so no weights live here.
 export type HeatmapGroupId = "sp500" | "nasdaq100" | "dow30" | "mag7";
 
-export interface HeatmapGroup {
+interface HeatmapGroup {
   id: HeatmapGroupId;
   label: string;
   blurb: string;

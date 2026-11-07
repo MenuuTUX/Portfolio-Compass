@@ -2,7 +2,7 @@ import { Decimal } from "./decimal";
 
 export interface DividendHistoryItem {
   date: string;
-  amount: number | Decimal; // Allow both
+  amount: number | Decimal;
   exDate?: string;
 }
 
@@ -28,7 +28,6 @@ export function calculateTTMYield(
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
   const ttmDividends = dividendHistory.filter((item) => {
-    // Prefer exDate if available, otherwise use date
     const dateStr = item.exDate || item.date;
     const date = new Date(dateStr);
     return date >= oneYearAgo && date <= now;

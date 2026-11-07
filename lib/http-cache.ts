@@ -3,7 +3,7 @@
 // max-age reaches the browser alone, so every first visit would run the
 // function and call Yahoo. See app/api/market/bars/route.ts for the same idea.
 
-export interface CacheSpec {
+interface CacheSpec {
   /** Seconds the browser may reuse the response. */
   browser: number;
   /** Seconds Vercel's CDN may serve it without running the function. */

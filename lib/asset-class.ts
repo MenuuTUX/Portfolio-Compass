@@ -8,7 +8,7 @@ import { normalizeTicker } from "@/lib/tickers";
  * (credit ratings vs sectors, maturity vs PE) instead of empty placeholders.
  */
 
-export type FundClass =
+type FundClass =
   | "equity"
   | "bond"
   | "mixed"
@@ -164,7 +164,7 @@ export function normalizeExpenseRatio(
   return undefined;
 }
 
-export interface NormalizedExpenseRatio {
+interface NormalizedExpenseRatio {
   value: number;
   sourceField: "netExpenseRatio" | "annualReportExpenseRatio" | "Expense Ratio";
   inputUnit: "fraction" | "percent" | "unknown";

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { calculateRiskMetric, cn, formatCurrency, formatPercentage } from '../../../lib/utils';
+import { calculateRiskMetric, cn, formatCurrency } from '../../../lib/utils';
 
 describe('calculateRiskMetric', () => {
   it('should return default safe values for empty history', () => {
@@ -52,18 +52,6 @@ describe('formatCurrency', () => {
   it('keeps USD distinct from CAD and marks unknown currency', () => {
     expect(formatCurrency(100, 'USD')).toContain('USD');
     expect(formatCurrency(100)).toContain('currency unavailable');
-  });
-});
-
-describe('formatPercentage', () => {
-  it('should format percentage correctly', () => {
-    const result = formatPercentage(5.1234);
-    expect(result).toBe('5.12%');
-  });
-
-  it('should handle round numbers', () => {
-    const result = formatPercentage(5);
-    expect(result).toBe('5.00%');
   });
 });
 

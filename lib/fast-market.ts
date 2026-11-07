@@ -19,7 +19,7 @@ import { isTicker, normalizeTicker } from "@/lib/tickers";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"], fetch: fetchWithTimeout });
 
-export type ChartRange = "1D" | "1W" | "1M" | "1Y" | "5Y" | "MAX";
+type ChartRange = "1D" | "1W" | "1M" | "1Y" | "5Y" | "MAX";
 
 export interface HistoryPoint {
   date: string;
@@ -453,7 +453,7 @@ function keyTickers(key: string): string[] {
 const PROFILE_TTL_MS = 6 * 60 * 60_000; // sectors/industries rarely change
 const PROFILE_FAILURE_TTL_MS = 30 * 60_000;
 
-export interface FastProfile {
+interface FastProfile {
   ticker: string;
   sector?: string;
   industry?: string;
@@ -463,7 +463,7 @@ export interface FastProfile {
  * Sector / industry from Yahoo summaryProfile (stocks) or fund category (ETFs).
  * These fields use a longer TTL than prices because they change less often.
  */
-export async function getFastProfiles(
+async function getFastProfiles(
   tickers: string[],
 ): Promise<Map<string, FastProfile>> {
   const clean = normalizeTickers(tickers);
@@ -736,7 +736,7 @@ export async function getFastWebsiteDomain(ticker: string): Promise<string | nul
   }
 }
 
-export interface HistoryOptions {
+interface HistoryOptions {
   /**
    * Include `adjPrice` (dividend-adjusted close). The spark endpoint returns
    * closes only, so this fetches each ticker through chart() instead: slower,
@@ -1001,7 +1001,7 @@ export async function searchFastSymbols(
 
 const ETF_DETAILS_TTL_MS = 10 * 60_000;
 
-export interface FastEtfDetails {
+interface FastEtfDetails {
   ticker: string;
   description?: string;
   expenseRatio?: number; // percent, e.g. 0.09 for 0.09%

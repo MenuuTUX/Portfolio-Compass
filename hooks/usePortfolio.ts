@@ -62,14 +62,14 @@ interface FundProfile {
 }
 
 /** A fund still missing the mix, beta or holdings the optimizer and look-through use. */
-export function needsFundProfile(item: ETF): boolean {
+function needsFundProfile(item: ETF): boolean {
   if (item.assetType === "STOCK") return false;
   const a = item.allocation;
   return typeof item.beta !== "number" || !a || a.equities + a.bonds + a.cash <= 0 || !item.holdings?.length;
 }
 
 /** Fills fund fields the item is missing; never overwrites data it already has. */
-export function mergeFundProfile<T extends ETF>(item: T, fund?: FundProfile | null): T {
+function mergeFundProfile<T extends ETF>(item: T, fund?: FundProfile | null): T {
   if (!fund) return item;
   const next = { ...item };
   if (typeof next.beta !== "number" && typeof fund.beta === "number" && Number.isFinite(fund.beta)) {

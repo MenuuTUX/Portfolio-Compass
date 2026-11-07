@@ -26,16 +26,7 @@ export function formatSectorName(name: string): string {
     .join(" ");
 }
 
-export function formatPercentage(value: number | Decimal) {
-  const val = Decimal.isDecimal(value) ? value.toNumber() : value;
-  return new Intl.NumberFormat("en-CA", {
-    style: "percent",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(val / 100);
-}
-
-export interface RiskMetric {
+interface RiskMetric {
   stdDev: number; // Keep result as number for UI/logic consumption
   label: string;
   color: string;
@@ -76,7 +67,6 @@ export function calculateRiskMetric(
     };
   }
 
-  // Standard deviation
   const count = new Decimal(changes.length);
   const sum = changes.reduce((acc, val) => acc.plus(val), new Decimal(0));
   const mean = sum.dividedBy(count);

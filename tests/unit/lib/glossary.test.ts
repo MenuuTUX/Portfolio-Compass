@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { getGlossaryEntry, hasGlossaryEntry } from "@/lib/glossary";
+import { getGlossaryEntry } from "@/lib/glossary";
 import {
   applyMarketFilters,
   DEFAULT_MARKET_FILTERS,
@@ -15,8 +15,8 @@ describe("glossary", () => {
   });
 
   it("handles aliases and case", () => {
-    expect(hasGlossaryEntry("p/e ratio")).toBe(true);
-    expect(hasGlossaryEntry("52W HIGH")).toBe(true);
+    expect(getGlossaryEntry("p/e ratio")).not.toBeNull();
+    expect(getGlossaryEntry("52W HIGH")).not.toBeNull();
     expect(getGlossaryEntry("MER")?.what).toMatch(/fee|Expense|Management/i);
   });
 

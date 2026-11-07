@@ -1,3 +1,5 @@
+import { normalizeTicker } from "@/lib/tickers";
+
 // noLogo: no logo file ships for this provider.
 const providers = [
   { name: "AGFiQ", keywords: ["AGFiQ"], slug: "agfiq", noLogo: true },
@@ -176,7 +178,7 @@ export function getAssetIconUrl(
   name: string,
   assetType: string = "ETF",
 ): string | null {
-  const upperTicker = ticker.toUpperCase();
+  const upperTicker = normalizeTicker(ticker);
 
   if (assetType === "STOCK") {
     return logoUrl(upperTicker);

@@ -7,7 +7,7 @@ export type QuizAnswers = Partial<
   Record<"horizon" | "ouch_test" | "knowledge" | "liquidity" | "goal", number>
 >;
 
-export interface ProfileScore {
+interface ProfileScore {
   score: number;
   profile: RiskProfile;
   /** How much loss the person says they can sit through (0-100). */
@@ -105,7 +105,7 @@ export function horizonYearsFromAge(band: AgeBand): number {
 }
 
 /** Optional answers from the quiz. None of them affect the score. */
-export interface OptionalRiskAnswers {
+interface OptionalRiskAnswers {
   ageBand?: AgeBand;
   /** Savings goal in the chosen currency. */
   goalAmount?: number;
@@ -113,7 +113,7 @@ export interface OptionalRiskAnswers {
   monthlyContribution?: number;
 }
 
-export interface StoredRiskProfile extends OptionalRiskAnswers {
+interface StoredRiskProfile extends OptionalRiskAnswers {
   profile: RiskProfile;
   score: number;
   takenAt: string;

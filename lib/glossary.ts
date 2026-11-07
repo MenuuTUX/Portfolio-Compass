@@ -3,7 +3,7 @@
  * Keys are matched case-insensitively against UI labels.
  */
 
-export interface GlossaryEntry {
+interface GlossaryEntry {
   /** Short display name */
   label: string;
   /** What it is, in plain English */
@@ -420,8 +420,4 @@ export function getGlossaryEntry(label: string): GlossaryEntry | null {
   }
 
   return null;
-}
-
-export function hasGlossaryEntry(label: string): boolean {
-  return getGlossaryEntry(label) !== null;
 }

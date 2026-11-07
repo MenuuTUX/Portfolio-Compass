@@ -1,12 +1,12 @@
 import type { PortfolioItem } from "@/types";
 import { selectReturnBasis, validAdjusted, type ReturnBasis } from "@/lib/math/history";
 
-export interface IndexPoint {
+interface IndexPoint {
   t: string;
   v: number;
 }
 
-export interface PortfolioIndex {
+interface PortfolioIndex {
   points: IndexPoint[];
   /** "total" uses dividend-adjusted closes; "price" is the labelled fallback. */
   basis: ReturnBasis;
@@ -56,10 +56,6 @@ export function buildPortfolioIndexWithBasis(portfolio: PortfolioItem[]): Portfo
       v: 100 * held.reduce((sum, item, i) => sum + (item.weight / totalWeight) * (series[i].get(date)! / first[i]), 0),
     })),
   };
-}
-
-export function buildPortfolioIndex(portfolio: PortfolioItem[]): IndexPoint[] {
-  return buildPortfolioIndexWithBasis(portfolio).points;
 }
 
 export type IndexRange = "1M" | "3M" | "6M" | "1Y" | "ALL";

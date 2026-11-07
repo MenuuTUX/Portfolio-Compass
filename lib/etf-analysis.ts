@@ -10,13 +10,13 @@ export interface VerdictEntry {
   description: string;
 }
 
-export interface EtfVerdict {
+interface EtfVerdict {
   cost?: VerdictEntry;
   liquidity: VerdictEntry;
   volatility: VerdictEntry;
 }
 
-export interface AnalyzeEtfOptions {
+interface AnalyzeEtfOptions {
   /** Price history used to estimate realized vol when beta is missing */
   history?: { date: string; price: number }[];
 }
