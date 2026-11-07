@@ -7,7 +7,7 @@
  */
 import type { AnnualPeriod, CompanyFilings, FactValue, LineItem, TrailingPeriod } from "../fundamentals/types";
 import { blumeAdjustBeta, computeWacc, terminalGrowthCap } from "./wacc";
-import { MARGINAL_TAX, type DcfInputs } from "./dcf";
+import { DcfError, MARGINAL_TAX, type DcfInputs } from "./dcf";
 import { kindForSic } from "../fundamentals/sector";
 import { DAY_MS } from "@/lib/dates";
 
@@ -257,8 +257,9 @@ export function checkReadiness(company: CompanyFilings, ctx: ReadinessContext): 
       marketCap: ctx.price * shares,
       totalDebt: debt,
     });
-  } catch {
-    return { ok: false, reasons: ["The cost of capital could not be calculated from these inputs."] };
+  } catch (error) {
+    const detail = error instanceof DcfError ? ` ${error.message}` : "";
+    return { ok: false, reasons: [`The cost of capital could not be calculated from these inputs.${detail}`] };
   }
 
   const cap = terminalGrowthCap(riskFreeRate);

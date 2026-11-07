@@ -2,8 +2,8 @@ import { timeoutSignal } from '@/lib/upstream';
 import * as cheerio from 'cheerio';
 import { z } from 'zod';
 import { stockAnalysisPathForTicker } from '@/lib/asset-class';
+import { BROWSER_USER_AGENT } from '@/lib/scrapers/user-agent';
 
-// Strict validation for ticker symbol
 const tickerSchema = z.string().min(1).max(12).regex(/^[a-zA-Z0-9.-]+$/);
 
 export interface StockProfile {
@@ -41,7 +41,6 @@ export interface StockProfile {
   expenseRatio?: number;
   expenseRatioInputUnit?: "percent" | "unknown";
 
-  // New ETF Metrics
   inceptionDate?: string;
   payoutFrequency?: string;
   payoutRatio?: number;
@@ -68,15 +67,15 @@ export function parseExpenseRatioText(raw: string): {
   };
 }
 
+const fetchWithUserAgent = (url: string) => fetch(url, {
+  redirect: 'error',
+  signal: timeoutSignal(),
+  headers: { 'User-Agent': BROWSER_USER_AGENT },
+});
+
 export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<string[]> {
     const url = `https://stockanalysis.com/markets/${type}/`;
-    const response = await fetch(url, {
-        redirect: 'error',
-        signal: timeoutSignal(),
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
-    });
+    const response = await fetchWithUserAgent(url);
     // Throw rather than return []: an empty list reads as "no movers today" and
     // would be cached as a real answer.
     if (!response.ok) {
@@ -87,7 +86,6 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
 
     const tickers: string[] = [];
 
-    // Find the main table
     $('table').each((_, table) => {
         const headers = $(table).find('th').map((_, th) => $(th).text().trim()).get();
         if (headers.includes('Symbol') && headers.includes('% Change')) {
@@ -116,7 +114,6 @@ function holdingsUrlForTicker(ticker: string): string | null {
 }
 
 export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> {
-    // Strict validation
     const validation = tickerSchema.safeParse(ticker);
     if (!validation.success) {
         console.error(`Invalid ticker format: ${ticker}`);
@@ -129,13 +126,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
         return [];
     }
 
-    const response = await fetch(url, {
-        redirect: 'error',
-        signal: timeoutSignal(),
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
-    });
+    const response = await fetchWithUserAgent(url);
 
     if (!response.ok) {
         if (response.status === 404) {
@@ -231,14 +222,6 @@ export function parseMarketNumber(val: string): number | undefined {
     return num * multiplier;
 }
 
-const fetchWithUserAgent = async (u: string) => fetch(u, {
-  redirect: 'error',
-  signal: timeoutSignal(),
-  headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-  }
-});
-
 /**
  * Ordered stockanalysis.com profile URLs for a ticker.
  * US: stocks → etf. CA: quote/tsx|tsxv|cse only (allowlisted).
@@ -261,21 +244,17 @@ function profileUrlsForTicker(ticker: string): string[] {
     : upper.includes(".") ? upper.split(".")[0] : upper;
   urls.push(`https://stockanalysis.com/stocks/${base.toLowerCase()}/`);
   urls.push(`https://stockanalysis.com/etf/${base.toLowerCase()}/`);
-  if (mapped?.kind === "etf") {
-    // already covered
-  }
   return urls;
 }
 
 export async function getStockProfile(ticker: string): Promise<StockProfile | null> {
-  // Strict validation
   const validation = tickerSchema.safeParse(ticker);
   if (!validation.success) {
       console.error(`Invalid ticker format: ${ticker}`);
       return null;
   }
 
-  let upperTicker = ticker.toUpperCase();
+  const upperTicker = ticker.toUpperCase();
 
   const urls = profileUrlsForTicker(ticker);
   if (urls.length === 0) {
@@ -312,15 +291,12 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       $('span, div, td, th').each((_, el) => {
         if (val) return;
         const text = $(el).text().trim();
-        // Exact match or starts with label:
         if (labels.includes(text) || labels.some(l => text.startsWith(l + ':'))) {
-            // Check next sibling
             let next = $(el).next();
             if (next.length && next.text().trim()) {
                  val = next.text().trim();
                  return;
             }
-            // Check if colon format
             if (text.includes(':')) {
                  const parts = text.split(':');
                  if (parts.length > 1 && parts[1].trim()) {
@@ -336,7 +312,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
   sector = extractLabelValue(['Sector', 'Asset Class']) || '';
   industry = extractLabelValue(['Industry', 'Category']) || '';
 
-  // Fallback scan if still empty
   if (!sector || !industry) {
       $('div, li, tr').each((_, el) => {
         if ($(el).children().length > 5) return;
@@ -353,7 +328,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       });
   }
 
-  // Description
   let description = '';
   $('h2, h3').each((_, el) => {
       if (description) return;
@@ -365,7 +339,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
               let attempts = 0;
               while (next.length && attempts < 10) {
                    const text = next.text().trim();
-                   // Stop if we hit another header
                    if (next.is('h2') || next.is('h3')) return null;
 
                    // If text is substantial, it's likely the description
@@ -413,14 +386,12 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       }
   }
 
-  // --- Financial Metrics Scraping ---
 
   const metrics: Partial<StockProfile> = {};
 
   const extractValue = (label: string): string | undefined => {
     let val: string | undefined;
 
-    // Try finding exact text match in common elements
     $('div, td, th, span').each((_, el) => {
         if (val) return;
         const text = $(el).text().trim();
@@ -434,7 +405,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
     });
 
     if (!val) {
-        // Try looking for label inside a cell in a table row, take next cell
         $('tr').each((_, tr) => {
             if (val) return;
             const cells = $(tr).find('td, th');
@@ -588,7 +558,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       }
   }
 
-  // Analyst Data
   let analyst: StockProfile['analyst'] | undefined;
 
   $('h2, h3').each((_, el) => {
