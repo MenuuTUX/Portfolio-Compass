@@ -194,9 +194,11 @@ function scoredAnswers(answers: Record<string, number | string>): QuizAnswers {
   return scored;
 }
 
+const currencyOf = (answers: Record<string, number | string>): Currency => (answers.currency === "CAD" ? "CAD" : "USD");
+
 function buildResult(answers: Record<string, number | string>): QuizResult {
   const { score, profile, why } = scoreRiskProfile(scoredAnswers(answers));
-  const currency: Currency = answers.currency === "CAD" ? "CAD" : "USD";
+  const currency = currencyOf(answers);
   const account = typeof answers.account === "string" ? answers.account : undefined;
   // Optional answers never reach scoreRiskProfile; they only fill in the projection.
   const ageBand = isAgeBand(answers.age) ? answers.age : undefined;
@@ -290,7 +292,7 @@ export default function IntroQuiz({ onComplete, hasExistingPortfolio = false }: 
   const [result, setResult] = useState<QuizResult | null>(null);
 
   const question = QUESTIONS[index];
-  const currency: Currency = answers.currency === "CAD" ? "CAD" : "USD";
+  const currency = currencyOf(answers);
   const progress = ((index + (step === "done" ? 1 : 0)) / QUESTIONS.length) * 100;
 
   const skip = () => {

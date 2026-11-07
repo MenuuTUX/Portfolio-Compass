@@ -2,7 +2,7 @@
 
 import { m as motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, AlertTriangle, CheckCircle, Info } from "lucide-react";
-import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
+import { RevealGroup, RevealItem, EASE } from "@/components/motion/Reveal";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
 
 interface MessageDrawerProps {
@@ -48,7 +48,7 @@ export default function MessageDrawer({
             initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}
-            transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: reduceMotion ? 0 : 0.32, ease: EASE }}
             className="app-sheet-safe fixed bottom-0 left-0 right-0 mx-auto max-w-lg max-h-[70vh] bg-surface-card ring-1 ring-hairline rounded-t-2xl z-[60] overflow-y-auto overscroll-contain shadow-[0_-24px_64px_rgba(0,0,0,0.45)]"
           >
             <RevealGroup stagger={0.05} delay={0.08} onMount>

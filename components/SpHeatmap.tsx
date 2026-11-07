@@ -18,6 +18,7 @@ const SECTOR_LABEL_H = 16;
 const CLAMP_PCT = 3;
 // Smallest logo worth drawing, in CSS px; smaller tiles are folded into a "+N" group
 const MIN_LOGO_PX = 18;
+const HEATMAP_REFRESH_MS = 60_000;
 const FALLBACK_WIDTH = 700;
 const FALLBACK_HEIGHT = FALLBACK_WIDTH / DEFAULT_ASPECT;
 
@@ -128,7 +129,7 @@ export default function SpHeatmap({ onSelectTicker, className, fill = false }: S
         .then((res) => (res.ok ? res.json() : null))
         .then((json: HeatmapPayload | null) => json && setPayload(json))
         .catch(() => {});
-    }, 60_000);
+    }, HEATMAP_REFRESH_MS);
     return () => {
       controller.abort();
       window.clearInterval(timer);
