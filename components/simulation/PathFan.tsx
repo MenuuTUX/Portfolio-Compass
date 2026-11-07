@@ -8,6 +8,17 @@ import { valueTicks, yearTicks } from "./format";
 
 const W = 1000;
 const MAX_POINTS = 160;
+/** Window over which path start times are spread, so the fan builds up instead of appearing at once. */
+const STAGGER_MS = 1400;
+
+// One id per paths array, so a new run replays the draw but a log-scale toggle does not.
+const runIds = new WeakMap<object, number>();
+let nextRunId = 0;
+function runIdOf(paths: object): number {
+  let id = runIds.get(paths);
+  if (id === undefined) runIds.set(paths, (id = nextRunId++));
+  return id;
+}
 
 interface PathFanProps {
   /** Values per path at each of `days`. */
@@ -177,19 +188,16 @@ export default function PathFan({
             role="img"
             aria-label={label}
           >
-            <defs>
-              <clipPath id={clipId}>
-                <rect className="mc-reveal" x="0" y={-H} width={W} height={H * 3} />
-              </clipPath>
-            </defs>
             {yTicks.map((t) => (
               <line key={t} x1="0" x2={W} y1={y(t)} y2={y(t)} stroke="var(--hairline)" vectorEffect="non-scaling-stroke" />
             ))}
             {bandD && <path d={bandD} fill={color} fillOpacity={0.12} stroke="none" />}
-            <g clipPath={`url(#${clipId})`} fill="none" strokeLinejoin="round">
+            <g key={runIdOf(paths)} fill="none" strokeLinejoin="round">
               {pathDs.map((d, i) => (
                 <path
                   key={i}
+                  className="mc-path"
+                  style={{ animationDelay: `${Math.round((i / pathDs.length) * STAGGER_MS)}ms` }}
                   d={d}
                   stroke={`color-mix(in oklab, ${color} ${100 - ((i * 37) % 100)}%, ${colorAlt})`}
                   strokeOpacity={paths.length > 60 ? 0.35 : 0.55}
@@ -198,7 +206,7 @@ export default function PathFan({
                 />
               ))}
               {highlight && (
-                <path d={toD(highlight)} stroke="var(--ink)" strokeWidth={compact ? 1.75 : 2.25} vectorEffect="non-scaling-stroke" />
+                <path className="mc-path" style={{ animationDelay: `${STAGGER_MS}ms` }} d={toD(highlight)} stroke="var(--ink)" strokeWidth={compact ? 1.75 : 2.25} vectorEffect="non-scaling-stroke" />
               )}
             </g>
             <line x1="0" x2={W} y1={startY} y2={startY} stroke="var(--muted)" strokeDasharray="5 5" vectorEffect="non-scaling-stroke" />

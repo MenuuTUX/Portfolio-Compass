@@ -505,9 +505,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .lab-note-bar { border-left: 3px solid var(--compass); margin-left: 3px; }
 
 /* Monte Carlo path fan: left-to-right reveal of the drawn paths */
-@keyframes mc-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.mc-reveal { transform-box: fill-box; transform-origin: left center; animation: mc-reveal 1.1s var(--ease-out) both; }
-@media (prefers-reduced-motion: reduce) { .mc-reveal { animation: none; } }
+@keyframes mc-draw {
+  from { clip-path: inset(-4px 100% -4px -4px); opacity: 0; }
+  to { clip-path: inset(-4px -4px -4px -4px); opacity: 1; }
+}
+.mc-path { animation: mc-draw 1.6s var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) { .mc-path { animation: none; } }
 
 /* Set by a script in app/layout.tsx for ?view=app links: keep the landing page from flashing before the app hydrates. */
 html[data-deeplink] #top { visibility: hidden; }
