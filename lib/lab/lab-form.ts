@@ -4,6 +4,7 @@ import { strategyTickers, type NoCodeStrategy } from "@/lib/lab/no-code";
 import { extractTickers, LESSONS, type Lesson } from "@/lib/lab/lessons";
 import { CODE_TEMPLATES } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyLanguage } from "@/lib/lab/strategy/types";
+import { isoDay } from "@/lib/dates";
 
 // The Compass Lab form: what the user edits (a no-code rule or code), the
 // built-in templates, and the conversion into an engine request.
@@ -63,7 +64,7 @@ export interface LabForm {
   fill: BacktestConfig["fill"];
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => isoDay(new Date());
 
 export const BLANK_FORM: LabForm = {
   name: "Untitled strategy",

@@ -1,5 +1,6 @@
 import { olsSlope } from "@/lib/math/stats";
 import { selectReturnBasis, validAdjusted, type ReturnBasis } from "@/lib/math/history";
+import { isoDay } from "@/lib/dates";
 
 /**
  * Market proxy for beta. Yahoo's fund `beta3Year` is measured against each
@@ -27,7 +28,7 @@ function byUtcDay(points: readonly HistoryLike[]): Map<string, HistoryLike> {
     const time = new Date(point.date).getTime();
     const price = Number(point.price);
     if (!Number.isFinite(time) || !Number.isFinite(price) || price <= 0) continue;
-    out.set(new Date(time).toISOString().slice(0, 10), point);
+    out.set(isoDay(time), point);
   }
   return out;
 }

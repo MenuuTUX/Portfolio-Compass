@@ -1,3 +1,4 @@
+import { YEAR_MS } from "@/lib/dates";
 import { PortfolioItem } from "@/types";
 import { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
 import { classifyAsset, getAssetBeta } from "@/lib/math/portfolio-returns";
@@ -95,7 +96,7 @@ function alignedReturns(
 
   const dates = aligned.dates.map((date) => new Date(date).getTime());
   const spanYears =
-    (dates[dates.length - 1] - dates[0]) / (1000 * 60 * 60 * 24 * 365.25);
+    (dates[dates.length - 1] - dates[0]) / YEAR_MS;
   if (!(spanYears > 0.25)) return null;
 
   const returns = aligned.prices.map((prices) => calculateLogReturns(prices));

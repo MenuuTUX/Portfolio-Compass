@@ -1,5 +1,6 @@
 import { Portfolio, PortfolioItem } from "@/types";
 import { isUnverifiedProviderYield } from "@/lib/provenance";
+import { DAY_MS, isoDay } from "@/lib/dates";
 
 /**
  * Shared portfolio return / weight / dividend helpers used by
@@ -129,7 +130,7 @@ export type QuoteFreshness = "fresh" | "missing" | "invalid" | "stale" | "future
 
 // Temporary elapsed-time limit for current valuation. Long market closures can
 // outlast it; exchange-calendar freshness remains a separate policy decision.
-const MAX_QUOTE_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+const MAX_QUOTE_AGE_MS = 5 * DAY_MS;
 const FUTURE_QUOTE_TOLERANCE_MS = 5 * 60 * 1000;
 
 export function getQuoteFreshness(
@@ -185,8 +186,8 @@ export function getPortfolioValuation(
     : NaN;
   const fxIsFresh = !!fx && Number.isFinite(fx.usdCad) && fx.usdCad > 0 &&
     Number.isFinite(fxDateTimestamp) &&
-    new Date(fxDateTimestamp).toISOString().slice(0, 10) === fx.date &&
-    fx.date <= new Date(now).toISOString().slice(0, 10) &&
+    isoDay(fxDateTimestamp) === fx.date &&
+    fx.date <= isoDay(now) &&
     now - fxDateTimestamp <= MAX_QUOTE_AGE_MS;
   const needsFx = relevant.some((item) => item.currency !== baseCurrency);
   const complete = targetCurrencyValid && relevant.length > 0 &&

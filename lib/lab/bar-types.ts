@@ -1,3 +1,4 @@
+import { isoDay } from "@/lib/dates";
 // Shared by the server fetcher (lib/lab/bars.ts) and the browser cache
 // (lib/lab/bar-cache.ts); keep this file free of server-only imports.
 
@@ -114,7 +115,7 @@ function previousWeekday(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
   do d.setUTCDate(d.getUTCDate() - 1);
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
-  return d.toISOString().slice(0, 10);
+  return isoDay(d);
 }
 
 /**

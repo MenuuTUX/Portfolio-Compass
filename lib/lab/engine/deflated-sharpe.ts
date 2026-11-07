@@ -9,6 +9,7 @@
 // Assumptions worth stating next to any number it produces: returns are treated
 // as independent over time, the N variants are treated as independent trials,
 // and N counts only the variants the caller knows about.
+import { mean } from "@/lib/math/stats";
 
 const EULER_MASCHERONI = 0.5772156649015329;
 
@@ -153,6 +154,6 @@ export function returnMoments(returns: ArrayLike<number>): { skew: number; kurto
 export function sampleVariance(values: (number | null)[]): number {
   const xs = values.filter((v): v is number => v !== null && Number.isFinite(v));
   if (xs.length < 2) return 0;
-  const m = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const m = mean(xs);
   return xs.reduce((a, b) => a + (b - m) ** 2, 0) / (xs.length - 1);
 }

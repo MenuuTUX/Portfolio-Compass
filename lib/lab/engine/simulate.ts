@@ -1,5 +1,5 @@
 import type { Frame } from "@/lib/lab/engine/frame";
-import { daysBetween } from "@/lib/dates";
+import { daysBetween, isoDay } from "@/lib/dates";
 
 // The Compass Lab simulator. Strategies only supply target weights; this file
 // owns cash, fills, costs, dividends and rebalancing, so every strategy
@@ -81,7 +81,7 @@ function periodKey(date: string, every: Period): string {
       // Monday of the ISO week, so weeks that span a month or year stay whole.
       const d = new Date(`${date}T00:00:00Z`);
       d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-      return d.toISOString().slice(0, 10);
+      return isoDay(d);
     }
   }
 }

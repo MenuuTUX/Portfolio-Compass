@@ -14,6 +14,7 @@ import {
 import { estimateMarketBeta, MARKET_PROXY, type BetaEstimate } from "@/lib/math/beta";
 import { fetchWithTimeout, timeoutSignal } from "@/lib/upstream";
 import { isTicker, normalizeTicker } from "@/lib/tickers";
+import { isoDay } from "@/lib/dates";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -339,7 +340,7 @@ export function nextEarningsDate(
     .sort((a, b) => a - b)[0];
   return upcoming === undefined
     ? undefined
-    : new Date(upcoming).toISOString().split("T")[0];
+    : isoDay(upcoming);
 }
 
 export async function getFastQuotes(

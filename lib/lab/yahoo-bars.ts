@@ -1,11 +1,12 @@
 import type { BarSeries, DailyBar } from "@/lib/lab/bar-types";
+import { isoDay } from "@/lib/dates";
 
 // Pure mapping of yahoo-finance2 chart() output, kept apart from lib/lab/bars.ts
 // so tests can use it without loading the Yahoo client.
 
 /** A Yahoo daily timestamp as the trading date on the exchange's own clock. */
 function exchangeDate(date: Date | number | string, gmtOffsetSeconds: number): string {
-  return new Date(new Date(date).getTime() + gmtOffsetSeconds * 1000).toISOString().slice(0, 10);
+  return isoDay(new Date(date).getTime() + gmtOffsetSeconds * 1000);
 }
 
 function positive(value: unknown): value is number {
