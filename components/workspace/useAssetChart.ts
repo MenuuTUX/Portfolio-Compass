@@ -70,7 +70,6 @@ export function useAssetChart(
   }>({ main: [], spy: [] });
   const [prevTicker, setPrevTicker] = useState(ticker);
 
-  // Reset when the ticker changes (adjust-during-render, no setState-in-effect)
   if (ticker !== prevTicker) {
     setPrevTicker(ticker);
     setSeriesState({ main: [], spy: [] });

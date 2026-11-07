@@ -54,7 +54,6 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
   const [freshEtf, setFreshEtf] = useState<ETF | null>(null);
   const [prevEtf, setPrevEtf] = useState<ETF | null>(etf);
 
-  // Reset when the asset changes (adjust-during-render pattern)
   if (etf !== prevEtf) {
     setPrevEtf(etf);
     setFreshEtf(null);

@@ -297,8 +297,8 @@ export default function ETFDetailsDrawer({
   const c = chart ?? ownChart;
   const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(displayEtf) && !docked, onClose);
 
-  // Reset UI state when the asset changes (adjust-during-render pattern,
-  // avoids a cascading setState-in-effect)
+  // State that must reset when a prop changes is adjusted during render (React's
+  // documented alternative to a setState-in-effect); useAssetDetails and useAssetChart do the same.
   if (etf?.ticker !== prevTicker) {
     setPrevTicker(etf?.ticker);
     setShowLegend(false);
