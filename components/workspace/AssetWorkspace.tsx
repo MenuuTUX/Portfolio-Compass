@@ -24,7 +24,7 @@ import { AssetChart, ChartRangeBar } from "./AssetChart";
 import type { AssetChartState } from "./useAssetChart";
 import HoldingIcon from "./HoldingIcon";
 import PriceTween from "./PriceTween";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 const MIN_DRAWER = 36;
 const DEFAULT_DRAWER = 160;

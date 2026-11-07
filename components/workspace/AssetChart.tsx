@@ -2,15 +2,12 @@
 
 import { useCallback, useId, useRef, useState } from "react";
 import { m as motion, useReducedMotion } from "framer-motion";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 import Shimmer from "./Shimmer";
 import { LineChart as LineChartIcon, RefreshCw } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import {
-  TIME_RANGES,
-  type AssetChartState,
-  type TimeRange,
-} from "./useAssetChart";
+import { RANGE_META, TIME_RANGES, type AssetChartState } from "./useAssetChart";
+import type { ChartRange } from "@/lib/fast-market";
 import { GAIN, LOSS, MUTED } from "@/lib/chart-colors";
 
 
@@ -27,22 +24,18 @@ interface AssetChartProps {
   showAverage?: boolean;
 }
 
-/** Compact axis date: time for 1D, weekday for 1W, day for 1M, month for 1Y, year beyond. */
-function formatAxisDate(date: string, range: TimeRange) {
+const AXIS_DATE: Record<ChartRange, (d: Date) => string> = {
+  "1D": (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+  "1W": (d) => d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" }),
+  "1M": (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+  "1Y": (d) => `${d.toLocaleDateString(undefined, { month: "short" })} '${String(d.getFullYear()).slice(2)}`,
+  "5Y": (d) => String(d.getFullYear()),
+  MAX: (d) => String(d.getFullYear()),
+};
+
+function formatAxisDate(date: string, range: ChartRange) {
   const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return "";
-  switch (range) {
-    case "1D":
-      return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    case "1W":
-      return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
-    case "1M":
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    case "1Y":
-      return `${d.toLocaleDateString(undefined, { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
-    default:
-      return String(d.getFullYear());
-  }
+  return Number.isNaN(d.getTime()) ? "" : AXIS_DATE[range](d);
 }
 
 /** Round-number gridline values inside [min, max]. */
@@ -58,15 +51,16 @@ function niceTicks(min: number, max: number, count = 4) {
   return { ticks, step };
 }
 
-function formatTag(date: string, range: TimeRange) {
+function formatTag(date: string, range: ChartRange) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return "";
+  const { intraday } = RANGE_META[range];
   const day = d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    year: range === "1D" || range === "1W" ? undefined : "numeric",
+    year: intraday ? undefined : "numeric",
   });
-  if (range === "1D" || range === "1W") {
+  if (intraday) {
     return `${day}, ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   }
   return day;

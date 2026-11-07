@@ -3,10 +3,10 @@
 import { m as motion } from "framer-motion";
 import InteractiveSlider from "../InteractiveSlider";
 import CountUp from "../motion/CountUp";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { projectContributionScenario } from "@/lib/math/scenario";
+import { STARTING_BALANCE } from "./shared";
 
-export const STARTING_BALANCE = 10_000;
 const dollars = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 });
 const axisNumbers = new Intl.NumberFormat("en-CA", { notation: "compact", maximumFractionDigits: 1 });
 

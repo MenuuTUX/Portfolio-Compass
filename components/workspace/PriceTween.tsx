@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { animate, useReducedMotion } from "framer-motion";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 /**
  * Renders a number and tweens it to each new value (no animation on first

@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { Candle, ChartRange } from "@/lib/fast-market";
 
-export const TIME_RANGES = ["1D", "1W", "1M", "1Y", "5Y", "MAX"] as const;
-export type TimeRange = (typeof TIME_RANGES)[number];
+export const RANGE_META = {
+  "1D": { intraday: true },
+  "1W": { intraday: true },
+  "1M": { intraday: false },
+  "1Y": { intraday: false },
+  "5Y": { intraday: false },
+  MAX: { intraday: false },
+} satisfies Record<ChartRange, { intraday: boolean }>;
+export const TIME_RANGES = Object.keys(RANGE_META) as ChartRange[];
 
-export type FastPoint = { date: string; price: number };
+type FastPoint = { date: string; price: number };
 
-export type Candle = {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
-
-export interface ChartPoint {
+interface ChartPoint {
   date: string;
   /** Price, or percent change from the first point when comparing. */
   price: number;
@@ -26,8 +26,8 @@ export interface ChartPoint {
 
 export interface AssetChartState {
   ticker: string | null;
-  range: TimeRange;
-  setRange: (range: TimeRange) => void;
+  range: ChartRange;
+  setRange: (range: ChartRange) => void;
   compare: boolean;
   setCompare: (value: boolean) => void;
   /** OHLC bars; fetched only while candles are wanted and not comparing. */
@@ -54,7 +54,7 @@ export function useAssetChart(
   ticker: string | null,
   fallbackChangePercent = 0,
 ): AssetChartState {
-  const [range, setRange] = useState<TimeRange>("1M");
+  const [range, setRange] = useState<ChartRange>("1M");
   const [compare, setCompare] = useState(false);
   const [wantCandles, setWantCandles] = useState(false);
   const [candleState, setCandleState] = useState<{ key: string; bars: Candle[] }>({
@@ -147,10 +147,7 @@ export function useAssetChart(
 
     if (compare && spyHistory.length > 0) {
       // Both series share range/interval, so align by nearest timestamp
-      const tolerance =
-        range === "1D" || range === "1W"
-          ? 30 * 60 * 1000
-          : 3 * 24 * 60 * 60 * 1000;
+      const tolerance = RANGE_META[range].intraday ? 30 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000;
       const spyTimes = spyHistory.map((p) => new Date(p.date).getTime());
       const spyPriceAt = (target: number) => {
         let best = 0;

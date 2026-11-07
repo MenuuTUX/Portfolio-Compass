@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { m as motion } from "framer-motion";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 export interface HeroPoint {
   t: number | string;

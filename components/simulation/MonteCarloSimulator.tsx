@@ -50,7 +50,7 @@ import PathFan, { type FanBand } from "./PathFan";
 import OutcomeHistogram from "./OutcomeHistogram";
 import { signedPercent } from "@/lib/format";
 import { impliedAnnualReturn } from "@/lib/math/scenario";
-import { EASE } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { HelpTip } from "@/components/ui/HelpTip";
 import { cn } from "@/lib/cn";
 
