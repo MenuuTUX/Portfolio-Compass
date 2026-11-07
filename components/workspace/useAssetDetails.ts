@@ -127,9 +127,6 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
               cash: fund.allocation.cash ?? 0,
             };
           }
-          if (fund.description) {
-            // description lives on the profile card via stock/info; keep name cues
-          }
           return mergeAssetData(base, patch);
         });
       })

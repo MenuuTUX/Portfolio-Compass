@@ -3,7 +3,7 @@
 import { useCallback, useId, useRef, useState } from "react";
 import { m as motion, useReducedMotion } from "framer-motion";
 import { EASE } from "@/lib/motion";
-import Shimmer from "./Shimmer";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart as LineChartIcon, RefreshCw } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { RANGE_META, TIME_RANGES, type AssetChartState } from "./useAssetChart";
@@ -138,7 +138,7 @@ export function AssetChart({
             role="status"
             aria-label="Loading chart"
           >
-            <Shimmer className="h-1/2 w-full rounded-lg" />
+            <Skeleton className="h-1/2 w-full" />
             <p className="sr-only">Loading chart…</p>
           </div>
         ) : (
