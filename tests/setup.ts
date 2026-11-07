@@ -1,4 +1,4 @@
-import { mock } from 'bun:test';
+import { afterEach, mock } from 'bun:test';
 import React from 'react';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
@@ -9,3 +9,9 @@ GlobalRegistrator.register();
 mock.module('next/image', () => ({
   default: ({ alt }: { alt?: string }) => React.createElement('img', { alt }),
 }));
+
+// Tests replace fetch through tests/helpers/fetch.ts; put the real one back after each test.
+const realFetch = globalThis.fetch;
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});

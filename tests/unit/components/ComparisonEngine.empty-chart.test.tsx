@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, mock } from "bun:test";
 import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { mockModule } from "@/tests/helpers/mock-module";
+import { withFetch } from "@/tests/helpers/fetch";
 
 await mockModule("framer-motion", () => ({
   motion: new Proxy({}, { get: () => "div" }),
@@ -11,15 +12,13 @@ await mockModule("@/components/Sparkline", () => ({ default: () => <div data-tes
 
 const { default: ComparisonEngine } = await import("@/components/ComparisonEngine");
 
-const originalFetch = global.fetch;
 afterEach(() => {
-  global.fetch = originalFetch;
   cleanup();
 });
 
 describe("ComparisonEngine empty history", () => {
   it("shows chart unavailable when comparison history is missing", async () => {
-    global.fetch = mock(async () => new Response(JSON.stringify([{
+    withFetch(async () => new Response(JSON.stringify([{
       ticker: "NOHIST",
       name: "No History Fund",
       price: 24,
@@ -29,7 +28,7 @@ describe("ComparisonEngine empty history", () => {
       history: [],
       metrics: {},
       allocation: { equities: 100, bonds: 0, cash: 0 },
-    }]), { status: 200, headers: { "Content-Type": "application/json" } })) as unknown as typeof fetch;
+    }]), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     render(<ComparisonEngine onAddToPortfolio={async () => {}} onRemoveFromPortfolio={() => {}} portfolio={[]} />);
 

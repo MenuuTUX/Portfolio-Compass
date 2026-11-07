@@ -6,6 +6,7 @@ import DcfPanel from "@/components/dcf/DcfPanel";
 import { dcfValue, impliedGrowth, sensitivity, type DcfInputs } from "@/lib/valuation/dcf";
 import { describeResult } from "@/lib/valuation/summarize";
 import type { DcfResponse } from "@/lib/valuation/response";
+import { withFetch } from "@/tests/helpers/fetch";
 
 const inputs: DcfInputs = {
   rev0: 400e9, g1: 0.05, gT: 0.025, margin0: 0.3, marginT: 0.3, tax: 0.15, taxMarginal: 0.25,
@@ -20,17 +21,14 @@ const ok: DcfResponse = {
   inputs, neutralInputs: inputs, headline: described(inputs), neutral: described(inputs),
   impliedReturn: null, rows: [{ label: "Cost of capital", value: "9.0%", note: "From beta." }], warnings: ["A warning."],
 };
-
-const realFetch = globalThis.fetch;
 function mount(body: unknown, status = 200) {
-  globalThis.fetch = (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+  withFetch(async () => new Response(JSON.stringify(body), { status }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={client}><DcfPanel ticker="TEST" /></QueryClientProvider>);
 }
 
 afterEach(() => {
   cleanup();
-  globalThis.fetch = realFetch;
 });
 
 describe("DcfPanel", () => {

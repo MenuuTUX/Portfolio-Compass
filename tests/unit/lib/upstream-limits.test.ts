@@ -2,19 +2,14 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { fetchWithTimeout, UPSTREAM_TIMEOUT_MS } from "@/lib/upstream";
 import { getMarketMovers, getStockProfile } from "@/lib/scrapers/stock-analysis";
 import { fetchFearAndGreedIndex } from "@/lib/scrapers/fear-greed";
-
-const realFetch = globalThis.fetch;
-afterEach(() => {
-  globalThis.fetch = realFetch;
-});
-
+import { withFetch } from "@/tests/helpers/fetch";
 /** Replace fetch with a stub that records the signal each call carried. */
 function stubFetch(status = 404) {
   const signals: (AbortSignal | null | undefined)[] = [];
-  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+  withFetch(async (_url: unknown, init?: RequestInit) => {
     signals.push(init?.signal);
     return new Response("", { status });
-  }) as typeof fetch;
+  });
   return signals;
 }
 

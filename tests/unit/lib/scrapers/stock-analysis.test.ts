@@ -1,5 +1,5 @@
 
-import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { describe, it, expect, mock, beforeAll, beforeEach } from 'bun:test';
 
 // Mock global fetch
 const mockFetch = mock((url: string | URL | Request) => {
@@ -71,8 +71,10 @@ const mockFetch = mock((url: string | URL | Request) => {
   });
 });
 
-// The stub only implements the call signature, not fetch's preconnect property
-global.fetch = mockFetch as unknown as typeof fetch;
+// The stub only implements the call signature, not fetch's preconnect property; setup.ts restores fetch after each test.
+beforeEach(() => {
+  global.fetch = mockFetch as unknown as typeof fetch;
+});
 
 // Import after mocking
 // Use dynamic import or ensure this is after the mock

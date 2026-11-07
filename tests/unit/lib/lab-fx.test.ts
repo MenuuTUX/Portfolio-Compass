@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { loadUsdCadSeries } from "@/lib/lab/fx";
-
-const originalFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = originalFetch; });
+import { withFetch } from "@/tests/helpers/fetch";
 
 function dayAfter(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -93,7 +91,7 @@ describe("loadUsdCadSeries", () => {
 
   it("reports a 4xx or 5xx from the route with a plain message", async () => {
     for (const status of [400, 502]) {
-      globalThis.fetch = (async () => new Response("{}", { status })) as unknown as typeof fetch;
+      withFetch(async () => new Response("{}", { status }));
       await expect(loadUsdCadSeries("2024-01-01", "2024-01-31")).rejects.toThrow(
         "Could not load USD/CAD exchange rates from 2023-12-22 to 2024-01-31. Try again in a minute.",
       );
@@ -101,7 +99,7 @@ describe("loadUsdCadSeries", () => {
   });
 
   it("reports a network failure with the same plain message", async () => {
-    globalThis.fetch = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    withFetch(async () => { throw new TypeError("Failed to fetch"); });
     await expect(loadUsdCadSeries("2024-01-01", "2024-01-31")).rejects.toThrow("Could not load USD/CAD exchange rates");
   });
 });

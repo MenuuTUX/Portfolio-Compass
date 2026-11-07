@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
+import { withFetch } from "@/tests/helpers/fetch";
 
 const quote = (ticker: string) => ({
   ticker,
@@ -16,7 +17,6 @@ const quote = (ticker: string) => ({
   metrics: {},
   allocation: { equities: 100, bonds: 0, cash: 0 },
 });
-const originalFetch = globalThis.fetch;
 
 function Harness() {
   const mutation = useBatchAddPortfolio();
@@ -45,7 +45,6 @@ function mount(ui: React.ReactElement = <Harness />) {
 
 afterEach(() => {
   cleanup();
-  globalThis.fetch = originalFetch;
   localStorage.clear();
   delete document.body.dataset.result;
 });
@@ -53,11 +52,11 @@ afterEach(() => {
 describe("useBatchAddPortfolio replacement", () => {
   it("keeps existing holdings when any requested ticker lacks a valid quote", async () => {
     savePortfolio([{ ticker: "EXISTING", weight: 100, shares: 3 }]);
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
+    withFetch(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/api/etfs/search")) return Response.json([quote("A")]);
       return Response.json([]);
-    }) as typeof fetch;
+    });
 
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));
@@ -68,7 +67,7 @@ describe("useBatchAddPortfolio replacement", () => {
 
   it("replaces holdings after every requested ticker has a valid quote", async () => {
     savePortfolio([{ ticker: "EXISTING", weight: 100, shares: 3 }]);
-    globalThis.fetch = (async () => Response.json([quote("A"), quote("B")])) as unknown as typeof fetch;
+    withFetch(async () => Response.json([quote("A"), quote("B")]));
 
     mount();
     fireEvent.click(screen.getByRole("button", { name: "Replace" }));
@@ -84,10 +83,10 @@ describe("useBatchAddPortfolio replacement", () => {
 describe("useBatchAddPortfolio merge", () => {
   it("reports tickers that could not be resolved and keeps target weights at 100", async () => {
     savePortfolio([{ ticker: "EXISTING", weight: 100, shares: 3 }]);
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
+    withFetch(async (input: RequestInfo | URL) => {
       if (String(input).includes("/api/etfs/search")) return Response.json([quote("A")]);
       return Response.json([]);
-    }) as unknown as typeof fetch;
+    });
 
     mount(<MergeHarness />);
     fireEvent.click(screen.getByRole("button", { name: "Merge" }));

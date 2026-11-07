@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { NextRequest } from "next/server";
-
-const originalFetch = globalThis.fetch;
+import { withFetch } from "@/tests/helpers/fetch";
 
 const { GET } = await import("@/app/api/market/fx-history/route");
 
 describe("GET /api/market/fx-history", () => {
-  beforeEach(() => { globalThis.fetch = originalFetch; });
-  afterEach(() => { globalThis.fetch = originalFetch; });
 
   it("validates ISO date bounds and range ordering before fetching", async () => {
     const invalid = await GET(new NextRequest(
@@ -21,9 +18,9 @@ describe("GET /api/market/fx-history", () => {
   });
 
   it("rejects requests spanning more than two calendar years", async () => {
-    globalThis.fetch = (async () => new Response(JSON.stringify({ observations: [] }), {
+    withFetch(async () => new Response(JSON.stringify({ observations: [] }), {
       status: 200,
-    })) as unknown as typeof fetch;
+    }));
     const tooWide = await GET(new NextRequest(
       "http://localhost/api/market/fx-history?start_date=2026-01-01&end_date=2028-01-02",
     ));
@@ -41,7 +38,7 @@ describe("GET /api/market/fx-history", () => {
 
   it("requests the date range and returns only sorted positive dated rates", async () => {
     let requestedUrl = "";
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
+    withFetch(async (input: RequestInfo | URL) => {
       requestedUrl = String(input);
       return new Response(JSON.stringify({ observations: [
         { d: "2026-09-22", FXUSDCAD: { v: "1.41" } },
@@ -50,7 +47,7 @@ describe("GET /api/market/fx-history", () => {
         { d: "not-a-date", FXUSDCAD: { v: "1.50" } },
         { d: "2026-09-20", FXUSDCAD: { v: "1.50" } },
       ] }), { status: 200 });
-    }) as unknown as typeof fetch;
+    });
 
     const response = await GET(new NextRequest(
       "http://localhost/api/market/fx-history?start_date=2026-09-21&end_date=2026-09-22",
@@ -66,7 +63,7 @@ describe("GET /api/market/fx-history", () => {
   });
 
   it("returns 502 when Valet fails", async () => {
-    globalThis.fetch = (async () => new Response("", { status: 503 })) as unknown as typeof fetch;
+    withFetch(async () => new Response("", { status: 503 }));
     const response = await GET(new NextRequest(
       "http://localhost/api/market/fx-history?start_date=2026-09-21&end_date=2026-09-22",
     ));
@@ -75,14 +72,14 @@ describe("GET /api/market/fx-history", () => {
 
   it("stitches the older noon series onto the daily series across 2017-01-03", async () => {
     const requested: string[] = [];
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
+    withFetch(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       requested.push(url.pathname);
       const body = url.pathname.includes("IEXE0101")
         ? { observations: [{ d: "2016-12-30", IEXE0101: { v: "1.3427" } }] }
         : { observations: [{ d: "2017-01-03", FXUSDCAD: { v: "1.3435" } }] };
       return new Response(JSON.stringify(body), { status: 200 });
-    }) as unknown as typeof fetch;
+    });
 
     const res = await GET(new NextRequest(
       "http://localhost/api/market/fx-history?start_date=2016-12-28&end_date=2017-01-05",
