@@ -16,7 +16,7 @@ const base = {
 };
 
 function firstPathD(container: HTMLElement) {
-  const path = container.querySelector("g[clip-path] path");
+  const path = container.querySelector("path.mc-path");
   return path?.getAttribute("d") ?? "";
 }
 
