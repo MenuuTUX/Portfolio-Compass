@@ -7,6 +7,8 @@ interface InteractiveSliderProps {
   min?: number;
   max?: number;
   defaultValue?: number;
+  /** Controlled value. When set, the slider follows it instead of its own state. */
+  value?: number;
   onChange?: (value: number) => void;
   className?: string;
   unit?: string;
@@ -17,12 +19,14 @@ export default function InteractiveSlider({
   min = 0,
   max = 100,
   defaultValue = 50,
+  value: controlledValue,
   onChange,
   className = "",
   unit = "%",
 }: InteractiveSliderProps) {
   const id = useId();
-  const [value, setValue] = useState(defaultValue);
+  const [ownValue, setValue] = useState(defaultValue);
+  const value = controlledValue ?? ownValue;
 
   return (
     <div className={className}>

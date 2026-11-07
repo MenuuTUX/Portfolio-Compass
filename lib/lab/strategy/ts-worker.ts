@@ -7,9 +7,12 @@ import { checkLookahead } from "@/lib/lab/strategy/weights";
 // Runs TypeScript strategies off the main thread, apart from the engine
 // worker, so strategy code cannot touch the engine's state.
 //
-// Network and storage APIs are removed before any strategy runs, so a strategy
-// sees only the prices it is given and cannot read saved strategies. It is a
-// guard against accidents and copied code, not a hardened sandbox.
+// Network and storage APIs are removed before any strategy runs. That alone is
+// not a sandbox: a strategy can still reach the prototype's fetch, start a
+// nested worker, or import() a URL. What stops it sending data away is the
+// Content-Security-Policy this worker's script is served with (next.config.js),
+// which only allows this site and the Pyodide/Monaco CDN. A strategy can still
+// read this site's own storage, but cannot send it anywhere.
 for (const name of ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "importScripts", "indexedDB", "caches", "BroadcastChannel"]) {
   try {
     Object.defineProperty(self, name, { value: undefined, configurable: false, writable: false });

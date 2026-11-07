@@ -1,5 +1,5 @@
 import type { BarSeries } from "@/lib/lab/bar-types";
-import { buildFrame, type Frame, type FxSeries } from "@/lib/lab/engine/frame";
+import { buildFrame, sliceFrame, type Frame, type FxSeries } from "@/lib/lab/engine/frame";
 import { computeMetrics, type Metrics } from "@/lib/lab/engine/metrics";
 import { runHash } from "@/lib/lab/engine/run-hash";
 import { simulate, type BacktestConfig, type SimResult } from "@/lib/lab/engine/simulate";
@@ -45,8 +45,15 @@ export interface BacktestRequest {
   baseCurrency: string;
   fx?: FxSeries;
   targets: Targets;
+  /**
+   * First date of the backtest. `series` may start earlier: strategies are
+   * computed on all of it so indicators are warm, and the simulation and every
+   * result begin at this date.
+   */
+  start?: string;
   /** A ticker in `series` held throughout as the comparison. */
   benchmark?: string;
+  /** Annual risk-free rate for Sharpe, Sortino and alpha; defaults to the config's cash rate. */
   riskFree?: number;
   /** Source and parameters, for the run hash. */
   strategy?: { code: string; params?: unknown };
@@ -78,16 +85,18 @@ export function fixedTargets(frame: Frame, allocation: Record<string, number>): 
 }
 
 export async function runBacktest(req: BacktestRequest): Promise<BacktestReport> {
-  const frame = buildFrame(req.series, { baseCurrency: req.baseCurrency, fx: req.fx });
-  const targets = req.targets instanceof Float64Array
+  const full = buildFrame(req.series, { baseCurrency: req.baseCurrency, fx: req.fx });
+  const allTargets = req.targets instanceof Float64Array
     ? req.targets
     : "matrix" in req.targets
-      ? alignWeights(frame, req.targets as LabelledWeights)
+      ? alignWeights(full, req.targets as LabelledWeights)
       : "strategy" in req.targets
-      ? compileStrategy(frame, req.targets.strategy as NoCodeStrategy)
-      : fixedTargets(frame, req.targets);
+      ? compileStrategy(full, req.targets.strategy as NoCodeStrategy)
+      : fixedTargets(full, req.targets);
+  const { frame, targets } = sliceFrame(full, allTargets, req.start ?? "");
   const sim = simulate(frame, targets, req.config);
 
+  const riskFree = req.riskFree ?? req.config.cashRate ?? 0;
   let benchmark: BacktestReport["benchmark"] = null;
   let benchmarkEquity: Float64Array | undefined;
   if (req.benchmark) {
@@ -97,20 +106,27 @@ export async function runBacktest(req: BacktestRequest): Promise<BacktestReport>
     benchmark = {
       ticker: req.benchmark,
       equity: bench.equity,
-      metrics: computeMetrics(frame.dates, bench, { initialCash: req.config.initialCash, riskFree: req.riskFree }),
+      metrics: computeMetrics(frame.dates, bench, { initialCash: req.config.initialCash, riskFree }),
     };
   }
 
   const metrics = computeMetrics(frame.dates, sim, {
     initialCash: req.config.initialCash,
     benchmark: benchmarkEquity,
-    riskFree: req.riskFree,
+    riskFree,
   });
 
+  // A no-code rule is fully described by its parameters. Code can be
+  // nondeterministic, so the weights it returned are part of the identity.
+  const identity = !req.strategy
+    ? { code: canonicalTargets(req.targets) }
+    : "strategy" in req.targets
+      ? req.strategy
+      : { ...req.strategy, params: { given: req.strategy.params, weights: canonicalTargets(req.targets) } };
   const hash = await runHash(
     frame,
-    { config: req.config, benchmark: req.benchmark ?? null, riskFree: req.riskFree ?? 0 },
-    req.strategy ?? { code: canonicalTargets(req.targets) },
+    { config: req.config, benchmark: req.benchmark ?? null, riskFree },
+    identity,
   );
 
   return { dates: frame.dates, tickers: frame.tickers, currency: frame.currency, close: frame.close, sim, metrics, benchmark, hash };

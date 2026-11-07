@@ -1,4 +1,4 @@
-import { PortfolioItem } from "@/types";
+import { Portfolio, PortfolioItem } from "@/types";
 
 /**
  * What a history-derived return means. "total" uses dividend-adjusted closes,
@@ -39,12 +39,78 @@ export function selectReturnBasis(
   histories: ReadonlyArray<ReadonlyArray<HistoryLike>>,
 ): ReturnBasis {
   if (histories.length === 0) return "price";
-  const covered = histories.every((points) => {
-    const priced = points.filter((p) => Number.isFinite(Number(p.price)) && Number(p.price) > 0);
-    if (priced.length === 0) return false;
-    return priced.filter((p) => validAdjusted(p) !== null).length / priced.length >= MIN_ADJUSTED_COVERAGE;
-  });
-  return covered ? "total" : "price";
+  return histories.every(hasAdjustedCoverage) ? "total" : "price";
+}
+
+/** True when a holding has adjusted closes on at least 95% of its priced dates. */
+function hasAdjustedCoverage(points: ReadonlyArray<HistoryLike>): boolean {
+  const priced = points.filter((p) => Number.isFinite(Number(p.price)) && Number(p.price) > 0);
+  if (priced.length === 0) return false;
+  return priced.filter((p) => validAdjusted(p) !== null).length / priced.length >= MIN_ADJUSTED_COVERAGE;
+}
+
+/** Tickers of held holdings whose history does not meet the adjusted-close rule used by selectReturnBasis. */
+export function tickersWithoutAdjustedHistory(portfolio: Portfolio): string[] {
+  return portfolio
+    .filter((item) => item.shares > 0 && !hasAdjustedCoverage(item.history ?? []))
+    .map((item) => item.ticker);
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Average number of observations per calendar year, from the first and last
+ * dates. Not snapped to 252, so weekly or monthly data annualizes correctly.
+ */
+export function observationsPerYear(dates: string[]): number {
+  if (dates.length < 3) return 252;
+  const first = Date.parse(dates[0]);
+  const last = Date.parse(dates[dates.length - 1]);
+  const years = (last - first) / DAY_MS / 365.25;
+  if (!(years > 0) || !Number.isFinite(years)) return 252;
+  return (dates.length - 1) / years;
+}
+
+export type HistoryDiagnosis =
+  | { ok: true }
+  | { ok: false; reason: "too-short" | "gap"; ticker: string; found: number; needed: number; gapDays?: number };
+
+/** Distinct UTC days on which a holding has a usable price, ascending. */
+function usableDates(points: ReadonlyArray<{ date: string; price: number }>): string[] {
+  const dates = new Set<string>();
+  for (const point of points) {
+    const timestamp = new Date(point.date).getTime();
+    const price = Number(point.price);
+    if (!Number.isFinite(timestamp) || !Number.isFinite(price) || price <= 0) continue;
+    dates.add(new Date(timestamp).toISOString().slice(0, 10));
+  }
+  return [...dates].sort();
+}
+
+/**
+ * Checks each held holding's own history. Holdings are checked shortest first,
+ * and the first failure is returned: too short for `minReturns` daily returns,
+ * or a gap of more than a week between consecutive observations.
+ */
+export function diagnoseHistory(portfolio: Portfolio, minReturns = 200): HistoryDiagnosis {
+  const held = portfolio
+    .filter((item) => item.shares > 0)
+    .map((item) => ({ ticker: item.ticker, dates: usableDates(item.history ?? []) }))
+    .sort((a, b) => a.dates.length - b.dates.length);
+
+  for (const { ticker, dates } of held) {
+    const found = Math.max(0, dates.length - 1);
+    if (found < minReturns) {
+      return { ok: false, reason: "too-short", ticker, found, needed: minReturns };
+    }
+    for (let i = 1; i < dates.length; i++) {
+      const gapDays = Math.round((Date.parse(dates[i]) - Date.parse(dates[i - 1])) / DAY_MS);
+      if (gapDays > 7) {
+        return { ok: false, reason: "gap", ticker, found, needed: minReturns, gapDays };
+      }
+    }
+  }
+  return { ok: true };
 }
 
 /** Reject a series with invalid, unordered, or unusually large gaps in its lookback. */

@@ -71,4 +71,32 @@ describe("WealthProjector starting balance", () => {
     expect(Boolean(screen.queryByText("Monte Carlo Simulation"))).toBe(true);
     expect(Boolean(screen.queryByText(/Historical USD\/CAD moves are included/i))).toBe(true);
   });
+
+  it("does not loop forever when the portfolio value is NaN", () => {
+    render(<WealthProjector portfolio={portfolio} startingValue={Number.NaN} baseCurrency="CAD" />);
+    expect(screen.getByText("Scenario unavailable")).toBeTruthy();
+  });
+});
+
+describe("WealthProjector inputs", () => {
+  it("blurring the default 7% return leaves a clean 7", () => {
+    render(<WealthProjector portfolio={portfolio} startingValue={114} baseCurrency="CAD" />);
+    const rate = screen.getByLabelText("Assumed Annual Total Return (%)") as HTMLInputElement;
+    expect(rate.value).toBe("7");
+    fireEvent.blur(rate);
+    expect(rate.value).toBe("7");
+  });
+
+  it("asks for a smaller amount instead of projecting huge or infinite balances", () => {
+    render(<WealthProjector portfolio={portfolio} startingValue={114} baseCurrency="CAD" />);
+    const balance = screen.getByLabelText("Starting Balance (CAD)");
+
+    fireEvent.change(balance, { target: { value: "2000000000000" } });
+    expect(screen.getByText("Enter an amount below 1,000,000,000,000")).toBeTruthy();
+    expect(screen.queryByText("Ending Balance Under Assumptions")).toBeNull();
+
+    fireEvent.change(balance, { target: { value: "1e400" } });
+    expect(screen.getByText("Enter an amount below 1,000,000,000,000")).toBeTruthy();
+    expect(document.body.textContent ?? "").not.toContain("∞");
+  });
 });

@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { PortfolioItem } from "@/types";
 import { Info, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
 import { HAIRLINE_STRONG, INK, MUTED } from "@/lib/chart-colors";
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useId } from "react";
+import { m as motion, useInView } from "framer-motion";
+import { useId, useRef } from "react";
 import { EASE } from "../motion/Reveal";
 
 /**
@@ -22,11 +22,17 @@ const BANDS = [
 export default function BrushArt({ className, delay = 0.2 }: { className?: string; delay?: number }) {
   const uid = useId().replace(/:/g, "");
   const brush = `pc-brush-${uid}`;
+  const ref = useRef<HTMLDivElement>(null);
+  // The float runs only while the artwork is on screen.
+  const inView = useInView(ref);
   return (
     <motion.div
+      ref={ref}
       className={className}
-      animate={{ y: [0, -8, 0] }}
-      transition={{ duration: 8, ease: "easeInOut", repeat: Infinity, delay: delay + 1.8 }}
+      // Own layer, so the float moves a cached bitmap instead of re-running the SVG filter each frame.
+      style={{ willChange: inView ? "transform" : "auto" }}
+      animate={inView ? { y: [0, -8, 0] } : { y: 0 }}
+      transition={{ duration: 8, ease: "easeInOut", repeat: inView ? Infinity : 0, delay: delay + 1.8 }}
     >
       <svg viewBox="0 0 640 640" className="block w-full overflow-visible" fill="none" aria-hidden="true" focusable="false">
         <defs>

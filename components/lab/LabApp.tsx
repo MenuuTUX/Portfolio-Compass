@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ArrowLeft, FlaskConical } from "lucide-react";
-import { motion } from "framer-motion";
-import { BLANK_FORM, isGuided, LAB_ACK_KEY, LAB_FORM_KEY, startGuided, toRequest, type LabForm } from "@/lib/lab/lab-form";
+import { m as motion } from "framer-motion";
+import { BLANK_FORM, isGuided, LAB_ACK_KEY, LAB_FORM_KEY, startNoCode, toRequest, type LabForm } from "@/lib/lab/lab-form";
 import { extractTickers, lessonById, liveNotes } from "@/lib/lab/lessons";
 import { PaneResizer, RowResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
 import { EASE } from "@/components/motion/Reveal";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import StrategyPanel from "./StrategyPanel";
 import GuidePanel from "./GuidePanel";
 import ResultsPanel from "./ResultsPanel";
@@ -20,6 +20,8 @@ import CodePane, { type ConsoleState } from "./CodePane";
 import type { Params, StrategyError } from "@/lib/lab/strategy/types";
 
 const MAX_COMPARE = 5;
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const LG_QUERY = "(min-width: 1024px)";
 function subscribeLg(callback: () => void) {
@@ -54,7 +56,7 @@ function write(key: string, value: string) {
 function LabGate({ onEnter }: { onEnter: () => void }) {
   const [agreed, setAgreed] = useState(false);
   return (
-    <main className="ws-page flex min-h-screen items-center justify-center p-4">
+    <main className="ws-page flex min-h-dvh items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -123,20 +125,19 @@ export default function LabApp() {
 
   useEffect(() => {
     // Read after mount so the server render and first client render match.
-    /* eslint-disable react-hooks/set-state-in-effect */
     setAcked(read(LAB_ACK_KEY) === "1");
     const saved = read(LAB_FORM_KEY);
     if (saved) {
       try {
-        setForm({ ...BLANK_FORM, ...JSON.parse(saved) });
+        // The end date is always today: a saved end would backtest to an old date.
+        setForm({ ...BLANK_FORM, ...JSON.parse(saved), end: todayIso() });
       } catch {
         // A corrupt draft is dropped.
       }
     } else {
-      // First visit: start in the first guided lesson.
-      setForm(startGuided());
+      // First visit: a no-code strategy, so nothing heavy downloads before the user asks for code.
+      setForm(startNoCode());
     }
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const updateForm = useCallback((next: LabForm) => {
@@ -219,7 +220,17 @@ export default function LabApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [runNow]);
 
-  if (acked === null) return <main className="ws-page min-h-screen" />;
+  if (acked === null) {
+    // Same page and title as the loaded Lab, so the wait does not look blank.
+    return (
+      <main className="ws-page flex min-h-dvh flex-col gap-2 p-2" aria-busy="true">
+        <header className="flex h-11 shrink-0 items-center gap-3 px-2">
+          <FlaskConical className="h-4 w-4 text-muted" aria-hidden />
+          <h1 className="text-sm font-semibold text-ink">Compass Lab</h1>
+        </header>
+      </main>
+    );
+  }
   if (!acked) {
     return (
       <LabGate

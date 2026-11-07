@@ -14,7 +14,7 @@ import {
 } from "@/lib/lab/strategies";
 import { CODE_TEMPLATES } from "@/lib/lab/strategy/templates";
 import type { ParamValue, Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 const field =
   "h-9 w-full rounded-md bg-surface-soft px-2.5 text-sm text-ink ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-compass";

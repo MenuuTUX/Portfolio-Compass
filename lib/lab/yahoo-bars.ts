@@ -35,12 +35,13 @@ export function mapChartResult(
   const offset = res.meta?.gmtoffset ?? 0;
   const byDate = new Map<string, DailyBar>();
   for (const q of res.quotes ?? []) {
-    if (![q.open, q.close, q.adjclose].every(positive)) continue;
+    if (![q.close, q.adjclose].every(positive)) continue;
     // Yahoo can repeat the live session as a second row; the later row wins.
     const date = exchangeDate(q.date, offset);
     byDate.set(date, {
       date,
-      open: q.open!,
+      // A row with a good close but no open is kept and opened at the close.
+      open: positive(q.open) ? q.open! : q.close!,
       close: q.close!,
       adjClose: q.adjclose!,
     });

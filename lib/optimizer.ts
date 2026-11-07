@@ -1,6 +1,6 @@
 import { Decimal } from "@/lib/decimal";
 import { PortfolioItem } from "@/types";
-import { getReportedAssetYieldFraction } from "@/lib/math/portfolio-returns";
+import { getAssetBeta } from "@/lib/math/portfolio-returns";
 
 export interface GreedyOptimizationParams {
   candidates: {
@@ -54,11 +54,11 @@ const LAMBDA_BY_PROFILE = {
 const STEP_VALUE = 100;
 
 /**
- * Ceiling on greedy iterations. Each iteration costs O(n²) in the covariance
- * walk, so a fixed $100 step made runtime linear in the budget: a 100-asset
- * portfolio with a $20M target took 98 seconds of blocked main thread. Scaling
- * the step to the budget bounds the work; at large budgets the answer is a set
- * of weights, and a chunkier lot size does not change them meaningfully.
+ * Ceiling on greedy iterations. A fixed $100 step made runtime linear in the
+ * budget: a 100-asset portfolio with a $20M target took 98 seconds of blocked
+ * main thread. Scaling the step to the budget bounds the loop; at large budgets
+ * the answer is a set of weights, and a chunkier lot size does not change them
+ * meaningfully. The final sweep spends whatever the capped loop leaves.
  */
 const MAX_ITERATIONS = 400;
 
@@ -68,23 +68,72 @@ export function riskPenaltyForProfile(
   return LAMBDA_BY_PROFILE[profile];
 }
 
+/** Assumed annual risk-free return. A modelling assumption, not an estimate from data. */
+export const RISK_FREE = 0.02;
+
+/** Assumed annual return per unit of market beta. A modelling assumption, not an estimate from data. */
+export const EQUITY_PREMIUM = 0.06;
+
+/** Market beta by sleeve, used to turn a fund's asset mix into an equity exposure. */
+const SLEEVE_BETA = { equities: 1.0, bonds: 0.15, cash: 0 } as const;
+
 /**
- * Tickers without a sourced yield or a beta cannot receive a score.
+ * Market exposure the optimizer prices a holding at.
  *
- * A sourced yield is one with a stated definition: the trailing 12 months of
- * dated distributions over the current price, or any other labelled source.
- * Yahoo's bare quote yield has no stated definition or measurement date and
- * stays excluded (see getReportedAssetYieldFraction). An earlier version also
- * required an "Issuer " source, but nothing in the data path produces one, so
- * that rule made the score unreachable for every fund.
+ * A fund's reported asset mix wins over its quoted beta: Yahoo's 3-year betas
+ * for Canadian asset-allocation ETFs put an 80/20 fund (XGRO 1.06) above an
+ * all-equity one (XEQT 0.88), which would make "Growth" buy the bond-holding
+ * fund. Stocks, and funds with no reported mix, use the quoted beta, then the
+ * asset-class default.
  */
-export function getOptimizerInputGaps(portfolio: readonly PortfolioItem[]): string[] {
-  return portfolio
-    .filter((item) =>
-      getReportedAssetYieldFraction(item) === null ||
-      typeof item.beta !== "number" || !Number.isFinite(item.beta),
-    )
-    .map((item) => item.ticker);
+export function getOptimizerBeta(item: PortfolioItem): number {
+  const a = item.allocation;
+  const mixTotal = a ? a.equities + a.bonds + a.cash : 0;
+  if (item.assetType !== "STOCK" && a && Number.isFinite(mixTotal) && mixTotal > 0) {
+    return (
+      (a.equities * SLEEVE_BETA.equities + a.bonds * SLEEVE_BETA.bonds + a.cash * SLEEVE_BETA.cash) /
+      mixTotal
+    );
+  }
+  return getAssetBeta(item);
+}
+
+/**
+ * Annual expected return: the risk-free rate plus beta times the equity premium.
+ * A fund's yield is part of its total return, not an addition to it, so it is
+ * not added here. Adding it would score a high-yield, low-beta fund above broad
+ * equity for paying out income it already earns inside that return.
+ */
+export function getOptimizerReturnProxy(item: PortfolioItem): number {
+  return RISK_FREE + getOptimizerBeta(item) * EQUITY_PREMIUM;
+}
+
+/**
+ * Target weights (percent, one decimal) from a share plan, summing to exactly
+ * 100. The rounding remainder goes to the largest position.
+ */
+export function weightsFromShares(
+  holdings: readonly { ticker: string; price: number }[],
+  shares: Record<string, number>,
+): Record<string, number> {
+  const values = holdings.map((h) => Math.max(0, (shares[h.ticker] || 0) * (h.price || 0)));
+  const total = values.reduce((sum, v) => sum + v, 0);
+  const weights: Record<string, number> = {};
+  if (!(total > 0)) {
+    holdings.forEach((h) => { weights[h.ticker] = 0; });
+    return weights;
+  }
+  let largest = 0;
+  let assigned = 0;
+  holdings.forEach((h, i) => {
+    const w = Math.round((values[i] / total) * 1000) / 10;
+    weights[h.ticker] = w;
+    assigned += w;
+    if (values[i] > values[largest]) largest = i;
+  });
+  const remainder = Math.round((100 - assigned) * 10) / 10;
+  weights[holdings[largest].ticker] = Math.round((weights[holdings[largest].ticker] + remainder) * 10) / 10;
+  return weights;
 }
 
 /** U(w) = expectedReturn − λ × annual variance, for the supplied share counts. */
@@ -205,17 +254,64 @@ export function optimizePortfolioGreedy(
     }
   }
 
+  // Running totals over dollar values v_i = shares_i × price_i, so a candidate
+  // is scored in O(1) instead of rebuilding the whole quadratic form:
+  //   totalValue     V = Σ v_i
+  //   weightedReturn A = Σ v_i μ_i
+  //   variance       B = vᵀ S v
+  //   covTimesValue    = S v
+  // With these, U = A/V − λ·B/V², and buying d dollars of asset i changes
+  // A by d·μ_i and B by 2d·(Sv)_i + d²·S_ii.
+  const covTimesValue = new Float64Array(numAssets);
+  let totalValue = 0;
+  let weightedReturn = 0;
+  let variance = 0;
+  for (let i = 0; i < numAssets; i++) {
+    const value = currentShares[i] * candidates[i].price;
+    totalValue += value;
+    weightedReturn += value * candidates[i].expectedReturn;
+  }
+  for (let j = 0; j < numAssets; j++) {
+    let sum = 0;
+    for (let i = 0; i < numAssets; i++) {
+      sum += covarianceMatrix[j][i] * currentShares[i] * candidates[i].price;
+    }
+    covTimesValue[j] = sum;
+    variance += currentShares[j] * candidates[j].price * sum;
+  }
+
+  const utilityOf = (value: number, ret: number, risk: number): number =>
+    value > 0 ? ret / value - (lambda * risk) / (value * value) : 0;
+
+  const utilityAfterBuy = (i: number, dollars: number): number =>
+    utilityOf(
+      totalValue + dollars,
+      weightedReturn + dollars * candidates[i].expectedReturn,
+      variance +
+        2 * dollars * covTimesValue[i] +
+        dollars * dollars * covarianceMatrix[i][i],
+    );
+
+  const buy = (i: number, lot: number): void => {
+    const dollars = lot * candidates[i].price;
+    variance +=
+      2 * dollars * covTimesValue[i] + dollars * dollars * covarianceMatrix[i][i];
+    weightedReturn += dollars * candidates[i].expectedReturn;
+    totalValue += dollars;
+    for (let j = 0; j < numAssets; j++) {
+      covTimesValue[j] += dollars * covarianceMatrix[j][i];
+    }
+    addedShares[i] += lot;
+    remainingBudgetDec = remainingBudgetDec.minus(new Decimal(dollars));
+  };
+
   const stepValue = Math.max(STEP_VALUE, budget / MAX_ITERATIONS);
-  const working = new Float64Array(numAssets);
 
   for (let iteration = 0; iteration < MAX_ITERATIONS && tradable.length > 0; iteration++) {
     const budgetNum = remainingBudgetDec.toNumber();
     if (!(budgetNum >= minPrice)) break;
 
-    for (let i = 0; i < numAssets; i++) {
-      working[i] = currentShares[i] + addedShares[i];
-    }
-    const baseUtility = calculateUtility(working);
+    const baseUtility = utilityOf(totalValue, weightedReturn, variance);
 
     let bestIdx = -1;
     let bestLot = 0;
@@ -233,10 +329,7 @@ export function optimizePortfolioGreedy(
       );
       if (lot < 1) continue;
 
-      const previous = working[i];
-      working[i] = previous + lot;
-      const gain = calculateUtility(working) - baseUtility;
-      working[i] = previous;
+      const gain = utilityAfterBuy(i, lot * price) - baseUtility;
 
       // Per dollar, not per lot. Comparing utility *levels* let a $700 share
       // move the weights further in one step than a $35 share and win on that
@@ -252,10 +345,32 @@ export function optimizePortfolioGreedy(
     // No positive-gain requirement: the budget is to be invested (see above).
     if (bestIdx === -1) break;
 
-    addedShares[bestIdx] += bestLot;
-    remainingBudgetDec = remainingBudgetDec.minus(
-      new Decimal(bestLot).times(candidates[bestIdx].price),
-    );
+    buy(bestIdx, bestLot);
+  }
+
+  // The capped loop can leave cash behind at large budgets. Spend it one share
+  // at a time, each time on the affordable share that raises utility most.
+  // Every buy takes at least one share's price off the budget, so this ends.
+  while (tradable.length > 0) {
+    const budgetNum = remainingBudgetDec.toNumber();
+    if (!(budgetNum >= minPrice)) break;
+
+    const baseUtility = utilityOf(totalValue, weightedReturn, variance);
+
+    let bestIdx = -1;
+    let bestGain = -Infinity;
+    for (const i of tradable) {
+      const price = candidates[i].price;
+      if (price > budgetNum) continue;
+      const gain = utilityAfterBuy(i, price) - baseUtility;
+      if (gain > bestGain) {
+        bestGain = gain;
+        bestIdx = i;
+      }
+    }
+    if (bestIdx === -1) break;
+
+    buy(bestIdx, 1);
   }
 
   // An initialShares entry with no matching candidate has no price, so it

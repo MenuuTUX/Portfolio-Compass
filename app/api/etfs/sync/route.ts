@@ -10,13 +10,14 @@ import {
 import { calculateTTMYield } from "@/lib/finance";
 import { getRedditCommunities } from "@/config/tickers";
 import { z } from "zod";
+import { isTicker } from "@/lib/tickers";
 
 /**
  * "Sync" a ticker = refresh live market + fund details.
  * This route does not write to a database. The client may cache the response.
  */
 
-const tickerSchema = z.string().min(1).max(12).regex(/^[A-Z0-9.-]+$/i);
+const tickerSchema = z.string().refine(isTicker);
 
 const syncRequestSchema = z.object({
   ticker: tickerSchema,
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
     const normalizedTicker = validation.data.ticker.toUpperCase();
 
     const [quotes, histories, dividendHistory, details, betas] = await Promise.all([
-      getFastQuotes([normalizedTicker], { includeProfiles: true }),
+      getFastQuotes([normalizedTicker], { includeProfiles: true, throwOnError: true }),
       getFastHistory([normalizedTicker], "1Y", { adjusted: true }),
       getFastDividendHistory(normalizedTicker),
       getFastEtfDetails(normalizedTicker).then((d) =>

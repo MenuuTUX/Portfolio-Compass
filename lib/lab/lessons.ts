@@ -97,7 +97,7 @@ export const LESSONS: Lesson[] = [
     benchmark: "SPY",
     rebalance: "on-change",
     code: `def decide(day):
-    price = day.price("SPY")  # today's closing price
+    price = day.adj_price("SPY")  # today's closing price, adjusted for splits and dividends
     average = day.average("SPY", 200)  # average of the last 200 days
     if price < average:
         return "AGG"  # below its average: wait in bonds
@@ -150,7 +150,7 @@ export const LESSONS: Lesson[] = [
     rebalance: "on-change",
     code: `def decide(day):
     high = day.high("SPY", 252)  # highest close of the last year
-    drop = day.price("SPY") / high - 1  # 0 at a new high, negative below it
+    drop = day.adj_price("SPY") / high - 1  # 0 at a new high, negative below it
     if drop < -0.10:
         return "AGG"  # fell more than 10%: wait in bonds
     return "SPY"
@@ -180,7 +180,7 @@ export const LESSONS: Lesson[] = [
     return {"SPY": 0.5, "AGG": 0.5}  # otherwise a calm 50/50
 `,
     notes: [
-      { line: 3, match: "day.rsi", text: "Other tools: day.price(), day.average(), day.change(), day.high(), day.low(). Use any ticker you write in quotes and it is downloaded for you." },
+      { line: 3, match: "day.rsi", text: "Other tools: day.adj_price(), day.price(), day.average(), day.change(), day.high(), day.low(). Use any ticker you write in quotes and it is downloaded for you." },
       { line: 5, match: "return {", text: "Return None to sit in cash. Weights that add up to less than 1 leave the rest in cash too." },
     ],
     tweaks: [{ label: "Buy dips sooner (RSI 40)", edits: [["< 30", "< 40"], ["Under 30", "Under 40"]] }],

@@ -1,12 +1,13 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import type { RobustnessResult } from "@/lib/lab/engine/sweep";
+import type { RobustnessResult, SweepDeflation } from "@/lib/lab/engine/sweep";
 import { VARIANT_WARNING_AT } from "@/lib/lab/engine/variants";
 import type { LabRun } from "./useLabEngine";
 import { pct, signedPct } from "./format";
 import LabChart from "./LabChart";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { HelpTip } from "@/components/ui/HelpTip";
 
 export type RobustnessState = { status: "running" } | { status: "error"; error: string } | { status: "done"; result: RobustnessResult };
 
@@ -34,7 +35,7 @@ function SweepTable({ result, ownValue }: { result: RobustnessResult; ownValue: 
         <tr className="text-left text-xs text-muted">
           <th scope="col" className="py-1 font-normal">Days</th>
           <th scope="col" className="py-1 font-normal">Growth per year</th>
-          <th scope="col" className="py-1 font-normal">Sharpe</th>
+          <th scope="col" className="py-1 font-normal"><HelpTip term="Sharpe" showIcon={false}>Sharpe</HelpTip></th>
           <th scope="col" className="py-1 text-right font-normal">Worst drop</th>
         </tr>
       </thead>
@@ -68,12 +69,33 @@ function SweepTable({ result, ownValue }: { result: RobustnessResult; ownValue: 
   );
 }
 
+function Deflation({ d }: { d: SweepDeflation }) {
+  const chance = Math.round(d.probability * 100);
+  const verdict =
+    chance < 50
+      ? "That is no better than luck would give."
+      : chance < 90
+        ? "That is not convincing yet."
+        : "That holds up better, though it is still one history.";
+  return (
+    <div role="note" className="space-y-1 rounded-lg p-3 text-sm text-body ring-1 ring-hairline">
+      <p>
+        Allowing for the {d.trials} lengths tried, the chance the best one has a real edge is{" "}
+        <span className="font-mono text-ink">{chance}%</span>. {verdict}
+      </p>
+      <p className="text-xs text-muted">
+        The best length has a Sharpe of {d.bestSharpe.toFixed(2)}. The best of {d.trials} rules with no edge would show about {d.luckSharpe.toFixed(2)} by luck alone (<HelpTip term="Deflated Sharpe Ratio" showIcon={false}>deflated Sharpe</HelpTip>). It counts only the lengths in this sweep, so every other variant you have tried makes the true chance lower.
+      </p>
+    </div>
+  );
+}
+
 function WalkForward({ result }: { result: RobustnessResult }) {
   const wf = result.walkForward;
   if (!wf) {
     return (
       <p className="text-xs text-muted">
-        Walk-forward needs at least 4 years of history (3 to choose, then 1 to test, twice over). This run is shorter, so it is skipped rather than shown on too little data.
+        Walk-forward needs about 5 years of history (3 to choose, then 1 to test, twice over). This run is shorter, so it is skipped rather than shown on too little data.
       </p>
     );
   }
@@ -98,7 +120,7 @@ function WalkForward({ result }: { result: RobustnessResult }) {
         <tbody>
           {rows.map(([label, f]) => (
             <tr key={label} className="border-t border-hairline">
-              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted">{label}</th>
+              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted"><HelpTip term={label} showIcon={false}>{label}</HelpTip></th>
               <td className="py-1.5 font-mono text-ink">{f(ins)}</td>
               <td className="py-1.5 font-mono text-ink">{f(oos)}</td>
             </tr>
@@ -187,6 +209,7 @@ export default function RobustnessPanel({ run, variants, state, onRun }: Props) 
               <section aria-label="Parameter sweep" className="space-y-3 rounded-xl p-4 ring-1 ring-hairline">
                 <h4 className="text-sm font-medium text-ink">Moving-average length, {state.result.startDate} to {state.result.endDate}</h4>
                 <SweepTable result={state.result} ownValue={strategy.smaDays} />
+                {state.result.deflated && <Deflation d={state.result.deflated} />}
                 <p className="text-xs text-muted">
                   The best value in a sweep is optimistic: it was picked because it looked best on this history. If neighbouring lengths are close, the rule is not hanging on one setting. If only one stands out, treat it as luck until a test it was not picked on says otherwise.
                 </p>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { AnimatePresence, motion, useInView, useReducedMotion } from "framer-motion";
+import { AnimatePresence, m as motion, useInView, useReducedMotion } from "framer-motion";
 import Reveal, { EASE, RevealGroup, RevealItem } from "./motion/Reveal";
 
 const AUTOPLAY_MS = 4000;

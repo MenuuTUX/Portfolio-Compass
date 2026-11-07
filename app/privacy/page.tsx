@@ -77,8 +77,11 @@ export default function PrivacyPage() {
         </p>
         <p>
           As with any website, our host records standard request logs, which
-          include your IP address and user agent. We do not use those logs to
-          build a profile of you.
+          include your IP address and user agent. Ticker symbols in those API
+          requests, such as AAPL in the example above, also appear in the logs,
+          so the host can see which tickers you look at. Share counts and weights
+          never reach the server. We do not use those logs to build a profile of
+          you.
         </p>
       </Section>
 
@@ -86,7 +89,8 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-6">
           <li>
             <strong>Vercel</strong>: hosting. Serves the site and keeps request
-            logs.
+            logs, which include your IP address, your user agent, and the ticker
+            symbols in the API requests you make.
           </li>
           <li>
             <strong>Vercel Analytics and Speed Insights</strong>: aggregate page
@@ -111,11 +115,11 @@ export default function PrivacyPage() {
             Bank of Canada can see your IP address as the recipient.
           </li>
           <li>
-            <strong>jsDelivr</strong>: only in Compass Lab&rsquo;s code mode,
-            your browser downloads the code editor and, for Python strategies,
-            the Python runtime from this public CDN. The requests contain no
-            tickers, code, or portfolio data, but jsDelivr can see your IP
-            address.
+            <strong>jsDelivr</strong>: a public CDN. When you open Compass
+            Lab&rsquo;s code mode, your browser downloads the Monaco code editor
+            from it and, for Python strategies, the Python runtime (Pyodide).
+            Those downloads carry your IP address to jsDelivr. They contain no
+            tickers, code, or portfolio data.
           </li>
           <li>
             <strong>Google Fonts</strong>: typefaces, self-hosted at build time

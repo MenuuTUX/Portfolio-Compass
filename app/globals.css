@@ -84,11 +84,11 @@
   --color-purple-900: #78591a;
 
   /* Negative states lean warm coral instead of neon rose */
-  --color-rose-400: var(--loss);
+  --color-rose-400: var(--loss-text);
   --color-rose-500: #e05a4e;
   --color-rose-600: #c74437;
   --color-rose-900: #7c2d24;
-  --color-red-400: var(--loss);
+  --color-red-400: var(--loss-text);
   --color-red-500: #e05a4e;
   --color-red-900: #7c2d24;
 
@@ -119,14 +119,23 @@
   --body-strong: #2e2c2b;
   --body: #4a4846;
   --muted: #6b6865;
-  --muted-soft: #8a8783;
+  --muted-soft: #666360;
   --panel: #fcfcfc;
   --panel-ring: rgba(28, 27, 27, 0.08);
 
   --gold-deep: #b08a28;
-  --emerald-400: #059669;
+  --emerald-400: #036b4f;
   --compass: #11745b;
   --loss: #c74437;
+  /* Text-safe loss red (4.5:1+ on light surfaces); --loss stays for charts */
+  --loss-text: #b43a2e;
+  /* Monte Carlo modes: violet, teal, amber, each with a second tone for path variety */
+  --mc-reshuffle: #6a58d6;
+  --mc-reshuffle-alt: #3f7fd6;
+  --mc-resample: #0e8a78;
+  --mc-resample-alt: #1d7fa6;
+  --mc-randomize: #b07a12;
+  --mc-randomize-alt: #c9952e;
   --ring-alpha: rgba(28, 27, 27, 0.1);
   --scrim: rgba(0, 0, 0, 0.6);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -155,7 +164,7 @@
   --body-strong: #e6e6e6;
   --body: #b6b6b6;
   --muted: #868686;
-  --muted-soft: #5f5f5f;
+  --muted-soft: #919191;
   --panel: #0f0f0f;
   --panel-ring: rgba(255, 255, 255, 0.05);
 
@@ -163,6 +172,13 @@
   --emerald-400: #6dc382;
   --compass: #6dc382;
   --loss: #f0777b;
+  --loss-text: #f0777b;
+  --mc-reshuffle: #a49cf7;
+  --mc-reshuffle-alt: #7fb3f5;
+  --mc-resample: #6fd3b6;
+  --mc-resample-alt: #6cc3e0;
+  --mc-randomize: #e2bd63;
+  --mc-randomize-alt: #f0cf86;
   --ring-alpha: rgba(255, 255, 255, 0.1);
 
   --scale-900: #1c1c1c;
@@ -379,6 +395,7 @@ body {
 
   /* Motion */
   .animate-ws-fade-up { animation: ws-fade-up 480ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .ws-rise { animation: ws-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) both; }
   .ws-stagger > * { animation: ws-fade-up 480ms cubic-bezier(0.16, 1, 0.3, 1) both; }
   .ws-stagger > :nth-child(1) { animation-delay: 0ms; }
   .ws-stagger > :nth-child(2) { animation-delay: 40ms; }
@@ -459,6 +476,7 @@ button, a, [role="button"] { transition-duration: 70ms; }
 }
 input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset: 0; }
 
+@keyframes ws-rise { from { transform: translateY(110%); } to { transform: translateY(0); } }
 @keyframes ws-fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes ws-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes ws-pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--compass) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
@@ -473,7 +491,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .animate-ws-fade-up, .ws-stagger > *, .animate-ws-ring, .ws-marquee, .animate-ws-float, .ws-skeleton { animation: none !important; }
+  .animate-ws-fade-up, .ws-rise, .ws-stagger > *, .animate-ws-ring, .ws-marquee, .animate-ws-float, .ws-skeleton { animation: none !important; }
   .ws-hover-lift:hover { transform: none; }
 }
 
@@ -485,3 +503,11 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 /* Guided lessons: lines the notes point at in the Lab editor */
 .lab-note-line { background-color: color-mix(in srgb, var(--compass) 14%, transparent); }
 .lab-note-bar { border-left: 3px solid var(--compass); margin-left: 3px; }
+
+/* Monte Carlo path fan: left-to-right reveal of the drawn paths */
+@keyframes mc-reveal { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.mc-reveal { transform-box: fill-box; transform-origin: left center; animation: mc-reveal 1.1s var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) { .mc-reveal { animation: none; } }
+
+/* Set by a script in app/layout.tsx for ?view=app links: keep the landing page from flashing before the app hydrates. */
+html[data-deeplink] #top { visibility: hidden; }

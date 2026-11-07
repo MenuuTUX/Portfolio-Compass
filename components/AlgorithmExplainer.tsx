@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   BrainCircuit,
   TrendingUp,
@@ -14,7 +14,7 @@ import {
   Calculator,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 
 const steps = [
   {
@@ -28,7 +28,7 @@ const steps = [
     details: [
       {
         label: "Return Proxy (μ)",
-        text: "Dividend yield plus beta multiplied by 6%",
+        text: "Risk-free rate (2%) plus beta multiplied by 6%. Yield is part of this return, not added on top",
         icon: TrendingUp,
       },
       {
@@ -90,7 +90,7 @@ const steps = [
       },
       {
         label: "Rebalancing",
-        text: "Scores new purchases alongside existing holdings",
+        text: "Adding new money scores purchases alongside existing holdings; replacing starts from no shares",
         icon: TrendingUp,
       },
     ],
@@ -253,7 +253,7 @@ export default function AlgorithmExplainer() {
                                 {hoveredTerm === "U" &&
                                   "Estimated return minus a variance penalty."}
                                 {hoveredTerm === "mu" &&
-                                  "Weighted sum of yield-and-beta proxies."}
+                                  "Weighted sum of return proxies: risk-free rate plus beta times 6%."}
                                 {hoveredTerm === "lambda" &&
                                   "Penalty multiplier for volatility."}
                                 {hoveredTerm === "sigma" &&

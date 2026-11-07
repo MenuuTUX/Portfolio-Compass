@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { BarSeries } from "@/lib/lab/bar-types";
 import { indexedDbBarStore, loadBars, memoryBarStore, type BarStore } from "@/lib/lab/bar-cache";
 import type { BacktestReport, BacktestRequest, Targets } from "@/lib/lab/engine/backtest";
+import type { FxSeries } from "@/lib/lab/engine/frame";
 import { DEFAULT_SMA_VALUES, sweepValues, type RobustnessRequest, type RobustnessResult, type TrendStrategy } from "@/lib/lab/engine/sweep";
+import { loadUsdCadSeries } from "@/lib/lab/fx";
 import type { WorkerRequest, WorkerResponse } from "@/lib/lab/engine/worker";
-import type { LabRequest } from "@/lib/lab/lab-form";
+import { warmupDaysFor, type LabRequest } from "@/lib/lab/lab-form";
 import { createStrategyClient, type StrategyClient } from "@/lib/lab/strategy/client";
 import type { LookaheadResult, Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
 
@@ -27,7 +30,16 @@ export interface LabRun {
   dataThrough: string;
   /** Price requests this run made; 0 when every ticker came from the browser cache. */
   dataRequests: number;
+  /** Tickers that ran on an older cached copy because the refresh failed, with that copy's last bar. */
+  staleTickers?: { ticker: string; lastBar: string }[];
   ranAt: string;
+}
+
+/** USD/CAD rates for the CAD series in `series`, from their first bar through `end`; undefined when there are none. */
+async function cadRates(series: BarSeries[], end: string): Promise<FxSeries | undefined> {
+  if (!series.some((s) => s.currency === "CAD")) return undefined;
+  const first = series.map((s) => s.bars[0]?.date).filter((d): d is string => Boolean(d)).sort()[0];
+  return { CAD: await loadUsdCadSeries(first ?? end, end) };
 }
 
 /** A code strategy failed; carries its console output and the line to mark in the editor. */
@@ -86,7 +98,10 @@ export function useLabEngine() {
     if (!w || !store.current || !strategies.current) throw new Error("The engine is still starting.");
     try {
       setStatus("loading-data");
-      const bars = await loadBars(request.tickers, request.start, request.end, { store: store.current });
+      const bars = await loadBars(request.tickers, request.start, request.end, {
+        store: store.current,
+        warmupDays: warmupDaysFor(request.strategy),
+      });
       const unavailable = bars.failed.filter((t) => !bars.series.some((s) => s.ticker === t));
       if (unavailable.length) {
         throw new Error(`Could not load ${unavailable.join(", ")} right now; the price service did not answer. Try again in a minute.`);
@@ -94,16 +109,19 @@ export function useLabEngine() {
       if (bars.missing.length) {
         throw new Error(`No price data for ${bars.missing.join(", ")} between ${request.start} and ${request.end}.`);
       }
-      // The engine converts currencies, but the app has no long-range FX history yet.
+      const strategy = request.strategy;
+      // The engine converts currencies. The Lab has USD/CAD history, so CAD tickers work in no-code runs only:
+      // the strategy workers take no FX series.
       const foreign = bars.series.filter((s) => s.currency && s.currency !== "USD");
-      if (foreign.length) {
+      if (foreign.length && (strategy.kind === "code" || foreign.some((s) => s.currency !== "CAD"))) {
+        const list = `${foreign.map((s) => `${s.ticker} (${s.currency})`).join(", ")} ${foreign.length > 1 ? "are" : "is"} not priced in USD.`;
         throw new Error(
-          `${foreign.map((s) => `${s.ticker} (${s.currency})`).join(", ")} ${foreign.length > 1 ? "are" : "is"} not priced in USD. ` +
-            "The Lab runs USD-listed portfolios only for now, because it does not yet have the exchange-rate history to convert.",
+          strategy.kind === "code"
+            ? `${list} Code strategies run USD-listed portfolios only. CAD funds work in no-code mode.`
+            : `${list} The Lab converts USD and CAD prices only for now, because it has exchange-rate history for those two.`,
         );
       }
-
-      const strategy = request.strategy;
+      const fx = await cadRates(bars.series, request.end);
       let targets: Targets;
       let logs: string[] = [];
       let lookahead: LookaheadResult | undefined;
@@ -128,7 +146,9 @@ export function useLabEngine() {
         series: bars.series,
         config: request.config,
         baseCurrency: "USD",
+        ...(fx ? { fx } : {}),
         targets,
+        start: request.start,
         benchmark: request.benchmark,
         strategy: strategy.kind === "code"
           ? { code: strategy.code, params: { language: strategy.language, universe: strategy.universe, ...strategy.params } }
@@ -153,8 +173,10 @@ export function useLabEngine() {
         logs,
         ...(lookahead ? { lookahead } : {}),
         dataFetchedAt: fetched[0] ?? new Date().toISOString(),
-        dataThrough: bars.through,
+        // A stale ticker stops at its old last bar, so the data is only as current as the oldest one.
+        dataThrough: bars.staleTickers.length ? bars.staleTickers.map((t) => t.lastBar).sort()[0] : bars.through,
         dataRequests: bars.requests,
+        ...(bars.staleTickers.length ? { staleTickers: bars.staleTickers } : {}),
         ranAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -169,15 +191,22 @@ export function useLabEngine() {
     const strategy = run.request.strategy;
     if (!w || !store.current) throw new Error("The engine is still starting.");
     if (strategy.kind !== "trend") throw new Error("Only the no-code trend rule can be swept.");
-    const bars = await loadBars(run.request.tickers, run.request.start, run.request.end, { store: store.current });
+    const values = sweepValues(strategy.smaDays, DEFAULT_SMA_VALUES);
+    const bars = await loadBars(run.request.tickers, run.request.start, run.request.end, {
+      store: store.current,
+      warmupDays: warmupDaysFor(strategy, Math.max(...values)),
+    });
     if (bars.failed.length || bars.missing.length) throw new Error("The price data for this run could not be loaded again. Try again in a minute.");
+    const fx = await cadRates(bars.series, run.request.end);
     const id = nextId.current++;
     const body: RobustnessRequest = {
       series: bars.series,
       config: run.request.config,
       baseCurrency: "USD",
+      ...(fx ? { fx } : {}),
       strategy: strategy as TrendStrategy,
-      values: sweepValues(strategy.smaDays, DEFAULT_SMA_VALUES),
+      values,
+      start: run.request.start,
       benchmark: run.request.benchmark,
     };
     const response = await new Promise<WorkerResponse>((resolve) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import InteractiveSlider from "../InteractiveSlider";
 import CountUp from "../motion/CountUp";
 import { EASE } from "../motion/Reveal";
@@ -125,12 +125,12 @@ export default function GrowthScreen({ years, annualReturn, onYears, onReturn, i
         <div className="space-y-3 py-4">
           <p className="text-sm text-body">Time horizon</p>
           <Chips label={`${idPrefix} time horizon presets`} values={YEAR_CHIPS} current={years} suffix=" yr" onPick={onYears} />
-          <InteractiveSlider key={`y-${years}`} label="Time horizon" min={1} max={50} defaultValue={years} unit=" years" onChange={onYears} />
+          <InteractiveSlider label="Time horizon" min={1} max={50} value={years} unit=" years" onChange={onYears} />
         </div>
         <div className="space-y-3 py-4">
           <p className="text-sm text-body">Assumed annual return</p>
           <Chips label={`${idPrefix} return presets`} values={RETURN_CHIPS} current={annualReturn} suffix="%" onPick={onReturn} />
-          <InteractiveSlider key={`r-${annualReturn}`} label="Assumed annual return" min={-10} max={15} defaultValue={annualReturn} onChange={onReturn} />
+          <InteractiveSlider label="Assumed annual return" min={-10} max={15} value={annualReturn} onChange={onReturn} />
         </div>
       </div>
       <p className="border-t border-hairline pt-4 text-xs leading-relaxed text-muted">

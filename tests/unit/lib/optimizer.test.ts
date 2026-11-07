@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'bun:test';
 import {
   calculatePortfolioUtility,
-  getOptimizerInputGaps,
+  getOptimizerBeta,
+  getOptimizerReturnProxy,
+  weightsFromShares,
   optimizePortfolioGreedy,
   GreedyOptimizationParams,
+  RISK_FREE,
+  EQUITY_PREMIUM,
 } from '../../../lib/optimizer';
 
 describe('optimizePortfolioGreedy', () => {
@@ -42,58 +46,6 @@ describe('optimizePortfolioGreedy', () => {
       initialShares: { A: 1 },
     });
     expect(result.utility).toBeCloseTo(0.09);
-  });
-
-  it('requires issuer-sourced yield and beta before showing a score', () => {
-    const items = [
-      {
-        ticker: 'MISSING',
-        metrics: { yield: null },
-        dividendYield: null,
-        beta: undefined,
-      },
-      {
-        ticker: 'YAHOO',
-        metrics: { yield: 1.5, yieldSource: 'Yahoo Finance quote' },
-        dividendYield: null,
-        beta: 1,
-      },
-      {
-        ticker: 'NO_SOURCE',
-        metrics: { yield: 1.5 },
-        dividendYield: null,
-        beta: 1,
-      },
-      {
-        ticker: 'ISSUER',
-        metrics: { yield: 1.5, yieldSource: 'Issuer factsheet' },
-        dividendYield: null,
-        beta: 1,
-      },
-    ] as unknown as import('@/types').PortfolioItem[];
-
-    expect(getOptimizerInputGaps(items)).toEqual(['MISSING', 'YAHOO', 'NO_SOURCE']);
-  });
-
-  it('accepts a dated TTM distribution yield with an estimated beta, and a known zero yield', () => {
-    const items = [
-      {
-        ticker: 'VOO',
-        metrics: { yield: 1.12, yieldSource: 'Yahoo Finance dividend history (TTM)', betaSource: 'Estimated vs SPY from 249 daily total returns' },
-        beta: 1,
-      },
-      {
-        ticker: 'GLD',
-        metrics: { yield: 0, yieldSource: 'Yahoo Finance dividend history (TTM)' },
-        beta: 0.12,
-      },
-      {
-        ticker: 'NO_BETA',
-        metrics: { yield: 3.8, yieldSource: 'Yahoo Finance dividend history (TTM)' },
-      },
-    ] as unknown as import('@/types').PortfolioItem[];
-
-    expect(getOptimizerInputGaps(items)).toEqual(['NO_BETA']);
   });
 
   it('should allocate budget to best asset (Greedy Utility logic)', () => {
@@ -309,6 +261,47 @@ describe('optimizePortfolioGreedy', () => {
     }
   });
 
+  it('spends the budget down to less than the cheapest share', () => {
+    // The fixed 400-iteration cap used to stop the greedy loop with $5,060 left
+    // of a $50,000 budget. The final sweep must spend the rest one share at a time.
+    const candidates = [
+      { ticker: 'A', price: 100, expectedReturn: 0.075 },
+      { ticker: 'B', price: 50, expectedReturn: 0.039 },
+      { ticker: 'C', price: 30, expectedReturn: 0.05 },
+    ];
+    const covarianceMatrix = [
+      [0.0225, 0.0005, 0.004],
+      [0.0005, 0.0016, 0.0002],
+      [0.004, 0.0002, 0.01],
+    ];
+    for (const budget of [10_000, 50_000, 1_000_000]) {
+      const r = optimizePortfolioGreedy({ candidates, covarianceMatrix, riskProfile: 'balanced', budget });
+      expect(r.remainingBudget).toBeLessThan(30);
+      expect(r.remainingBudget).toBeGreaterThanOrEqual(0);
+      const spent = candidates.reduce((sum, c) => sum + (r.addedShares[c.ticker] || 0) * c.price, 0);
+      expect(budget - spent).toBeCloseTo(r.remainingBudget, 6);
+    }
+  });
+
+  it('prices 200 assets in under a second', () => {
+    // A factor-model covariance (PSD by construction) keeps the greedy walk realistic.
+    const n = 200;
+    const candidates = Array.from({ length: n }, (_, k) => ({
+      ticker: `T${k}`,
+      price: 20 + (k % 37) * 7,
+      expectedReturn: 0.03 + (k % 11) * 0.005,
+    }));
+    const beta = Array.from({ length: n }, (_, k) => 0.5 + (k % 9) * 0.1);
+    const covarianceMatrix = Array.from({ length: n }, (_, i) =>
+      Array.from({ length: n }, (_, j) => beta[i] * beta[j] * 0.0225 + (i === j ? 0.01 : 0)),
+    );
+
+    const started = performance.now();
+    const r = optimizePortfolioGreedy({ candidates, covarianceMatrix, riskProfile: 'growth', budget: 100_000 });
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(r.remainingBudget).toBeLessThan(Math.min(...candidates.map((c) => c.price)));
+  }, { timeout: 20000 });
+
   it('maps the profiles to roughly 30 / 60 / 90 percent equity on a stock-bond pair', () => {
     const candidates = [
       { ticker: 'EQ', price: 100, expectedReturn: 0.075 },
@@ -320,5 +313,65 @@ describe('optimizePortfolioGreedy', () => {
     expect(equity('conservative')).toBeCloseTo(0.3, 1);
     expect(equity('balanced')).toBeCloseTo(0.6, 1);
     expect(equity('growth')).toBeCloseTo(0.9, 1);
+  });
+});
+
+describe('optimizer inputs', () => {
+  const fund = (ticker: string, equities: number, bonds: number, extra: Record<string, unknown> = {}) => ({
+    ticker,
+    assetType: 'ETF',
+    price: 40,
+    metrics: { yield: 1.5, yieldSource: 'Yahoo Finance dividend history (TTM)' },
+    allocation: { equities, bonds, cash: 100 - equities - bonds },
+    ...extra,
+  }) as unknown as import('@/types').PortfolioItem;
+
+  it('prices a fund by its reported stock/bond mix over a quoted beta', () => {
+    // Yahoo quotes XGRO (80/20) at beta 1.06, above all-equity XEQT at 0.88.
+    expect(getOptimizerBeta(fund('XGRO', 80, 20, { beta: 1.06 }))).toBeCloseTo(0.83);
+    expect(getOptimizerBeta(fund('XEQT', 100, 0, { beta: 0.88 }))).toBeCloseTo(1);
+  });
+
+  it('falls back to quoted beta for stocks and funds with no mix', () => {
+    expect(getOptimizerBeta(fund('AAPL', 0, 0, { assetType: 'STOCK', beta: 1.2 }))).toBeCloseTo(1.2);
+    expect(getOptimizerBeta(fund('NOMIX', 0, 0, { beta: 0.7, allocation: { equities: 0, bonds: 0, cash: 0 } }))).toBeCloseTo(0.7);
+  });
+
+  it('scores expected return as the risk-free rate plus beta times the equity premium', () => {
+    expect(RISK_FREE).toBeCloseTo(0.02);
+    expect(EQUITY_PREMIUM).toBeCloseTo(0.06);
+    expect(getOptimizerReturnProxy(fund('XEQT', 100, 0))).toBeCloseTo(RISK_FREE + EQUITY_PREMIUM);
+    expect(getOptimizerReturnProxy(fund('XGRO', 80, 20))).toBeLessThan(getOptimizerReturnProxy(fund('XEQT', 100, 0)));
+  });
+
+  it('does not add a fund yield on top of its return proxy', () => {
+    // A covered-call fund pays 12% but has beta 0.6. Its yield is part of total
+    // return, so it must not outscore broad equity on yield alone.
+    const coveredCall = fund('CALL', 60, 0, { beta: 0.6, metrics: { yield: 12, yieldSource: 'Issuer factsheet' } });
+    const broad = fund('EQ', 100, 0, { metrics: { yield: 1.3, yieldSource: 'Issuer factsheet' } });
+    expect(getOptimizerReturnProxy(coveredCall)).toBeCloseTo(RISK_FREE + 0.6 * EQUITY_PREMIUM);
+    expect(getOptimizerReturnProxy(broad)).toBeCloseTo(RISK_FREE + EQUITY_PREMIUM);
+    expect(getOptimizerReturnProxy(coveredCall)).toBeLessThan(getOptimizerReturnProxy(broad));
+  });
+
+  it('gives Growth more stocks than Conservative across an all-equity and an 80/20 fund', () => {
+    const items = [fund('EQ', 100, 0), fund('GRO', 80, 20)];
+    const betas = items.map(getOptimizerBeta);
+    const idio = 0.06 * 0.06;
+    const cov = betas.map((bi, i) => betas.map((bj, j) => bi * bj * 0.0225 + (i === j ? idio : 0)));
+    const candidates = items.map((p) => ({ ticker: p.ticker, price: 40, expectedReturn: getOptimizerReturnProxy(p) }));
+    const equity = (profile: 'conservative' | 'growth') => {
+      const r = optimizePortfolioGreedy({ candidates, covarianceMatrix: cov, riskProfile: profile, budget: 10000 });
+      return (r.weights.EQ ?? 0) * 1 + (r.weights.GRO ?? 0) * 0.8;
+    };
+    expect(equity('growth')).toBeGreaterThan(equity('conservative') + 0.02);
+  });
+
+  it('turns a share plan into one-decimal weights that sum to exactly 100', () => {
+    const holdings = [{ ticker: 'A', price: 33.33 }, { ticker: 'B', price: 33.33 }, { ticker: 'C', price: 33.34 }, { ticker: 'D', price: 10 }];
+    const w = weightsFromShares(holdings, { A: 1, B: 1, C: 1, D: 0 });
+    expect(Object.values(w).reduce((a, b) => a + b, 0)).toBeCloseTo(100, 10);
+    expect(w.D).toBe(0);
+    expect(weightsFromShares(holdings, {})).toEqual({ A: 0, B: 0, C: 0, D: 0 });
   });
 });

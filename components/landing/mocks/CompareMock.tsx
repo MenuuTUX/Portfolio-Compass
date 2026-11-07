@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type KeyboardEvent } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m as motion } from "framer-motion";
 import Reveal, { EASE } from "@/components/motion/Reveal";
 
 type Risk = "Low" | "Medium" | "High";

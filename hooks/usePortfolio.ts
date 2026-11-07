@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
-import { loadPortfolio, type LocalPortfolioItem } from "@/lib/storage";
+import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
 import { normalizeTicker, toPortfolioEtf } from "./normalize";
 import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
@@ -51,6 +51,43 @@ function mergeQuoteWithDetails(current: ETF, details?: ETF): ETF {
   };
 }
 
+interface FundProfile {
+  beta?: number | null;
+  allocation?: { equities?: number; bonds?: number; cash?: number } | null;
+  holdings?: { ticker: string; name: string; weight: number }[] | null;
+  /** Sector weights as fractions (0-1), the same unit Sector X-Ray expects. */
+  sectors?: Record<string, number> | null;
+}
+
+/** A fund still missing the mix, beta or holdings the optimizer and look-through use. */
+export function needsFundProfile(item: ETF): boolean {
+  if (item.assetType === "STOCK") return false;
+  const a = item.allocation;
+  return typeof item.beta !== "number" || !a || a.equities + a.bonds + a.cash <= 0 || !item.holdings?.length;
+}
+
+/** Fills fund fields the item is missing; never overwrites data it already has. */
+export function mergeFundProfile<T extends ETF>(item: T, fund?: FundProfile | null): T {
+  if (!fund) return item;
+  const next = { ...item };
+  if (typeof next.beta !== "number" && typeof fund.beta === "number" && Number.isFinite(fund.beta)) {
+    next.beta = fund.beta;
+  }
+  const a = next.allocation;
+  const hasMix = !!a && a.equities + a.bonds + a.cash > 0;
+  const f = fund.allocation;
+  if (!hasMix && f && (f.equities ?? 0) + (f.bonds ?? 0) + (f.cash ?? 0) > 0) {
+    next.allocation = { equities: f.equities ?? 0, bonds: f.bonds ?? 0, cash: f.cash ?? 0 };
+  }
+  if (!next.holdings?.length && fund.holdings?.length) {
+    next.holdings = fund.holdings.map((h) => ({ ticker: h.ticker, name: h.name, weight: h.weight }));
+  }
+  if ((!next.sectors || Object.keys(next.sectors).length === 0) && fund.sectors && Object.keys(fund.sectors).length > 0) {
+    next.sectors = fund.sectors;
+  }
+  return next;
+}
+
 export function mergeLocalPortfolio(
   localItems: LocalPortfolioItem[],
   etfByTicker: Map<string, ETF>,
@@ -81,6 +118,13 @@ export function mergeLocalPortfolio(
   });
 }
 
+/** A holding with no usable price is retried at most this often while the market is closed. */
+const UNAVAILABLE_RETRY_MS = 30_000;
+
+/** Holdings and their weights and shares, as one string, so any edit changes it. */
+const holdingsSignature = (items: { ticker: string; weight: number; shares: number }[]) =>
+  items.map((item) => `${item.ticker}|${item.weight}|${item.shares}`).join(",");
+
 /**
  * Fetch portfolio prices first. Profiles and chart history hydrate afterward
  * so those slower requests do not hold up the current valuation.
@@ -88,6 +132,8 @@ export function mergeLocalPortfolio(
 export const usePortfolio = (refreshEnabled = false) => {
   const queryClient = useQueryClient();
   const wasRefreshEnabled = useRef(false);
+  // When quotes were last requested. Reused answers do not count, so the retry window stays fixed.
+  const lastNetworkFetch = useRef(0);
   const query = useQuery<Portfolio>({
     queryKey: ["portfolio"],
     queryFn: async ({ client }) => {
@@ -96,15 +142,20 @@ export const usePortfolio = (refreshEnabled = false) => {
 
       const tickers = localItems.map((item) => normalizeTicker(item.ticker));
       const previous = client.getQueryData<Portfolio>(["portfolio"]) ?? [];
-      const previousTickers = previous.map((item) => item.ticker).join(",");
-      if (
+      const sameHoldings =
         previous.length > 0 &&
-        previousTickers === tickers.join(",") &&
-        !isExtendedMarketSession()
-      ) {
+        holdingsSignature(previous) === holdingsSignature(
+          localItems.map((item) => ({ ticker: normalizeTicker(item.ticker), weight: item.weight, shares: item.shares })),
+        );
+      // Outside market hours the prices do not move, so the last answer is reused,
+      // except a holding with no price is retried (at most every 30 seconds).
+      const missingPrice = previous.some((item) => item.quoteStatus === "unavailable" || !(item.price > 0));
+      const retryDue = Date.now() - lastNetworkFetch.current >= UNAVAILABLE_RETRY_MS;
+      if (sameHoldings && !isExtendedMarketSession() && (!missingPrice || !retryDue)) {
         return previous;
       }
       const etfByTicker = new Map<string, ETF>();
+      lastNetworkFetch.current = Date.now();
 
       try {
         const response = await fetch(
@@ -150,6 +201,17 @@ export const usePortfolio = (refreshEnabled = false) => {
   });
   const { data, isStale, refetch } = query;
 
+  // Another tab changed the portfolio: refetch here so its edits show up.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === PORTFOLIO_STORAGE_KEY) {
+        void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [queryClient]);
+
   useEffect(() => {
     if (refreshEnabled && !wasRefreshEnabled.current && data && isStale) {
       void refetch();
@@ -186,6 +248,33 @@ export const usePortfolio = (refreshEnabled = false) => {
       cancelled = true;
     };
   }, [tickersKey, queryClient]);
+
+  // Fund profiles (asset mix, beta, holdings, sectors). The search route
+  // leaves these empty for many funds, which made every ETF look identical to
+  // the optimizer and left the look-through and Sector X-Ray empty. Only funds
+  // still missing them are fetched, once per set.
+  const profileKey = (data ?? []).filter(needsFundProfile).map((item) => item.ticker).join(",");
+  useEffect(() => {
+    if (!profileKey) return;
+    let cancelled = false;
+    Promise.all(profileKey.split(",").map((ticker) =>
+      fetch(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`)
+        .then((response) => response.ok ? response.json() : null)
+        .catch(() => null),
+    )).then((funds) => {
+      if (cancelled) return;
+      const fundByTicker = new Map(
+        funds.filter(Boolean).map((fund) => [normalizeTicker(fund.ticker), fund]),
+      );
+      if (fundByTicker.size === 0) return;
+      queryClient.setQueryData<Portfolio>(["portfolio"], (current) =>
+        current?.map((item) => mergeFundProfile(item, fundByTicker.get(item.ticker))),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileKey, queryClient]);
 
   return query;
 };

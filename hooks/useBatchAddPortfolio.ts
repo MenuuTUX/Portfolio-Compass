@@ -84,12 +84,15 @@ export const useBatchAddPortfolio = () => {
       const items = Array.isArray(payload) ? payload : payload.items;
       const replace = Array.isArray(payload) ? false : payload.replace;
 
-      if (items.length === 0) return { stocks: [], updatedPortfolio: [] };
+      if (items.length === 0) return { stocks: [], updatedPortfolio: [], failed: [] };
 
       const stocks = await fetchStocksByTickers(items.map((i) => i.ticker));
+      const resolvedTickers = new Set(stocks.map((stock) => normalizeTicker(stock.ticker)));
+      const failed = [...new Set(items.map((item) => normalizeTicker(item.ticker)))]
+        .filter((ticker) => !resolvedTickers.has(ticker));
 
       if (stocks.length === 0) {
-        throw new Error("Could not resolve any tickers for portfolio import");
+        throw new Error(`Could not add: ${failed.join(", ")}`);
       }
 
       if (replace) {
@@ -131,8 +134,16 @@ export const useBatchAddPortfolio = () => {
         }
       });
 
+      // Adding to an existing mix can push the total past 100%; scale every weight back to 100.
+      const totalWeight = updatedPortfolio.reduce((sum, item) => sum + (item.weight || 0), 0);
+      if (totalWeight > 100) {
+        updatedPortfolio.forEach((item) => {
+          item.weight = ((item.weight || 0) * 100) / totalWeight;
+        });
+      }
+
       savePortfolio(updatedPortfolio);
-      return { stocks, updatedPortfolio };
+      return { stocks, updatedPortfolio, failed };
     },
     onSuccess: (data) => {
       const { stocks, updatedPortfolio } = data;

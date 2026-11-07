@@ -1,3 +1,4 @@
+import { timeoutSignal } from '@/lib/upstream';
 import * as cheerio from 'cheerio';
 import { z } from 'zod';
 import { stockAnalysisPathForTicker } from '@/lib/asset-class';
@@ -71,13 +72,15 @@ export async function getMarketMovers(type: 'gainers' | 'losers'): Promise<strin
     const url = `https://stockanalysis.com/markets/${type}/`;
     const response = await fetch(url, {
         redirect: 'error',
+        signal: timeoutSignal(),
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
     });
+    // Throw rather than return []: an empty list reads as "no movers today" and
+    // would be cached as a real answer.
     if (!response.ok) {
-        console.error(`Failed to fetch ${type}: ${response.status}`);
-        return [];
+        throw new Error(`Failed to fetch ${type}: ${response.status}`);
     }
     const html = await response.text();
     const $ = cheerio.load(html);
@@ -128,6 +131,7 @@ export async function getEtfHoldings(ticker: string): Promise<ScrapedHolding[]> 
 
     const response = await fetch(url, {
         redirect: 'error',
+        signal: timeoutSignal(),
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
@@ -229,6 +233,7 @@ export function parseMarketNumber(val: string): number | undefined {
 
 const fetchWithUserAgent = async (u: string) => fetch(u, {
   redirect: 'error',
+  signal: timeoutSignal(),
   headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
   }
@@ -249,9 +254,11 @@ function profileUrlsForTicker(ticker: string): string[] {
   }
 
   // US / plain symbols
-  let base = upper.includes(".") ? upper.split(".")[0] : upper;
   // Share classes: Yahoo says BRK-B, stockanalysis.com says brk.b (the dashed URL redirects away)
-  if (/^[A-Z]{1,5}-[A-Z]$/.test(base)) base = base.replace("-", ".");
+  const shareClass = /^([A-Z]{1,5})[.-]([A-Z])$/.exec(upper);
+  const base = shareClass
+    ? `${shareClass[1]}.${shareClass[2]}`
+    : upper.includes(".") ? upper.split(".")[0] : upper;
   urls.push(`https://stockanalysis.com/stocks/${base.toLowerCase()}/`);
   urls.push(`https://stockanalysis.com/etf/${base.toLowerCase()}/`);
   if (mapped?.kind === "etf") {
