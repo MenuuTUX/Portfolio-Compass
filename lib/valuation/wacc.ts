@@ -1,7 +1,5 @@
 import { DcfError } from "./dcf";
-
-export const WACC_FLOOR = 0.06;
-export const WACC_CEILING = 0.14;
+import { TERMINAL_GROWTH_MAX, WACC_CEILING, WACC_FLOOR } from "./limits";
 
 export interface WaccInputs {
   /** 10-year Treasury yield, decimal. */
@@ -67,7 +65,7 @@ export function blumeAdjustBeta(raw: number): number {
   return 0.67 * raw + 0.33;
 }
 
-/** Long-term growth may not exceed the risk-free rate or 4%. */
+/** Long-term growth may not exceed the risk-free rate or the fixed cap. */
 export function terminalGrowthCap(riskFree: number): number {
-  return Math.min(riskFree, 0.04);
+  return Math.min(riskFree, TERMINAL_GROWTH_MAX);
 }

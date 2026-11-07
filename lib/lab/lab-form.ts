@@ -1,5 +1,5 @@
 import { parseTickers } from "@/lib/tickers";
-import type { BacktestConfig, Period } from "@/lib/lab/engine/simulate";
+import { DEFAULT_CONFIG, type BacktestConfig, type Period } from "@/lib/lab/engine/simulate";
 import { strategyTickers, type NoCodeStrategy } from "@/lib/lab/no-code";
 import { extractTickers, LESSONS, type Lesson } from "@/lib/lab/lessons";
 import { CODE_TEMPLATES } from "@/lib/lab/strategy/templates";
@@ -89,13 +89,13 @@ export const BLANK_FORM: LabForm = {
   band: 5,
   contribution: 0,
   contributionEvery: "M",
-  slippageBps: 5,
-  commissionBps: 0,
-  minCommission: 0,
+  slippageBps: DEFAULT_CONFIG.costs.slippageBps,
+  commissionBps: DEFAULT_CONFIG.costs.commissionBps,
+  minCommission: DEFAULT_CONFIG.costs.minCommission,
   cashRate: 2,
-  shares: "fractional",
-  dividends: "reinvest",
-  fill: "next-open",
+  shares: DEFAULT_CONFIG.shares,
+  dividends: DEFAULT_CONFIG.dividends,
+  fill: DEFAULT_CONFIG.fill,
 };
 
 /** Guided mode: Python code driven by a lesson. */

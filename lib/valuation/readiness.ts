@@ -39,6 +39,8 @@ type Items = Partial<Record<LineItem, FactValue>>;
 type Period = { items: Items } | AnnualPeriod | TrailingPeriod | null | undefined;
 
 const DEFAULT_ERP = 0.045;
+/** Cost of debt over the risk-free rate when the filing gives no interest expense. */
+const DEBT_SPREAD_FALLBACK = 0.01;
 /** Upper limit on the return on new capital taken from history. Asset-light leaders earn far more; the input is editable. */
 const RONIC_CAP = 0.6;
 const DEFAULT_TERMINAL_GROWTH = 0.025;
@@ -242,7 +244,7 @@ export function checkReadiness(company: CompanyFilings, ctx: ReadinessContext): 
   }
 
   const interest = itemValue(last, "interestExpense");
-  const bookCostOfDebt = interest !== undefined && interest > 0 && debt > 0 ? interest / debt : riskFreeRate + 0.01;
+  const bookCostOfDebt = interest !== undefined && interest > 0 && debt > 0 ? interest / debt : riskFreeRate + DEBT_SPREAD_FALLBACK;
 
   let wacc;
   try {

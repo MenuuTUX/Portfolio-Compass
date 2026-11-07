@@ -6,6 +6,12 @@
  */
 import { dcfValue, type DcfBase, type DcfErrorCode, type DcfInputs, type GrowthSolve, type ReturnSolve, type Sensitivity } from "./dcf";
 
+/** An implied return outside this range is shown as no number. */
+const IMPLIED_RETURN_MIN = 0.02;
+const IMPLIED_RETURN_MAX = 0.3;
+/** Within this of the cost of capital, the implied return reads "about the same". */
+const SAME_RATE_TOLERANCE = 0.005;
+
 export interface ReverseReport {
   implied: GrowthSolve;
   band?: Sensitivity;
@@ -148,8 +154,8 @@ export function exitMultipleWarning(multiple: Described["exitMultiple"]): string
 export function describeReturn(solve: ReturnSolve, wacc: number): string | null {
   if (solve.status !== "solved") return null;
   const r = solve.wacc;
-  if (!Number.isFinite(r) || r < 0.02 || r > 0.3) return null;
+  if (!Number.isFinite(r) || r < IMPLIED_RETURN_MIN || r > IMPLIED_RETURN_MAX) return null;
   const diff = Math.abs(r - wacc);
-  const relation = diff < 0.005 ? "about the same as" : r > wacc ? "above" : "below";
+  const relation = diff < SAME_RATE_TOLERANCE ? "about the same as" : r > wacc ? "above" : "below";
   return `If the base forecast comes true and you pay this price, the yearly return it implies is ${pct(r)}, ${relation} the ${pct(wacc)} cost of capital used here.`;
 }
