@@ -24,7 +24,9 @@ import { ETF } from "@/types";
 import { cn, formatCurrency, formatSectorName } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import SectorPieChart from "./SectorPieChart";
+import { EASE } from "./motion/Reveal";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { fetchSnapshot } from "@/lib/api-client";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
 import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
 
@@ -42,8 +44,6 @@ interface ComparisonMetric {
   titleB?: string;
   formatter: (value: number, side: "A" | "B") => string;
 }
-
-// Helper Components
 
 function MetricRow({
   label,
@@ -65,7 +65,6 @@ function MetricRow({
     v != null && peak > 0 ? Math.max(0.04, Math.abs(v) / peak) : 0;
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-3 border-b border-hairline last:border-0 hover:bg-surface-soft transition-colors duration-75 px-4">
-      {/* Asset A Value */}
       <div className="text-sm font-mono text-right text-body-strong" title={titleA}>
         {valueA != null ? formatter(valueA, "A") : "N/A"}
         <motion.div
@@ -73,7 +72,7 @@ function MetricRow({
           className="mt-1 ml-auto h-0.5 w-full origin-right rounded-full bg-compass/60"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: share(valueA) }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.7, ease: EASE }}
         />
       </div>
 
@@ -90,14 +89,12 @@ function MetricRow({
           className="mt-1 h-0.5 w-full origin-left rounded-full bg-body-strong/50"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: share(valueB) }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.7, ease: EASE }}
         />
       </div>
     </div>
   );
 }
-
-// Main Component
 
 export default function ComparisonModal({
   baseAsset,
@@ -113,7 +110,6 @@ export default function ComparisonModal({
   >({});
   const dialogRef = useDialogA11y<HTMLDivElement>(isOpen, onClose);
 
-  // Reset state when the modal closes
   const [wasOpen, setWasOpen] = useState(isOpen);
   if (isOpen !== wasOpen) {
     setWasOpen(isOpen);
@@ -125,8 +121,6 @@ export default function ComparisonModal({
     }
   }
 
-  // Fetch aligned 1Y history for both assets from the fast market endpoint
-  // (one round trip, no DB sync involved)
   useEffect(() => {
     if (!compareAsset || !isOpen) return;
     let cancelled = false;
@@ -144,7 +138,6 @@ export default function ComparisonModal({
     };
   }, [compareAsset, baseAsset.ticker, isOpen]);
 
-  // Search Logic
   // An empty query clears the results.
   if (!searchQuery && searchResults.length > 0) setSearchResults([]);
   useEffect(() => {
@@ -161,7 +154,6 @@ export default function ComparisonModal({
         );
         if (res.ok) {
           const data = await res.json();
-          // Filter out the base asset
           setSearchResults(
             data.filter((item: ETF) => item.ticker !== baseAsset.ticker),
           );
@@ -177,38 +169,29 @@ export default function ComparisonModal({
   }, [searchQuery, baseAsset.assetType, baseAsset.ticker]);
 
   const handleSelectAsset = async (asset: ETF) => {
-    // Show the selection immediately; live quote metrics merge in right after
+    // Show the selection at once; live quote metrics merge in after the snapshot arrives.
     setCompareAsset(asset);
     try {
-      const res = await fetch(
-        `/api/market/snapshot?tickers=${asset.ticker}&history=false`,
+      const [snap] = await fetchSnapshot([asset.ticker]).then((assets) =>
+        assets.filter((item) => item.ticker === asset.ticker.toUpperCase()),
       );
-      if (res.ok) {
-        const data = await res.json();
-        const snap = Array.isArray(data)
-          ? data.find(
-              (item: ETF) => item.ticker === asset.ticker.toUpperCase(),
-            )
-          : null;
-        if (snap) {
-          // Merge live quote data over the search result without letting
-          // placeholder fields clobber existing DB-backed values
-          setCompareAsset({
-            ...asset,
-            ...snap,
-            metrics: { ...asset.metrics, ...snap.metrics },
-            sectors:
-              asset.sectors && Object.keys(asset.sectors).length > 0
-                ? asset.sectors
-                : snap.sectors,
-            allocation: asset.allocation ?? snap.allocation,
-          });
-        }
+      if (snap) {
+        // Placeholder fields in the snapshot must not clobber richer values from the search result.
+        setCompareAsset({
+          ...asset,
+          ...snap,
+          metrics: { ...asset.metrics, ...snap.metrics },
+          sectors:
+            asset.sectors && Object.keys(asset.sectors).length > 0
+              ? asset.sectors
+              : snap.sectors,
+          allocation: asset.allocation ?? snap.allocation,
+        });
       }
     } catch (err) {
       console.error("Failed to fetch live quote for comparison:", err);
     } finally {
-      setSearchQuery(""); // Clear search for clean view
+      setSearchQuery("");
     }
   };
 
@@ -301,24 +284,19 @@ export default function ComparisonModal({
     return list;
   }, [baseAsset, compareAsset]);
 
-  // Chart Data Preparation
-
   const chartData = useMemo(() => {
     if (!compareAsset) return [];
 
-    // Both series come pre-sorted at daily granularity from the fast
-    // market endpoint, so alignment is straightforward
+    // Both series arrive sorted at daily granularity.
     const sortedA = comparisonSeries[baseAsset.ticker.toUpperCase()] || [];
     const sortedB = comparisonSeries[compareAsset.ticker.toUpperCase()] || [];
 
     if (sortedA.length === 0 || sortedB.length === 0) return [];
 
-    // Find common start date
     const startA = new Date(sortedA[0].date).getTime();
     const startB = new Date(sortedB[0].date).getTime();
     const commonStart = Math.max(startA, startB);
 
-    // Filter to common range
     const filteredA = sortedA.filter(
       (h) => new Date(h.date).getTime() >= commonStart,
     );
@@ -328,19 +306,15 @@ export default function ComparisonModal({
 
     if (filteredA.length === 0 || filteredB.length === 0) return [];
 
-    // Normalize to percentage change from start
     const basePriceA = filteredA[0].price;
     const basePriceB = filteredB[0]?.price || 1; // Fallback
 
-    // Map by date for alignment
-    // We'll drive the chart x-axis by Asset A's dates and lookup B
-    // (Assuming daily data, this is roughly fine for visualization)
+    // The x-axis follows asset A's dates; B is matched to the nearest date within 3 days (fine for daily data).
     const dataPoints = filteredA
       .map((ptA) => {
         const dateStr = ptA.date;
         const dateObj = new Date(dateStr);
 
-        // Find closest date in B (within 3 days tolerance)
         const ptB = filteredB.find(
           (p) =>
             Math.abs(new Date(p.date).getTime() - dateObj.getTime()) <
@@ -362,7 +336,6 @@ export default function ComparisonModal({
     return dataPoints;
   }, [baseAsset, compareAsset, comparisonSeries]);
 
-  // Render
 
   if (!isOpen) return null;
 
@@ -385,10 +358,9 @@ export default function ComparisonModal({
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.98 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.25, ease: EASE }}
         className="fixed inset-0 m-auto w-full max-w-6xl h-[90dvh] bg-surface-card ring-1 ring-hairline rounded-2xl shadow-2xl z-[70] overflow-hidden flex flex-col"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-hairline">
           <div className="flex items-center gap-4">
             <Scale className="w-5 h-5 text-muted" aria-hidden="true" />
@@ -403,11 +375,8 @@ export default function ComparisonModal({
           </button>
         </div>
 
-        {/* Content Area */}
         <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-6">
-          {/* Asset Headers */}
           <div className="grid grid-cols-[1fr_auto_1fr] gap-4 mb-8">
-            {/* Asset A (Left) */}
             <div className="flex flex-col items-center p-4 bg-surface-soft rounded-2xl">
               <div className="w-12 h-12 mb-3">
                 {getAssetIconUrl(
@@ -449,14 +418,12 @@ export default function ComparisonModal({
               </div>
             </div>
 
-            {/* VS Divider */}
             <div className="flex flex-col items-center justify-center">
               <div className="w-10 h-10 rounded-full bg-surface-soft flex items-center justify-center font-bold text-muted text-xs">
                 VS
               </div>
             </div>
 
-            {/* Asset B (Right) or Search */}
             {compareAsset ? (
               <div className="relative flex flex-col items-center p-4 bg-surface-soft rounded-2xl group">
                 <button
@@ -520,7 +487,6 @@ export default function ComparisonModal({
                   />
                   <Search className="absolute right-3 top-3.5 w-4 h-4 text-muted" />
 
-                  {/* Search Results Dropdown */}
                   {searchQuery && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-surface-card ring-1 ring-hairline-strong shadow-2xl rounded-lg overflow-hidden max-h-60 overflow-y-auto z-20">
                       {isSearching ? (
@@ -561,10 +527,8 @@ export default function ComparisonModal({
             )}
           </div>
 
-          {/* Comparison Content */}
           {compareAsset && (
             <div className="space-y-4">
-              {/* 1. Comparison Chart */}
               <div className="bg-surface-soft rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <TrendingUp className="w-4 h-4 text-muted" aria-hidden="true" />
@@ -671,7 +635,6 @@ export default function ComparisonModal({
                 </div>
               </div>
 
-              {/* 2. Key metrics */}
               <div className="bg-surface-soft rounded-2xl p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Activity className="w-4 h-4 text-muted" aria-hidden="true" />
@@ -691,11 +654,9 @@ export default function ComparisonModal({
                 </div>
               </div>
 
-              {/* 3. Holdings & Sectors (ETF Only) */}
               {baseAsset.assetType === "ETF" &&
                 compareAsset.assetType === "ETF" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Asset A Sector */}
                     <div className="bg-surface-soft rounded-2xl p-6 flex flex-col items-center">
                       <h4 className="text-sm font-bold text-ink mb-4">
                         {baseAsset.ticker} Allocation
@@ -715,7 +676,6 @@ export default function ComparisonModal({
                         />
                       </div>
                     </div>
-                    {/* Asset B Sector */}
                     <div className="bg-surface-soft rounded-2xl p-6 flex flex-col items-center">
                       <h4 className="text-sm font-bold text-ink mb-4">
                         {compareAsset.ticker} Allocation

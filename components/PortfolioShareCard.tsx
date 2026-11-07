@@ -13,7 +13,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { getAssetIconUrl } from "@/lib/etf-providers";
-import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { assetAllocation, sectorBreakdown, weightedBeta, weightedExpenseRatio } from "@/lib/math/portfolio-rollups";
 
 export interface ShareCardProps {
   userName?: string;
@@ -59,64 +59,10 @@ export const PortfolioShareCard = React.forwardRef<
       .sort((a, b) => b.weight - a.weight)
       .slice(0, 6);
 
-    const totalWeight = portfolio.reduce((sum, item) => sum + item.weight, 0);
-
-    const weightedExpenseRatio = totalWeight > 0 && portfolio.every((item) =>
-      getSourcedExpenseRatio(item.metrics) != null)
-      ? portfolio.reduce((acc, item) =>
-        acc + (getSourcedExpenseRatio(item.metrics) ?? 0) * (item.weight / totalWeight), 0)
-      : null;
-
-    const weightedBeta = totalWeight > 0 && portfolio.every((item) =>
-      item.beta != null && Number.isFinite(item.beta))
-      ? portfolio.reduce((acc, item) =>
-        acc + (item.beta ?? 0) * (item.weight / totalWeight), 0)
-      : null;
-
-    const assetAllocation = portfolio.reduce(
-      (acc, item) => {
-        const w = totalWeight > 0 ? item.weight / totalWeight : 0;
-        let e = item.allocation?.equities || 0;
-        let b = item.allocation?.bonds || 0;
-        let c = item.allocation?.cash || 0;
-
-        if (e > 1 || b > 1 || c > 1) {
-          e /= 100;
-          b /= 100;
-          c /= 100;
-        }
-
-        acc.equities += e * w;
-        acc.bonds += b * w;
-        acc.cash += c * w;
-        return acc;
-      },
-      { equities: 0, bonds: 0, cash: 0 },
-    );
-
-    const sectors = portfolio.reduce<Record<string, number>>(
-      (acc, item) => {
-        const w = totalWeight > 0 ? item.weight / totalWeight : 0;
-        const itemSectors = item.sectors || {};
-        const sectorEntries = Object.entries(itemSectors);
-
-        if (sectorEntries.length > 0) {
-          sectorEntries.forEach(([rawName, rawWeight]) => {
-            const sName = rawName
-              .replace(/_/g, " ")
-              .replace(/\b\w/g, (c) => c.toUpperCase());
-
-            const sWeight = Number(rawWeight) || 0;
-            const normalizedSWeight = sWeight > 1 ? sWeight / 100 : sWeight;
-            acc[sName] = (acc[sName] || 0) + normalizedSWeight * w;
-          });
-        } else {
-          acc["Unknown"] = (acc["Unknown"] || 0) + w;
-        }
-        return acc;
-      },
-      {},
-    );
+    const expenseRatio = weightedExpenseRatio(portfolio);
+    const beta = weightedBeta(portfolio);
+    const allocation = assetAllocation(portfolio);
+    const sectors = sectorBreakdown(portfolio);
 
     const topSectors = Object.entries(sectors)
       .sort(([, a], [, b]) => b - a)
@@ -329,26 +275,26 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="flex h-4 w-full rounded-full overflow-hidden bg-neutral-900 mb-4 ring-1 ring-white/5">
               <div
-                style={{ width: `${assetAllocation.equities * 100}%` }}
+                style={{ width: `${allocation.equities * 100}%` }}
                 className="bg-emerald-500"
               />
               <div
-                style={{ width: `${assetAllocation.bonds * 100}%` }}
+                style={{ width: `${allocation.bonds * 100}%` }}
                 className="bg-blue-500"
               />
               <div
-                style={{ width: `${assetAllocation.cash * 100}%` }}
+                style={{ width: `${allocation.cash * 100}%` }}
                 className="bg-neutral-600"
               />
             </div>
             <div className="flex justify-between text-xs font-medium">
               <div className="flex items-center gap-2 text-emerald-400">
                 <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                Equities {(assetAllocation.equities * 100).toFixed(0)}%
+                Equities {(allocation.equities * 100).toFixed(0)}%
               </div>
               <div className="flex items-center gap-2 text-body-strong">
                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                Fixed Income {(assetAllocation.bonds * 100).toFixed(0)}%
+                Fixed Income {(allocation.bonds * 100).toFixed(0)}%
               </div>
             </div>
           </div>
@@ -363,22 +309,22 @@ export const PortfolioShareCard = React.forwardRef<
             <div className="flex justify-between items-end mb-2">
               <span className="text-neutral-400 text-xs font-medium">Beta</span>
               <span className="text-xl font-bold text-ink">
-                {weightedBeta == null ? "Unavailable" : weightedBeta.toFixed(2)}
+                {beta == null ? "Unavailable" : beta.toFixed(2)}
               </span>
             </div>
             <div className="w-full h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-4">
               <div
                 className="h-full bg-rose-500 rounded-full"
-                style={{ width: `${weightedBeta == null ? 0 : Math.min(weightedBeta * 50, 100)}%` }}
+                style={{ width: `${beta == null ? 0 : Math.min(beta * 50, 100)}%` }}
               />
             </div>
             <div className="flex justify-between items-end">
               <span className="text-neutral-400 text-xs font-medium">Provider-reported expense ratio</span>
               <span className="text-xl font-bold text-ink">
-                {weightedExpenseRatio == null ? "N/A" : `${weightedExpenseRatio.toFixed(2)}%`}
+                {expenseRatio == null ? "N/A" : `${expenseRatio.toFixed(2)}%`}
               </span>
             </div>
-            {weightedExpenseRatio != null && (
+            {expenseRatio != null && (
               <p className="mt-2 text-xs text-neutral-500">
                 Target-weighted provider fees; verify current rates with each issuer.
               </p>
