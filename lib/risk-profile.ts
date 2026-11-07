@@ -1,3 +1,4 @@
+import { readStored, writeStored } from "@/lib/safe-storage";
 import type { LocalPortfolioItem } from "@/lib/storage";
 
 export type RiskProfile = "Conservative" | "Balanced" | "Growth";
@@ -126,31 +127,27 @@ interface StoredRiskProfile extends OptionalRiskAnswers {
  */
 export function saveRiskProfile(value: { profile: RiskProfile; score: number } & OptionalRiskAnswers): void {
   if (!globalThis.window) return;
-  try {
-    const existing = loadRiskProfile();
-    const ageBand = "ageBand" in value ? value.ageBand : existing?.ageBand;
-    const goalAmount = "goalAmount" in value ? value.goalAmount : existing?.goalAmount;
-    const monthlyContribution =
-      "monthlyContribution" in value ? value.monthlyContribution : existing?.monthlyContribution;
+  const existing = loadRiskProfile();
+  const ageBand = "ageBand" in value ? value.ageBand : existing?.ageBand;
+  const goalAmount = "goalAmount" in value ? value.goalAmount : existing?.goalAmount;
+  const monthlyContribution =
+    "monthlyContribution" in value ? value.monthlyContribution : existing?.monthlyContribution;
 
-    const stored: StoredRiskProfile = {
-      profile: value.profile,
-      score: value.score,
-      takenAt: new Date().toISOString(),
-    };
-    if (ageBand !== undefined) stored.ageBand = ageBand;
-    if (goalAmount !== undefined) stored.goalAmount = goalAmount;
-    if (monthlyContribution !== undefined) stored.monthlyContribution = monthlyContribution;
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(stored));
-  } catch {
-    // Private mode or full storage: the quiz result is a convenience, not data.
-  }
+  const stored: StoredRiskProfile = {
+    profile: value.profile,
+    score: value.score,
+    takenAt: new Date().toISOString(),
+  };
+  if (ageBand !== undefined) stored.ageBand = ageBand;
+  if (goalAmount !== undefined) stored.goalAmount = goalAmount;
+  if (monthlyContribution !== undefined) stored.monthlyContribution = monthlyContribution;
+  writeStored(PROFILE_KEY, JSON.stringify(stored));
 }
 
 export function loadRiskProfile(): StoredRiskProfile | null {
   if (!globalThis.window) return null;
   try {
-    const raw = localStorage.getItem(PROFILE_KEY);
+    const raw = readStored(PROFILE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredRiskProfile>;
     if (!PROFILES.includes(parsed.profile as RiskProfile)) return null;

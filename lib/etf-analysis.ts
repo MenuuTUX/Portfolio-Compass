@@ -1,6 +1,7 @@
 import { ETF } from "@/types";
 import { realizedAnnualVolatility } from "@/lib/asset-class";
 import { getSourcedExpenseRatio } from "@/lib/provenance";
+import { isoDay } from "@/lib/dates";
 
 type Status = "good" | "neutral" | "warning";
 
@@ -104,7 +105,7 @@ export function analyzeEtf(
       const field = etf.metrics?.merSourceField;
       const retrievedAt = etf.metrics?.merRetrievedAt;
       const retrievedDate = retrievedAt && Number.isFinite(Date.parse(retrievedAt))
-        ? new Date(retrievedAt).toISOString().slice(0, 10)
+        ? isoDay(retrievedAt)
         : null;
       verdict.cost = {
         status: "neutral",

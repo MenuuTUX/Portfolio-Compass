@@ -309,7 +309,7 @@ export default function TrendingSection({
                   title={quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
                 >
                   <span
-                    title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
+                    title={describeYieldProvenance(etf.metrics)}
                     className={cn("inline-flex items-center gap-1", yieldUnverified && "text-muted-soft")}
                   >
                     {!yieldKnown ? "N/A" : `${yieldValue!.toFixed(2)}%`}{" "}

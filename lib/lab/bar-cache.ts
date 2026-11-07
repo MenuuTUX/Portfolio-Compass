@@ -11,7 +11,7 @@ import { shiftIsoDate } from "@/lib/dates";
 // every record on one adjustment basis.
 
 /** A stored record: the server's payload plus when this browser received it. */
-export type CachedRecord = CompactSeries & { receivedAt?: string };
+type CachedRecord = CompactSeries & { receivedAt?: string };
 
 export interface BarStore {
   get(ticker: string): Promise<CachedRecord | undefined>;
@@ -80,7 +80,7 @@ async function fetchWithRetry(fetchOne: FetchHistory, ticker: string, through: s
   return fetchOne(ticker, through);
 }
 
-export interface LoadResult {
+interface LoadResult {
   series: BarSeries[];
   /** Tickers with no history in the requested range. */
   missing: string[];

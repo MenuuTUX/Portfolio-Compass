@@ -1,5 +1,6 @@
 import type { PortfolioItem } from "@/types";
 import { selectReturnBasis, validAdjusted, type ReturnBasis } from "@/lib/math/history";
+import { DAY_MS, isoDay } from "@/lib/dates";
 
 interface IndexPoint {
   t: string;
@@ -33,7 +34,7 @@ export function buildPortfolioIndexWithBasis(portfolio: PortfolioItem[]): Portfo
       // "2024-01-02T00:00:00.000Z" and "2024-01-02" are the same trading day.
       const parsed = Date.parse(point.date);
       if (!Number.isFinite(parsed)) continue;
-      const day = new Date(parsed).toISOString().slice(0, 10);
+      const day = isoDay(parsed);
       if (basis === "price") byDate.set(day, point.price);
       else {
         // A date without an adjusted close is dropped for every holding.
@@ -65,7 +66,7 @@ const RANGE_DAYS: Record<Exclude<IndexRange, "ALL">, number> = { "1M": 30, "3M":
 /** Ranges the series actually covers, plus ALL. */
 export function availableRanges(points: IndexPoint[]): IndexRange[] {
   if (points.length < 2) return [];
-  const spanDays = (Date.parse(points[points.length - 1].t) - Date.parse(points[0].t)) / 86_400_000;
+  const spanDays = (Date.parse(points[points.length - 1].t) - Date.parse(points[0].t)) / DAY_MS;
   const ranges = (Object.keys(RANGE_DAYS) as Exclude<IndexRange, "ALL">[]).filter((r) => spanDays >= RANGE_DAYS[r] * 0.9);
   return [...ranges, "ALL"];
 }
@@ -73,7 +74,7 @@ export function availableRanges(points: IndexPoint[]): IndexRange[] {
 /** Trailing slice of the series, re-based to 100 at its first point. */
 export function sliceIndex(points: IndexPoint[], range: IndexRange): IndexPoint[] {
   if (range === "ALL" || points.length < 2) return points;
-  const cutoff = Date.parse(points[points.length - 1].t) - RANGE_DAYS[range] * 86_400_000;
+  const cutoff = Date.parse(points[points.length - 1].t) - RANGE_DAYS[range] * DAY_MS;
   const slice = points.filter((p) => Date.parse(p.t) >= cutoff);
   if (slice.length < 2) return points;
   const base = slice[0].v;

@@ -1,5 +1,5 @@
 import type { HistoryPoint } from "@/lib/fast-market";
-import { daysBetween } from "@/lib/dates";
+import { daysBetween, isoDay } from "@/lib/dates";
 
 export interface HistoricalFxRate {
   /** Bank of Canada observation date in YYYY-MM-DD. */
@@ -12,12 +12,12 @@ function utcDay(value: string): string | null {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const dateOnlyTimestamp = Date.parse(`${value}T00:00:00Z`);
     if (!Number.isFinite(dateOnlyTimestamp) ||
-      new Date(dateOnlyTimestamp).toISOString().slice(0, 10) !== value) return null;
+      isoDay(dateOnlyTimestamp) !== value) return null;
     return value;
   }
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return null;
-  return new Date(timestamp).toISOString().slice(0, 10);
+  return isoDay(timestamp);
 }
 
 /**

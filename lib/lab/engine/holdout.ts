@@ -20,7 +20,7 @@ export interface SliceStats {
   maxDrawdown: Drawdown | null;
 }
 
-export interface HoldoutSplit {
+interface HoldoutSplit {
   /** First date of the hold-out piece. The last in-sample bar is its starting level. */
   splitDate: string;
   inSample: SliceStats;

@@ -110,7 +110,7 @@ export function splitAdjustedShares(annual: AnnualPeriod[]): (number | undefined
 
 const cagr = (from: number, to: number, years: number) => Math.pow(to / from, 1 / years) - 1;
 
-export interface CompanyMetrics {
+interface CompanyMetrics {
   fiscalYear: number | null;
   revenueGrowth3y: Measure;
   grossMargin: Measure;
@@ -242,7 +242,7 @@ export function computeMetrics(c: CompanyFilings): CompanyMetrics {
 }
 
 /** A stock split: `ratio` 10 means 10-for-1, `date` when it took effect (YYYY-MM-DD). */
-export interface StockSplit {
+interface StockSplit {
   date: string;
   ratio: number;
 }

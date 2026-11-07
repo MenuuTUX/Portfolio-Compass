@@ -5,7 +5,7 @@ import type { RebalanceChoice } from "@/lib/lab/lab-form";
 // one-click tweaks. Everything a lesson needs (dates, benchmark, rebalancing)
 // is set here so a run always matches what the code says.
 
-export interface LessonNote {
+interface LessonNote {
   /** 1-based line the note explains. */
   line: number;
   /** Text that must appear on that line; the note is hidden once the code no longer matches. */
@@ -13,7 +13,7 @@ export interface LessonNote {
   text: string;
 }
 
-export interface LessonTweak {
+interface LessonTweak {
   label: string;
   /** Plain text replacements, applied to every occurrence. */
   edits: [from: string, to: string][];

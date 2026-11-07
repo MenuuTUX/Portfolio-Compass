@@ -3,7 +3,7 @@
 
 const DB_NAME = "compass-lab";
 const VERSION = 2;
-export type LabStoreName = "bars" | "strategies";
+type LabStoreName = "bars" | "strategies";
 
 let opening: Promise<IDBDatabase> | null = null;
 

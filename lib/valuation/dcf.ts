@@ -60,7 +60,7 @@ export interface DcfInputs {
 /** DCF inputs without the growth rate, which the reverse solver chooses. */
 export type DcfBase = Omit<DcfInputs, "g1">;
 
-export interface DcfYear {
+interface DcfYear {
   year: number;
   growth: number;
   revenue: number;
@@ -74,7 +74,7 @@ export interface DcfYear {
   pv: number;
 }
 
-export interface DcfResult {
+interface DcfResult {
   perShare: number;
   equity: number;
   ev: number;

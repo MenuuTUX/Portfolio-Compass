@@ -1,13 +1,16 @@
 import { ETF } from "@/types";
 import { normalizeTicker } from "@/lib/tickers";
 
-function finiteNumber(value: any): number {
+function finiteNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+/** An untrusted payload: every field may be missing or the wrong type. */
+type RawEtfPayload = (Partial<ETF> & { daily_change?: unknown }) | null | undefined;
+
 /** Normalize a market/search payload into a portfolio-ready ETF shape. */
-export function toPortfolioEtf(raw: any, fallbackTicker: string): ETF {
+export function toPortfolioEtf(raw: RawEtfPayload, fallbackTicker: string): ETF {
   const ticker = normalizeTicker(raw?.ticker || fallbackTicker);
   return {
     ticker,

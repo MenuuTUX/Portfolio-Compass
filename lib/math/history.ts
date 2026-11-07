@@ -1,5 +1,5 @@
 import { Portfolio, PortfolioItem } from "@/types";
-import { DAY_MS, YEAR_DAYS } from "@/lib/dates";
+import { DAY_MS, YEAR_DAYS, isoDay } from "@/lib/dates";
 
 /**
  * What a history-derived return means. "total" uses dividend-adjusted closes,
@@ -9,7 +9,7 @@ import { DAY_MS, YEAR_DAYS } from "@/lib/dates";
  */
 export type ReturnBasis = "total" | "price";
 
-export interface AlignedPriceHistory {
+interface AlignedPriceHistory {
   dates: string[];
   /**
    * One series per holding. On the "total" basis each is the first aligned
@@ -70,7 +70,7 @@ export function observationsPerYear(dates: string[]): number {
   return (dates.length - 1) / years;
 }
 
-export type HistoryDiagnosis =
+type HistoryDiagnosis =
   | { ok: true }
   | { ok: false; reason: "too-short" | "gap"; ticker: string; found: number; needed: number; gapDays?: number };
 
@@ -81,7 +81,7 @@ function usableDates(points: ReadonlyArray<{ date: string; price: number }>): st
     const timestamp = new Date(point.date).getTime();
     const price = Number(point.price);
     if (!Number.isFinite(timestamp) || !Number.isFinite(price) || price <= 0) continue;
-    dates.add(new Date(timestamp).toISOString().slice(0, 10));
+    dates.add(isoDay(timestamp));
   }
   return [...dates].sort();
 }
@@ -158,7 +158,7 @@ export function alignPriceHistories(
 
       // The market endpoints return UTC timestamps, while some fixtures use a
       // date-only string. Normalizing to a UTC day handles both shapes.
-      const date = new Date(timestamp).toISOString().slice(0, 10);
+      const date = isoDay(timestamp);
       byDate.set(date, { price, adj: validAdjusted(point) });
     }
 

@@ -4,7 +4,7 @@ import { daysBetween, shiftIsoDate } from "@/lib/dates";
 // the range is split into windows, fetched a few at a time and merged.
 
 /** Rates as units of USD per one CAD, sorted by date, one point per date. */
-export interface UsdPerCadPoint {
+interface UsdPerCadPoint {
   date: string;
   rate: number;
 }
@@ -14,7 +14,7 @@ const WINDOW_DAYS = 700;
 const LOOKBACK_DAYS = 10;
 const MAX_IN_FLIGHT = 3;
 
-export type FetchJson = (url: string) => Promise<unknown>;
+type FetchJson = (url: string) => Promise<unknown>;
 
 function windowsFor(from: string, to: string): [string, string][] {
   const windows: [string, string][] = [];

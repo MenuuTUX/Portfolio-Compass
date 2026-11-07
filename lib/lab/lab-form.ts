@@ -4,6 +4,7 @@ import { strategyTickers, type NoCodeStrategy } from "@/lib/lab/no-code";
 import { extractTickers, LESSONS, type Lesson } from "@/lib/lab/lessons";
 import { CODE_TEMPLATES } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyLanguage } from "@/lib/lab/strategy/types";
+import { isoDay } from "@/lib/dates";
 
 // The Compass Lab form: what the user edits (a no-code rule or code), the
 // built-in templates, and the conversion into an engine request.
@@ -15,10 +16,10 @@ export const LAB_FORM_KEY = "pc:lab-form:v1";
 /** Largest universe the form accepts; keeps a cold load well inside the API's 120 requests per minute. */
 const MAX_UNIVERSE = 50;
 
-export type StrategyKind = NoCodeStrategy["kind"];
+type StrategyKind = NoCodeStrategy["kind"];
 export type RebalanceChoice = "on-change" | Period | "drift";
 
-export interface AllocationRow {
+interface AllocationRow {
   ticker: string;
   /** Percent, 0 to 100. */
   weight: number;
@@ -63,7 +64,7 @@ export interface LabForm {
   fill: BacktestConfig["fill"];
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => isoDay(new Date());
 
 export const BLANK_FORM: LabForm = {
   name: "Untitled strategy",
@@ -138,7 +139,7 @@ export function applyLesson(form: LabForm, lesson: Lesson): LabForm {
 /** The first lesson, loaded. */
 export const startGuided = (): LabForm => applyLesson(BLANK_FORM, LESSONS[0]);
 
-export interface Template {
+interface Template {
   id: string;
   label: string;
   description: string;
@@ -260,7 +261,7 @@ export function warmupDaysFor(strategy: LabRequest["strategy"], longestWindow?: 
   return 0;
 }
 
-export interface CodeStrategy {
+interface CodeStrategy {
   kind: "code";
   language: StrategyLanguage;
   code: string;

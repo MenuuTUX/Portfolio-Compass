@@ -1,6 +1,6 @@
 // How a fee or yield figure was sourced, and the text that explains it.
 
-const YAHOO_QUOTE_SOURCE = "Yahoo Finance quote";
+export const YAHOO_QUOTE_SOURCE = "Yahoo Finance quote";
 
 interface FieldProvenance {
   sourceField?: string | null;
@@ -79,18 +79,28 @@ export function getSourcedYield(
 }
 
 export function describeYieldProvenance(
-  source: string | null | undefined,
-  retrievedAt?: string | null,
-  sourceField?: string | null,
-  inputUnit?: string | null,
-  normalization?: string | null,
-  measurementDate?: string | null,
+  metrics: {
+    yieldSource?: string | null;
+    yieldRetrievedAt?: string | null;
+    yieldSourceField?: string | null;
+    yieldInputUnit?: string | null;
+    yieldNormalization?: string | null;
+    yieldMeasurementDate?: string | null;
+  } | null | undefined,
 ): string | undefined {
+  const source = metrics?.yieldSource;
+  const normalization = metrics?.yieldNormalization;
+  const measurementDate = metrics?.yieldMeasurementDate;
   const parts: string[] = [];
   if (isUnverifiedProviderYield(source)) {
     parts.push(
       "Yahoo Finance quote yield unavailable · definition and measurement date unverified",
-      ...fieldParts({ sourceField, inputUnit, normalization, measurementDate }),
+      ...fieldParts({
+        sourceField: metrics?.yieldSourceField,
+        inputUnit: metrics?.yieldInputUnit,
+        normalization,
+        measurementDate,
+      }),
       "raw provider value retained for reconciliation; definition may differ from issuer yield measures",
     );
   } else if (source) {
@@ -98,6 +108,6 @@ export function describeYieldProvenance(
     if (normalization) parts.push(normalization);
     if (measurementDate) parts.push(`measurement date ${measurementDate}`);
   }
-  parts.push(...retrievedPart(retrievedAt));
+  parts.push(...retrievedPart(metrics?.yieldRetrievedAt));
   return parts.length ? parts.join(" · ") : undefined;
 }

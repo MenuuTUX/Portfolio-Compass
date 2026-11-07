@@ -14,6 +14,8 @@ import {
 import { estimateMarketBeta, MARKET_PROXY, type BetaEstimate } from "@/lib/math/beta";
 import { fetchWithTimeout, timeoutSignal } from "@/lib/upstream";
 import { isTicker, normalizeTicker } from "@/lib/tickers";
+import { isoDay } from "@/lib/dates";
+import { YAHOO_QUOTE_SOURCE } from "@/lib/provenance";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -339,7 +341,7 @@ export function nextEarningsDate(
     .sort((a, b) => a - b)[0];
   return upcoming === undefined
     ? undefined
-    : new Date(upcoming).toISOString().split("T")[0];
+    : isoDay(upcoming);
 }
 
 export async function getFastQuotes(
@@ -1135,7 +1137,7 @@ export async function getFastEtfDetails(
       const selectedFee = normalizedQuoteFee ?? normalizedProfileFee;
       const expenseRatio = selectedFee?.value;
       const expenseRatioSource = normalizedQuoteFee
-        ? "Yahoo Finance quote"
+        ? YAHOO_QUOTE_SOURCE
         : normalizedProfileFee ? "Yahoo Finance fund profile" : undefined;
       const expenseRatioField = selectedFee?.sourceField;
 
@@ -1324,7 +1326,7 @@ export function quoteToAsset(
       yield: calculatedYield ?? q.dividendYield ?? null,
       yieldSource: calculatedYield !== null
         ? "Yahoo Finance dividend history (TTM)"
-        : q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+        : q.dividendYield !== undefined ? YAHOO_QUOTE_SOURCE : null,
       yieldRetrievedAt: calculatedYield !== null
         ? new Date().toISOString()
         : q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
@@ -1337,7 +1339,7 @@ export function quoteToAsset(
           : q.dividendYieldField === "dividendYield" ? "already percent" : null,
       yieldMeasurementDate: calculatedYield !== null ? q.quoteAsOf ?? null : null,
       mer: q.expenseRatio ?? null,
-      merSource: q.expenseRatio !== undefined ? "Yahoo Finance quote" : null,
+      merSource: q.expenseRatio !== undefined ? YAHOO_QUOTE_SOURCE : null,
       merRetrievedAt: q.expenseRatio !== undefined ? q.retrievedAt ?? null : null,
       merSourceField: q.expenseRatioField ?? null,
       merInputUnit: q.expenseRatioInputUnit ?? null,

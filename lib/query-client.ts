@@ -9,5 +9,4 @@ export function getQueryClient(): QueryClient {
   return browserClient;
 }
 
-/** React Query key of the saved portfolio. */
 export const PORTFOLIO_QUERY_KEY = ["portfolio"] as const;

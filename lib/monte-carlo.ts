@@ -1,7 +1,5 @@
 import { calculateCovarianceMatrix, mean } from "@/lib/math/stats";
 
-export { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
-
 /**
  * Calculates a linearly interpolated quantile from an unsorted sample.
  */
@@ -76,6 +74,7 @@ export function getRegularizedCholesky(matrix: number[][]): { L: number[][]; rid
       try {
         return { L: getCholeskyDecomposition(bumped), ridge };
       } catch {
+        // Still not positive definite: try the next, larger ridge.
       }
     }
     throw error;
@@ -233,7 +232,6 @@ function boxMullerTransform(random: () => number): number {
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
 
-
 /**
  * Percentiles for each recorded step across all simulations.
  */
@@ -270,10 +268,6 @@ export function calculateCone(paths: number[][]): MonteCarloCone {
 
   return cone;
 }
-
-// ---------------------------------------------------------------------------
-// Three simulation modes
-// ---------------------------------------------------------------------------
 
 /**
  * - reshuffle: the historical days in a random order. Every path ends at the
@@ -560,10 +554,6 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
   if (mode === "reshuffle") run.referencePath = markPath((d) => d % T);
   return run;
 }
-
-// ---------------------------------------------------------------------------
-// Summaries
-// ---------------------------------------------------------------------------
 
 /** Largest peak-to-trough fall along a path, as a fraction (0.25 = fell 25%). */
 export function maxDrawdown(path: ArrayLike<number>): number {

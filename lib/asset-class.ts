@@ -1,4 +1,6 @@
 import { normalizeTicker } from "@/lib/tickers";
+import { DAY_MS, YEAR_MS } from "@/lib/dates";
+import { std } from "@/lib/math/stats";
 
 /**
  * Asset-class helpers shared by enrichment + UI.
@@ -249,19 +251,15 @@ export function realizedAnnualVolatility(
     !Number.isFinite(point.date) || !Number.isFinite(point.price) || point.price <= 0
   )) return undefined;
   const years = (points.at(-1)!.date - points[0].date) /
-    (365.25 * 24 * 60 * 60 * 1000);
+    YEAR_MS;
   if (years < 0.5) return undefined;
   const rets: number[] = [];
   for (let i = 1; i < points.length; i++) {
-    const gapDays = (points[i].date - points[i - 1].date) / (24 * 60 * 60 * 1000);
+    const gapDays = (points[i].date - points[i - 1].date) / DAY_MS;
     if (gapDays <= 0 || gapDays > 10) return undefined;
     rets.push(Math.log(points[i].price / points[i - 1].price));
   }
-  const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
-  let varSum = 0;
-  for (const r of rets) varSum += (r - mean) ** 2;
-  const std = Math.sqrt(varSum / (rets.length - 1));
-  const ann = std * Math.sqrt(rets.length / years);
+  const ann = std(rets) * Math.sqrt(rets.length / years);
   if (!Number.isFinite(ann)) return undefined;
   return ann;
 }

@@ -23,7 +23,7 @@ import AssetProfileCard from "./workspace/AssetProfileCard";
 import EtfVerdictCard from "./workspace/EtfVerdictCard";
 import ComparisonModal from "./workspace/ComparisonModal";
 import { HelpTip } from "./ui/HelpTip";
-import { describeYieldProvenance, getSourcedYield } from "@/lib/provenance";
+import { describeYieldProvenance, getSourcedYield, YAHOO_QUOTE_SOURCE } from "@/lib/provenance";
 import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
 import { quoteSessionLabel } from "@/lib/quote-session";
 import { useId, useMemo, useState, type ReactNode } from "react";
@@ -421,13 +421,13 @@ export default function ETFDetailsDrawer({
           title: "Dividends",
           metrics: [
             {
-              label: displayEtf.metrics?.yieldSource === "Yahoo Finance quote"
+              label: displayEtf.metrics?.yieldSource === YAHOO_QUOTE_SOURCE
                 ? "Yahoo yield unavailable · unverified"
                 : "Div Yield",
               value: sourcedYield != null
                 ? `${sourcedYield.toFixed(2)}%`
-                : displayEtf.metrics?.yieldSource === "Yahoo Finance quote" ? "N/A" : null,
-              subValue: describeYieldProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt, displayEtf.metrics?.yieldSourceField, displayEtf.metrics?.yieldInputUnit, displayEtf.metrics?.yieldNormalization, displayEtf.metrics?.yieldMeasurementDate),
+                : displayEtf.metrics?.yieldSource === YAHOO_QUOTE_SOURCE ? "N/A" : null,
+              subValue: describeYieldProvenance(displayEtf.metrics),
             },
             {
               label: "Dividend",
@@ -532,11 +532,11 @@ export default function ETFDetailsDrawer({
         title: "Dividends",
         metrics: [
           {
-            label: displayEtf.metrics?.yieldSource === "Yahoo Finance quote"
+            label: displayEtf.metrics?.yieldSource === YAHOO_QUOTE_SOURCE
               ? "Yahoo yield unavailable · unverified"
               : "Dividend Yield",
             value: percentOrNA(sourcedYield, displayEtf.metrics?.yieldSource),
-            subValue: describeYieldProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt, displayEtf.metrics?.yieldSourceField, displayEtf.metrics?.yieldInputUnit, displayEtf.metrics?.yieldNormalization, displayEtf.metrics?.yieldMeasurementDate) ?? metricProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt),
+            subValue: describeYieldProvenance(displayEtf.metrics) ?? metricProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt),
           },
           {
             label: "Dividend (ttm)",

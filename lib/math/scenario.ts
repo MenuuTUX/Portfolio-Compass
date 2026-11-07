@@ -1,6 +1,6 @@
 import { annualRateToMonthlyRate } from "@/lib/math/portfolio-returns";
 
-export interface ScenarioPoint {
+interface ScenarioPoint {
   year: string;
   balance: number;
   invested: number;

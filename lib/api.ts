@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getRedditCommunities } from "@/config/tickers";
 import { normalizeTicker, parseTickers } from "@/lib/tickers";
 
-/** Valid tickers from user input, upper-cased, at most `max` of them. */
 export function parseUpperTickers(raw: readonly string[], max: number): string[] {
   return parseTickers(raw, max).map(normalizeTicker);
 }
