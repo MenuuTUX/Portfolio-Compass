@@ -19,7 +19,7 @@ import { isTicker, normalizeTicker } from "@/lib/tickers";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"], fetch: fetchWithTimeout });
 
-type ChartRange = "1D" | "1W" | "1M" | "1Y" | "5Y" | "MAX";
+export type ChartRange = "1D" | "1W" | "1M" | "1Y" | "5Y" | "MAX";
 
 export interface HistoryPoint {
   date: string;
