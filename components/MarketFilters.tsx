@@ -350,8 +350,6 @@ export default function MarketFilters({
   );
 }
 
-// Pure helpers used by ComparisonEngine to filter/sort lists
-
 function assetYield(etf: {
   metrics?: { yield?: number | null; yieldSource?: string | null };
   dividendYield?: number | null;
@@ -387,7 +385,6 @@ export function applyMarketFilters<
   },
 >(items: T[], filters: MarketFilterState): T[] {
   let list = items.filter((item) => {
-    // Performance
     if (filters.performance === "gainers" && !(item.changePercent > 0.5))
       return false;
     if (filters.performance === "losers" && !(item.changePercent < -0.5))
@@ -398,20 +395,17 @@ export function applyMarketFilters<
     )
       return false;
 
-    // Yield
     const y = assetYield(item);
     if (filters.yieldFilter !== "all" && y == null) return false;
     if (filters.yieldFilter === "any" && y! <= 0) return false;
     if (filters.yieldFilter === "high" && y! < 3) return false;
     if (filters.yieldFilter === "none" && y! > 0) return false;
 
-    // Size
     if (filters.size !== "all") {
       const bucket = sizeBucket(item.marketCap);
       if (bucket !== filters.size) return false;
     }
 
-    // P/E (stocks)
     if (filters.pe !== "all") {
       const pe = item.peRatio;
       if (filters.pe === "none") {

@@ -586,7 +586,7 @@ export default function ComparisonModal({
                           color: "var(--ink)",
                         }}
                         itemStyle={{ color: "var(--ink)" }}
-                        formatter={(val: any, name: any) => [
+                        formatter={(val, name) => [
                           `${Number(val).toFixed(2)}%`,
                           name === "valueA"
                             ? baseAsset.ticker

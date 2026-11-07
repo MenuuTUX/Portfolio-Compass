@@ -356,11 +356,8 @@ export default function PortfolioBarChart({
                             Source Breakdown
                           </span>
                           {[...payload]
-                            .sort(
-                              (a: any, b: any) =>
-                                (b.value || 0) - (a.value || 0),
-                            )
-                            .map((entry: any, idx: number) => (
+                            .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+                            .map((entry, idx) => (
                               <div
                                 key={idx}
                                 className="flex justify-between gap-4 items-center"

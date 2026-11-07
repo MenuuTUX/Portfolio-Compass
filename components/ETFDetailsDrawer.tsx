@@ -47,9 +47,6 @@ interface ETFDetailsDrawerProps {
   chart?: AssetChartState;
 }
 
-
-
-// Helper to format sector names (snake_case -> Title Case)
 function formatLargeNumber(num: number | undefined): string {
   if (num === undefined) return "n/a";
   if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
@@ -96,7 +93,6 @@ function metricProvenance(source?: string | null, retrievedAt?: string | null): 
   return [source, date ? `retrieved ${date}` : undefined].filter(Boolean).join(" · ");
 }
 
-// One label/value pair. Label (muted 12px) above value (12px).
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
@@ -688,7 +684,6 @@ export default function ETFDetailsDrawer({
 
   const content = displayEtf ? (
     <div className="px-4 pb-6 space-y-4">
-      {/* Price */}
       <div>
         <div className="flex items-baseline gap-1.5">
           <span className="text-[32px] leading-[38px] font-bold text-ink font-mono">
@@ -790,7 +785,6 @@ export default function ETFDetailsDrawer({
 
       {!external && aboutCard && <ClampedAbout>{aboutCard}</ClampedAbout>}
 
-      {/* Key metrics */}
       {hasAnyMetric ? (
         <div className="space-y-1">
           {metricSections
@@ -819,7 +813,6 @@ export default function ETFDetailsDrawer({
 
       {external && aboutCard && <RevealItem><ClampedAbout>{aboutCard}</ClampedAbout></RevealItem>}
 
-      {/* Allocation (ETFs only) */}
       {displayEtf.assetType !== "STOCK" && (
         <RevealItem>
         <Accordion
@@ -1007,7 +1000,6 @@ export default function ETFDetailsDrawer({
         </RevealItem>
       )}
 
-      {/* Communities */}
       {(() => {
         const configCommunities = getRedditCommunities(
           displayEtf.ticker,

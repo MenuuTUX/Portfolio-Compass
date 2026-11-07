@@ -214,7 +214,6 @@ export default function InstitutionalPortfolios({
                   onClick={(e) => e.stopPropagation()}
                   className="mx-auto flex min-h-full w-full max-w-6xl flex-col px-5 pb-10 pt-8 md:px-10 md:pt-12"
                 >
-                  {/* Header */}
                   <div className="flex items-start justify-between gap-6">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
@@ -242,7 +241,6 @@ export default function InstitutionalPortfolios({
                     </button>
                   </div>
 
-                  {/* Every firm, always visible */}
                   <div
                     role="group"
                     aria-label="Choose a firm"
@@ -281,7 +279,6 @@ export default function InstitutionalPortfolios({
                     </p>
                   )}
 
-                  {/* All three portfolios side by side */}
                   <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
                     {PORTFOLIO_TYPES.map((type, i) => {
                       const portfolio = selectedInstitution.portfolios[type];
