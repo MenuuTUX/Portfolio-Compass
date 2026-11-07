@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
 
 describe("yield provenance", () => {
   it("marks Yahoo quote values unverified and calls out definition ambiguity", () => {

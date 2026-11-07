@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { mapQuote, quoteToAsset } from "@/lib/fast-market";
-import { getSourcedYield } from "@/lib/yield-provenance";
+import { getSourcedYield } from "@/lib/provenance";
 import { ETFSchema } from "@/schemas/assetSchema";
 import recordedYahooQuotes from "@/tests/fixtures/yahoo-dividend-yield-percentage.json";
 

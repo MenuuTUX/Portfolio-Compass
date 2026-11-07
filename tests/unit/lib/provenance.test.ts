@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
 
 describe("sourced expense ratios", () => {
   it("requires a source and a finite nonnegative percent", () => {
