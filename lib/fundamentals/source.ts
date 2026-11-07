@@ -266,28 +266,22 @@ export interface FilingsLookup {
  */
 export function withFallback(...sources: FilingsSource[]): FilingsSource & {
   lookup: (ticker: string) => Promise<FilingsLookup>;
-  /** @deprecated Shared by all calls; with parallel calls it may hold another call's errors. Use `lookup().errors`. */
-  lastErrors: () => string[];
 } {
-  let lastCompleted: string[] = [];
   const lookup = async (ticker: string): Promise<FilingsLookup> => {
     const errors: string[] = [];
     for (const s of sources) {
       try {
         const company = await s.getCompany(ticker);
-        lastCompleted = errors;
         return { company, errors };
       } catch (e) {
         errors.push(`${s.id}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    lastCompleted = errors;
     throw Object.assign(new Error(`No filings source answered. ${errors.join(" ")}`), { errors });
   };
   return {
     id: sources[0].id,
     lookup,
-    lastErrors: () => lastCompleted,
     async getCompany(ticker) {
       return (await lookup(ticker)).company;
     },

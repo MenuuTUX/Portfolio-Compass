@@ -69,7 +69,7 @@ export interface SimResult {
 
 const EPS = 1e-9;
 
-export function periodKey(date: string, every: Period): string {
+function periodKey(date: string, every: Period): string {
   switch (every) {
     case "Y":
       return date.slice(0, 4);

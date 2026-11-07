@@ -4,7 +4,7 @@ import type { Frame } from "@/lib/lab/engine/frame";
 // the engine saw. Rerunning anything with the same hash must give the same
 // result; if it does not, the engine has a bug.
 
-export const ENGINE_VERSION = "lab-engine/0.1.0";
+const ENGINE_VERSION = "lab-engine/0.1.0";
 
 const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
@@ -33,7 +33,7 @@ const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
  * crypto.subtle is missing (plain HTTP), and it gives the same digest as
  * crypto.subtle, so a run's hash does not depend on the origin it ran from.
  */
-export function sha256(bytes: Uint8Array): Uint8Array {
+function sha256(bytes: Uint8Array): Uint8Array {
   const h = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
   const padded = new Uint8Array((((bytes.length + 9 + 63) >> 6) << 6));
   padded.set(bytes);

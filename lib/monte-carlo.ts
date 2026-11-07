@@ -102,7 +102,7 @@ export function createRandom(seed?: number): () => number {
 }
 
 /** Uniform integer in [0, n). */
-export function randomIndex(random: () => number, n: number): number {
+function randomIndex(random: () => number, n: number): number {
   return Math.min(n - 1, Math.floor(random() * n));
 }
 
@@ -287,8 +287,6 @@ export function calculateCone(paths: number[][]): MonteCarloCone {
  * - randomize: geometric Brownian motion fitted to the history (parametric).
  */
 export type SimulationMode = "reshuffle" | "resample" | "randomize";
-
-export const SIMULATION_MODES: readonly SimulationMode[] = ["reshuffle", "resample", "randomize"];
 
 /**
  * Added to the run seed per mode so each mode is reproducible on its own.

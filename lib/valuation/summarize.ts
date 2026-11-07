@@ -29,14 +29,14 @@ export interface Described {
 }
 
 /** Multiples outside this band make the terminal assumptions look stretched. */
-export const EXIT_MULTIPLE_HIGH = 35;
-export const EXIT_MULTIPLE_LOW = 6;
+const EXIT_MULTIPLE_HIGH = 35;
+const EXIT_MULTIPLE_LOW = 6;
 
 export type TerminalTier = "low" | "mid" | "high" | "failure";
 
 /** Growth shown as a number only inside this range. */
-export const DISPLAY_GROWTH_MIN = -0.1;
-export const DISPLAY_GROWTH_MAX = 0.4;
+const DISPLAY_GROWTH_MIN = -0.1;
+const DISPLAY_GROWTH_MAX = 0.4;
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 const pctWhole = (x: number) => `${Math.round(x * 100)}%`;

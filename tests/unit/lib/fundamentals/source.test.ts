@@ -96,8 +96,9 @@ describe("withFallback", () => {
       fixed("edgar-live", async () => { throw new Error("SEC request failed with 429"); }),
       fixed("snapshot", async () => ({ ...aapl, source: "snapshot" })),
     );
-    expect((await chain.getCompany("AAPL"))!.source).toBe("snapshot");
-    expect(chain.lastErrors()).toEqual(["edgar-live: SEC request failed with 429"]);
+    const { company, errors } = await chain.lookup("AAPL");
+    expect(company!.source).toBe("snapshot");
+    expect(errors).toEqual(["edgar-live: SEC request failed with 429"]);
   });
 
   it("returns each call's own errors when two calls run in parallel", async () => {

@@ -7,7 +7,7 @@ export type LabStoreName = "bars" | "strategies";
 
 let opening: Promise<IDBDatabase> | null = null;
 
-export function openLabDb(): Promise<IDBDatabase> {
+function openLabDb(): Promise<IDBDatabase> {
   opening ??= new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, VERSION);
     req.onupgradeneeded = (event) => {
@@ -33,7 +33,7 @@ export function openLabDb(): Promise<IDBDatabase> {
   return opening;
 }
 
-export function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
+function idbRequest<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);

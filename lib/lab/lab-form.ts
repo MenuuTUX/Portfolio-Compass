@@ -13,7 +13,7 @@ export const LAB_ACK_KEY = "pc:lab-ack:v1";
 export const LAB_FORM_KEY = "pc:lab-form:v1";
 
 /** Largest universe the form accepts; keeps a cold load well inside the API's 120 requests per minute. */
-export const MAX_UNIVERSE = 50;
+const MAX_UNIVERSE = 50;
 
 export type StrategyKind = NoCodeStrategy["kind"];
 export type RebalanceChoice = "on-change" | Period | "drift";

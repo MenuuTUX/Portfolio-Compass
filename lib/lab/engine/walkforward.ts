@@ -13,7 +13,7 @@ import { computeMetrics, type Drawdown } from "@/lib/lab/engine/metrics";
 /** Fewest bars a train window needs for its Sharpe to mean anything. */
 export const MIN_TRAIN_BARS = 126;
 /** Fewest bars a test window needs. */
-export const MIN_TEST_BARS = 21;
+const MIN_TEST_BARS = 21;
 
 export interface WalkForwardInput {
   /** One date per bar. */

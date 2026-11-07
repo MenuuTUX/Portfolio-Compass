@@ -26,7 +26,7 @@ export type FetchResult =
 /** Same as the server's CDN lifetime for a history that stops short of `through`. */
 export const RECHECK_MS = 30 * 60_000;
 
-export function isFresh(hit: CachedRecord | undefined, through: string, now: Date): boolean {
+function isFresh(hit: CachedRecord | undefined, through: string, now: Date): boolean {
   if (hit?.v !== 1 || hit.through < through) return false;
   if (hit.d[hit.d.length - 1] >= through) return true;
   const received = Date.parse(hit.receivedAt ?? "");
@@ -54,7 +54,7 @@ export function memoryBarStore(): BarStore {
   };
 }
 
-export const fetchHistoryFromApi: FetchHistory = async (ticker, through) => {
+const fetchHistoryFromApi: FetchHistory = async (ticker, through) => {
   const params = new URLSearchParams({ ticker, through });
   const res = await fetch(`/api/market/bars?${params}`);
   if (res.ok) return { ok: true, series: (await res.json()) as CompactSeries };

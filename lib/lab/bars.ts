@@ -28,7 +28,7 @@ function remember(key: string, value: CompactSeries | null) {
 }
 
 /** Yahoo's way of saying a symbol has no chart, as opposed to a failed request. */
-export function isNoDataError(error: unknown): boolean {
+function isNoDataError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return /no data found|symbol may be delisted|not found/i.test(message);
 }
