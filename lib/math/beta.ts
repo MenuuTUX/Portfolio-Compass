@@ -1,3 +1,4 @@
+import { olsSlope } from "@/lib/math/stats";
 import { selectReturnBasis, validAdjusted, type ReturnBasis } from "@/lib/math/history";
 
 /**
@@ -68,17 +69,9 @@ export function estimateMarketBeta(
   const n = assetReturns.length;
   if (n < MIN_BETA_OBSERVATIONS) return null;
 
-  const meanA = assetReturns.reduce((s, r) => s + r, 0) / n;
-  const meanM = marketReturns.reduce((s, r) => s + r, 0) / n;
-  let cov = 0;
-  let varM = 0;
-  for (let i = 0; i < n; i++) {
-    cov += (assetReturns[i] - meanA) * (marketReturns[i] - meanM);
-    varM += (marketReturns[i] - meanM) ** 2;
-  }
-  if (!(varM > 0)) return null;
-
-  const beta = cov / varM;
+  const fit = olsSlope(marketReturns, assetReturns);
+  if (!fit) return null;
+  const beta = fit.slope;
   if (!Number.isFinite(beta)) return null;
 
   return {

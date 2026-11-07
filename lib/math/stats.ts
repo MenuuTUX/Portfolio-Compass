@@ -66,3 +66,18 @@ export function calculateCovarianceMatrix(allReturns: number[][]): number[][] {
   return cov;
 }
 
+
+/** Least-squares line y = intercept + slope * x, or null when x has no variance. */
+export function olsSlope(x: number[], y: number[]): { slope: number; intercept: number; sxx: number } | null {
+  const mx = mean(x);
+  const my = mean(y);
+  let sxx = 0;
+  let sxy = 0;
+  for (let i = 0; i < x.length; i++) {
+    sxx += (x[i] - mx) ** 2;
+    sxy += (x[i] - mx) * (y[i] - my);
+  }
+  if (!(sxx > 0)) return null;
+  const slope = sxy / sxx;
+  return { slope, intercept: my - slope * mx, sxx };
+}
