@@ -11,7 +11,7 @@ import { EASE } from "@/lib/motion";
 import { startVisibleInterval } from "@/lib/polling";
 import { squarify } from "@/lib/treemap";
 import { cn } from "@/lib/cn";
-import type { HeatmapPayload, HeatmapStock } from "@/app/api/market/heatmap/route";
+import type { HeatmapPayload, HeatmapStock } from "@/lib/heatmap";
 
 // Layout runs in CSS px against the measured container
 const DEFAULT_ASPECT = 170 / 100;

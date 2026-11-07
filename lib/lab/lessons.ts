@@ -1,4 +1,6 @@
-import type { RebalanceChoice } from "@/lib/lab/lab-form";
+import type { Period } from "@/lib/lab/engine/simulate";
+
+export type RebalanceChoice = "on-change" | Period | "drift";
 
 // Guided lessons for the Lab: short Python strategies written against the
 // per-day decide(day) API, each with notes tied to lines of the code and

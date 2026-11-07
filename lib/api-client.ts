@@ -39,7 +39,7 @@ export async function fetchSnapshot(tickers: string[], includeHistory = false): 
   }
 }
 
-export interface ChartResponse {
+interface ChartResponse {
   series?: Record<string, { date: string; price: number }[]>;
   candles?: Candle[];
 }

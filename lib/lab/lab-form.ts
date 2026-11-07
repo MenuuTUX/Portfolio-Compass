@@ -1,7 +1,7 @@
 import { parseTickers } from "@/lib/tickers";
-import { DEFAULT_CONFIG, type BacktestConfig, type Period } from "@/lib/lab/engine/simulate";
+import { DEFAULT_CONFIG, type BacktestConfig } from "@/lib/lab/engine/simulate";
 import { strategyTickers, type NoCodeStrategy } from "@/lib/lab/no-code";
-import { extractTickers, LESSONS, type Lesson } from "@/lib/lab/lessons";
+import { extractTickers, LESSONS, type Lesson, type RebalanceChoice } from "@/lib/lab/lessons";
 import { CODE_TEMPLATES } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyLanguage } from "@/lib/lab/strategy/types";
 import { isoDay } from "@/lib/dates";
@@ -17,7 +17,6 @@ export const LAB_FORM_KEY = "pc:lab-form:v1";
 const MAX_UNIVERSE = 50;
 
 type StrategyKind = NoCodeStrategy["kind"];
-export type RebalanceChoice = "on-change" | Period | "drift";
 
 interface AllocationRow {
   ticker: string;
