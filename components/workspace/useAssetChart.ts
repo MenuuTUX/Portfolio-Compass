@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fetchChart } from "@/lib/api-client";
 import type { Candle, ChartRange } from "@/lib/fast-market";
 
 export const RANGE_META = {
@@ -86,13 +87,7 @@ export function useAssetChart(
     const tickers = compare ? `${tickerKey},SPY` : tickerKey;
     const key = `${tickerKey}|${range}|${compare}|${nonce}`;
 
-    fetch(
-      `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=${range}`,
-      { signal: controller.signal },
-    )
-      .then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
-      )
+    fetchChart({ tickers, range, signal: controller.signal })
       .then((data) => {
         if (cancelled) return;
         setSeriesState({
@@ -120,13 +115,7 @@ export function useAssetChart(
   useEffect(() => {
     if (!candleKey) return;
     const controller = new AbortController();
-    fetch(
-      `/api/market/chart?tickers=${encodeURIComponent(tickerKey)}&range=${range}&ohlc=1`,
-      { signal: controller.signal },
-    )
-      .then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
-      )
+    fetchChart({ tickers: tickerKey, range, ohlc: true, signal: controller.signal })
       .then((data) => setCandleState({ key: candleKey, bars: data.candles || [] }))
       .catch((err) => {
         if (err?.name !== "AbortError") {

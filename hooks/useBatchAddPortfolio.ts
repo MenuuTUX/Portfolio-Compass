@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { searchMarket } from "@/lib/api-client";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
@@ -55,9 +56,7 @@ async function fetchStocksByTickers(tickers: string[]): Promise<ETF[]> {
     await Promise.all(
       missing.map(async (ticker) => {
         try {
-          const res = await fetch(
-            `/api/market/search?query=${encodeURIComponent(ticker)}&limit=5`,
-          );
+          const res = await searchMarket({ query: ticker, limit: 5 });
           if (!res.ok) return;
           const data = await res.json();
           if (!Array.isArray(data)) return;

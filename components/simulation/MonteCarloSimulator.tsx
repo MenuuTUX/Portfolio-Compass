@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { formatCurrency } from "@/lib/utils";
+import { fetchChart } from "@/lib/api-client";
 import { Portfolio } from "@/types";
 import { m as motion, AnimatePresence } from "framer-motion";
 import {
@@ -221,12 +222,7 @@ export default function MonteCarloSimulator({
 
       try {
         const tickers = heldPortfolio.map((p) => p.ticker).join(",");
-        const res = await fetch(
-          `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y&adjusted=1`,
-        );
-        if (!res.ok) throw new Error("Failed to fetch historical data");
-
-        const { series } = await res.json();
+        const { series } = await fetchChart({ tickers, range: "1Y", adjusted: true });
 
         historyPortfolio = heldPortfolio.map((item) => {
           const points = series?.[item.ticker.toUpperCase()];

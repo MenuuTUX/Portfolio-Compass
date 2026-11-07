@@ -4,6 +4,8 @@ import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
 import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
+import { getJson, searchMarket } from "@/lib/api-client";
+import { QUOTE_REFRESH_MS } from "@/lib/polling";
 import { toPortfolioEtf } from "./normalize";
 import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
@@ -179,9 +181,7 @@ export const usePortfolio = (refreshEnabled = false) => {
       if (missing.length > 0) {
         await Promise.all(missing.map(async (ticker) => {
           try {
-            const response = await fetch(
-              `/api/market/search?query=${encodeURIComponent(ticker)}&limit=5&history=false&profiles=false`,
-            );
+            const response = await searchMarket({ query: ticker, limit: 5, details: false });
             if (!response.ok) return;
             const assets = await response.json();
             const match = Array.isArray(assets)
@@ -198,7 +198,7 @@ export const usePortfolio = (refreshEnabled = false) => {
     },
     staleTime: 15000,
     refetchOnWindowFocus: true,
-    refetchInterval: refreshEnabled ? 60000 : false,
+    refetchInterval: refreshEnabled ? QUOTE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const { data, isStale, refetch } = query;
@@ -226,8 +226,7 @@ export const usePortfolio = (refreshEnabled = false) => {
     if (!tickersKey) return;
     let cancelled = false;
 
-    fetch(`/api/etfs/search?tickers=${encodeURIComponent(tickersKey)}&includeHistory=true&adjusted=true&profiles=true`)
-      .then((response) => response.ok ? response.json() : [])
+    getJson<ETF[]>(`/api/etfs/search?tickers=${encodeURIComponent(tickersKey)}&includeHistory=true&adjusted=true&profiles=true`, [])
       .then((assets: ETF[]) => {
         if (cancelled || !Array.isArray(assets)) return;
         const detailsByTicker = new Map(
@@ -260,8 +259,7 @@ export const usePortfolio = (refreshEnabled = false) => {
     if (!profileKey) return;
     let cancelled = false;
     Promise.all(profileKey.split(",").map((ticker) =>
-      fetch(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`)
-        .then((response) => response.ok ? response.json() : null)
+      getJson<any>(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`, null)
         .catch(() => null),
     )).then((funds) => {
       if (cancelled) return;

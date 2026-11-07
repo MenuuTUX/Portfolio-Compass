@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ETF } from "@/types";
-
-// How often an open asset re-pulls its quote (the server caches quotes for 30s)
-const QUOTE_REFRESH_MS = 60_000;
+import { getJson, syncEtf } from "@/lib/api-client";
+import { startVisibleInterval } from "@/lib/polling";
 
 // Tickers that already ran a background deep-sync this session; avoids
 // re-hitting the slow scrape pipeline every time a drawer re-opens
@@ -66,8 +65,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
     let cancelled = false;
 
     const pullQuote = () =>
-      fetch(`/api/market/snapshot?tickers=${etf.ticker}&history=false`)
-        .then((res) => (res.ok ? res.json() : []))
+      getJson<ETF[]>(`/api/market/snapshot?tickers=${etf.ticker}&history=false`, [])
         .then((data) => {
           if (cancelled || !Array.isArray(data) || data.length === 0) return;
           const snap = data.find(
@@ -77,14 +75,10 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
         })
         .catch(() => {});
     void pullQuote();
-    // Keep the quote live while the tab is in view
-    const quoteTimer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void pullQuote();
-    }, QUOTE_REFRESH_MS);
+    const stopQuoteTimer = startVisibleInterval(() => void pullQuote());
 
     // Fund technicals: Yahoo + gap-fill (fee, holdings, credit quality)
-    fetch(`/api/market/etf-details?ticker=${encodeURIComponent(etf.ticker)}`)
-      .then((res) => (res.ok ? res.json() : null))
+    getJson<any>(`/api/market/etf-details?ticker=${encodeURIComponent(etf.ticker)}`, null)
       .then((fund) => {
         if (cancelled || !fund) return;
         setFreshEtf((prev) => {
@@ -133,8 +127,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
       .catch(() => {});
 
     // Whatever the DB already knows (sectors, holdings from a past sync)
-    fetch(`/api/etfs/search?query=${etf.ticker}&includeHoldings=true`)
-      .then((res) => (res.ok ? res.json() : []))
+    getJson<ETF[]>(`/api/etfs/search?query=${etf.ticker}&includeHoldings=true`, [])
       .then((data) => {
         if (cancelled || !Array.isArray(data)) return;
         const match = data.find((item) => item.ticker === etf.ticker);
@@ -145,11 +138,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
     // Background deep sync; merge when it lands
     if (!deepSyncedThisSession.has(etf.ticker)) {
       deepSyncedThisSession.add(etf.ticker);
-      fetch("/api/etfs/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: etf.ticker }),
-      })
+      syncEtf(etf.ticker)
         .then((res) => (res.ok ? res.json() : null))
         .then((deep) => {
           if (cancelled || !deep?.ticker) return;
@@ -162,7 +151,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
 
     return () => {
       cancelled = true;
-      window.clearInterval(quoteTimer);
+      stopQuoteTimer();
     };
   }, [etf]);
 

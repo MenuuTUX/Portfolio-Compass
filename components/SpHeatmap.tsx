@@ -6,7 +6,9 @@ import { AnimatePresence, m as motion } from "framer-motion";
 import { Check, ChevronDown, X } from "lucide-react";
 import { DEFAULT_HEATMAP_GROUP, HEATMAP_GROUPS, type HeatmapGroupId } from "@/config/sp500-heatmap";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
+import { getJson } from "@/lib/api-client";
 import { EASE } from "@/lib/motion";
+import { startVisibleInterval } from "@/lib/polling";
 import { squarify } from "@/lib/treemap";
 import { cn } from "@/lib/cn";
 import type { HeatmapPayload, HeatmapStock } from "@/app/api/market/heatmap/route";
@@ -18,7 +20,6 @@ const SECTOR_LABEL_H = 16;
 const CLAMP_PCT = 3;
 // Smallest logo worth drawing, in CSS px; smaller tiles are folded into a "+N" group
 const MIN_LOGO_PX = 18;
-const HEATMAP_REFRESH_MS = 60_000;
 const FALLBACK_WIDTH = 700;
 const FALLBACK_HEIGHT = FALLBACK_WIDTH / DEFAULT_ASPECT;
 
@@ -122,17 +123,14 @@ export default function SpHeatmap({ onSelectTicker, className, fill = false }: S
       .catch((err) => {
         if (err?.name !== "AbortError") setFailedGroup(group);
       });
-    // Re-pull quietly while the tab is in view; the server caches for 30s
-    const timer = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      fetch(`/api/market/heatmap?group=${group}`, { signal: controller.signal })
-        .then((res) => (res.ok ? res.json() : null))
-        .then((json: HeatmapPayload | null) => json && setPayload(json))
+    const stopTimer = startVisibleInterval(() => {
+      getJson<HeatmapPayload | null>(`/api/market/heatmap?group=${group}`, null, { signal: controller.signal })
+        .then((json) => json && setPayload(json))
         .catch(() => {});
-    }, HEATMAP_REFRESH_MS);
+    });
     return () => {
       controller.abort();
-      window.clearInterval(timer);
+      stopTimer();
     };
   }, [group]);
 

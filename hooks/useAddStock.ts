@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { searchMarket } from "@/lib/api-client";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
@@ -44,9 +45,7 @@ async function resolveStock(
   }
 
   // Fast market fallback using the same database-free path as the browse UI.
-  const marketRes = await fetch(
-    `/api/market/search?query=${encodeURIComponent(target)}&limit=10`,
-  );
+  const marketRes = await searchMarket({ query: target, limit: 10 });
   if (marketRes.ok) {
     const marketResults = await marketRes.json();
     if (Array.isArray(marketResults)) {

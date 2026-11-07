@@ -1,5 +1,6 @@
 "use client";
 
+import { searchMarket, syncEtf } from "@/lib/api-client";
 import Image from "next/image";
 import {
   useState,
@@ -343,13 +344,6 @@ export default function ComparisonEngine({
 
   const fetchEtfs = useCallback(
     async (query: string, skip = 0, signal?: AbortSignal) => {
-      const buildUrl = (includeDetails: boolean) => {
-        let url = `/api/market/search?query=${encodeURIComponent(query)}&skip=${skip}&limit=24`;
-        if (assetType) url += `&type=${encodeURIComponent(assetType)}`;
-        if (!includeDetails) url += "&history=false&profiles=false";
-        return url;
-      };
-
       const parseAssets = async (response: Response): Promise<ETF[]> => {
         const rawData = await response.json();
         try {
@@ -386,7 +380,7 @@ export default function ComparisonEngine({
       };
 
       try {
-        const res = await fetch(buildUrl(skip !== 0), { signal });
+        const res = await searchMarket({ query, skip, limit: 24, type: assetType, details: skip === 0, signal });
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await parseAssets(res);
         const count = applyResults(data, skip);
@@ -507,11 +501,7 @@ export default function ComparisonEngine({
 
       if (etf.isDeepAnalysisLoaded) return;
 
-      fetch("/api/etfs/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: etf.ticker }),
-      })
+      syncEtf(etf.ticker)
         .then(async (res) => {
           if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));

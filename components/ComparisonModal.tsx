@@ -27,7 +27,7 @@ import { getAssetIconUrl } from "@/lib/etf-providers";
 import SectorPieChart from "./SectorPieChart";
 import { EASE } from "@/lib/motion";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
-import { fetchSnapshot } from "@/lib/api-client";
+import { fetchChart, fetchSnapshot, searchMarket } from "@/lib/api-client";
 import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
 import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
 
@@ -127,8 +127,7 @@ export default function ComparisonModal({
     let cancelled = false;
     const tickers = `${baseAsset.ticker.toUpperCase()},${compareAsset.ticker.toUpperCase()}`;
 
-    fetch(`/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=1Y`)
-      .then((res) => (res.ok ? res.json() : null))
+    fetchChart({ tickers, range: "1Y" })
       .then((data) => {
         if (!cancelled && data?.series) setComparisonSeries(data.series);
       })
@@ -147,12 +146,7 @@ export default function ComparisonModal({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const typeFilter = baseAsset.assetType
-          ? `&type=${baseAsset.assetType}`
-          : "";
-        const res = await fetch(
-          `/api/market/search?query=${encodeURIComponent(searchQuery)}${typeFilter}`,
-        );
+        const res = await searchMarket({ query: searchQuery, type: baseAsset.assetType });
         if (res.ok) {
           const data = await res.json();
           setSearchResults(

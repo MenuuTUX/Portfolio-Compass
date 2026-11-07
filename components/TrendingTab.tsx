@@ -32,7 +32,8 @@ import ImportPortfolioCard from "./ImportPortfolioCard";
 import InstitutionalPortfolios from "./InstitutionalPortfolios";
 import { BatchAddItem, useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
 import { useIsLg } from "@/hooks/useMediaQuery";
-import { fetchFearGreed, fetchSnapshot, type FearGreedData } from "@/lib/api-client";
+import { fetchFearGreed, fetchSnapshot, getJson, type FearGreedData } from "@/lib/api-client";
+import { startVisibleInterval } from "@/lib/polling";
 import {
   MAG7_TICKERS,
   JUST_BUY_TICKERS,
@@ -46,8 +47,6 @@ interface TrendingTabProps {
   onImportPortfolio?: (items: PortfolioItem[]) => void;
   onNavigate?: (tab: "TRENDING" | "PORTFOLIO" | "ETFS" | "STOCKS") => void;
 }
-
-const QUOTE_REFRESH_MS = 60_000;
 
 const signed = (n: number, digits = 2) =>
   `${n > 0 ? "+" : n < 0 ? "-" : ""}${Math.abs(n).toFixed(digits)}`;
@@ -274,12 +273,8 @@ export default function TrendingTab({
     const fetchMovers = async () => {
       try {
         const [gainersRaw, losersRaw] = await Promise.all([
-          fetch("/api/market/movers?type=gainers").then((res) =>
-            res.ok ? res.json() : { tickers: [] },
-          ),
-          fetch("/api/market/movers?type=losers").then((res) =>
-            res.ok ? res.json() : { tickers: [] },
-          ),
+          getJson("/api/market/movers?type=gainers", { tickers: [] }),
+          getJson("/api/market/movers?type=losers", { tickers: [] }),
         ]);
         if (cancelled) return;
 
@@ -329,7 +324,6 @@ export default function TrendingTab({
     // Keep prices live: re-pull quotes (no history) for everything on screen and
     // merge them into the existing rows so sparklines and details survive.
     const refreshQuotes = async () => {
-      if (document.visibilityState !== "visible") return;
       const tickers = Array.from(
         new Set([...liveTickers.curated, ...liveTickers.movers]),
       );
@@ -353,11 +347,11 @@ export default function TrendingTab({
         console.warn("Live quote refresh failed:", error);
       }
     };
-    const quoteTimer = window.setInterval(refreshQuotes, QUOTE_REFRESH_MS);
+    const stopQuoteTimer = startVisibleInterval(refreshQuotes);
 
     return () => {
       cancelled = true;
-      window.clearInterval(quoteTimer);
+      stopQuoteTimer();
     };
   }, []);
 
