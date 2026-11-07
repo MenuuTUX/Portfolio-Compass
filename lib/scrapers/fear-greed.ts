@@ -2,7 +2,7 @@ import { z } from "zod";
 import { timeoutSignal } from "@/lib/upstream";
 import { BROWSER_USER_AGENT } from "@/lib/scrapers/user-agent";
 
-interface FearAndGreedData {
+export interface FearAndGreedData {
   score: number;
   rating: string;
   updatedAt: string;
