@@ -199,6 +199,9 @@ export default function PortfolioBuilder({
     useState<Portfolio>(portfolio);
   const isInteracting = useRef(false);
   const sortTimeout = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => () => {
+    if (sortTimeout.current) clearTimeout(sortTimeout.current);
+  }, []);
 
   // Latest portfolio for the debounced re-sort: without this, the timeout in
   // handleInteraction would close over a stale portfolio snapshot

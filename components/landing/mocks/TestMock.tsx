@@ -134,6 +134,10 @@ export default function TestMock() {
     timer.current = setTimeout(() => setRunning(false), RUN_MS);
   };
 
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+
   useEffect(() => {
     if (!inView) return;
     timer.current = setTimeout(() => setRunning(false), RUN_MS);
