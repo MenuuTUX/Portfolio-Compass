@@ -4,10 +4,14 @@ import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } f
 describe("yield provenance", () => {
   it("marks Yahoo quote values unverified and calls out definition ambiguity", () => {
     expect(isUnverifiedProviderYield("Yahoo Finance quote")).toBe(true);
-    const description = describeYieldProvenance(
-      "Yahoo Finance quote", "2026-09-26T10:00:00.000Z",
-      "trailingAnnualDividendYield", "fraction", "fraction × 100 to percent", null,
-    );
+    const description = describeYieldProvenance({
+      yieldSource: "Yahoo Finance quote",
+      yieldRetrievedAt: "2026-09-26T10:00:00.000Z",
+      yieldSourceField: "trailingAnnualDividendYield",
+      yieldInputUnit: "fraction",
+      yieldNormalization: "fraction × 100 to percent",
+      yieldMeasurementDate: null,
+    });
     expect(description).toContain("trailingAnnualDividendYield");
     expect(description).toContain("input unit: fraction");
     expect(description).toContain("normalized as fraction × 100 to percent");
@@ -18,7 +22,7 @@ describe("yield provenance", () => {
 
   it("does not label issuer sourced values as Yahoo-reported", () => {
     expect(isUnverifiedProviderYield("Issuer factsheet")).toBe(false);
-    expect(describeYieldProvenance("Issuer factsheet")).toBe("Issuer factsheet");
+    expect(describeYieldProvenance({ yieldSource: "Issuer factsheet" })).toBe("Issuer factsheet");
   });
 
   it("withholds source-free values and accepts sourced values with a fallback", () => {

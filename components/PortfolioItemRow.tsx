@@ -70,14 +70,7 @@ const PortfolioItemRow = memo(
           : null;
     const yieldValue = getSourcedYield(item.metrics, item.dividendYield);
     const yieldUnverified = isUnverifiedProviderYield(item.metrics?.yieldSource);
-    const yieldProvenance = describeYieldProvenance(
-      item.metrics?.yieldSource,
-      item.metrics?.yieldRetrievedAt,
-      item.metrics?.yieldSourceField,
-      item.metrics?.yieldInputUnit,
-      item.metrics?.yieldNormalization,
-      item.metrics?.yieldMeasurementDate,
-    );
+    const yieldProvenance = describeYieldProvenance(item.metrics);
     const expenseRatio = getSourcedExpenseRatio(item.metrics);
 
     const weight = item.weight ?? 0;

@@ -12,6 +12,7 @@ import { z } from "zod";
 import { isTicker, normalizeTicker } from "@/lib/tickers";
 import { jsonError, redditCommunities } from "@/lib/api";
 import { NO_STORE } from "@/lib/http-cache";
+import { YAHOO_QUOTE_SOURCE } from "@/lib/provenance";
 
 /**
  * "Sync" a ticker = refresh live market + fund details.
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         yield: calculatedYield ?? q.dividendYield ?? null,
         yieldSource: calculatedYield !== null
           ? "Yahoo Finance dividend history (TTM)"
-          : q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+          : q.dividendYield !== undefined ? YAHOO_QUOTE_SOURCE : null,
         yieldRetrievedAt: calculatedYield !== null
           ? yieldRetrievedAt
           : q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
         yieldMeasurementDate: calculatedYield !== null ? q.quoteAsOf ?? null : null,
         mer: q.expenseRatio ?? details?.expenseRatio ?? null,
         merSource: q.expenseRatio !== undefined
-          ? "Yahoo Finance quote"
+          ? YAHOO_QUOTE_SOURCE
           : details?.expenseRatioSource ?? null,
         merRetrievedAt: q.expenseRatio !== undefined
           ? q.retrievedAt ?? null

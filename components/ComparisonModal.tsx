@@ -259,7 +259,7 @@ export default function ComparisonModal({
           : "Div Yield",
         (asset) => getSourcedYield(asset.metrics, asset.dividendYield),
         (v) => `${v.toFixed(2)}%`,
-        (asset) => describeYieldProvenance(asset.metrics?.yieldSource, asset.metrics?.yieldRetrievedAt, asset.metrics?.yieldSourceField, asset.metrics?.yieldInputUnit, asset.metrics?.yieldNormalization, asset.metrics?.yieldMeasurementDate),
+        (asset) => describeYieldProvenance(asset.metrics),
       );
     } else {
       addMetric(
@@ -275,7 +275,7 @@ export default function ComparisonModal({
           : "Yield",
         (asset) => getSourcedYield(asset.metrics, asset.dividendYield),
         (v) => `${v.toFixed(2)}%`,
-        (asset) => describeYieldProvenance(asset.metrics?.yieldSource, asset.metrics?.yieldRetrievedAt, asset.metrics?.yieldSourceField, asset.metrics?.yieldInputUnit, asset.metrics?.yieldNormalization, asset.metrics?.yieldMeasurementDate),
+        (asset) => describeYieldProvenance(asset.metrics),
       );
       addMetric("Holdings", (asset) => asset.holdingsCount, (v) =>
         Math.round(v).toLocaleString(),
