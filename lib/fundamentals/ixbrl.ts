@@ -1,3 +1,4 @@
+import { DAY_MS } from "@/lib/dates";
 /**
  * Some filers (Cisco, Microsoft) tag the cash-flow depreciation line with their own extension tag, such as
  * csco:DepreciationAmortizationAndOther. The SEC company-facts API leaves extension tags out, so the figure is
@@ -5,8 +6,7 @@
  */
 
 const DA_NAMES = /^(?!us-gaap:|dei:|srt:)[\w.-]+:(DepreciationAmortizationAndOther|DepreciationDepletionAndAmortization|DepreciationAndAmortization|DepreciationAmortizationAndAccretionNet)$/;
-const DAY = 86_400_000;
-const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <= 3 * DAY;
+const near = (a: string, b: string) => Math.abs(Date.parse(a) - Date.parse(b)) <= 3 * DAY_MS;
 
 /** Ids of the plain (no dimension) contexts whose duration is the given fiscal year. */
 function yearContexts(html: string, start: string, end: string): Set<string> {

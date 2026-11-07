@@ -1,3 +1,4 @@
+import { daysBetween, shiftIsoDate } from "@/lib/dates";
 // USD/CAD history for Compass Lab, from the Bank of Canada through
 // /api/market/fx-history. The route answers at most two years per request, so
 // the range is split into windows, fetched a few at a time and merged.
@@ -15,22 +16,12 @@ const MAX_IN_FLIGHT = 3;
 
 export type FetchJson = (url: string) => Promise<unknown>;
 
-function shiftDate(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function daysBetween(from: string, to: string): number {
-  return (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000;
-}
-
 function windowsFor(from: string, to: string): [string, string][] {
   const windows: [string, string][] = [];
   for (let s = from; s <= to; ) {
-    const e = daysBetween(s, to) >= WINDOW_DAYS - 1 ? shiftDate(s, WINDOW_DAYS - 1) : to;
+    const e = daysBetween(s, to) >= WINDOW_DAYS - 1 ? shiftIsoDate(s, WINDOW_DAYS - 1) : to;
     windows.push([s, e]);
-    s = shiftDate(e, 1);
+    s = shiftIsoDate(e, 1);
   }
   return windows;
 }
@@ -50,7 +41,7 @@ export async function loadUsdCadSeries(
   end: string,
   fetchJson: FetchJson = defaultFetchJson,
 ): Promise<UsdPerCadPoint[]> {
-  const from = shiftDate(start, -LOOKBACK_DAYS);
+  const from = shiftIsoDate(start, -LOOKBACK_DAYS);
   const windows = windowsFor(from, end);
   const failure = `Could not load USD/CAD exchange rates from ${from} to ${end}. Try again in a minute.`;
 

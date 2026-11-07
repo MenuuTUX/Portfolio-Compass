@@ -9,6 +9,7 @@ import type { AnnualPeriod, CompanyFilings, FactValue, LineItem, TrailingPeriod 
 import { blumeAdjustBeta, computeWacc, terminalGrowthCap } from "./wacc";
 import { MARGINAL_TAX, type DcfInputs } from "./dcf";
 import { kindForSic } from "../fundamentals/sector";
+import { DAY_MS } from "@/lib/dates";
 
 export interface ReadinessContext {
   /** Valuation date, YYYY-MM-DD. The library never reads the clock. */
@@ -37,7 +38,6 @@ export type ReadinessResult =
 type Items = Partial<Record<LineItem, FactValue>>;
 type Period = { items: Items } | AnnualPeriod | TrailingPeriod | null | undefined;
 
-const DAY = 86_400_000;
 const DEFAULT_ERP = 0.045;
 /** Upper limit on the return on new capital taken from history. Asset-light leaders earn far more; the input is editable. */
 const RONIC_CAP = 0.6;
@@ -105,7 +105,7 @@ function stubFraction(lastEnd: string, today: string): number {
     year += 1;
     next = Date.UTC(year, m - 1, d);
   }
-  return Math.min(1, (next - todayMs) / DAY / 365);
+  return Math.min(1, (next - todayMs) / DAY_MS / 365);
 }
 
 /** Revenue growth per year over up to five years of annual history. */

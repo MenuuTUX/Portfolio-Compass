@@ -1,4 +1,5 @@
 import { fetchWithTimeout } from "@/lib/upstream";
+import { DAY_MS } from "@/lib/dates";
 import YahooFinance from "yahoo-finance2";
 import { toCompact, type CompactSeries } from "@/lib/lab/bar-types";
 import { mapChartResult } from "@/lib/lab/yahoo-bars";
@@ -11,7 +12,6 @@ import { mapChartResult } from "@/lib/lab/yahoo-bars";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"], fetch: fetchWithTimeout });
 
-const DAY_MS = 86_400_000;
 const TTL_MS = 60 * 60_000;
 const MAX_CACHE_ENTRIES = 300;
 

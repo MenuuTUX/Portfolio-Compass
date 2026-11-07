@@ -1,4 +1,5 @@
 import type { Frame } from "@/lib/lab/engine/frame";
+import { daysBetween } from "@/lib/dates";
 
 // The Compass Lab simulator. Strategies only supply target weights; this file
 // owns cash, fills, costs, dividends and rebalancing, so every strategy
@@ -203,7 +204,7 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
   for (let t = 0; t < T; t++) {
     // 0. Interest on cash held since the previous bar.
     if (cashRate > 0 && t > 0 && cash > 0) {
-      const elapsed = (Date.parse(`${dates[t]}T00:00:00Z`) - Date.parse(`${dates[t - 1]}T00:00:00Z`)) / 86_400_000;
+      const elapsed = daysBetween(dates[t - 1], dates[t]);
       cash *= (1 + cashRate) ** (elapsed / 365);
     }
 

@@ -2,6 +2,7 @@ import { buildCompanyFilings } from "./periods";
 import { classConversionRates, coverShareCount, extensionDepreciation } from "./ixbrl";
 import { normalizeTicker, type SecClient } from "./sec-client";
 import type { CompanyFilings, FilingsSourceId } from "./types";
+import { DAY_MS, shiftIsoDate } from "@/lib/dates";
 
 /**
  * Where company filings come from. Both sources return the same parsed shape,
@@ -134,10 +135,8 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
     try {
       const html = await client.filingHtml(filing.url);
       if (!html) return null;
-      const day = 86_400_000;
-      const shift = (d: string, n: number) => new Date(Date.parse(d) + n * day).toISOString().slice(0, 10);
-      const cur = extensionDepreciation(html, shift(yearEnd, 1), ytdEnd);
-      const prior = extensionDepreciation(html, priorStart, shift(ytdEnd, -364));
+      const cur = extensionDepreciation(html, shiftIsoDate(yearEnd, 1), ytdEnd);
+      const prior = extensionDepreciation(html, priorStart, shiftIsoDate(ytdEnd, -364));
       return cur && prior && cur.tag === tag && prior.tag === tag ? cur.value - prior.value : null;
     } catch {
       return null;
@@ -161,7 +160,7 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       const count = html ? coverShareCount(html, weights) : null;
       const newest = [c.annual[c.annual.length - 1]?.end, c.trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
       // Same freshness rule as company-facts counts: not older than a year before the newest period.
-      if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * 86_400_000)) return c;
+      if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * DAY_MS)) return c;
       // A raw sum over classes that are not one-for-one can be badly wrong (Berkshire's A is 1,500 B, handled by
       // CLASS_WEIGHTS) or double count (an Up-C voting class). A sum far from the latest diluted average is left out.
       // With no diluted average to check against, the sum is kept: its classes count is above 1, which downstream

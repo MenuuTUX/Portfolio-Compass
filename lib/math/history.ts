@@ -1,4 +1,5 @@
 import { Portfolio, PortfolioItem } from "@/types";
+import { DAY_MS, YEAR_DAYS } from "@/lib/dates";
 
 /**
  * What a history-derived return means. "total" uses dividend-adjusted closes,
@@ -56,8 +57,6 @@ export function tickersWithoutAdjustedHistory(portfolio: Portfolio): string[] {
     .map((item) => item.ticker);
 }
 
-const DAY_MS = 86_400_000;
-
 /**
  * Average number of observations per calendar year, from the first and last
  * dates. Not snapped to 252, so weekly or monthly data annualizes correctly.
@@ -66,7 +65,7 @@ export function observationsPerYear(dates: string[]): number {
   if (dates.length < 3) return 252;
   const first = Date.parse(dates[0]);
   const last = Date.parse(dates[dates.length - 1]);
-  const years = (last - first) / DAY_MS / 365.25;
+  const years = (last - first) / DAY_MS / YEAR_DAYS;
   if (!(years > 0) || !Number.isFinite(years)) return 252;
   return (dates.length - 1) / years;
 }
@@ -122,7 +121,7 @@ export function hasDailyObservationCoverage(
   for (let i = 1; i < dates.length; i++) {
     const previous = new Date(dates[i - 1]).getTime();
     const current = new Date(dates[i]).getTime();
-    const gapDays = (current - previous) / 86_400_000;
+    const gapDays = (current - previous) / DAY_MS;
     if (!Number.isFinite(previous) || !Number.isFinite(current) || gapDays <= 0 || gapDays > maxGapDays) {
       return false;
     }
