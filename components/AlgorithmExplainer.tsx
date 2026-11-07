@@ -1,5 +1,6 @@
 "use client";
 
+import { useLater } from "@/hooks/useLater";
 import React, { useState } from "react";
 import { m as motion, AnimatePresence } from "framer-motion";
 import {
@@ -109,10 +110,12 @@ export default function AlgorithmExplainer() {
     "IDLE" | "SIMULATING" | "CALCULATING" | "SELECTED"
   >("IDLE");
 
+  const later = useLater();
+
   const runSimulation = () => {
     setSimulationState("SIMULATING");
-    setTimeout(() => setSimulationState("CALCULATING"), 1500);
-    setTimeout(() => setSimulationState("SELECTED"), 3500);
+    later(() => setSimulationState("CALCULATING"), 1500);
+    later(() => setSimulationState("SELECTED"), 3500);
   };
 
   const resetSimulation = () => {

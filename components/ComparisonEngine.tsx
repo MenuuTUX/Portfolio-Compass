@@ -1,6 +1,7 @@
 "use client";
 
 import { searchMarket, syncEtf } from "@/lib/api-client";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import Image from "next/image";
 import {
   useState,
@@ -21,7 +22,7 @@ import { m as motion, useReducedMotion } from "framer-motion";
 import Reveal from "./motion/Reveal";
 import { EASE } from "@/lib/motion";
 import HoldingIcon from "./workspace/HoldingIcon";
-import Shimmer from "./workspace/Shimmer";
+import { Skeleton } from "@/components/ui/skeleton";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
 import MessageDrawer from "./MessageDrawer";
 import Sparkline from "./Sparkline";
@@ -60,6 +61,8 @@ interface ETFRowProps {
 
 
 // Memoized so a flash on one row does not re-render the rest.
+const RECENT_TICKERS_KEY = "recent_tickers";
+
 const ETFRow = memo(
   ({
     etf,
@@ -244,13 +247,11 @@ export default function ComparisonEngine({
   // Pagination and sorting state
   const [visibleCount, setVisibleCount] = useState(24);
   const [hasMoreServer, setHasMoreServer] = useState(true);
-  // Recent tickers are read from localStorage once, on the client only.
   // Server render and first client render both start from [] when nothing
   // is stored, and the list stays empty until etfs load, so markup matches.
   const [recentTickers, setRecentTickers] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
     try {
-      const stored = localStorage.getItem("recent_tickers");
+      const stored = readStored(RECENT_TICKERS_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
       console.error("Failed to load recent tickers", e);
@@ -267,11 +268,7 @@ export default function ComparisonEngine({
         0,
         50,
       );
-      try {
-        localStorage.setItem("recent_tickers", JSON.stringify(newRecent));
-      } catch (e) {
-        console.error("Failed to save recent tickers", e);
-      }
+      writeStored(RECENT_TICKERS_KEY, JSON.stringify(newRecent));
       return newRecent;
     });
   }, []);
@@ -648,12 +645,12 @@ export default function ComparisonEngine({
     <ul className="divide-y divide-hairline" aria-busy="true" aria-label="Loading results">
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <li key={i} className="flex items-center gap-3 px-4 py-3 min-h-14 lg:px-3 lg:py-0 lg:min-h-0 lg:h-[42px]">
-          <Shimmer className="w-10 h-10 lg:w-7 lg:h-7 rounded-lg lg:rounded-full" />
+          <Skeleton className="w-10 h-10 lg:w-7 lg:h-7 rounded-lg lg:rounded-full" />
           <div className="flex-1 space-y-2">
-            <Shimmer className="h-3 w-16" />
-            <Shimmer className="h-3 w-32" />
+            <Skeleton className="rounded h-3 w-16" />
+            <Skeleton className="rounded h-3 w-32" />
           </div>
-          <Shimmer className="h-8 w-20" />
+          <Skeleton className="rounded h-8 w-20" />
         </li>
       ))}
     </ul>

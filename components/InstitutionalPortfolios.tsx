@@ -1,5 +1,6 @@
 "use client";
 
+import { useLater } from "@/hooks/useLater";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { m as motion, AnimatePresence } from "framer-motion";
@@ -89,6 +90,7 @@ export default function InstitutionalPortfolios({
   const [loadingType, setLoadingType] = useState<PortfolioType | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const later = useLater();
   const closeInstitutional = useCallback(() => setSelectedInstitution(null), []);
   const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(selectedInstitution), closeInstitutional);
 
@@ -117,7 +119,7 @@ export default function InstitutionalPortfolios({
     try {
       await onBatchAdd(items);
       setAdded(type);
-      setTimeout(() => setAdded(null), 2000);
+      later(() => setAdded(null), 2000);
     } catch (error) {
       setAddError(error instanceof Error ? error.message : "Could not load this portfolio example.");
     } finally {

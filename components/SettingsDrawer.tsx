@@ -1,5 +1,6 @@
 "use client";
 
+import { removeStored } from "@/lib/safe-storage";
 import { m as motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
 import { EASE } from "@/lib/motion";
@@ -131,8 +132,8 @@ export default function SettingsDrawer({
     if (!confirm("Delete your Compass Lab draft, saved strategies, notice acknowledgment, and cached price history?")) return;
     setStatus(null);
     try {
-      localStorage.removeItem(LAB_ACK_KEY);
-      localStorage.removeItem(LAB_FORM_KEY);
+      removeStored(LAB_ACK_KEY);
+      removeStored(LAB_FORM_KEY);
       await deleteLabDb();
       setStatus({ type: "success", message: "Compass Lab data deleted." });
     } catch (error) {

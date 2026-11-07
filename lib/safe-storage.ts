@@ -15,3 +15,11 @@ export function writeStored(key: string, value: string) {
     // Not persisted; the page still works for this visit.
   }
 }
+
+export function removeStored(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // Nothing to remove.
+  }
+}
