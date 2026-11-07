@@ -49,7 +49,7 @@ export interface StockProfile {
   bondDuration?: number;
 }
 
-export interface ScrapedHolding {
+interface ScrapedHolding {
     symbol: string;
     name: string;
     weight: number;
@@ -341,15 +341,13 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
                    const text = next.text().trim();
                    if (next.is('h2') || next.is('h3')) return null;
 
-                   // If text is substantial, it's likely the description
-                   if (text.length > 50) {
+                    if (text.length > 50) {
                        if (next.is('div')) {
                            const p = next.find('p').first();
                            if (p.length && p.text().trim().length > 50) {
                                return p.text().trim();
                            }
-                           // If div has text but no p, use the text
-                           return text;
+                            return text;
                        }
                        return text;
                    }
@@ -359,7 +357,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
               return null;
           }
 
-          // Try siblings of the header
           let desc = findDescriptionInSiblings($(el));
 
           // If not found, check parent's siblings (in case header is wrapped in a flex/grid div)
@@ -549,7 +546,6 @@ export async function getStockProfile(ticker: string): Promise<StockProfile | nu
       if (!isNaN(n)) metrics.holdingsCount = n;
   }
 
-  // Parse ranges into Low/High if available
   if (metrics.fiftyTwoWeekRange && metrics.fiftyTwoWeekRange.includes('-')) {
       const parts = metrics.fiftyTwoWeekRange.split('-').map(s => parseFloat(s.trim().replace(/,/g, '')));
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {

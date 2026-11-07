@@ -26,11 +26,7 @@ export function std(xs: ArrayLike<number>): number {
   return Math.sqrt(s / (xs.length - 1));
 }
 
-/**
- * Calculates the Covariance Matrix for a set of asset returns.
- * Input: Array of arrays, where each inner array is the sequence of returns for one asset.
- * Output: 2D array representing the covariance matrix (N x N).
- */
+/** Sample covariance matrix (N x N) of one return series per asset. */
 export function calculateCovarianceMatrix(allReturns: number[][]): number[][] {
   if (allReturns.length === 0) return [];
 

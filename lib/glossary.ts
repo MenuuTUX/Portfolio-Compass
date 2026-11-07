@@ -414,7 +414,6 @@ export function getGlossaryEntry(label: string): GlossaryEntry | null {
     if (re.test(key) && targetEntry) return targetEntry;
   }
 
-  // Soft contains match on known keys
   for (const [k, entry] of entriesByKey) {
     if (key.includes(k) || k.includes(key)) return entry;
   }
