@@ -91,6 +91,28 @@ describe("runMode", () => {
     expect("summary" in outcome).toBe(true);
   });
 
+  it("runs the horizon in observed periods per year", async () => {
+    const outcome = await runMode("resample", inputs({ periodsPerYear: 12 }));
+    if (!("summary" in outcome)) throw new Error("expected a result");
+    expect(outcome.drawn.days.at(-1)).toBe(settings.years * 12);
+  });
+
+  it("records Randomize on the largest step that divides the horizon", async () => {
+    // 2 years x 252 = 504 days: 45 does not divide it, 42 does. The stats run prefers 21.
+    const outcome = await runMode("randomize", inputs());
+    if (!("summary" in outcome)) throw new Error("expected a result");
+    expect(outcome.drawn.days[1]).toBe(42);
+    expect(outcome.band.days[1]).toBe(21);
+  });
+
+  it("adds the monthly contribution every 21 trading days", async () => {
+    const flat = inputs({ returns: [Array(252).fill(0), Array(252).fill(0)], settings: { ...settings, monthlyContribution: 500 } });
+    const outcome = await runMode("resample", flat);
+    if (!("summary" in outcome)) throw new Error("expected a result");
+    // 504 days / 21 = 24 monthly contributions on top of the starting 10,000.
+    expect(outcome.finals[0]).toBeCloseTo(10_000 + 24 * 500, 6);
+  });
+
   it("lets errors that are not covariance failures through", async () => {
     await expect(runMode("resample", inputs({ weights: [0.5] }))).rejects.toThrow();
   });
