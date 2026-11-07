@@ -1,41 +1,6 @@
-/**
- * Calculates Log Returns from a sequence of prices.
- * Returns[t] = ln(Price[t] / Price[t-1])
- */
-export function calculateLogReturns(prices: number[]): number[] {
-  if (!prices || !Array.isArray(prices)) {
-    return [];
-  }
-  if (prices.length < 2) {
-    return [];
-  }
-  const returns: number[] = [];
-  for (let i = 1; i < prices.length; i++) {
-    const pPrev = Number(prices[i - 1]);
-    const pCurr = Number(prices[i]);
+import { calculateCovarianceMatrix, mean } from "@/lib/math/stats";
 
-    if (
-      pPrev <= 0 ||
-      pCurr <= 0 ||
-      !Number.isFinite(pPrev) ||
-      !Number.isFinite(pCurr)
-    ) {
-      continue;
-    }
-
-    const r = Math.log(pCurr) - Math.log(pPrev);
-    returns.push(r);
-  }
-  return returns;
-}
-
-/**
- * Calculates the Mean of an array.
- */
-function calculateMean(data: number[]): number {
-  if (data.length === 0) return 0;
-  return data.reduce((a, b) => a + b, 0) / data.length;
-}
+export { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
 
 /**
  * Calculates a linearly interpolated quantile from an unsorted sample.
@@ -59,49 +24,6 @@ function quantileOfSorted(sorted: ArrayLike<number>, probability: number): numbe
 }
 
 /**
- * Calculates the Covariance Matrix for a set of asset returns.
- * Input: Array of arrays, where each inner array is the sequence of returns for one asset.
- * Output: 2D array representing the covariance matrix (N x N).
- */
-export function calculateCovarianceMatrix(allReturns: number[][]): number[][] {
-  if (allReturns.length === 0) return [];
-
-  const numAssets = allReturns.length;
-  const numSamples = Math.min(...allReturns.map((returns) => returns.length));
-
-  if (numSamples < 2) {
-    return Array.from({ length: numAssets }, () =>
-      Array(numAssets).fill(0),
-    );
-  }
-
-  // Callers should align observations before estimating covariance. Keeping a
-  // common trailing window here prevents malformed or partially hydrated data
-  // from producing NaN values if this low-level helper is used directly.
-  const returns = allReturns.map((series) => series.slice(-numSamples));
-
-  // Calculate means for each asset
-  const means = returns.map(calculateMean);
-
-  // Initialize matrix
-  const cov = Array.from({ length: numAssets }, () => Array(numAssets).fill(0));
-
-  for (let i = 0; i < numAssets; i++) {
-    for (let j = i; j < numAssets; j++) {
-      // Symmetric, so calc upper triangle
-      let sum = 0;
-      for (let k = 0; k < numSamples; k++) {
-        sum += (returns[i][k] - means[i]) * (returns[j][k] - means[j]);
-      }
-      const val = sum / (numSamples - 1); // Sample Covariance
-      cov[i][j] = val;
-      cov[j][i] = val;
-    }
-  }
-  return cov;
-}
-
-/**
  * Performs Cholesky Decomposition to get the Lower Triangular Matrix (L).
  * L * L^T = CovarianceMatrix
  * A must be symmetric and positive definite.
@@ -118,14 +40,12 @@ export function getCholeskyDecomposition(matrix: number[][]): number[][] {
       }
 
       if (i === j) {
-        // Diagonal elements
         const val = matrix[i][i] - sum;
         if (!Number.isFinite(val) || val <= 0) {
           throw new Error(`Matrix is not positive definite at index ${i}`);
         }
         L[i][j] = Math.sqrt(val);
       } else {
-        // Non-diagonal elements
         L[i][j] = (matrix[i][j] - sum) / L[j][j];
         if (!Number.isFinite(L[i][j])) {
           throw new Error(`Matrix contains non-finite values at index ${i}`);
@@ -156,7 +76,6 @@ export function getRegularizedCholesky(matrix: number[][]): { L: number[][]; rid
       try {
         return { L: getCholeskyDecomposition(bumped), ridge };
       } catch {
-        // try a larger ridge
       }
     }
     throw error;
@@ -272,7 +191,6 @@ export function generateMonteCarloPaths(
     for (let i = 0; i < numAssets; i++) simAssetPrices[i] = currentPrices[i];
 
     for (let day = 0; day < numDays; day++) {
-      // 1. Uncorrelated standard normals
       for (let i = 0; i < numAssets; i++) Z[i] = boxMullerTransform(random);
 
       // 2-3. Correlate (shock = L · Z), evolve with the caller's drift, and mark.
@@ -485,7 +403,7 @@ export function rebaseLogDrift(
     throw new RangeError("Weights must sum to a positive number.");
   }
   const currentAnnualDrift = returns.reduce(
-    (sum, row, i) => sum + weights[i] * calculateMean(row) * periodsPerYear,
+    (sum, row, i) => sum + weights[i] * mean(row) * periodsPerYear,
     0,
   );
   const shift = (targetAnnualLogDrift - currentAnnualDrift) / (periodsPerYear * weightSum);
@@ -544,7 +462,7 @@ function applyContribution(
 
 /** Mean daily log return per asset and the regularized Cholesky factor of their covariance. */
 export function fitReturnModel(returns: number[][]) {
-  const meanReturns = returns.map((row) => calculateMean(row));
+  const meanReturns = returns.map((row) => mean(row));
   const { L, ridge } = getRegularizedCholesky(calculateCovarianceMatrix(returns));
   return { meanReturns, cholesky: L, ridge };
 }
@@ -580,7 +498,6 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
   }
 
   const random = createRandom(seed);
-  // Day-major copy so one historical day is a contiguous row.
   const R = new Float64Array(T * n);
   for (let i = 0; i < n; i++) for (let t = 0; t < T; t++) R[t * n + i] = returns[i][t];
   const startValues = Float64Array.from(weights, (w) => initialValue * w);
@@ -589,7 +506,6 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
   const blockDays = mode === "resample" ? input.blockDays ?? 1 : 1;
   const order = mode === "reshuffle" ? new Int32Array(numDays) : null;
 
-  // Marks one path given a function that returns the historical row for day d.
   const markPath = (rowFor: (d: number) => number): number[] => {
     logPrice.fill(0);
     // Dollars held per asset at each price level. Without contributions this is

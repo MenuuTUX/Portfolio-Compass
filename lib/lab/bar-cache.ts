@@ -1,5 +1,6 @@
 import { fromCompact, lastCompletedSession, type BarSeries, type CompactSeries } from "@/lib/lab/bar-types";
 import { idbGet, idbPut } from "@/lib/lab/db";
+import { shiftIsoDate } from "@/lib/dates";
 
 // Browser cache of daily history for Compass Lab, one compact record per
 // ticker in IndexedDB. A record that reaches the latest completed session is
@@ -25,7 +26,7 @@ export type FetchResult =
 /** Same as the server's CDN lifetime for a history that stops short of `through`. */
 export const RECHECK_MS = 30 * 60_000;
 
-export function isFresh(hit: CachedRecord | undefined, through: string, now: Date): boolean {
+function isFresh(hit: CachedRecord | undefined, through: string, now: Date): boolean {
   if (hit?.v !== 1 || hit.through < through) return false;
   if (hit.d[hit.d.length - 1] >= through) return true;
   const received = Date.parse(hit.receivedAt ?? "");
@@ -53,7 +54,7 @@ export function memoryBarStore(): BarStore {
   };
 }
 
-export const fetchHistoryFromApi: FetchHistory = async (ticker, through) => {
+const fetchHistoryFromApi: FetchHistory = async (ticker, through) => {
   const params = new URLSearchParams({ ticker, through });
   const res = await fetch(`/api/market/bars?${params}`);
   if (res.ok) return { ok: true, series: (await res.json()) as CompactSeries };
@@ -66,12 +67,6 @@ export const fetchHistoryFromApi: FetchHistory = async (ticker, through) => {
     ...(expected ? { expected } : {}),
   };
 };
-
-function shiftDate(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 /** Requests in flight at once: enough to load a universe quickly, few enough to stay inside the API rate limit. */
 export const FETCH_CONCURRENCY = 6;
@@ -168,7 +163,7 @@ export async function loadBars(
   const staleTickers: { ticker: string; lastBar: string }[] = [];
   for (const ticker of tickers) {
     const record = records.get(ticker);
-    const s = record && fromCompact(record, shiftDate(start, -warmupDays), end);
+    const s = record && fromCompact(record, shiftIsoDate(start, -warmupDays), end);
     // Warmup bars alone do not count: the ticker needs a price inside the window.
     if (s && s.bars.some((b) => b.date >= start)) {
       series.push(s);

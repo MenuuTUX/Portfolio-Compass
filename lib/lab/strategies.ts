@@ -28,7 +28,7 @@ export function newStrategyId(): string {
     : `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export const extensionFor = (language: StrategyLanguage) => (language === "python" ? "py" : "ts");
+const extensionFor = (language: StrategyLanguage) => (language === "python" ? "py" : "ts");
 
 /** Language and name from an uploaded file, or null when the extension is not .py or .ts. */
 export function parseStrategyFile(fileName: string): { language: StrategyLanguage; name: string } | null {

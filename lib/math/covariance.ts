@@ -1,8 +1,5 @@
 import { PortfolioItem } from "@/types";
-import {
-  calculateLogReturns,
-  calculateCovarianceMatrix,
-} from "@/lib/monte-carlo";
+import { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
 import { classifyAsset, getAssetBeta } from "@/lib/math/portfolio-returns";
 import { alignPriceHistories, type ReturnBasis } from "@/lib/math/history";
 

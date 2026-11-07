@@ -71,7 +71,7 @@ function buildWeights(out: unknown, prices: PriceMatrix): Float64Array {
 }
 
 /** The first `rows` dates of a price matrix, as if later prices did not exist yet. */
-export function truncatePrices(prices: PriceMatrix, rows: number): PriceMatrix {
+function truncatePrices(prices: PriceMatrix, rows: number): PriceMatrix {
   const n = rows * prices.tickers.length;
   return {
     dates: prices.dates.slice(0, rows),
@@ -82,7 +82,7 @@ export function truncatePrices(prices: PriceMatrix, rows: number): PriceMatrix {
 }
 
 /** Cut-off points for the lookahead check: 60% and 85% of the way through. */
-export function lookaheadCutoffs(T: number): number[] {
+function lookaheadCutoffs(T: number): number[] {
   return [...new Set([Math.floor(T * 0.6), Math.floor(T * 0.85)])].filter((c) => c >= 2 && c < T);
 }
 
@@ -91,7 +91,7 @@ export function lookaheadCutoffs(T: number): number[] {
  * at each cut-off. A strategy that only looks backwards gives identical rows
  * before the cut-off; any difference means it read future prices.
  */
-export function compareForLookahead(
+function compareForLookahead(
   prices: PriceMatrix,
   full: Float64Array,
   cut: number,

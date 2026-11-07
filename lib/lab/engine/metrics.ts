@@ -1,4 +1,6 @@
 import type { SimResult, Trade } from "@/lib/lab/engine/simulate";
+import { mean, std } from "@/lib/math/stats";
+import { daysBetween, YEAR_DAYS } from "@/lib/dates";
 
 // Performance statistics for a Compass Lab run. Returns are time-weighted:
 // each day's external cash flow is removed before computing that day's
@@ -57,33 +59,17 @@ export function dailyReturns(equity: Float64Array, flows: Float64Array): Float64
   return r;
 }
 
-const mean = (xs: ArrayLike<number>) => {
-  let s = 0;
-  for (let i = 0; i < xs.length; i++) s += xs[i];
-  return xs.length ? s / xs.length : 0;
-};
-
-function std(xs: ArrayLike<number>): number {
-  if (xs.length < 2) return 0;
-  const m = mean(xs);
-  let s = 0;
-  for (let i = 0; i < xs.length; i++) s += (xs[i] - m) ** 2;
-  return Math.sqrt(s / (xs.length - 1));
-}
-
 /**
  * Return observations per year, read from the dates. An equity calendar gives
  * about 252 and is kept at 252 by convention; a market that trades every day
  * (crypto) gives about 365, so volatility and Sharpe are not understated.
  */
 export function periodsPerYear(dates: string[]): number {
-  const years = days(dates[0], dates[dates.length - 1]) / 365.25;
+  const years = daysBetween(dates[0], dates[dates.length - 1]) / YEAR_DAYS;
   if (!(years > 0) || dates.length < 3) return DEFAULT_PERIODS_PER_YEAR;
   const observed = (dates.length - 1) / years;
   return Math.abs(observed - DEFAULT_PERIODS_PER_YEAR) <= 12 ? DEFAULT_PERIODS_PER_YEAR : Math.round(observed);
 }
-
-const days = (a: string, b: string) => (Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000;
 
 export function drawdowns(dates: string[], index: ArrayLike<number>): { max: Drawdown | null; longestDays: number } {
   let peak = index[0];
@@ -94,7 +80,7 @@ export function drawdowns(dates: string[], index: ArrayLike<number>): { max: Dra
   for (let t = 1; t < index.length; t++) {
     if (index[t] >= peak) {
       if (below) {
-        longestDays = Math.max(longestDays, days(dates[peakAt], dates[t]));
+        longestDays = Math.max(longestDays, daysBetween(dates[peakAt], dates[t]));
         if (max && max.recovered === null && max.peak === dates[peakAt]) max.recovered = dates[t];
         below = false;
       }
@@ -106,7 +92,7 @@ export function drawdowns(dates: string[], index: ArrayLike<number>): { max: Dra
     const depth = index[t] / peak - 1;
     if (!max || depth < max.depth) max = { depth, peak: dates[peakAt], trough: dates[t], recovered: null };
   }
-  if (below) longestDays = Math.max(longestDays, days(dates[peakAt], dates[index.length - 1]));
+  if (below) longestDays = Math.max(longestDays, daysBetween(dates[peakAt], dates[index.length - 1]));
   return { max, longestDays };
 }
 
@@ -126,7 +112,7 @@ export function computeMetrics(
   index[0] = 1;
   for (let t = 1; t < T; t++) index[t] = index[t - 1] * (1 + r[t]);
 
-  const years = days(dates[0], dates[T - 1]) / 365.25;
+  const years = daysBetween(dates[0], dates[T - 1]) / YEAR_DAYS;
   const TRADING_DAYS = periodsPerYear(dates);
   const totalReturn = index[T - 1] - 1;
   const cagr = years > 0 && index[T - 1] > 0 ? index[T - 1] ** (1 / years) - 1 : 0;

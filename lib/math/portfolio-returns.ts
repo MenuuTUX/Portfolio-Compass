@@ -40,7 +40,7 @@ function getKnownAssetYieldFraction(item: PortfolioItem): number | null {
 }
 
 /** Market value of one holding. */
-export function getHoldingValue(item: PortfolioItem): number {
+function getHoldingValue(item: PortfolioItem): number {
   const price = Number(item.price) || 0;
   const shares = Number(item.shares) || 0;
   return Math.max(0, price * shares);

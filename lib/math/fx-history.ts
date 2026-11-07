@@ -1,4 +1,5 @@
 import type { HistoryPoint } from "@/lib/fast-market";
+import { daysBetween } from "@/lib/dates";
 
 export interface HistoricalFxRate {
   /** Bank of Canada observation date in YYYY-MM-DD. */
@@ -17,11 +18,6 @@ function utcDay(value: string): string | null {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) return null;
   return new Date(timestamp).toISOString().slice(0, 10);
-}
-
-function calendarDaysBetween(start: string, end: string): number {
-  return (Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) /
-    86_400_000;
 }
 
 /**
@@ -78,7 +74,7 @@ export function convertPriceHistoryToCad(
     while (rateIndex < normalizedRates.length && normalizedRates[rateIndex].date <= date!) {
       latestRate = normalizedRates[rateIndex++];
     }
-    if (!latestRate || calendarDaysBetween(latestRate.date, date!) > 7) return null;
+    if (!latestRate || daysBetween(latestRate.date, date!) > 7) return null;
     const cadPrice = price * latestRate.usdCad;
     if (!Number.isFinite(cadPrice) || cadPrice <= 0) return null;
     const cadAdjPrice = point.adjPrice != null ? point.adjPrice * latestRate.usdCad : undefined;
