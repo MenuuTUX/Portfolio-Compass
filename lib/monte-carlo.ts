@@ -40,14 +40,12 @@ export function getCholeskyDecomposition(matrix: number[][]): number[][] {
       }
 
       if (i === j) {
-        // Diagonal elements
         const val = matrix[i][i] - sum;
         if (!Number.isFinite(val) || val <= 0) {
           throw new Error(`Matrix is not positive definite at index ${i}`);
         }
         L[i][j] = Math.sqrt(val);
       } else {
-        // Non-diagonal elements
         L[i][j] = (matrix[i][j] - sum) / L[j][j];
         if (!Number.isFinite(L[i][j])) {
           throw new Error(`Matrix contains non-finite values at index ${i}`);
@@ -78,7 +76,6 @@ export function getRegularizedCholesky(matrix: number[][]): { L: number[][]; rid
       try {
         return { L: getCholeskyDecomposition(bumped), ridge };
       } catch {
-        // try a larger ridge
       }
     }
     throw error;
@@ -194,7 +191,6 @@ export function generateMonteCarloPaths(
     for (let i = 0; i < numAssets; i++) simAssetPrices[i] = currentPrices[i];
 
     for (let day = 0; day < numDays; day++) {
-      // 1. Uncorrelated standard normals
       for (let i = 0; i < numAssets; i++) Z[i] = boxMullerTransform(random);
 
       // 2-3. Correlate (shock = L · Z), evolve with the caller's drift, and mark.
@@ -502,7 +498,6 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
   }
 
   const random = createRandom(seed);
-  // Day-major copy so one historical day is a contiguous row.
   const R = new Float64Array(T * n);
   for (let i = 0; i < n; i++) for (let t = 0; t < T; t++) R[t * n + i] = returns[i][t];
   const startValues = Float64Array.from(weights, (w) => initialValue * w);
@@ -511,7 +506,6 @@ export function simulatePaths(mode: SimulationMode, input: SimulationInput): Sim
   const blockDays = mode === "resample" ? input.blockDays ?? 1 : 1;
   const order = mode === "reshuffle" ? new Int32Array(numDays) : null;
 
-  // Marks one path given a function that returns the historical row for day d.
   const markPath = (rowFor: (d: number) => number): number[] => {
     logPrice.fill(0);
     // Dollars held per asset at each price level. Without contributions this is
