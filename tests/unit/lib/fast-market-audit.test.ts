@@ -1,17 +1,11 @@
-import { afterAll, beforeEach, describe, expect, it, mock, setSystemTime } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
 import { mockModule } from "@/tests/helpers/mock-module";
+import { createFakeYahoo } from "@/tests/helpers/fake-yahoo";
 
-const mockQuote = mock(async (..._args: unknown[]): Promise<unknown> => []);
-const mockChart = mock(async (..._args: unknown[]): Promise<unknown> => ({ quotes: [] }));
+const yahoo = createFakeYahoo();
+const { quote: mockQuote, chart: mockChart } = yahoo;
 
-class FakeYahooFinance {
-  quote = mockQuote;
-  search = mock(async () => ({ quotes: [] }));
-  chart = mockChart;
-  quoteSummary = mock(async () => ({}));
-}
-
-await mockModule("yahoo-finance2", () => ({ default: FakeYahooFinance }));
+await mockModule("yahoo-finance2", () => ({ default: yahoo.FakeYahooFinance }));
 
 // @ts-expect-error bun resolves the query suffix; tsc does not
 const fastMarket: typeof import("@/lib/fast-market") = await import("@/lib/fast-market?audit");
