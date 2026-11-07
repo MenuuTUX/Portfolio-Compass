@@ -3,7 +3,6 @@ import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { mockModule } from "@/tests/helpers/mock-module";
 
-await mockModule("next/image", () => ({ default: ({ alt }: { alt?: string }) => <img alt={alt} /> }));
 await mockModule("framer-motion", () => ({
   motion: new Proxy({}, { get: () => "div" }),
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,

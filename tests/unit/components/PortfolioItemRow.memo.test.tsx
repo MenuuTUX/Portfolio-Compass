@@ -4,7 +4,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { PortfolioItem } from "@/types";
 import { mockModule } from "@/tests/helpers/mock-module";
 
-await mockModule("next/image", () => ({ default: ({ alt }: { alt?: string }) => <img alt={alt} /> }));
 
 const { default: PortfolioItemRow } = await import("@/components/PortfolioItemRow");
 

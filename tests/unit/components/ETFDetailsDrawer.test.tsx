@@ -18,10 +18,6 @@ await mockModule('recharts', () => ({
     Tooltip: () => <div />,
 }));
 
-// next/image resolves remote loader URLs, which happy-dom cannot parse
-await mockModule('next/image', () => ({
-    default: ({ alt }: any) => <img alt={alt} />,
-}));
 
 const { default: ETFDetailsDrawer } = await import('@/components/ETFDetailsDrawer');
 

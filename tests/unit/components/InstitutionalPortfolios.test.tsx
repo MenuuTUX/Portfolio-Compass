@@ -4,9 +4,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { BatchAddItem } from "@/hooks/useBatchAddPortfolio";
 import { mockModule } from "@/tests/helpers/mock-module";
 
-await mockModule("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <img alt={alt} />,
-}));
 await mockModule("@/hooks/useDialogA11y", () => ({
   useDialogA11y: () => ({ current: null }),
 }));

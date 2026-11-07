@@ -7,10 +7,6 @@ import { mockModule } from "@/tests/helpers/mock-module";
 type SimulatorProps = Record<string, unknown>;
 const simulatorRenders: SimulatorProps[] = [];
 
-// Logo URLs are same-origin paths; next/image can't resolve them without a browser origin
-await mockModule("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <img alt={alt} />,
-}));
 await mockModule("@/components/simulation/MonteCarloSimulator", () => ({
   default: (props: SimulatorProps) => {
     simulatorRenders.push(props);

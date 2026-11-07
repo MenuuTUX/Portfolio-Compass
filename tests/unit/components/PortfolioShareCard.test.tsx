@@ -7,10 +7,6 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
-// Mock Next/Image
-await mockModule('next/image', () => ({
-    default: ({ alt }: any) => <img alt={alt} />
-}));
 
 // Import component
 import { PortfolioShareCard } from '@/components/PortfolioShareCard';
