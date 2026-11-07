@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { NextRequest } from "next/server";
 import { fastQuote } from "@/tests/helpers/quotes";
-import { fastQuote } from "@/tests/helpers/quotes";
 import { mockModule } from "@/tests/helpers/mock-module";
 import type { FastQuote } from "@/lib/fast-market";
 
