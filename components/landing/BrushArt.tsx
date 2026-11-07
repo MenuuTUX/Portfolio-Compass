@@ -2,7 +2,7 @@
 
 import { m as motion, useInView } from "framer-motion";
 import { useId, useRef } from "react";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 /**
  * Original painterly artwork: thick overlapping brush bands forming an arch, drawn in

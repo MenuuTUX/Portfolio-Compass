@@ -2,7 +2,8 @@
 
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
-import Reveal, { EASE } from "@/components/motion/Reveal";
+import Reveal from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 type Risk = "Low" | "Medium" | "High";
 type SortKey = "weight" | "change" | "fee";

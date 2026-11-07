@@ -1,16 +1,12 @@
 import { describe, expect, it } from "bun:test";
-import { isShortRun, rebaseToCommonStart, runDays, SHORT_RUN } from "@/components/lab/format";
+import { isShortRun, rebaseToCommonStart, SHORT_RUN } from "@/components/lab/format";
 
 describe("short runs", () => {
-  it("counts calendar days between the first and last date", () => {
-    expect(runDays("2024-01-01", "2024-01-31")).toBe(30);
-    expect(runDays("2020-01-01", "2021-01-01")).toBe(366);
-  });
-
-  it("treats anything under 365 days as too short to annualize", () => {
+  it("treats anything under 365 calendar days as too short to annualize", () => {
     expect(isShortRun("2024-01-01", "2024-01-31")).toBe(true);
     expect(isShortRun("2024-01-01", "2024-12-30")).toBe(true);
     expect(isShortRun("2024-01-01", "2025-01-01")).toBe(false);
+    expect(isShortRun("2024-01-01", "2024-12-31")).toBe(false);
     expect(SHORT_RUN).toBe("n/a (under 1 year)");
   });
 });

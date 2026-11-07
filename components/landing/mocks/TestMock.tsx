@@ -3,8 +3,10 @@
 import { m as motion, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import CountUp from "../../motion/CountUp";
-import { EASE } from "../../motion/Reveal";
+import { EASE } from "@/lib/motion";
+import { createRandom } from "@/lib/monte-carlo";
 import PhoneMock from "../PhoneMock";
+import { money, STARTING_BALANCE } from "../shared";
 
 type Scenario = "Low" | "Median" | "High";
 type Spread = "Calm" | "Typical" | "Rough";
@@ -16,18 +18,8 @@ const VOL: Record<Spread, number> = { Calm: 0.08, Typical: 0.14, Rough: 0.2 };
 const IDX: Record<Scenario, 0 | 1 | 2> = { Low: 0, Median: 1, High: 2 };
 const PATHS = 40;
 const MAX_YEARS = 30;
-const START = 10000;
 const MEAN = 0.06;
 const RUN_MS = 900;
-
-function mulberry32(a: number) {
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 interface Model {
   paths: number[][];
@@ -36,13 +28,13 @@ interface Model {
 }
 
 function simulate(seed: number, spread: Spread): Model {
-  const rand = mulberry32(seed * 7919 + SPREADS.indexOf(spread) * 104729 + 17);
+  const rand = createRandom(seed * 7919 + SPREADS.indexOf(spread) * 104729 + 17);
   const sigma = VOL[spread];
   const drift = MEAN - (sigma * sigma) / 2;
   const normal = () => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
   const paths: number[][] = [];
   for (let p = 0; p < PATHS; p++) {
-    const row = [START];
+    const row = [STARTING_BALANCE];
     for (let y = 1; y <= MAX_YEARS; y++) row.push(row[y - 1] * Math.exp(drift + sigma * normal()));
     paths.push(row);
   }
@@ -59,7 +51,6 @@ function simulate(seed: number, spread: Spread): Model {
   return { paths, bands };
 }
 
-const money = (v: number) => `$${Math.round(v).toLocaleString("en-US")}`;
 
 function linePath(values: number[], w: number, h: number, pad: number, lo: number, hi: number) {
   const n = values.length - 1;

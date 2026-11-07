@@ -12,7 +12,7 @@ import { warmupDaysFor, type LabRequest } from "@/lib/lab/lab-form";
 import { createStrategyClient, type StrategyClient } from "@/lib/lab/strategy/client";
 import type { LookaheadResult, Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
 
-export type EngineStatus = "starting" | "ready" | "loading-data" | "strategy" | "running" | "error";
+type EngineStatus = "starting" | "ready" | "loading-data" | "strategy" | "running" | "error";
 
 export interface LabRun {
   id: number;
@@ -40,6 +40,32 @@ async function cadRates(series: BarSeries[], end: string): Promise<FxSeries | un
   if (!series.some((s) => s.currency === "CAD")) return undefined;
   const first = series.map((s) => s.bars[0]?.date).filter((d): d is string => Boolean(d)).sort()[0];
   return { CAD: await loadUsdCadSeries(first ?? end, end) };
+}
+
+type BarLoad = Awaited<ReturnType<typeof loadBars>>;
+
+/**
+ * Loads a request's bars and USD/CAD rates. `validate` throws the caller's own error for data it
+ * cannot run on, after the bars arrive and before any rate history is fetched.
+ */
+async function prepareRun(
+  request: LabRequest,
+  store: BarStore,
+  warmupDays: number,
+  validate: (bars: BarLoad) => void,
+) {
+  const bars = await loadBars(request.tickers, request.start, request.end, { store, warmupDays });
+  validate(bars);
+  const fx = await cadRates(bars.series, request.end);
+  const shared = {
+    series: bars.series,
+    config: request.config,
+    baseCurrency: "USD" as const,
+    ...(fx ? { fx } : {}),
+    start: request.start,
+    benchmark: request.benchmark,
+  };
+  return { bars, shared };
 }
 
 /** A code strategy failed; carries its console output and the line to mark in the editor. */
@@ -98,30 +124,27 @@ export function useLabEngine() {
     if (!w || !store.current || !strategies.current) throw new Error("The engine is still starting.");
     try {
       setStatus("loading-data");
-      const bars = await loadBars(request.tickers, request.start, request.end, {
-        store: store.current,
-        warmupDays: warmupDaysFor(request.strategy),
-      });
-      const unavailable = bars.failed.filter((t) => !bars.series.some((s) => s.ticker === t));
-      if (unavailable.length) {
-        throw new Error(`Could not load ${unavailable.join(", ")} right now; the price service did not answer. Try again in a minute.`);
-      }
-      if (bars.missing.length) {
-        throw new Error(`No price data for ${bars.missing.join(", ")} between ${request.start} and ${request.end}.`);
-      }
       const strategy = request.strategy;
-      // The engine converts currencies. The Lab has USD/CAD history, so CAD tickers work in no-code runs only:
-      // the strategy workers take no FX series.
-      const foreign = bars.series.filter((s) => s.currency && s.currency !== "USD");
-      if (foreign.length && (strategy.kind === "code" || foreign.some((s) => s.currency !== "CAD"))) {
-        const list = `${foreign.map((s) => `${s.ticker} (${s.currency})`).join(", ")} ${foreign.length > 1 ? "are" : "is"} not priced in USD.`;
-        throw new Error(
-          strategy.kind === "code"
-            ? `${list} Code strategies run USD-listed portfolios only. CAD funds work in no-code mode.`
-            : `${list} The Lab converts USD and CAD prices only for now, because it has exchange-rate history for those two.`,
-        );
-      }
-      const fx = await cadRates(bars.series, request.end);
+      const { bars, shared } = await prepareRun(request, store.current, warmupDaysFor(strategy), (loaded) => {
+        const unavailable = loaded.failed.filter((t) => !loaded.series.some((s) => s.ticker === t));
+        if (unavailable.length) {
+          throw new Error(`Could not load ${unavailable.join(", ")} right now; the price service did not answer. Try again in a minute.`);
+        }
+        if (loaded.missing.length) {
+          throw new Error(`No price data for ${loaded.missing.join(", ")} between ${request.start} and ${request.end}.`);
+        }
+        // The engine converts currencies. The Lab has USD/CAD history, so CAD tickers work in no-code runs only:
+        // the strategy workers take no FX series.
+        const foreign = loaded.series.filter((s) => s.currency && s.currency !== "USD");
+        if (foreign.length && (strategy.kind === "code" || foreign.some((s) => s.currency !== "CAD"))) {
+          const list = `${foreign.map((s) => `${s.ticker} (${s.currency})`).join(", ")} ${foreign.length > 1 ? "are" : "is"} not priced in USD.`;
+          throw new Error(
+            strategy.kind === "code"
+              ? `${list} Code strategies run USD-listed portfolios only. CAD funds work in no-code mode.`
+              : `${list} The Lab converts USD and CAD prices only for now, because it has exchange-rate history for those two.`,
+          );
+        }
+      });
       let targets: Targets;
       let logs: string[] = [];
       let lookahead: LookaheadResult | undefined;
@@ -143,13 +166,8 @@ export function useLabEngine() {
       const id = nextId.current++;
       const started = performance.now();
       const body: BacktestRequest = {
-        series: bars.series,
-        config: request.config,
-        baseCurrency: "USD",
-        ...(fx ? { fx } : {}),
+        ...shared,
         targets,
-        start: request.start,
-        benchmark: request.benchmark,
         strategy: strategy.kind === "code"
           ? { code: strategy.code, params: { language: strategy.language, universe: strategy.universe, ...strategy.params } }
           : { code: JSON.stringify(strategy) },
@@ -192,23 +210,11 @@ export function useLabEngine() {
     if (!w || !store.current) throw new Error("The engine is still starting.");
     if (strategy.kind !== "trend") throw new Error("Only the no-code trend rule can be swept.");
     const values = sweepValues(strategy.smaDays, DEFAULT_SMA_VALUES);
-    const bars = await loadBars(run.request.tickers, run.request.start, run.request.end, {
-      store: store.current,
-      warmupDays: warmupDaysFor(strategy, Math.max(...values)),
+    const { shared } = await prepareRun(run.request, store.current, warmupDaysFor(strategy, Math.max(...values)), (bars) => {
+      if (bars.failed.length || bars.missing.length) throw new Error("The price data for this run could not be loaded again. Try again in a minute.");
     });
-    if (bars.failed.length || bars.missing.length) throw new Error("The price data for this run could not be loaded again. Try again in a minute.");
-    const fx = await cadRates(bars.series, run.request.end);
     const id = nextId.current++;
-    const body: RobustnessRequest = {
-      series: bars.series,
-      config: run.request.config,
-      baseCurrency: "USD",
-      ...(fx ? { fx } : {}),
-      strategy: strategy as TrendStrategy,
-      values,
-      start: run.request.start,
-      benchmark: run.request.benchmark,
-    };
+    const body: RobustnessRequest = { ...shared, strategy: strategy as TrendStrategy, values };
     const response = await new Promise<WorkerResponse>((resolve) => {
       pending.current.set(id, resolve);
       w.postMessage({ id, robustness: body } satisfies WorkerRequest);

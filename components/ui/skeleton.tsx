@@ -4,7 +4,7 @@ function Skeleton({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("ws-skeleton rounded-lg", className)} {...props} />;
+  return <div aria-hidden="true" className={cn("ws-skeleton rounded-lg", className)} {...props} />;
 }
 
 export { Skeleton };

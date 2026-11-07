@@ -3,9 +3,7 @@ import type { ReactNode } from "react";
 interface SummaryCardProps {
   title: string;
   sub?: ReactNode;
-  /** Logo or icon before the text. */
   leading?: ReactNode;
-  /** Small visual on the right, e.g. a sparkline or bar. */
   trailing?: ReactNode;
 }
 

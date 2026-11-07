@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { AlertTriangle, CheckCircle2, Terminal } from "lucide-react";
 import type { LookaheadResult, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
 import { cn } from "@/lib/cn";
-import { RowResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
+import { RowResizer, useResizableWidth } from "@/components/ui/PaneResizer";
 
 const maxConsole = () => Math.max(120, Math.round(window.innerHeight * 0.6));
 

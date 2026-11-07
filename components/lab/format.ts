@@ -4,12 +4,12 @@ const DAY_MS = 86_400_000;
 export const SHORT_RUN = "n/a (under 1 year)";
 
 /** Calendar days from the first date to the last (YYYY-MM-DD). */
-export const runDays = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / DAY_MS);
+const runDays = (start: string, end: string) => Math.round((Date.parse(end) - Date.parse(start)) / DAY_MS);
 
 /** A run under 365 calendar days: CAGR would be an extrapolation, so it is not shown. */
 export const isShortRun = (start: string, end: string) => runDays(start, end) < 365;
 
-export interface GrowthCurve {
+interface GrowthCurve {
   dates: string[];
   /** Growth of 1 at each date, from the run's own start. */
   growth: ArrayLike<number>;
