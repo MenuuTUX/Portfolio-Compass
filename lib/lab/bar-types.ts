@@ -12,19 +12,19 @@ export interface DailyBar {
   adjClose: number;
 }
 
-export interface DividendEvent {
+interface DividendEvent {
   date: string;
   /** Per share, in the same split-adjusted basis as `close`. */
   amount: number;
 }
 
-export interface SplitEvent {
+interface SplitEvent {
   date: string;
   numerator: number;
   denominator: number;
 }
 
-export interface BarSource {
+interface BarSource {
   provider: "Yahoo Finance";
   adjustment: "close: split-adjusted; adjClose: split- and dividend-adjusted";
   fetchedAt: string;

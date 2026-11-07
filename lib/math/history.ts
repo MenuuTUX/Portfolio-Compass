@@ -9,7 +9,7 @@ import { DAY_MS, YEAR_DAYS, isoDay } from "@/lib/dates";
  */
 export type ReturnBasis = "total" | "price";
 
-export interface AlignedPriceHistory {
+interface AlignedPriceHistory {
   dates: string[];
   /**
    * One series per holding. On the "total" basis each is the first aligned
@@ -70,7 +70,7 @@ export function observationsPerYear(dates: string[]): number {
   return (dates.length - 1) / years;
 }
 
-export type HistoryDiagnosis =
+type HistoryDiagnosis =
   | { ok: true }
   | { ok: false; reason: "too-short" | "gap"; ticker: string; found: number; needed: number; gapDays?: number };
 

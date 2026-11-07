@@ -31,7 +31,7 @@ export interface ReadinessContext {
   ronicBasis?: "wacc" | "history";
 }
 
-export type ReadinessResult =
+type ReadinessResult =
   | { ok: true; inputs: DcfInputs; sources: Record<string, string>; warnings: string[] }
   | { ok: false; reasons: string[] };
 

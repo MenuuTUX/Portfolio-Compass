@@ -99,7 +99,7 @@ export function getEffectiveWeights(
   return portfolio.map(() => eq);
 }
 
-export interface PortfolioValuation {
+interface PortfolioValuation {
   /** Currency requested or inferred from the valued holdings. */
   baseCurrency: string | null;
   /** Null when any held value is missing or requires unavailable FX conversion. */
@@ -126,7 +126,7 @@ export interface BankOfCanadaFxRate {
   date: string;
 }
 
-export type QuoteFreshness = "fresh" | "missing" | "invalid" | "stale" | "future";
+type QuoteFreshness = "fresh" | "missing" | "invalid" | "stale" | "future";
 
 // Temporary elapsed-time limit for current valuation. Long market closures can
 // outlast it; exchange-calendar freshness remains a separate policy decision.
@@ -263,7 +263,7 @@ export function gainOnInvestedPercent(endingValue: number, totalInvested: number
 }
 
 /** Coarse asset class, inferred from allocation data then ticker/name shape. */
-export type AssetClass = "cash" | "bond" | "equity";
+type AssetClass = "cash" | "bond" | "equity";
 
 /**
  * Classifies a holding for the heuristics that need to tell a T-bill fund from

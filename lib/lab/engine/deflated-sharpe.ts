@@ -86,7 +86,7 @@ export function expectedMaxSharpe(trials: number, sharpeVariance: number): numbe
   );
 }
 
-export interface DeflatedSharpeInput {
+interface DeflatedSharpeInput {
   /** Per-period Sharpe of the best variant. */
   sharpe: number;
   /** Number of return observations behind it. */
@@ -100,7 +100,7 @@ export interface DeflatedSharpeInput {
   trialSharpeVariance: number;
 }
 
-export interface DeflatedSharpe {
+interface DeflatedSharpe {
   /** Probability the best variant's true Sharpe is above what luck alone would produce, from 0 to 1. */
   probability: number;
   /** Per-period Sharpe the best of `trials` unskilled variants would be expected to show. */

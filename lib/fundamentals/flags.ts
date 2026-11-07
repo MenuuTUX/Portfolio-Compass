@@ -5,7 +5,7 @@ import type { CompanyFilings, Filing, LineItem } from "./types";
 import { DAY_MS, YEAR_DAYS } from "@/lib/dates";
 
 /** Something to look at, stated as fact, with the rule that raised it and where to read more. No score. */
-export interface Flag {
+interface Flag {
   id: string;
   title: string;
   detail: string;

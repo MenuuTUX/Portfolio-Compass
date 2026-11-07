@@ -167,7 +167,7 @@ export function parseFilings(sub: SecSubmissions, cik: number): Filing[] {
   return out;
 }
 
-export interface BuildOptions {
+interface BuildOptions {
   ticker: string;
   source: FilingsSourceId;
   /** Fiscal years to keep, newest last. */

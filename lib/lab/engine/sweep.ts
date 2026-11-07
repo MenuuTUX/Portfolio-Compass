@@ -21,7 +21,7 @@ export const DEFAULT_SMA_VALUES = [20, 50, 100, 150, 200, 250, 300];
 const WALK_FORWARD_TRAIN_BARS = 756;
 const WALK_FORWARD_TEST_BARS = 252;
 
-export interface SweepPoint {
+interface SweepPoint {
   value: number;
   /** The run hash this variant would get as a normal run, so it counts once however it was tried. */
   hash: string;

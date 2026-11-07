@@ -1,7 +1,7 @@
 import { DcfError } from "./dcf";
 import { TERMINAL_GROWTH_MAX, WACC_CEILING, WACC_FLOOR } from "./limits";
 
-export interface WaccInputs {
+interface WaccInputs {
   /** 10-year Treasury yield, decimal. */
   riskFree: number;
   /** Beta used in CAPM, already adjusted if wanted. */
@@ -14,7 +14,7 @@ export interface WaccInputs {
   totalDebt: number;
 }
 
-export interface WaccResult {
+interface WaccResult {
   costOfEquity: number;
   afterTaxCostOfDebt: number;
   equityWeight: number;

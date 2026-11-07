@@ -1,6 +1,6 @@
 import type { LineItem } from "./types";
 
-export interface Concept {
+interface Concept {
   /** Flow items cover a period (income, cash flow); instant items are balances on a date. */
   kind: "flow" | "instant";
   /** Tried in order for each period; companies switch tags over time, so the first that has that period wins. */

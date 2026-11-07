@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type FlashState = "success" | "error" | null;
+type FlashState = "success" | "error" | null;
 
 const FLASH_MS = 500;
 

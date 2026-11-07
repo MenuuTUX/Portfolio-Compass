@@ -222,7 +222,7 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
 }
 
 /** A lookup result with the errors from that lookup only (sources that failed before one answered). */
-export interface FilingsLookup {
+interface FilingsLookup {
   company: CompanyFilings | null;
   errors: string[];
 }

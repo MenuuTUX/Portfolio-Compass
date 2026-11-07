@@ -86,7 +86,7 @@ function randomizeStep(numDays: number, everyDays: number | undefined, preferred
 export const yieldToBrowser = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
 /** Only a failure to factor the covariance matrix means Randomize's correlations are unusable. */
-export function isCovarianceError(e: unknown): boolean {
+function isCovarianceError(e: unknown): boolean {
   const message = e instanceof Error ? e.message : String(e);
   return /positive definite|non-finite values|Cholesky|covariance/i.test(message);
 }

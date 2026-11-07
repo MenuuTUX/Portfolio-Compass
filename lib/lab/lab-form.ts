@@ -16,10 +16,10 @@ export const LAB_FORM_KEY = "pc:lab-form:v1";
 /** Largest universe the form accepts; keeps a cold load well inside the API's 120 requests per minute. */
 const MAX_UNIVERSE = 50;
 
-export type StrategyKind = NoCodeStrategy["kind"];
+type StrategyKind = NoCodeStrategy["kind"];
 export type RebalanceChoice = "on-change" | Period | "drift";
 
-export interface AllocationRow {
+interface AllocationRow {
   ticker: string;
   /** Percent, 0 to 100. */
   weight: number;
@@ -139,7 +139,7 @@ export function applyLesson(form: LabForm, lesson: Lesson): LabForm {
 /** The first lesson, loaded. */
 export const startGuided = (): LabForm => applyLesson(BLANK_FORM, LESSONS[0]);
 
-export interface Template {
+interface Template {
   id: string;
   label: string;
   description: string;
@@ -261,7 +261,7 @@ export function warmupDaysFor(strategy: LabRequest["strategy"], longestWindow?: 
   return 0;
 }
 
-export interface CodeStrategy {
+interface CodeStrategy {
   kind: "code";
   language: StrategyLanguage;
   code: string;

@@ -97,7 +97,7 @@ export function sectorAllocation(portfolio: Portfolio, weights: Map<string, numb
   return out;
 }
 
-export interface LookThroughRow {
+interface LookThroughRow {
   name: string;
   fullName: string;
   totalWeight: number;

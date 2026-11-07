@@ -5,7 +5,7 @@ import type { SecCompanyFacts, SecSubmissions } from "./types";
  * User-Agent with a contact address and to stay under 10 requests a second.
  * The contact is the app maintainer's (SEC_USER_AGENT), never the user's.
  */
-export interface SecClientOptions {
+interface SecClientOptions {
   userAgent: string;
   fetch?: typeof fetch;
   /** Requests per second; the SEC limit is 10, this stays under it. */
@@ -16,7 +16,7 @@ export interface SecClientOptions {
   sleep?: (ms: number) => Promise<void>;
 }
 
-export interface TickerEntry { cik: number; name: string; ticker: string; exchange: string }
+interface TickerEntry { cik: number; name: string; ticker: string; exchange: string }
 
 const TICKERS_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 /** The ticker map changes rarely; it is built once per load and reused for this long. */
@@ -33,7 +33,7 @@ export class SecHttpError extends Error {
   }
 }
 
-export const padCik = (cik: number) => String(cik).padStart(10, "0");
+const padCik = (cik: number) => String(cik).padStart(10, "0");
 
 /** Seconds or an HTTP date, capped; a missing or unreadable header waits one second. */
 function retryDelayMs(header: string | null, now: number): number {

@@ -32,7 +32,7 @@ export interface Described {
 const EXIT_MULTIPLE_HIGH = 35;
 const EXIT_MULTIPLE_LOW = 6;
 
-export type TerminalTier = "low" | "mid" | "high" | "failure";
+type TerminalTier = "low" | "mid" | "high" | "failure";
 
 /** Growth shown as a number only inside this range. */
 const DISPLAY_GROWTH_MIN = -0.1;

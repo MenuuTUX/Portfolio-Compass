@@ -6,7 +6,7 @@ import { cleanParams, MAX_LOG_LINES, type Params, type PriceMatrix, type Strateg
 // Runs a TypeScript strategy. Sucrase strips types without moving code
 // between lines, so error positions map straight back to the editor.
 
-export interface LogSink {
+interface LogSink {
   lines: string[];
 }
 
@@ -57,7 +57,7 @@ export function locateError(error: unknown): StrategyError {
   return { message: e.message, ...(frame ? { line: Number(frame[1]) - bodyLineOffset() } : {}) };
 }
 
-export interface TsModule {
+interface TsModule {
   weights: (prices: unknown, ctx: unknown) => unknown;
   params: Params;
 }

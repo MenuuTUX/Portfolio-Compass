@@ -28,9 +28,9 @@ import { alignPriceHistories, type ReturnBasis } from "@/lib/math/history";
  * would turn the risk penalty into a risk *reward*.
  */
 
-export type CovarianceSource = "history" | "single-index";
+type CovarianceSource = "history" | "single-index";
 
-export interface CovarianceEstimate {
+interface CovarianceEstimate {
   /** Annualized covariance, indexed to the input array. */
   matrix: number[][];
   source: CovarianceSource;
