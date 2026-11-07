@@ -79,7 +79,7 @@ These choices shape every result on the site:
 - The allocator stopped spending. Its score depends on portfolio weights, not size, so after a lot or two no single purchase raised it. A new investor's $7,000 budget ended with $6,900 in cash. It now invests the budget, and a test checks the mix against the two-asset closed-form optimum.
 - Monte Carlo percentiles came from as few as 20 paths, so the "5th percentile" was roughly the second-worst path. They now come from 2,000.
 - The risk profiles were mislabelled. Once the allocator spent the full budget, "Balanced" held about 80% bonds. The risk penalty is now set so a stock and bond fund pair lands near 30%, 60% and 90% equity.
-- For a while the docs said dividends were left out after the code had switched to total return. A reviewer who read both would have stopped trusting either.
+- For a while the docs said dividends were left out after the code had switched to total return. The docs now match the code.
 
 ## Known limitations
 
