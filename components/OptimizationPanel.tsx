@@ -136,17 +136,16 @@ export default function OptimizationPanel({
     // New money in add mode; the whole plan in replace mode.
     const invested = addToHoldings ? totalValue - currentValue : totalValue;
 
-    // Equity share, only when every holding reports a mix; a missing mix
-    // would otherwise read as 0% equity.
-    const hasMix = (p: PortfolioItem) => {
+    // Equity share, only when every holding reports a mix; a missing mix (null) would otherwise read as 0% equity.
+    // `other` counts toward a known mix, so a gold fund (other: 100) reads as a known 0% equity holding.
+    const equityFraction = (p: PortfolioItem): number | null => {
       const a = p.allocation;
-      return !!a && a.equities + a.bonds + a.cash > 0;
+      if (!a) return null;
+      const total = a.equities + a.bonds + a.cash + (a.other ?? 0);
+      return Number.isFinite(total) && total > 0 ? a.equities / total : null;
     };
-    const equityShare = totalValue > 0 && portfolio.every(hasMix)
-      ? portfolio.reduce((sum, p) => {
-          const a = p.allocation;
-          return sum + (result.shares[p.ticker] || 0) * (p.price || 0) * (a.equities / (a.equities + a.bonds + a.cash));
-        }, 0) / totalValue
+    const equityShare = totalValue > 0 && portfolio.every((p) => equityFraction(p) !== null)
+      ? portfolio.reduce((sum, p) => sum + (result.shares[p.ticker] || 0) * (p.price || 0) * equityFraction(p)!, 0) / totalValue
       : null;
     return { items, currentValue, totalValue, invested, leftover: result.remainingBudget, equityShare };
   }, [portfolio, result, addToHoldings]);

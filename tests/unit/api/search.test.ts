@@ -7,12 +7,16 @@ const mockGetFastQuotes = mock<AsyncMockFn>(async () => new Map());
 const mockGetFastHistory = mock<AsyncMockFn>(async () => new Map());
 const mockGetFastDividendHistories = mock<AsyncMockFn>(async () => new Map());
 const mockSearchFastSymbols = mock<AsyncMockFn>(async () => []);
+const mockGetFastEtfDetails = mock<AsyncMockFn>(async () => null);
+const mockGetFastMarketBetas = mock<AsyncMockFn>(async () => new Map());
 
 await mockModule('@/lib/fast-market', () => ({
   getFastQuotes: mockGetFastQuotes,
   getFastHistory: mockGetFastHistory,
   getFastDividendHistories: mockGetFastDividendHistories,
   searchFastSymbols: mockSearchFastSymbols,
+  getFastEtfDetails: mockGetFastEtfDetails,
+  getFastMarketBetas: mockGetFastMarketBetas,
 }));
 
 await mockModule('next/server', () => {
@@ -64,6 +68,51 @@ describe('API: /api/etfs/search (live, no DB)', () => {
     mockGetFastHistory.mockResolvedValue(new Map());
     mockGetFastDividendHistories.mockResolvedValue(new Map());
     mockSearchFastSymbols.mockResolvedValue([]);
+    mockGetFastEtfDetails.mockClear();
+    mockGetFastMarketBetas.mockClear();
+    mockGetFastEtfDetails.mockResolvedValue(null);
+    mockGetFastMarketBetas.mockResolvedValue(new Map());
+  });
+
+  it('adds market beta and fund asset mix on the portfolio path, null when no mix is reported', async () => {
+    // Fixture values match what Yahoo returned on 2026-11-04 for these funds.
+    const details: Record<string, unknown> = {
+      VOO: { allocation: { equities: 100.04, bonds: 0, cash: -0.12, other: 0.07 } },
+      BND: { allocation: { equities: 0, bonds: 99.03, cash: 0.97, other: 0 } },
+      GLD: { allocation: { equities: 0, bonds: 0, cash: 0, other: 100 } },
+      NOMIX: { allocation: undefined },
+    };
+    mockGetFastQuotes.mockResolvedValue(new Map(
+      ['VOO', 'BND', 'GLD', 'NOMIX'].map((t) => [t, quote(t, { assetType: 'ETF' })]),
+    ));
+    mockGetFastEtfDetails.mockImplementation(async (t: string) => details[t] ?? null);
+    mockGetFastMarketBetas.mockResolvedValue(new Map([
+      ['VOO', { beta: 1, observations: 249, basis: 'total', source: 'Estimated vs SPY from 249 daily total returns' }],
+      ['BND', { beta: 0.04, observations: 249, basis: 'total', source: 'Estimated vs SPY from 249 daily total returns' }],
+    ]));
+
+    const res: any = await GET(new NextRequest('http://localhost/api/etfs/search?tickers=VOO,BND,GLD,NOMIX&includeHistory=true&adjusted=true'));
+    const byTicker = Object.fromEntries(res._data.map((a: any) => [a.ticker, ETFSchema.parse(a)]));
+
+    expect(byTicker.VOO.beta).toBe(1);
+    expect(byTicker.VOO.metrics.betaSource).toBe('Estimated vs SPY from 249 daily total returns');
+    expect(byTicker.BND.beta).toBe(0.04);
+    expect(byTicker.BND.allocation).toEqual({ equities: 0, bonds: 99.03, cash: 0.97, other: 0 });
+    expect(byTicker.GLD.allocation).toEqual({ equities: 0, bonds: 0, cash: 0, other: 100 });
+    expect(byTicker.GLD.beta).toBeUndefined();
+    expect(byTicker.GLD.metrics.betaSource).toBeNull();
+    expect(byTicker.NOMIX.allocation).toBeNull();
+    expect(mockGetFastMarketBetas.mock.calls.at(-1)).toEqual([['VOO', 'BND', 'GLD', 'NOMIX']]);
+  });
+
+  it('skips fund details and beta on browse and display paths', async () => {
+    mockGetFastQuotes.mockResolvedValue(new Map([['VOO', quote('VOO', { assetType: 'ETF' })]]));
+    const res: any = await GET(new NextRequest('http://localhost/api/etfs/search?tickers=VOO&includeHistory=true'));
+
+    expect(mockGetFastEtfDetails).not.toHaveBeenCalled();
+    expect(mockGetFastMarketBetas).not.toHaveBeenCalled();
+    expect(res._data[0].allocation).toBeNull();
+    expect(res._data[0].beta).toBeUndefined();
   });
 
   it('returns live quotes for tickers param', async () => {

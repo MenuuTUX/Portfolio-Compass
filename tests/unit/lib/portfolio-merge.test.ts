@@ -84,3 +84,48 @@ it("preserves explicit unknown yield and metric provenance during normalization"
   expect(normalized.metrics.yieldSource).toBe("Yahoo Finance quote");
   expect(normalized.metrics.mer).toBe(0.25);
 });
+
+it("replaces a stored all-zero asset mix with the fetched one, or with null when none was reported", () => {
+  const stored = (ticker: string): ETF => ({
+    ticker,
+    name: ticker,
+    price: 100,
+    currency: "USD",
+    changePercent: 0,
+    history: [],
+    metrics: { yield: 0, yieldSource: "Yahoo Finance dividend history (TTM)" },
+    allocation: { equities: 0, bonds: 0, cash: 0 },
+  });
+  const fetched = (ticker: string, allocation: ETF["allocation"], beta?: number): ETF => ({
+    ...stored(ticker),
+    allocation,
+    beta,
+    metrics: { ...stored(ticker).metrics, betaSource: beta === undefined ? null : "Estimated vs SPY from 249 daily total returns" },
+  });
+
+  const portfolio = mergeLocalPortfolio(
+    [
+      { ticker: "GLD", shares: 1, weight: 50 },
+      { ticker: "NOMIX", shares: 1, weight: 50 },
+    ],
+    new Map([
+      ["GLD", stored("GLD")],
+      ["NOMIX", stored("NOMIX")],
+    ]),
+    [
+      { ...fetched("GLD", { equities: 0, bonds: 0, cash: 0, other: 100 }, 0.12), weight: 50, shares: 1 },
+      { ...fetched("NOMIX", null), weight: 50, shares: 1 },
+    ],
+  );
+
+  expect(portfolio[0].allocation).toEqual({ equities: 0, bonds: 0, cash: 0, other: 100 });
+  expect(portfolio[0].beta).toBe(0.12);
+  expect(portfolio[0].metrics.betaSource).toBe("Estimated vs SPY from 249 daily total returns");
+  expect(portfolio[1].allocation).toBeNull();
+});
+
+it("normalizes a payload without an asset mix to null, not zeros", () => {
+  expect(toPortfolioEtf({ ticker: "X", price: 1 }, "X").allocation).toBeNull();
+  expect(toPortfolioEtf({ ticker: "GLD", price: 1, allocation: { equities: 0, bonds: 0, cash: 0, other: 100 } }, "GLD").allocation)
+    .toEqual({ equities: 0, bonds: 0, cash: 0, other: 100 });
+});

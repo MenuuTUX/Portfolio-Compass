@@ -5,12 +5,17 @@ import {
   getFastQuotes,
   getFastHistory,
   getFastDividendHistories,
+  getFastEtfDetails,
+  getFastMarketBetas,
   searchFastSymbols,
   quoteToAsset,
   type FastQuote,
   type HistoryPoint,
 } from "@/lib/fast-market";
 import type { DividendHistoryItem } from "@/lib/finance";
+import type { AllocationWeights } from "@/lib/asset-class";
+import type { BetaEstimate } from "@/lib/math/beta";
+import pLimit from "p-limit";
 import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
 import { getRedditCommunities } from "@/config/tickers";
 
@@ -38,9 +43,23 @@ function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
   return value === "STOCK" || value === "ETF" ? value : undefined;
 }
 
-function formatAsset(q: FastQuote, history: HistoryPoint[] = [], dividendHistory: DividendHistoryItem[] | null = null) {
+interface PortfolioInputs {
+  beta?: BetaEstimate;
+  allocation?: AllocationWeights | null;
+}
+
+function formatAsset(
+  q: FastQuote,
+  history: HistoryPoint[] = [],
+  dividendHistory: DividendHistoryItem[] | null = null,
+  inputs: PortfolioInputs = {},
+) {
+  const asset = quoteToAsset(q, history, dividendHistory);
   return {
-    ...quoteToAsset(q, history, dividendHistory),
+    ...asset,
+    ...(inputs.beta ? { beta: inputs.beta.beta } : {}),
+    metrics: { ...asset.metrics, betaSource: inputs.beta?.source ?? null },
+    allocation: inputs.allocation ?? asset.allocation,
     holdings: [],
     redditCommunities: getRedditCommunities(q.ticker, q.assetType).map((c) => ({
       subreddit: c.name,
@@ -121,7 +140,22 @@ export async function GET(request: NextRequest) {
           })
         : Promise.resolve(new Map<string, HistoryPoint[]>()),
     ]);
-    const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
+    const quotedTickers = [...quotes.keys()];
+    // Portfolio callers (adjusted=true) also need the optimizer's inputs: a
+    // market beta and the fund's asset mix. Browse and autocomplete skip both.
+    const etfTickers = adjustedHistory
+      ? quotedTickers.filter((t) => quotes.get(t)?.assetType === "ETF")
+      : [];
+    const detailLimit = pLimit(4);
+    const [dividendHistories, betas, allocations] = await Promise.all([
+      getFastDividendHistories(quotedTickers),
+      adjustedHistory
+        ? getFastMarketBetas(quotedTickers)
+        : Promise.resolve(new Map<string, BetaEstimate>()),
+      Promise.all(etfTickers.map((t) => detailLimit(async () =>
+        [t, (await getFastEtfDetails(t))?.allocation ?? null] as const,
+      ))).then((entries) => new Map(entries)),
+    ]);
 
     const assets = [];
     for (const ticker of tickers.map((t) => t.toUpperCase())) {
@@ -129,7 +163,10 @@ export async function GET(request: NextRequest) {
       if (!q) continue;
       if (assetType && q.assetType !== assetType) continue;
       assets.push(
-        formatAsset(q, histories.get(ticker) || [], dividendHistories.get(ticker)),
+        formatAsset(q, histories.get(ticker) || [], dividendHistories.get(ticker), {
+          beta: betas.get(ticker),
+          allocation: allocations.get(ticker),
+        }),
       );
     }
 

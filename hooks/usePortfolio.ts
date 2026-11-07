@@ -18,6 +18,12 @@ export function pickHistory(current: ETF["history"], details: ETF["history"]): E
   return current;
 }
 
+function hasKnownMix(allocation: ETF["allocation"] | undefined): boolean {
+  if (!allocation) return false;
+  const total = allocation.equities + allocation.bonds + allocation.cash + (allocation.other ?? 0);
+  return Number.isFinite(total) && total > 0;
+}
+
 function mergeQuoteWithDetails(current: ETF, details?: ETF): ETF {
   if (!details) return current;
   const quoteFields = Object.fromEntries(
@@ -34,10 +40,10 @@ function mergeQuoteWithDetails(current: ETF, details?: ETF): ETF {
         Object.entries(current.metrics).filter(([, value]) => value != null),
       ),
     },
-    allocation:
-      current.allocation.equities + current.allocation.bonds + current.allocation.cash > 0
-        ? current.allocation
-        : details.allocation,
+    // Older payloads stored a missing mix as all zeros; treat that as missing.
+    allocation: hasKnownMix(current.allocation)
+      ? current.allocation
+      : hasKnownMix(details.allocation) ? details.allocation : null,
     sectors: currentSectors ? current.sectors : details.sectors,
     holdings: current.holdings?.length ? current.holdings : details.holdings,
     sector: current.sector ?? details.sector,
@@ -101,7 +107,7 @@ export function mergeLocalPortfolio(
           changePercent: 0,
           history: [],
           metrics: {},
-          allocation: { equities: 0, bonds: 0, cash: 0 },
+          allocation: null,
         };
     return {
       ...etf,

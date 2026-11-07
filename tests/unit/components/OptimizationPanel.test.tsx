@@ -66,6 +66,38 @@ describe("OptimizationPanel", () => {
     expect(invested).toBeLessThanOrEqual(10000);
   });
 
+  const mixFund = (ticker: string, price: number, beta: number, allocation: PortfolioItem["allocation"]) => ({
+    ticker, name: ticker, price, currency: "USD", quoteStatus: "ok", changePercent: 0, history: [],
+    metrics: { yield: 1, yieldSource: "Yahoo Finance dividend history (TTM)", betaSource: "Estimated vs SPY from 249 daily total returns" },
+    allocation, beta, weight: 50, shares: 5,
+  });
+
+  it("shows stocks vs bonds when every holding reports a mix, counting a gold fund's mix as known", async () => {
+    const portfolio = [
+      mixFund("VOO", 500, 1, { equities: 100, bonds: 0, cash: 0 }),
+      mixFund("GLD", 250, 0.12, { equities: 0, bonds: 0, cash: 0, other: 100 }),
+    ] as unknown as PortfolioItem[];
+
+    render(<OptimizationPanel portfolio={portfolio} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Replace my current shares" }));
+
+    expect(await screen.findByText("Invested")).toBeTruthy();
+    expect(screen.getByText("Stocks vs bonds")).toBeTruthy();
+  });
+
+  it("hides stocks vs bonds when a holding's mix is missing instead of reading it as 0% stocks", async () => {
+    const portfolio = [
+      mixFund("A", 100, 1, { equities: 100, bonds: 0, cash: 0 }),
+      mixFund("B", 100, 0.1, null),
+    ] as unknown as PortfolioItem[];
+
+    render(<OptimizationPanel portfolio={portfolio} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Replace my current shares" }));
+
+    expect(await screen.findByText("Invested")).toBeTruthy();
+    expect(screen.queryByText("Stocks vs bonds")).toBeNull();
+  });
+
   it("explains why one asset cannot produce an allocation decision", () => {
     const portfolio = [{
       ticker: "TEST", name: "Test fund", price: 100, currency: "USD",
