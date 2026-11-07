@@ -1,30 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import type { BarSeries } from "@/lib/lab/bar-types";
+import { series, weekdays } from "@/tests/helpers/lab-series";
 import { runBacktest } from "@/lib/lab/engine/backtest";
 import { DEFAULT_CONFIG } from "@/lib/lab/engine/simulate";
 import { sweepTrend, sweepValues, type TrendStrategy } from "@/lib/lab/engine/sweep";
-
-function dates(n: number): string[] {
-  const out: string[] = [];
-  const d = new Date(Date.UTC(2010, 0, 1));
-  while (out.length < n) {
-    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) out.push(d.toISOString().slice(0, 10));
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return out;
-}
-
-function series(ticker: string, closes: number[]): BarSeries {
-  const days = dates(closes.length);
-  return {
-    ticker,
-    currency: "USD",
-    bars: closes.map((c, i) => ({ date: days[i], open: c, high: c, low: c, close: c, adjClose: c, volume: null })),
-    dividends: [],
-    splits: [],
-    source: { provider: "Yahoo Finance", adjustment: "close: split-adjusted; adjClose: split- and dividend-adjusted", fetchedAt: "test" },
-  };
-}
 
 /** A wavy uptrend, so moving averages of different lengths trade differently. */
 function wave(n: number): number[] {
@@ -76,7 +54,7 @@ describe("sweepTrend", () => {
 describe("sweepTrend with a start date", () => {
   it("reports from the start date while still using the history before it", async () => {
     const n = 400;
-    const startDate = dates(n)[300];
+    const startDate = weekdays(n)[300];
     const result = await sweepTrend({
       ...base(n),
       strategy: { ...strategy, smaDays: 200 },

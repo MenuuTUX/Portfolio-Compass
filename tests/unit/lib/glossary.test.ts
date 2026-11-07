@@ -1,11 +1,46 @@
-import { describe, it, expect } from "bun:test";
-import { getGlossaryEntry, hasGlossaryEntry } from "@/lib/glossary";
-import {
-  applyMarketFilters,
-  DEFAULT_MARKET_FILTERS,
-} from "@/components/MarketFilters";
+import { describe, expect, it } from "bun:test";
+import { getGlossaryEntry } from "@/lib/glossary";
+
+// [lookup term, expected label]
+const TERMS: Array<[string, string]> = [
+  ["CAGR", "CAGR"],
+  ["Drawdown", "Drawdown"],
+  ["Rebalance", "Rebalance"],
+  ["Backtest", "Backtest"],
+  ["TFSA", "TFSA"],
+  ["Percentile", "Percentile"],
+  ["Deflated Sharpe Ratio", "Deflated Sharpe Ratio"],
+  ["Total return", "Total Return"],
+  ["Sortino", "Sortino Ratio"],
+  ["Calmar", "Calmar Ratio"],
+  ["Turnover", "Turnover"],
+  ["Alpha", "Alpha"],
+  ["Positive months", "Positive Months"],
+  ["Max drawdown", "Max Drawdown"],
+  ["Risk-free rate", "Risk-Free Rate"],
+  ["Slippage", "Slippage"],
+  ["Warm-up", "Warm-Up"],
+  ["Expected return", "Expected Return"],
+  ["Efficient frontier", "Efficient Frontier"],
+  ["Risk level", "Risk Level"],
+  ["New money", "New Money"],
+];
 
 describe("glossary", () => {
+  for (const [term, label] of TERMS) {
+    it(`explains ${term} in one or two plain sentences without advice wording`, () => {
+      const entry = getGlossaryEntry(term);
+      expect(entry?.label).toBe(label);
+      for (const text of [entry?.what ?? "", entry?.means ?? ""]) {
+        const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+        expect(sentences.length).toBeGreaterThanOrEqual(1);
+        expect(sentences.length).toBeLessThanOrEqual(2);
+        expect(text).not.toMatch(/—/);
+        expect(text).not.toMatch(/\bshould (buy|sell)\b|\byou should invest\b|\bfair value\b|\btarget price\b/i);
+      }
+    });
+  }
+
   it("resolves common metric labels", () => {
     expect(getGlossaryEntry("Market Cap")?.label).toBe("Market Cap");
     expect(getGlossaryEntry("PE Ratio")?.what).toMatch(/price divided by earnings/i);
@@ -15,143 +50,25 @@ describe("glossary", () => {
   });
 
   it("handles aliases and case", () => {
-    expect(hasGlossaryEntry("p/e ratio")).toBe(true);
-    expect(hasGlossaryEntry("52W HIGH")).toBe(true);
+    expect(getGlossaryEntry("p/e ratio")).not.toBeNull();
+    expect(getGlossaryEntry("52W HIGH")).not.toBeNull();
     expect(getGlossaryEntry("MER")?.what).toMatch(/fee|Expense|Management/i);
+  });
+
+  it("resolves a bare Sharpe label to the Sharpe Ratio, not Deflated Sharpe Ratio", () => {
+    expect(getGlossaryEntry("Sharpe")?.label).toBe("Sharpe Ratio");
+    expect(getGlossaryEntry("sharpe")?.label).toBe("Sharpe Ratio");
+    expect(getGlossaryEntry("Deflated Sharpe")?.label).toBe("Deflated Sharpe Ratio");
+  });
+
+  it("describes the Lab cash rate instead of a fixed 0% risk-free rate", () => {
+    const sharpe = getGlossaryEntry("Sharpe Ratio");
+    expect(sharpe?.means).not.toMatch(/0% risk-free rate/);
+    expect(sharpe?.means).toMatch(/cash interest rate/);
   });
 
   it("returns null for unknown jargon", () => {
     expect(getGlossaryEntry("Completely Made Up Metric XYZ")).toBeNull();
-  });
-});
-
-describe("applyMarketFilters", () => {
-  const sample = [
-    {
-      ticker: "AAPL",
-      name: "Apple",
-      price: 200,
-      changePercent: 1.5,
-      marketCap: 3e12,
-      peRatio: 30,
-      metrics: { yield: 0.5, yieldSource: "Issuer factsheet", mer: 0 },
-    },
-    {
-      ticker: "SCHD",
-      name: "Schwab Dividend",
-      price: 80,
-      changePercent: -0.8,
-      marketCap: 50e9,
-      peRatio: 15,
-      metrics: { yield: 3.5, yieldSource: "Issuer factsheet", mer: 0.06, merSource: "Issuer factsheet" },
-    },
-    {
-      ticker: "TSLA",
-      name: "Tesla",
-      price: 250,
-      changePercent: 0.1,
-      marketCap: 800e9,
-      peRatio: 60,
-      metrics: { yield: 0, yieldSource: "Issuer factsheet", mer: 0 },
-    },
-  ];
-
-  it("filters gainers", () => {
-    const out = applyMarketFilters(sample, {
-      ...DEFAULT_MARKET_FILTERS,
-      performance: "gainers",
-    });
-    expect(out.map((x) => x.ticker)).toEqual(["AAPL"]);
-  });
-
-  it("filters high yield", () => {
-    const out = applyMarketFilters(sample, {
-      ...DEFAULT_MARKET_FILTERS,
-      yieldFilter: "high",
-    });
-    expect(out.map((x) => x.ticker)).toEqual(["SCHD"]);
-  });
-
-  it("sorts by yield descending", () => {
-    const out = applyMarketFilters(sample, {
-      ...DEFAULT_MARKET_FILTERS,
-      sort: "yield_desc",
-    });
-    expect(out[0].ticker).toBe("SCHD");
-    expect(out[out.length - 1].ticker).toBe("TSLA");
-  });
-
-  it("excludes unverified Yahoo quote yields from yield filters and sorting", () => {
-    const withYahooQuote = [
-      ...sample,
-      {
-        ticker: "YAHOO",
-        name: "Yahoo quoted yield",
-        price: 50,
-        changePercent: 0,
-        metrics: { yield: 8, yieldSource: "Yahoo Finance quote", mer: 0 },
-      },
-    ];
-
-    const highYield = applyMarketFilters(withYahooQuote, {
-      ...DEFAULT_MARKET_FILTERS,
-      yieldFilter: "high",
-    });
-    const byYield = applyMarketFilters(withYahooQuote, {
-      ...DEFAULT_MARKET_FILTERS,
-      sort: "yield_desc",
-    });
-
-    expect(highYield.map((item) => item.ticker)).toEqual(["SCHD"]);
-    expect(byYield[0].ticker).toBe("SCHD");
-    expect(byYield.at(-1)?.ticker).toBe("YAHOO");
-  });
-
-  it("sorts by industry A–Z (missing industry last)", () => {
-    const withIndustry = [
-      {
-        ticker: "XOM",
-        name: "Exxon",
-        price: 100,
-        changePercent: 0,
-        industry: "Oil & Gas Integrated",
-        sector: "Energy",
-      },
-      {
-        ticker: "AAPL",
-        name: "Apple",
-        price: 200,
-        changePercent: 0,
-        industry: "Consumer Electronics",
-        sector: "Technology",
-      },
-      {
-        ticker: "ZZZ",
-        name: "Unknown Co",
-        price: 10,
-        changePercent: 0,
-      },
-    ];
-    const out = applyMarketFilters(withIndustry, {
-      ...DEFAULT_MARKET_FILTERS,
-      sort: "industry_asc",
-    });
-    expect(out.map((x) => x.ticker)).toEqual(["AAPL", "XOM", "ZZZ"]);
-  });
-
-  it("filters value PE", () => {
-    const out = applyMarketFilters(sample, {
-      ...DEFAULT_MARKET_FILTERS,
-      pe: "value",
-    });
-    expect(out.map((x) => x.ticker)).toEqual(["SCHD"]);
-  });
-
-  it("filters sourced ultra-low expense ratios", () => {
-    const out = applyMarketFilters(sample, {
-      ...DEFAULT_MARKET_FILTERS,
-      mer: "ultra_low",
-    });
-    expect(out.map((x) => x.ticker)).toEqual(["SCHD"]);
+    expect(getGlossaryEntry("Costs paid")).toBeNull();
   });
 });

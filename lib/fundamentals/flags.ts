@@ -2,9 +2,10 @@ import { accnUrl } from "./periods";
 import { kindForSic } from "./sector";
 import { liquidAssets, splitAdjustedShares, totalDebt } from "./metrics";
 import type { CompanyFilings, Filing, LineItem } from "./types";
+import { DAY_MS, YEAR_DAYS } from "@/lib/dates";
 
 /** Something to look at, stated as fact, with the rule that raised it and where to read more. No score. */
-export interface Flag {
+interface Flag {
   id: string;
   title: string;
   detail: string;
@@ -46,7 +47,7 @@ export const FLAG_CHECKS: { id: string; rule: string }[] = [
 ];
 
 const ruleOf = (id: string) => FLAG_CHECKS.find((r) => r.id === id)!.rule;
-const WINDOW_MS = FLAG_RULES.filingWindowYears * 365.25 * 86_400_000;
+const WINDOW_MS = FLAG_RULES.filingWindowYears * YEAR_DAYS * DAY_MS;
 const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 
 export function computeFlags(c: CompanyFilings): Flag[] {

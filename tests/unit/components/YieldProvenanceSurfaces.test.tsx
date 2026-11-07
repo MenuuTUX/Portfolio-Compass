@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ETF, PortfolioItem } from "@/types";
 import { mockModule } from "@/tests/helpers/mock-module";
 
-await mockModule("next/image", () => ({ default: ({ alt }: { alt?: string }) => <img alt={alt} /> }));
 await mockModule("framer-motion", () => ({
   motion: new Proxy({}, { get: () => "div" }),
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -112,7 +111,6 @@ describe("Yahoo yield provenance surfaces", () => {
         title="Trending"
         items={[yahooFund]}
         Icon={() => <span />}
-        theme="amber"
         onAddToPortfolio={async () => {}}
         onSelectItem={() => {}}
       />,
@@ -129,7 +127,6 @@ describe("Yahoo yield provenance surfaces", () => {
         title="Trending"
         items={[unattributedFund]}
         Icon={() => <span />}
-        theme="amber"
         onAddToPortfolio={async () => {}}
         onSelectItem={() => {}}
       />,

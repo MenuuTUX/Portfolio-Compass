@@ -1,21 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { fetchChart } from "@/lib/api-client";
+import type { Candle, ChartRange } from "@/lib/fast-market";
+import { DAY_MS } from "@/lib/dates";
 
-export const TIME_RANGES = ["1D", "1W", "1M", "1Y", "5Y", "MAX"] as const;
-export type TimeRange = (typeof TIME_RANGES)[number];
+export const RANGE_META = {
+  "1D": { intraday: true },
+  "1W": { intraday: true },
+  "1M": { intraday: false },
+  "1Y": { intraday: false },
+  "5Y": { intraday: false },
+  MAX: { intraday: false },
+} satisfies Record<ChartRange, { intraday: boolean }>;
+export const TIME_RANGES = Object.keys(RANGE_META) as ChartRange[];
 
-export type FastPoint = { date: string; price: number };
+type FastPoint = { date: string; price: number };
 
-export type Candle = {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-};
-
-export interface ChartPoint {
+interface ChartPoint {
   date: string;
   /** Price, or percent change from the first point when comparing. */
   price: number;
@@ -26,8 +28,8 @@ export interface ChartPoint {
 
 export interface AssetChartState {
   ticker: string | null;
-  range: TimeRange;
-  setRange: (range: TimeRange) => void;
+  range: ChartRange;
+  setRange: (range: ChartRange) => void;
   compare: boolean;
   setCompare: (value: boolean) => void;
   /** OHLC bars; fetched only while candles are wanted and not comparing. */
@@ -54,7 +56,7 @@ export function useAssetChart(
   ticker: string | null,
   fallbackChangePercent = 0,
 ): AssetChartState {
-  const [range, setRange] = useState<TimeRange>("1M");
+  const [range, setRange] = useState<ChartRange>("1M");
   const [compare, setCompare] = useState(false);
   const [wantCandles, setWantCandles] = useState(false);
   const [candleState, setCandleState] = useState<{ key: string; bars: Candle[] }>({
@@ -69,7 +71,6 @@ export function useAssetChart(
   }>({ main: [], spy: [] });
   const [prevTicker, setPrevTicker] = useState(ticker);
 
-  // Reset when the ticker changes (adjust-during-render, no setState-in-effect)
   if (ticker !== prevTicker) {
     setPrevTicker(ticker);
     setSeriesState({ main: [], spy: [] });
@@ -86,13 +87,7 @@ export function useAssetChart(
     const tickers = compare ? `${tickerKey},SPY` : tickerKey;
     const key = `${tickerKey}|${range}|${compare}|${nonce}`;
 
-    fetch(
-      `/api/market/chart?tickers=${encodeURIComponent(tickers)}&range=${range}`,
-      { signal: controller.signal },
-    )
-      .then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
-      )
+    fetchChart({ tickers, range, signal: controller.signal })
       .then((data) => {
         if (cancelled) return;
         setSeriesState({
@@ -120,13 +115,7 @@ export function useAssetChart(
   useEffect(() => {
     if (!candleKey) return;
     const controller = new AbortController();
-    fetch(
-      `/api/market/chart?tickers=${encodeURIComponent(tickerKey)}&range=${range}&ohlc=1`,
-      { signal: controller.signal },
-    )
-      .then((res) =>
-        res.ok ? res.json() : Promise.reject(new Error(res.statusText)),
-      )
+    fetchChart({ tickers: tickerKey, range, ohlc: true, signal: controller.signal })
       .then((data) => setCandleState({ key: candleKey, bars: data.candles || [] }))
       .catch((err) => {
         if (err?.name !== "AbortError") {
@@ -147,10 +136,7 @@ export function useAssetChart(
 
     if (compare && spyHistory.length > 0) {
       // Both series share range/interval, so align by nearest timestamp
-      const tolerance =
-        range === "1D" || range === "1W"
-          ? 30 * 60 * 1000
-          : 3 * 24 * 60 * 60 * 1000;
+      const tolerance = RANGE_META[range].intraday ? 30 * 60 * 1000 : 3 * DAY_MS;
       const spyTimes = spyHistory.map((p) => new Date(p.date).getTime());
       const spyPriceAt = (target: number) => {
         let best = 0;

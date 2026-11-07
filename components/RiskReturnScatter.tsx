@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import React, { useState } from "react";
 import {
   ScatterChart,
@@ -15,7 +16,7 @@ import {
 import { PortfolioItem } from "@/types";
 import { Info, X } from "lucide-react";
 import { m as motion, AnimatePresence } from "framer-motion";
-import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
 import { HAIRLINE_STRONG, INK, MUTED } from "@/lib/chart-colors";
 
 interface RiskReturnScatterProps {
@@ -183,12 +184,12 @@ export default function RiskReturnScatter({ items }: RiskReturnScatterProps) {
                             Sourced Yield:
                           </span>
                           <span className="text-ink">
-                            {d.y.toFixed(2)}%
+                            {percent(d.y, 2)}
                           </span>
                         </div>
                         <div className="flex justify-between gap-4">
                           <span className="text-muted">Target Weight:</span>
-                          <span className="text-ink">{d.z.toFixed(2)}%</span>
+                          <span className="text-ink">{percent(d.z, 2)}</span>
                         </div>
                       </div>
                     </div>

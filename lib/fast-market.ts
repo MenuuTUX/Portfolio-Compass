@@ -3,10 +3,19 @@ import pLimit from "p-limit";
 import { z } from "zod";
 import type { QuoteSession } from "@/lib/quote-session";
 import { calculateTTMYield, type DividendHistoryItem } from "@/lib/finance";
-import type { AllocationWeights } from "@/lib/asset-class";
+import {
+  detectFundClass,
+  normalizeExpenseRatioWithProvenance,
+  parseBondRatings,
+  pickBeta,
+  positionsToAllocation,
+  type AllocationWeights,
+} from "@/lib/asset-class";
 import { estimateMarketBeta, MARKET_PROXY, type BetaEstimate } from "@/lib/math/beta";
-import { fetchWithTimeout } from "@/lib/upstream";
-import { isTicker } from "@/lib/tickers";
+import { fetchWithTimeout, timeoutSignal } from "@/lib/upstream";
+import { isTicker, normalizeTicker } from "@/lib/tickers";
+import { isoDay } from "@/lib/dates";
+import { YAHOO_QUOTE_SOURCE } from "@/lib/provenance";
 
 // Yahoo market data with in-memory TTL caching (no DB on the hot path).
 
@@ -179,7 +188,7 @@ function normalizeTickers(tickers: string[]): string[] {
   return Array.from(
     new Set(
       tickers
-        .map((t) => t.trim().toUpperCase())
+        .map(normalizeTicker)
         .filter(isTicker),
     ),
   );
@@ -332,7 +341,7 @@ export function nextEarningsDate(
     .sort((a, b) => a - b)[0];
   return upcoming === undefined
     ? undefined
-    : new Date(upcoming).toISOString().split("T")[0];
+    : isoDay(upcoming);
 }
 
 export async function getFastQuotes(
@@ -444,8 +453,9 @@ function keyTickers(key: string): string[] {
 }
 
 const PROFILE_TTL_MS = 6 * 60 * 60_000; // sectors/industries rarely change
+const PROFILE_FAILURE_TTL_MS = 30 * 60_000;
 
-export interface FastProfile {
+interface FastProfile {
   ticker: string;
   sector?: string;
   industry?: string;
@@ -455,7 +465,7 @@ export interface FastProfile {
  * Sector / industry from Yahoo summaryProfile (stocks) or fund category (ETFs).
  * These fields use a longer TTL than prices because they change less often.
  */
-export async function getFastProfiles(
+async function getFastProfiles(
   tickers: string[],
 ): Promise<Map<string, FastProfile>> {
   const clean = normalizeTickers(tickers);
@@ -506,7 +516,7 @@ export async function getFastProfiles(
           const empty: FastProfile = { ticker };
           setCache(`profile:${ticker}`, {
             value: empty,
-            expires: Date.now() + 30 * 60_000,
+            expires: Date.now() + PROFILE_FAILURE_TTL_MS,
           });
           result.set(ticker, empty);
         }
@@ -599,7 +609,7 @@ async function fetchSparkChunk(
 
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-    signal: AbortSignal.timeout(8000),
+    signal: timeoutSignal(),
   });
   if (!res.ok) throw new Error(`spark ${res.status}`);
   parseSparkPayload(await res.json(), out);
@@ -728,7 +738,7 @@ export async function getFastWebsiteDomain(ticker: string): Promise<string | nul
   }
 }
 
-export interface HistoryOptions {
+interface HistoryOptions {
   /**
    * Include `adjPrice` (dividend-adjusted close). The spark endpoint returns
    * closes only, so this fetches each ticker through chart() instead: slower,
@@ -993,6 +1003,7 @@ export async function searchFastSymbols(
 
 const ETF_DETAILS_TTL_MS = 10 * 60_000;
 
+/** Response body of GET /api/market/etf-details. */
 export interface FastEtfDetails {
   ticker: string;
   description?: string;
@@ -1079,19 +1090,10 @@ const EtfQuoteSchema = z.object({
 export async function getFastEtfDetails(
   ticker: string,
 ): Promise<FastEtfDetails | null> {
-  const key = `etfdetail:${ticker.trim().toUpperCase()}`;
+  const key = `etfdetail:${normalizeTicker(ticker)}`;
 
   try {
     return await cached(key, ETF_DETAILS_TTL_MS, async () => {
-      // Lazy import to keep the hot quote path free of this module's deps graph
-      const {
-        detectFundClass,
-        positionsToAllocation,
-        parseBondRatings,
-        normalizeExpenseRatioWithProvenance,
-        pickBeta,
-      } = await import("@/lib/asset-class");
-
       const [rawData, rawQuote] = await Promise.all([
         yf.quoteSummary(ticker, {
           modules: [
@@ -1136,7 +1138,7 @@ export async function getFastEtfDetails(
       const selectedFee = normalizedQuoteFee ?? normalizedProfileFee;
       const expenseRatio = selectedFee?.value;
       const expenseRatioSource = normalizedQuoteFee
-        ? "Yahoo Finance quote"
+        ? YAHOO_QUOTE_SOURCE
         : normalizedProfileFee ? "Yahoo Finance fund profile" : undefined;
       const expenseRatioField = selectedFee?.sourceField;
 
@@ -1184,7 +1186,7 @@ export async function getFastEtfDetails(
       const volume = quote?.regularMarketVolume ?? undefined;
 
       return {
-        ticker: ticker.toUpperCase(),
+        ticker: normalizeTicker(ticker),
         description,
         expenseRatio,
         expenseRatioSource,
@@ -1232,9 +1234,6 @@ export async function enrichEtfDetailsGaps(
   try {
     const { getStockProfile, getEtfHoldings } = await import(
       "@/lib/scrapers/stock-analysis"
-    );
-    const { normalizeExpenseRatioWithProvenance, pickBeta } = await import(
-      "@/lib/asset-class"
     );
 
     const [profile, scrapedHoldings] = await Promise.all([
@@ -1328,7 +1327,7 @@ export function quoteToAsset(
       yield: calculatedYield ?? q.dividendYield ?? null,
       yieldSource: calculatedYield !== null
         ? "Yahoo Finance dividend history (TTM)"
-        : q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+        : q.dividendYield !== undefined ? YAHOO_QUOTE_SOURCE : null,
       yieldRetrievedAt: calculatedYield !== null
         ? new Date().toISOString()
         : q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
@@ -1341,7 +1340,7 @@ export function quoteToAsset(
           : q.dividendYieldField === "dividendYield" ? "already percent" : null,
       yieldMeasurementDate: calculatedYield !== null ? q.quoteAsOf ?? null : null,
       mer: q.expenseRatio ?? null,
-      merSource: q.expenseRatio !== undefined ? "Yahoo Finance quote" : null,
+      merSource: q.expenseRatio !== undefined ? YAHOO_QUOTE_SOURCE : null,
       merRetrievedAt: q.expenseRatio !== undefined ? q.retrievedAt ?? null : null,
       merSourceField: q.expenseRatioField ?? null,
       merInputUnit: q.expenseRatioInputUnit ?? null,

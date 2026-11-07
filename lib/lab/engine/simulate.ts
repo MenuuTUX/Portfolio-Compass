@@ -1,4 +1,5 @@
 import type { Frame } from "@/lib/lab/engine/frame";
+import { daysBetween, isoDay } from "@/lib/dates";
 
 // The Compass Lab simulator. Strategies only supply target weights; this file
 // owns cash, fills, costs, dividends and rebalancing, so every strategy
@@ -68,7 +69,7 @@ export interface SimResult {
 
 const EPS = 1e-9;
 
-export function periodKey(date: string, every: Period): string {
+function periodKey(date: string, every: Period): string {
   switch (every) {
     case "Y":
       return date.slice(0, 4);
@@ -80,7 +81,7 @@ export function periodKey(date: string, every: Period): string {
       // Monday of the ISO week, so weeks that span a month or year stay whole.
       const d = new Date(`${date}T00:00:00Z`);
       d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-      return d.toISOString().slice(0, 10);
+      return isoDay(d);
     }
   }
 }
@@ -203,7 +204,7 @@ export function simulate(frame: Frame, targetsIn: Float64Array, config: Backtest
   for (let t = 0; t < T; t++) {
     // 0. Interest on cash held since the previous bar.
     if (cashRate > 0 && t > 0 && cash > 0) {
-      const elapsed = (Date.parse(`${dates[t]}T00:00:00Z`) - Date.parse(`${dates[t - 1]}T00:00:00Z`)) / 86_400_000;
+      const elapsed = daysBetween(dates[t - 1], dates[t]);
       cash *= (1 + cashRate) ** (elapsed / 365);
     }
 

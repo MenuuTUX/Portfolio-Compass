@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { AnimatePresence, m as motion, useInView, useReducedMotion } from "framer-motion";
-import Reveal, { EASE, RevealGroup, RevealItem } from "./motion/Reveal";
+import Reveal, { RevealGroup, RevealItem } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 const AUTOPLAY_MS = 4000;
 

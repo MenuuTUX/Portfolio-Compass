@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { EASE } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 interface SimulatorExplainerProps {
   mode?: "SIMPLE" | "MONTE_CARLO";

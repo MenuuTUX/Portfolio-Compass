@@ -7,7 +7,7 @@ import {
   quoteToAsset,
 } from "@/lib/fast-market";
 import { z } from "zod";
-import { parseTickers } from "@/lib/tickers";
+import { jsonError, parseUpperTickers } from "@/lib/api";
 
 export const maxDuration = 30;
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = RefreshRequestSchema.safeParse(await request.json());
       if (result.success) {
-        tickers = parseTickers(result.data.tickers, MAX_TICKERS).map((t) => t.toUpperCase());
+        tickers = parseUpperTickers(result.data.tickers, MAX_TICKERS);
       }
     } catch {
       // No usable body: there is nothing to refresh.
@@ -79,10 +79,6 @@ export async function POST(request: NextRequest) {
       assets,
     });
   } catch (error) {
-    console.error("[API] Market refresh failed:", error);
-    return NextResponse.json(
-      { error: "Failed to refresh market data" },
-      { status: 502 },
-    );
+    return jsonError(502, "Failed to refresh market data", "[API] Market refresh failed:", error);
   }
 }

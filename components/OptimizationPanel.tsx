@@ -1,7 +1,9 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useState, useMemo, useEffect } from "react";
 import { m as motion } from "framer-motion";
+import { EASE } from "@/lib/motion";
 import { Check } from "lucide-react";
 import { PortfolioItem } from "@/types";
 import {
@@ -13,7 +15,8 @@ import {
   RISK_FREE,
   EQUITY_PREMIUM,
 } from "@/lib/optimizer";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { HelpLabel, HelpTip } from "@/components/ui/HelpTip";
 import { estimateAnnualCovariance } from "@/lib/math/covariance";
 import { loadRiskProfile } from "@/lib/risk-profile";
@@ -296,14 +299,14 @@ export default function OptimizationPanel({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <p className="truncate text-sm font-bold text-ink">{item.ticker}</p>
-                      <p className="shrink-0 text-sm font-bold tabular-nums text-ink">{row.weight.toFixed(1)}%</p>
+                      <p className="shrink-0 text-sm font-bold tabular-nums text-ink">{percent(row.weight, 1)}</p>
                     </div>
                     <div className="mt-1.5 h-1.5 w-full bg-surface-soft rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-compass"
                         initial={false}
                         animate={{ width: `${Math.min(100, Math.max(0, row.weight))}%` }}
-                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.4, ease: EASE }}
                       />
                     </div>
                     <p className="mt-1 text-xs text-muted tabular-nums">

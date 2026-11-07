@@ -1,3 +1,5 @@
+import { normalizeTicker } from '@/lib/tickers';
+
 
 // Broad set of large, liquid US (+ a few TSX) stocks across sectors, used to
 // seed the Stocks tab browse grid before any search query is typed.
@@ -53,9 +55,7 @@ export const NATURAL_RESOURCES_TICKERS = [
   'MOO', 'PHO'
 ];
 
-// Reddit Community Associations for Tickers
-// Maps tickers to their most relevant Reddit communities
-export interface RedditCommunity {
+interface RedditCommunity {
   name: string;      // Subreddit name without r/
   displayName: string; // Display name
   url: string;       // Full Reddit URL
@@ -175,7 +175,7 @@ export function getRedditCommunities(
   ticker: string,
   assetType?: string,
 ): RedditCommunity[] {
-  const upperTicker = ticker.toUpperCase();
+  const upperTicker = normalizeTicker(ticker);
   const curated = REDDIT_COMMUNITIES[upperTicker];
   if (curated) return curated;
 

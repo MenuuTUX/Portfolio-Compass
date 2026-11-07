@@ -1,4 +1,4 @@
-export interface TreemapRect<T> {
+interface TreemapRect<T> {
   item: T;
   x: number;
   y: number;
@@ -48,7 +48,6 @@ export function squarify<T>(
 
     const rowArea = row.reduce((s, r) => s + r.area, 0);
     if (w >= h) {
-      // Column on the left
       const colW = rowArea / h;
       let cy = y;
       for (const r of row) {
@@ -59,7 +58,6 @@ export function squarify<T>(
       x += colW;
       w -= colW;
     } else {
-      // Row on top
       const rowH = rowArea / w;
       let cx = x;
       for (const r of row) {

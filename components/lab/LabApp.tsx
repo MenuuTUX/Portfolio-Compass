@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, FlaskConical } from "lucide-react";
 import { m as motion } from "framer-motion";
 import { BLANK_FORM, isGuided, LAB_ACK_KEY, LAB_FORM_KEY, startNoCode, toRequest, type LabForm } from "@/lib/lab/lab-form";
 import { extractTickers, lessonById, liveNotes } from "@/lib/lab/lessons";
-import { PaneResizer, RowResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
-import { EASE } from "@/components/motion/Reveal";
+import { PaneResizer, RowResizer, useResizableWidth } from "@/components/ui/PaneResizer";
+import { EASE } from "@/lib/motion";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import { cn } from "@/lib/cn";
 import StrategyPanel from "./StrategyPanel";
 import GuidePanel from "./GuidePanel";
@@ -16,42 +17,18 @@ import RunsPanel from "./RunsPanel";
 import { StrategyRunError, useLabEngine, type LabRun } from "./useLabEngine";
 import { countVariants } from "@/lib/lab/engine/variants";
 import type { RobustnessState } from "./RobustnessPanel";
+import { useIsLg } from "@/hooks/useMediaQuery";
 import CodePane, { type ConsoleState } from "./CodePane";
 import type { Params, StrategyError } from "@/lib/lab/strategy/types";
+import { isoDay } from "@/lib/dates";
 
 const MAX_COMPARE = 5;
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
-
-const LG_QUERY = "(min-width: 1024px)";
-function subscribeLg(callback: () => void) {
-  const mq = window.matchMedia(LG_QUERY);
-  mq.addEventListener("change", callback);
-  return () => mq.removeEventListener("change", callback);
-}
-function useIsLg() {
-  return useSyncExternalStore(subscribeLg, () => window.matchMedia(LG_QUERY).matches, () => false);
-}
+const todayIso = () => isoDay(Date.now());
 
 // Leaves the results below the editor at least 220px.
 const maxCodeH = () => Math.max(160, window.innerHeight - 260);
 const maxSide = () => Math.min(520, Math.round(window.innerWidth * 0.32));
-
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage unavailable: the Lab still works for this visit.
-  }
-}
 
 function LabGate({ onEnter }: { onEnter: () => void }) {
   const [agreed, setAgreed] = useState(false);
@@ -97,7 +74,6 @@ function LabGate({ onEnter }: { onEnter: () => void }) {
 
 type MobilePane = "strategy" | "code" | "results" | "runs";
 
-/** Wait this long after the last keystroke before reading params from the code. */
 const INSPECT_DELAY_MS = 600;
 const SAVE_DELAY_MS = 400;
 
@@ -125,8 +101,8 @@ export default function LabApp() {
 
   useEffect(() => {
     // Read after mount so the server render and first client render match.
-    setAcked(read(LAB_ACK_KEY) === "1");
-    const saved = read(LAB_FORM_KEY);
+    setAcked(readStored(LAB_ACK_KEY) === "1");
+    const saved = readStored(LAB_FORM_KEY);
     if (saved) {
       try {
         // The end date is always today: a saved end would backtest to an old date.
@@ -145,7 +121,7 @@ export default function LabApp() {
     setErrors([]);
     // Debounced: code changes on every keystroke.
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => write(LAB_FORM_KEY, JSON.stringify(next)), SAVE_DELAY_MS);
+    saveTimer.current = setTimeout(() => writeStored(LAB_FORM_KEY, JSON.stringify(next)), SAVE_DELAY_MS);
   }, []);
 
   const busy = status === "loading-data" || status === "strategy" || status === "running" || status === "starting";
@@ -235,7 +211,7 @@ export default function LabApp() {
     return (
       <LabGate
         onEnter={() => {
-          write(LAB_ACK_KEY, "1");
+          writeStored(LAB_ACK_KEY, "1");
           setAcked(true);
         }}
       />
@@ -356,7 +332,6 @@ export default function LabApp() {
       </div>
 
       ) : (
-      /* Mobile and tablet: one pane at a time, with labelled tabs. */
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         <div role="tablist" aria-label="Lab panes" className={cn("grid shrink-0 gap-1 rounded-lg bg-surface-soft p-1", codeMode ? "grid-cols-4" : "grid-cols-3")}>
           {mobilePanes.map(([id, text]) => (

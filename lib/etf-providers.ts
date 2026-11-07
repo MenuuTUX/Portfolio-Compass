@@ -1,15 +1,20 @@
+import { normalizeTicker } from "@/lib/tickers";
+
+// noLogo: no logo file ships for this provider.
 const providers = [
-  { name: "AGFiQ", keywords: ["AGFiQ"], slug: "agfiq" },
-  { name: "AdvisorShares", keywords: ["AdvisorShares"], slug: "advisorshares" },
+  { name: "AGFiQ", keywords: ["AGFiQ"], slug: "agfiq", noLogo: true },
+  { name: "AdvisorShares", keywords: ["AdvisorShares"], slug: "advisorshares", noLogo: true },
   {
     name: "Alpha Architect",
     keywords: ["Alpha Architect"],
     slug: "alpha-architect",
+    noLogo: true,
   },
   {
     name: "American Century",
     keywords: ["American Century"],
     slug: "american-century-investments",
+    noLogo: true,
   },
   { name: "ARK Invest", keywords: ["ARK"], slug: "ark-invest" },
   {
@@ -41,7 +46,7 @@ const providers = [
     keywords: ["CI Global", "CI Galaxy", "CI"],
     slug: "ci-global-asset-management",
   },
-  { name: "CIBC", keywords: ["CIBC"], slug: "cibc-asset-management" },
+  { name: "CIBC", keywords: ["CIBC"], slug: "cibc-asset-management", noLogo: true },
   {
     name: "Desjardins",
     keywords: ["Desjardins"],
@@ -153,7 +158,6 @@ function findProvider(etfName: string) {
   return providers.find((p) =>
     p.keywords.some((k) => {
       const lowerKeyword = k.toLowerCase();
-      // Escape special regex characters
       const escapedKeyword = lowerKeyword.replace(
         /[.*+?^${}()|[\]\\]/g,
         "\\$&",
@@ -165,23 +169,6 @@ function findProvider(etfName: string) {
   );
 }
 
-export function getProviderLogo(etfName: string): string | null {
-  const match = findProvider(etfName);
-
-  if (match) {
-    const missing = [
-      "agfiq",
-      "advisorshares",
-      "alpha-architect",
-      "american-century-investments",
-      "cibc-asset-management",
-    ];
-    if (missing.includes(match.slug)) return null;
-    return `/logos/${match.slug}.png`;
-  }
-  return null;
-}
-
 // Same-origin logo endpoint: tries several sources and always answers with an
 // image (a letter monogram when no real logo exists).
 const logoUrl = (ticker: string) => `/api/logo/${encodeURIComponent(ticker)}`;
@@ -191,37 +178,26 @@ export function getAssetIconUrl(
   name: string,
   assetType: string = "ETF",
 ): string | null {
-  const upperTicker = ticker.toUpperCase();
+  const upperTicker = normalizeTicker(ticker);
 
-  // STOCK logic
   if (assetType === "STOCK") {
     return logoUrl(upperTicker);
   }
 
-  // ETF logic
   if (assetType === "ETF") {
     const match = findProvider(name);
 
     if (match) {
       if (match.stockTicker) {
-        // Exclude WT if known missing, but try CDN anyway
         if (match.stockTicker === "WT") return `/logos/${match.slug}.png`;
         return logoUrl(match.stockTicker);
       }
 
-      const missing = [
-        "agfiq",
-        "advisorshares",
-        "alpha-architect",
-        "american-century-investments",
-        "cibc-asset-management",
-      ];
-      if (missing.includes(match.slug)) return null;
+      if (match.noLogo) return null;
       return `/logos/${match.slug}.png`;
     }
 
-    // Fallback: If no provider matched, assume it might be a stock or an ETF with a ticker icon.
-    // This supports mixed lists where stocks are present, or ETFs without a known provider but with a ticker icon.
+    // No provider matched: the asset may be a stock in a mixed list, or an ETF with its own ticker icon.
     return logoUrl(upperTicker);
   }
 

@@ -1,16 +1,15 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useCallback, useId, useRef, useState } from "react";
 import { m as motion, useReducedMotion } from "framer-motion";
-import { EASE } from "../motion/Reveal";
-import Shimmer from "./Shimmer";
+import { EASE } from "@/lib/motion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LineChart as LineChartIcon, RefreshCw } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
-import {
-  TIME_RANGES,
-  type AssetChartState,
-  type TimeRange,
-} from "./useAssetChart";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
+import { RANGE_META, TIME_RANGES, type AssetChartState } from "./useAssetChart";
+import type { ChartRange } from "@/lib/fast-market";
 import { GAIN, LOSS, MUTED } from "@/lib/chart-colors";
 
 
@@ -27,25 +26,20 @@ interface AssetChartProps {
   showAverage?: boolean;
 }
 
-/** Compact axis date: time for 1D, weekday for 1W, day for 1M, month for 1Y, year beyond. */
-function formatAxisDate(date: string, range: TimeRange) {
+const AXIS_DATE: Record<ChartRange, (d: Date) => string> = {
+  "1D": (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+  "1W": (d) => d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" }),
+  "1M": (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+  "1Y": (d) => `${d.toLocaleDateString(undefined, { month: "short" })} '${String(d.getFullYear()).slice(2)}`,
+  "5Y": (d) => String(d.getFullYear()),
+  MAX: (d) => String(d.getFullYear()),
+};
+
+function formatAxisDate(date: string, range: ChartRange) {
   const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return "";
-  switch (range) {
-    case "1D":
-      return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    case "1W":
-      return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" });
-    case "1M":
-      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    case "1Y":
-      return `${d.toLocaleDateString(undefined, { month: "short" })} '${String(d.getFullYear()).slice(2)}`;
-    default:
-      return String(d.getFullYear());
-  }
+  return Number.isNaN(d.getTime()) ? "" : AXIS_DATE[range](d);
 }
 
-/** Round-number gridline values inside [min, max]. */
 function niceTicks(min: number, max: number, count = 4) {
   const raw = (max - min || 1) / count;
   const mag = 10 ** Math.floor(Math.log10(raw));
@@ -58,15 +52,16 @@ function niceTicks(min: number, max: number, count = 4) {
   return { ticks, step };
 }
 
-function formatTag(date: string, range: TimeRange) {
+function formatTag(date: string, range: ChartRange) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return "";
+  const { intraday } = RANGE_META[range];
   const day = d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    year: range === "1D" || range === "1W" ? undefined : "numeric",
+    year: intraday ? undefined : "numeric",
   });
-  if (range === "1D" || range === "1W") {
+  if (intraday) {
     return `${day}, ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
   }
   return day;
@@ -131,7 +126,6 @@ export function AssetChart({
     measure();
   }, []);
 
-  // Colour follows the overall change of the plotted series
   const isUp = n > 1 ? data[n - 1].price >= data[0].price : chart.isPositive;
   const color = isUp ? GAIN : LOSS;
 
@@ -144,7 +138,7 @@ export function AssetChart({
             role="status"
             aria-label="Loading chart"
           >
-            <Shimmer className="h-1/2 w-full rounded-lg" />
+            <Skeleton className="h-1/2 w-full" />
             <p className="sr-only">Loading chart…</p>
           </div>
         ) : (
@@ -187,7 +181,6 @@ export function AssetChart({
   const x = (i: number) => (n > 1 ? (i / (n - 1)) * w : w / 2);
   const y = (v: number) => PAD_TOP + (1 - (v - min) / span) * plotH;
 
-  // Candle geometry: its own scale from highs/lows, one slot per bar
   const cn_ = chart.candles.length;
   let cMin = Infinity;
   let cMax = -Infinity;
@@ -227,7 +220,6 @@ export function AssetChart({
     if (i !== null) setHover(i);
   };
 
-  // Per-point value/position, shared by the line and candle modes
   const valueAt = (i: number) => (showCandles ? chart.candles[i].close : data[i].price);
   const dateAt = (i: number) => (showCandles ? chart.candles[i].date : data[i].date);
   const px = (i: number) => (showCandles ? cx_(i) : x(i));
@@ -242,7 +234,6 @@ export function AssetChart({
           maximumFractionDigits: step >= 1 ? 0 : step >= 0.1 ? 1 : 2,
         });
 
-  // Axes, extremes and moving average (advanced charts only)
   const { ticks: yTicks, step: yStep } = advanced && w > 0 ? niceTicks(sMin, sMax) : { ticks: [], step: 1 };
   const xCount = w < 420 ? 3 : 5;
   const xTicks =
@@ -280,7 +271,6 @@ export function AssetChart({
     avgLine = linePath(avg, x, y);
   }
 
-  // Drag-to-measure: change between where the drag began and where it is now
   const measuring = advanced && anchor !== null && hover !== null && hover !== anchor && anchor < m;
   const mFrom = measuring ? Math.min(anchor, hover) : 0;
   const mTo = measuring ? Math.max(anchor, hover) : 0;
@@ -288,11 +278,9 @@ export function AssetChart({
   const mPct = measuring && valueAt(mFrom) !== 0 ? (mDelta / Math.abs(valueAt(mFrom))) * 100 : 0;
   const signed = (v: number, digits = 2) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(digits)}`;
   const mColor = mDelta >= 0 ? GAIN : LOSS;
-  // Hovered point vs the start of the range
   const hoverPct = !compare && !bar && first !== 0 ? ((ap.price - first) / first) * 100 : null;
   const labelAnchor = (px_: number) => (px_ < 44 ? "start" : px_ > w - 44 ? "end" : "middle");
 
-  // Tag slides from left-aligned at the left edge to right-aligned at the right edge
   const tagShift = w > 0 ? (ax / w) * 100 : 50;
 
   // New data (asset or range change) remounts the plot so the line redraws
@@ -555,7 +543,7 @@ export function AssetChart({
                 <>
                   <span className="font-semibold text-ink tabular-nums">
                     {compare
-                      ? `${ticker} ${ap.price.toFixed(2)}%`
+                      ? `${ticker} ${percent(ap.price, 2)}`
                       : bar
                         ? `O ${formatCurrency(bar.open, currency)} H ${formatCurrency(bar.high, currency)} L ${formatCurrency(bar.low, currency)} C ${formatCurrency(bar.close, currency)}`
                         : formatCurrency(ap.price, currency)}
@@ -570,7 +558,7 @@ export function AssetChart({
                   )}
                   {compare && ap.spyPrice != null && (
                     <span className="ml-2 text-muted tabular-nums">
-                      SPY {ap.spyPrice.toFixed(2)}%
+                      SPY {percent(ap.spyPrice, 2)}
                     </span>
                   )}
                   <span className="ml-2 text-muted">{formatTag(ap.date, range)}</span>
@@ -580,7 +568,7 @@ export function AssetChart({
           )}
           <span className="sr-only" aria-live="polite">
             {hover !== null
-              ? `${compare ? `${ap.price.toFixed(2)}%` : formatCurrency(ap.price, currency)} on ${formatTag(ap.date, range)}`
+              ? `${compare ? percent(ap.price, 2) : formatCurrency(ap.price, currency)} on ${formatTag(ap.date, range)}`
               : ""}
           </span>
         </div>
@@ -600,11 +588,11 @@ export function AssetChart({
               <td>{new Date(item.date).toLocaleDateString()}</td>
               <td>
                 {compare
-                  ? `${item.price.toFixed(2)}%`
+                  ? percent(item.price, 2)
                   : formatCurrency(item.price, currency)}
               </td>
               {compare && (
-                <td>{item.spyPrice != null ? `${item.spyPrice.toFixed(2)}%` : "N/A"}</td>
+                <td>{item.spyPrice != null ? percent(item.spyPrice, 2) : "N/A"}</td>
               )}
             </tr>
           ))}
@@ -614,7 +602,6 @@ export function AssetChart({
   );
 }
 
-/** Range chips: 1D 1W 1M 1Y 5Y MAX. A pill slides to the active chip. */
 export function ChartRangeBar({
   chart,
   className,

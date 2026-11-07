@@ -7,6 +7,7 @@ import YahooFinance from "yahoo-finance2";
 import { z } from "zod";
 import { fetchWithTimeout } from "@/lib/upstream";
 import { cacheHeaders, CACHE } from "@/lib/http-cache";
+import { jsonError } from "@/lib/api";
 
 export const maxDuration = 30;
 
@@ -159,11 +160,6 @@ export async function GET(request: Request) {
       { headers: cacheHeaders(CACHE.profile) },
     );
   } catch (error) {
-    console.error("Error fetching stock profile:", error);
-
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return jsonError(500, "Internal Server Error", "Error fetching stock profile:", error);
   }
 }

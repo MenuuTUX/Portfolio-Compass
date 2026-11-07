@@ -18,10 +18,10 @@ export type TrendStrategy = Extract<NoCodeStrategy, { kind: "trend" }>;
 /** Moving-average lengths tried by default. The run's own length is added to the list. */
 export const DEFAULT_SMA_VALUES = [20, 50, 100, 150, 200, 250, 300];
 /** Walk-forward windows: three years to choose, one year to test. */
-export const WALK_FORWARD_TRAIN_BARS = 756;
-export const WALK_FORWARD_TEST_BARS = 252;
+const WALK_FORWARD_TRAIN_BARS = 756;
+const WALK_FORWARD_TEST_BARS = 252;
 
-export interface SweepPoint {
+interface SweepPoint {
   value: number;
   /** The run hash this variant would get as a normal run, so it counts once however it was tried. */
   hash: string;

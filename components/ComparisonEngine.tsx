@@ -1,5 +1,7 @@
 "use client";
 
+import { searchMarket, syncEtf } from "@/lib/api-client";
+import { readStored, writeStored } from "@/lib/safe-storage";
 import Image from "next/image";
 import {
   useState,
@@ -8,18 +10,19 @@ import {
   useRef,
   useMemo,
   memo,
-  useSyncExternalStore,
 } from "react";
 import { Search, ChevronDown, ChevronLeft, ChevronRight, Filter, SlidersHorizontal, ListFilter } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { ETF, PortfolioItem } from "@/types";
 import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
 import { m as motion, useReducedMotion } from "framer-motion";
-import Reveal, { EASE } from "./motion/Reveal";
+import Reveal from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import HoldingIcon from "./workspace/HoldingIcon";
-import Shimmer from "./workspace/Shimmer";
+import { Skeleton } from "@/components/ui/skeleton";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
 import MessageDrawer from "./MessageDrawer";
 import Sparkline from "./Sparkline";
@@ -31,7 +34,7 @@ import {
   maxRightPane,
   PaneResizer,
   useResizableWidth,
-} from "./workspace/PaneResizer";
+} from "./ui/PaneResizer";
 import { useAssetChart } from "./workspace/useAssetChart";
 import { useAssetDetails } from "./workspace/useAssetDetails";
 import MarketFilters, {
@@ -40,6 +43,9 @@ import MarketFilters, {
   applyMarketFilters,
 } from "./MarketFilters";
 import { GAIN, LOSS } from "@/lib/chart-colors";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useFlash } from "@/hooks/useFlash";
+import { useIsLg, useSparklineVisible } from "@/hooks/useMediaQuery";
 
 interface ETFRowProps {
   etf: ETF;
@@ -54,7 +60,9 @@ interface ETFRowProps {
 }
 
 
-// One dense list row. Memoized to isolate state updates (like flash animations)
+// Memoized so a flash on one row does not re-render the rest.
+const RECENT_TICKERS_KEY = "recent_tickers";
+
 const ETFRow = memo(
   ({
     etf,
@@ -203,52 +211,6 @@ interface ComparisonEngineProps {
   assetType?: string;
 }
 
-// True at the lg breakpoint (1024px) and up; false during SSR.
-const LG_QUERY = "(min-width: 1024px)";
-function subscribeLg(callback: () => void) {
-  const mq = window.matchMedia(LG_QUERY);
-  mq.addEventListener("change", callback);
-  return () => mq.removeEventListener("change", callback);
-}
-function useIsLg() {
-  return useSyncExternalStore(
-    subscribeLg,
-    () => window.matchMedia(LG_QUERY).matches,
-    () => false,
-  );
-}
-
-// The row sparkline is shown from sm up and hidden at lg+ (where the full chart replaces it).
-const SPARKLINE_QUERY = "(min-width: 640px) and (max-width: 1023.98px)";
-function useSparklineVisible() {
-  return useSyncExternalStore(
-    (callback) => {
-      const mq = window.matchMedia(SPARKLINE_QUERY);
-      mq.addEventListener("change", callback);
-      return () => mq.removeEventListener("change", callback);
-    },
-    () => window.matchMedia(SPARKLINE_QUERY).matches,
-    () => false,
-  );
-}
-
-// Debounce helper
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
 export default function ComparisonEngine({
   onAddToPortfolio,
   onRemoveFromPortfolio,
@@ -280,20 +242,16 @@ export default function ComparisonEngine({
     message: "",
     type: "info",
   });
-  const [flashStates, setFlashStates] = useState<
-    Record<string, "success" | "error" | null>
-  >({});
+  const { flashStates, triggerFlash } = useFlash();
 
   // Pagination and sorting state
   const [visibleCount, setVisibleCount] = useState(24);
   const [hasMoreServer, setHasMoreServer] = useState(true);
-  // Recent tickers are read from localStorage once, on the client only.
   // Server render and first client render both start from [] when nothing
   // is stored, and the list stays empty until etfs load, so markup matches.
   const [recentTickers, setRecentTickers] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
     try {
-      const stored = localStorage.getItem("recent_tickers");
+      const stored = readStored(RECENT_TICKERS_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
       console.error("Failed to load recent tickers", e);
@@ -310,24 +268,10 @@ export default function ComparisonEngine({
         0,
         50,
       );
-      try {
-        localStorage.setItem("recent_tickers", JSON.stringify(newRecent));
-      } catch (e) {
-        console.error("Failed to save recent tickers", e);
-      }
+      writeStored(RECENT_TICKERS_KEY, JSON.stringify(newRecent));
       return newRecent;
     });
   }, []);
-
-  const triggerFlash = useCallback(
-    (ticker: string, type: "success" | "error") => {
-      setFlashStates((prev) => ({ ...prev, [ticker]: type }));
-      setTimeout(() => {
-        setFlashStates((prev) => ({ ...prev, [ticker]: null }));
-      }, 500);
-    },
-    [],
-  );
 
   const handleAdd = useCallback(
     async (etf: ETF) => {
@@ -377,7 +321,6 @@ export default function ComparisonEngine({
 
   const debouncedSearch = useDebounce(search, 500);
 
-  // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target;
@@ -398,13 +341,6 @@ export default function ComparisonEngine({
 
   const fetchEtfs = useCallback(
     async (query: string, skip = 0, signal?: AbortSignal) => {
-      const buildUrl = (includeDetails: boolean) => {
-        let url = `/api/market/search?query=${encodeURIComponent(query)}&skip=${skip}&limit=24`;
-        if (assetType) url += `&type=${encodeURIComponent(assetType)}`;
-        if (!includeDetails) url += "&history=false&profiles=false";
-        return url;
-      };
-
       const parseAssets = async (response: Response): Promise<ETF[]> => {
         const rawData = await response.json();
         try {
@@ -441,7 +377,7 @@ export default function ComparisonEngine({
       };
 
       try {
-        const res = await fetch(buildUrl(skip !== 0), { signal });
+        const res = await searchMarket({ query, skip, limit: 24, type: assetType, details: skip === 0, signal });
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await parseAssets(res);
         const count = applyResults(data, skip);
@@ -497,7 +433,6 @@ export default function ComparisonEngine({
     setLoading(true);
   }
 
-  // Effect for main search/grid
   useEffect(() => {
     const controller = new AbortController();
     // Started from a microtask: the request's results arrive asynchronously, and nothing here sets state synchronously.
@@ -506,12 +441,9 @@ export default function ComparisonEngine({
   }, [debouncedSearch, fetchEtfs]);
 
   const handleLoadMore = async () => {
-    // If we have more local items to show, just increase visible count
     if (visibleCount < etfs.length) {
       setVisibleCount((prev) => prev + 24);
     } else if (hasMoreServer) {
-      // If we showed all local, try fetching more from server
-      // Use current etfs.length as skip
       const count = await fetchEtfs(debouncedSearch, etfs.length);
       if (count > 0) {
         setVisibleCount((prev) => prev + 24);
@@ -519,10 +451,8 @@ export default function ComparisonEngine({
     }
   };
 
-  // Effect to handle "No Results Found" drawer (Search returns 0)
-  // We only trigger this if search is active (debouncedSearch) and both lists are empty.
-  // Tracks the inputs of the check below so it runs only when one of them
-  // changes, the same as the effect it replaces.
+  // Opens the "No results" drawer when an active search comes back empty in both lists.
+  // Remembers the inputs so the check runs only when one of them changes.
   const [noResultsInputs, setNoResultsInputs] = useState({
     loading,
     debouncedSearch,
@@ -568,11 +498,7 @@ export default function ComparisonEngine({
 
       if (etf.isDeepAnalysisLoaded) return;
 
-      fetch("/api/etfs/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: etf.ticker }),
-      })
+      syncEtf(etf.ticker)
         .then(async (res) => {
           if (!res.ok) {
             const errorData = await res.json().catch(() => ({}));
@@ -614,7 +540,7 @@ export default function ComparisonEngine({
         });
     },
     [addToRecent],
-  ); // addToRecent is stable (useCallback)
+  );
 
   const handleTickerSelect = useCallback(
     (ticker: string) => {
@@ -645,18 +571,15 @@ export default function ComparisonEngine({
   const renderNoResults = () => {
     if (loading) return null;
 
-    // Case 1: Found items but in the other section
     if (etfs.length === 0 && otherTypeEtfs.length > 0) {
       let otherSection = "ETFs";
       if (assetType === "STOCK") otherSection = "ETFs";
       else if (assetType === "ETF") otherSection = "Stocks";
-      // Determine correct other section based on actual returned item type
       const firstOther = otherTypeEtfs[0];
       if (firstOther.assetType === "STOCK") otherSection = "Stocks";
       else if (firstOther.assetType === "ETF") otherSection = "ETFs";
 
       const sample = otherTypeEtfs[0].ticker;
-      // Fixed phrasing: handle singular vs plural
       const othersCount = otherTypeEtfs.length - 1;
       const othersText =
         othersCount > 0
@@ -680,13 +603,7 @@ export default function ComparisonEngine({
       );
     }
 
-    // Case 2: No items found anywhere
-    // Now handled by the MessageDrawer via useEffect.
-    // Return null to show empty grid (which will be blurred by drawer backdrop)
-    if (etfs.length === 0) {
-      return null;
-    }
-
+    // No matches anywhere is reported by the "No results" drawer, over the empty grid.
     return null;
   };
 
@@ -699,7 +616,6 @@ export default function ComparisonEngine({
     }
   };
 
-  // Recent first (relevance), then user sort/filter
   const sortedEtfs = useMemo(() => {
     let base = etfs;
     if (recentTickers.length > 0 && filters.sort === "relevance") {
@@ -729,12 +645,12 @@ export default function ComparisonEngine({
     <ul className="divide-y divide-hairline" aria-busy="true" aria-label="Loading results">
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
         <li key={i} className="flex items-center gap-3 px-4 py-3 min-h-14 lg:px-3 lg:py-0 lg:min-h-0 lg:h-[42px]">
-          <Shimmer className="w-10 h-10 lg:w-7 lg:h-7 rounded-lg lg:rounded-full" />
+          <Skeleton className="w-10 h-10 lg:w-7 lg:h-7 rounded-lg lg:rounded-full" />
           <div className="flex-1 space-y-2">
-            <Shimmer className="h-3 w-16" />
-            <Shimmer className="h-3 w-32" />
+            <Skeleton className="rounded h-3 w-16" />
+            <Skeleton className="rounded h-3 w-32" />
           </div>
-          <Shimmer className="h-8 w-20" />
+          <Skeleton className="rounded h-8 w-20" />
         </li>
       ))}
     </ul>
@@ -815,7 +731,6 @@ export default function ComparisonEngine({
           : `${sortedEtfs.length} ${sortedEtfs.length === 1 ? "result" : "results"}`}
       </span>
       <div className="flex flex-col gap-2 lg:gap-0 lg:flex-row lg:flex-1 lg:min-h-0 lg:h-full">
-        {/* Left: watchlist-style list (collapses to a 48px strip at lg+) */}
         <motion.div
           ref={leftPaneRef}
           initial={{ opacity: 0, y: 12 }}
@@ -990,7 +905,6 @@ export default function ComparisonEngine({
           )
         )}
 
-        {/* Center: instrument header, chart, bottom drawer (lg+) */}
         {isLg && (
           <Reveal
             onMount
@@ -1028,7 +942,6 @@ export default function ComparisonEngine({
           />
         )}
 
-        {/* Right: details (lg+ docked; below lg opens as bottom sheet) */}
         {isLg && (
           <motion.div
             ref={rightPaneRef}

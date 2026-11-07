@@ -1,8 +1,6 @@
+import { YEAR_MS } from "@/lib/dates";
 import { PortfolioItem } from "@/types";
-import {
-  calculateLogReturns,
-  calculateCovarianceMatrix,
-} from "@/lib/monte-carlo";
+import { calculateLogReturns, calculateCovarianceMatrix } from "@/lib/math/stats";
 import { classifyAsset, getAssetBeta } from "@/lib/math/portfolio-returns";
 import { alignPriceHistories, type ReturnBasis } from "@/lib/math/history";
 
@@ -30,9 +28,9 @@ import { alignPriceHistories, type ReturnBasis } from "@/lib/math/history";
  * would turn the risk penalty into a risk *reward*.
  */
 
-export type CovarianceSource = "history" | "single-index";
+type CovarianceSource = "history" | "single-index";
 
-export interface CovarianceEstimate {
+interface CovarianceEstimate {
   /** Annualized covariance, indexed to the input array. */
   matrix: number[][];
   source: CovarianceSource;
@@ -98,7 +96,7 @@ function alignedReturns(
 
   const dates = aligned.dates.map((date) => new Date(date).getTime());
   const spanYears =
-    (dates[dates.length - 1] - dates[0]) / (1000 * 60 * 60 * 24 * 365.25);
+    (dates[dates.length - 1] - dates[0]) / YEAR_MS;
   if (!(spanYears > 0.25)) return null;
 
   const returns = aligned.prices.map((prices) => calculateLogReturns(prices));

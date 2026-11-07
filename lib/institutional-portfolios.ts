@@ -1,10 +1,10 @@
-export interface PortfolioHolding {
+interface PortfolioHolding {
   ticker: string;
   name: string;
   weight: number;
 }
 
-export interface InstitutionalPortfolio {
+interface InstitutionalPortfolio {
   name: string; // e.g. "Growth", "Balanced"
   risk: string; // e.g. "Risk 8-10"
   description: string;

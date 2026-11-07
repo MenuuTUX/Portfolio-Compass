@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { PaneResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
+import { PaneResizer, useResizableWidth } from "@/components/ui/PaneResizer";
 
 const renderCount = { value: 0 };
 

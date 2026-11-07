@@ -2,8 +2,8 @@
 
 import { m as motion, type HTMLMotionProps } from "framer-motion";
 
-/** Wealthsimple-style ease: fast out, long settle. */
-export const EASE = [0.16, 1, 0.3, 1] as const;
+import { EASE } from "@/lib/motion";
+
 
 interface RevealProps extends Omit<HTMLMotionProps<"div">, "initial" | "animate" | "whileInView" | "transition"> {
   /** Seconds to wait before the reveal starts. */

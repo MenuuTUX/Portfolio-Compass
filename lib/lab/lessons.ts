@@ -1,11 +1,13 @@
-import type { RebalanceChoice } from "@/lib/lab/lab-form";
+import type { Period } from "@/lib/lab/engine/simulate";
+
+export type RebalanceChoice = "on-change" | Period | "drift";
 
 // Guided lessons for the Lab: short Python strategies written against the
 // per-day decide(day) API, each with notes tied to lines of the code and
 // one-click tweaks. Everything a lesson needs (dates, benchmark, rebalancing)
 // is set here so a run always matches what the code says.
 
-export interface LessonNote {
+interface LessonNote {
   /** 1-based line the note explains. */
   line: number;
   /** Text that must appear on that line; the note is hidden once the code no longer matches. */
@@ -13,7 +15,7 @@ export interface LessonNote {
   text: string;
 }
 
-export interface LessonTweak {
+interface LessonTweak {
   label: string;
   /** Plain text replacements, applied to every occurrence. */
   edits: [from: string, to: string][];

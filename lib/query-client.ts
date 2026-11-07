@@ -8,3 +8,5 @@ export function getQueryClient(): QueryClient {
   browserClient ??= new QueryClient();
   return browserClient;
 }
+
+export const PORTFOLIO_QUERY_KEY = ["portfolio"] as const;

@@ -1,9 +1,13 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { AnimatePresence, animate, m as motion, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { EASE, RevealGroup, RevealItem } from "../../motion/Reveal";
+import { RevealGroup, RevealItem } from "../../motion/Reveal";
+import { EASE } from "@/lib/motion";
+import { createRandom } from "@/lib/monte-carlo";
 import PhoneMock from "../PhoneMock";
+import { money, STARTING_BALANCE } from "../shared";
 
 type AssetKey = "Equity" | "Bonds" | "Cash" | "Gold";
 type Mix = [number, number, number];
@@ -33,7 +37,6 @@ const RANGE_META: Record<RangeKey, { n: number; years: number; seed: number }> =
   Max: { n: 24, years: 15, seed: 59 },
 };
 
-const START_VALUE = 10000;
 const W = 320;
 const H = 120;
 
@@ -54,26 +57,15 @@ function allocate(equity: number, mix: Mix): Record<AssetKey, number> {
   return { Equity: equity, Bonds: bonds, Cash: cash, Gold: gold };
 }
 
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 /** Deterministic illustrative balance series: same noise per range, drift and volatility scale with equity. */
 function buildSeries(range: RangeKey, equity: number): number[] {
   const { n, years, seed } = RANGE_META[range];
-  const rnd = mulberry32(seed);
+  const rnd = createRandom(seed);
   const e = equity / 100;
   const annualReturn = 0.025 + e * 0.055;
   const annualVol = 0.03 + e * 0.14;
   const dt = years / (n - 1);
-  const out = [START_VALUE];
+  const out = [STARTING_BALANCE];
   for (let i = 1; i < n; i++) {
     const z = Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
     out.push(out[i - 1] * (1 + annualReturn * dt + annualVol * Math.sqrt(dt) * z));
@@ -104,8 +96,6 @@ function useTween(target: number, duration: number) {
   }, [target, duration, reduce]);
   return value;
 }
-
-const money = (v: number) => `$${Math.round(v).toLocaleString("en-US")}`;
 
 function Pct({ value, duration, className }: { value: number; duration: number; className?: string }) {
   const v = useTween(value, duration);
@@ -169,7 +159,7 @@ export default function BuildMock() {
   const series = useMemo(() => buildSeries(range, equity), [range, equity]);
   const end = series[series.length - 1];
   const headline = useTween(end, dur);
-  const change = (end / START_VALUE - 1) * 100;
+  const change = (end / STARTING_BALANCE - 1) * 100;
 
   const { d, ys } = useMemo(() => {
     const min = Math.min(...series);
@@ -193,7 +183,7 @@ export default function BuildMock() {
   const toggle = (k: AssetKey) => setSelected((s) => (s === k ? null : k));
   const dim = (k: AssetKey) => (selected && selected !== k ? 0.4 : 1);
 
-  const pointValue = (i: number) => `${money(series[i])}, ${((series[i] / START_VALUE - 1) * 100).toFixed(1)}% from start`;
+  const pointValue = (i: number) => `${money(series[i])}, ${((series[i] / STARTING_BALANCE - 1) * 100).toFixed(1)}% from start`;
   const onPointer = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const t = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
@@ -354,7 +344,7 @@ export default function BuildMock() {
             <p className="text-3xl font-semibold tracking-tight text-ink tabular-nums">{money(headline)}</p>
             <p className={`text-sm tabular-nums ${change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {change >= 0 ? "+" : ""}
-              {change.toFixed(1)}% over {range}
+              {percent(change, 1)} over {range}
             </p>
           </div>
 

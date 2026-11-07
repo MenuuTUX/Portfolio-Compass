@@ -47,7 +47,7 @@ describe("detectFundClass", () => {
 
 describe("normalizeExpenseRatio", () => {
   it("keeps explicit scraped zero fees and treats Yahoo zero as missing", () => {
-    expect(normalizeExpenseRatio(0)).toBeUndefined();
+    expect(normalizeExpenseRatio(0, "profile")).toBeUndefined();
     expect(normalizeExpenseRatio(0, "quote")).toBeUndefined();
     expect(normalizeExpenseRatio(0, "scraper")).toBe(0);
   });

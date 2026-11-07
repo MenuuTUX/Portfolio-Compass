@@ -1,5 +1,6 @@
 "use client";
 
+import { useLater } from "@/hooks/useLater";
 import { useState } from "react";
 import { Download, Loader2, Check } from "lucide-react";
 import { PortfolioShareCard, ShareCardProps } from "./PortfolioShareCard";
@@ -28,6 +29,8 @@ export function PortfolioShareButton({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  const later = useLater();
+
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
@@ -50,7 +53,7 @@ export function PortfolioShareButton({
       link.click();
 
       setIsSuccess(true);
-      setTimeout(() => setIsSuccess(false), 2000);
+      later(() => setIsSuccess(false), 2000);
     } catch (err) {
       console.error("Failed to generate image:", err);
     } finally {
@@ -79,7 +82,6 @@ export function PortfolioShareButton({
             : "Export snapshot"}
       </button>
 
-      {/* Hidden Render Container */}
       <div className="fixed left-[-9999px] top-[-9999px]">
         <div id="portfolio-share-card">
           <PortfolioShareCard

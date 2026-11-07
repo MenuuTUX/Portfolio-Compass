@@ -1,3 +1,4 @@
+import { isoDay } from "@/lib/dates";
 // Shared by the server fetcher (lib/lab/bars.ts) and the browser cache
 // (lib/lab/bar-cache.ts); keep this file free of server-only imports.
 
@@ -11,19 +12,19 @@ export interface DailyBar {
   adjClose: number;
 }
 
-export interface DividendEvent {
+interface DividendEvent {
   date: string;
   /** Per share, in the same split-adjusted basis as `close`. */
   amount: number;
 }
 
-export interface SplitEvent {
+interface SplitEvent {
   date: string;
   numerator: number;
   denominator: number;
 }
 
-export interface BarSource {
+interface BarSource {
   provider: "Yahoo Finance";
   adjustment: "close: split-adjusted; adjClose: split- and dividend-adjusted";
   fetchedAt: string;
@@ -114,7 +115,7 @@ function previousWeekday(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
   do d.setUTCDate(d.getUTCDate() - 1);
   while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
-  return d.toISOString().slice(0, 10);
+  return isoDay(d);
 }
 
 /**
@@ -139,3 +140,6 @@ export function isAcceptedThrough(through: string, now = new Date()): boolean {
   const current = lastCompletedSession(now);
   return through === current || through === previousWeekday(current);
 }
+
+/** How long a history that stops short of the last completed session is trusted, in the browser cache and at the server CDN alike. */
+export const RECHECK_MS = 30 * 60_000;

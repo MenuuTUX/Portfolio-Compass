@@ -3,7 +3,8 @@
 import { AlertTriangle } from "lucide-react";
 import type { Metrics } from "@/lib/lab/engine/metrics";
 import type { LabRun } from "./useLabEngine";
-import { isShortRun, money, pct, ratio, SHORT_RUN, signedPct } from "./format";
+import { money, pct, ratio, signedPct } from "@/lib/format";
+import { isShortRun, SHORT_RUN } from "./format";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "@/components/ui/HelpTip";
 

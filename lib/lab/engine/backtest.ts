@@ -6,7 +6,7 @@ import { simulate, type BacktestConfig, type SimResult } from "@/lib/lab/engine/
 import { compileStrategy, type NoCodeStrategy } from "@/lib/lab/no-code";
 
 /** Weights computed on their own dates and tickers (a code strategy's universe), mapped onto the frame. */
-export interface LabelledWeights {
+interface LabelledWeights {
   matrix: Float64Array;
   dates: string[];
   tickers: string[];
@@ -20,7 +20,7 @@ export type Targets = Float64Array | LabelledWeights | Record<string, number> | 
  * frame date the weights do not have (another listing's extra session) keeps
  * the previous row, as the weights stood at the last date they knew.
  */
-export function alignWeights(frame: Frame, w: LabelledWeights): Float64Array {
+function alignWeights(frame: Frame, w: LabelledWeights): Float64Array {
   const N = frame.tickers.length;
   const M = w.tickers.length;
   const col = w.tickers.map((t) => {

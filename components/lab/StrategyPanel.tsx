@@ -1,16 +1,19 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { loadPortfolio } from "@/lib/storage";
 import { indexedDbBarStore, loadBars } from "@/lib/lab/bar-cache";
-import { rowsFromPortfolio, TEMPLATES, toRequest, type LabForm, type PortfolioBasis, type RebalanceChoice } from "@/lib/lab/lab-form";
+import { rowsFromPortfolio, TEMPLATES, toRequest, type LabForm, type PortfolioBasis } from "@/lib/lab/lab-form";
+import type { RebalanceChoice } from "@/lib/lab/lessons";
 import { strategyTickers } from "@/lib/lab/no-code";
 import { noCodeToSource } from "@/lib/lab/strategy/templates";
 import type { Params, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
 import { cn } from "@/lib/cn";
 import CodeSettings from "./CodeSettings";
 import ModeSwitch from "./ModeSwitch";
+import { DAY_MS, isoDay } from "@/lib/dates";
 
 const field =
   "h-9 w-full rounded-md bg-surface-soft px-2.5 text-sm text-ink ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-compass";
@@ -78,8 +81,8 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
     const lastClose: Record<string, number> = {};
     let asOf = "";
     if (items.every((i) => i.shares > 0)) {
-      const end = new Date().toISOString().slice(0, 10);
-      const start = new Date(Date.now() - 14 * 86_400_000).toISOString().slice(0, 10);
+      const end = isoDay(Date.now());
+      const start = isoDay(Date.now() - 14 * DAY_MS);
       try {
         // Same cache as a run, so importing warms the data the next backtest needs.
         const { series } = await loadBars(items.map((i) => i.ticker.toUpperCase()), start, end, { store: indexedDbBarStore() });
@@ -273,7 +276,7 @@ export default function StrategyPanel({ form, onChange, onRun, running, errors, 
           </button>
           {usesWeights && (
             <span className={cn("text-xs font-mono", weightTotal > 100.0001 ? "text-rose-400" : "text-muted")}>
-              Total {weightTotal.toFixed(1)}%{weightTotal < 99.9999 ? `, ${(100 - weightTotal).toFixed(1)}% cash` : ""}
+              Total {percent(weightTotal, 1)}{weightTotal < 99.9999 ? `, ${(100 - weightTotal).toFixed(1)}% cash` : ""}
             </span>
           )}
         </div>

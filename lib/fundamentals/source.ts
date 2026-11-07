@@ -2,6 +2,7 @@ import { buildCompanyFilings } from "./periods";
 import { classConversionRates, coverShareCount, extensionDepreciation } from "./ixbrl";
 import { normalizeTicker, type SecClient } from "./sec-client";
 import type { CompanyFilings, FilingsSourceId } from "./types";
+import { DAY_MS, shiftIsoDate } from "@/lib/dates";
 
 /**
  * Where company filings come from. Both sources return the same parsed shape,
@@ -134,10 +135,8 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
     try {
       const html = await client.filingHtml(filing.url);
       if (!html) return null;
-      const day = 86_400_000;
-      const shift = (d: string, n: number) => new Date(Date.parse(d) + n * day).toISOString().slice(0, 10);
-      const cur = extensionDepreciation(html, shift(yearEnd, 1), ytdEnd);
-      const prior = extensionDepreciation(html, priorStart, shift(ytdEnd, -364));
+      const cur = extensionDepreciation(html, shiftIsoDate(yearEnd, 1), ytdEnd);
+      const prior = extensionDepreciation(html, priorStart, shiftIsoDate(ytdEnd, -364));
       return cur && prior && cur.tag === tag && prior.tag === tag ? cur.value - prior.value : null;
     } catch {
       return null;
@@ -161,7 +160,7 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       const count = html ? coverShareCount(html, weights) : null;
       const newest = [c.annual[c.annual.length - 1]?.end, c.trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
       // Same freshness rule as company-facts counts: not older than a year before the newest period.
-      if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * 86_400_000)) return c;
+      if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * DAY_MS)) return c;
       // A raw sum over classes that are not one-for-one can be badly wrong (Berkshire's A is 1,500 B, handled by
       // CLASS_WEIGHTS) or double count (an Up-C voting class). A sum far from the latest diluted average is left out.
       // With no diluted average to check against, the sum is kept: its classes count is above 1, which downstream
@@ -222,39 +221,8 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
   };
 }
 
-/**
- * Snapshot: static files built nightly from the SEC's bulk downloads, served
- * from any static host (`baseUrl`). Layout: sec/tickers.json maps a ticker to
- * its CIK; sec/c/{CIK}.json holds one CompanyFilings.
- */
-export function snapshotSource(baseUrl: string, doFetch: typeof fetch = fetch): FilingsSource {
-  const root = baseUrl.replace(/\/+$/, "");
-  let tickers: Promise<Record<string, number>> | null = null;
-  const loadTickers = () => {
-    tickers ??= doFetch(`${root}/sec/tickers.json`).then((r) => {
-      if (!r.ok) throw new Error(`Snapshot ticker list unavailable (${r.status}).`);
-      return r.json() as Promise<Record<string, number>>;
-    }).catch((e) => {
-      tickers = null;
-      throw e;
-    });
-    return tickers;
-  };
-  return {
-    id: "snapshot",
-    async getCompany(ticker) {
-      const cik = (await loadTickers())[normalizeTicker(ticker)];
-      if (!cik) return null;
-      const res = await doFetch(`${root}/sec/c/${cik}.json`);
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`Snapshot file unavailable (${res.status}).`);
-      return { ...((await res.json()) as CompanyFilings), source: "snapshot" };
-    },
-  };
-}
-
 /** A lookup result with the errors from that lookup only (sources that failed before one answered). */
-export interface FilingsLookup {
+interface FilingsLookup {
   company: CompanyFilings | null;
   errors: string[];
 }
@@ -267,28 +235,22 @@ export interface FilingsLookup {
  */
 export function withFallback(...sources: FilingsSource[]): FilingsSource & {
   lookup: (ticker: string) => Promise<FilingsLookup>;
-  /** @deprecated Shared by all calls; with parallel calls it may hold another call's errors. Use `lookup().errors`. */
-  lastErrors: () => string[];
 } {
-  let lastCompleted: string[] = [];
   const lookup = async (ticker: string): Promise<FilingsLookup> => {
     const errors: string[] = [];
     for (const s of sources) {
       try {
         const company = await s.getCompany(ticker);
-        lastCompleted = errors;
         return { company, errors };
       } catch (e) {
         errors.push(`${s.id}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    lastCompleted = errors;
     throw Object.assign(new Error(`No filings source answered. ${errors.join(" ")}`), { errors });
   };
   return {
     id: sources[0].id,
     lookup,
-    lastErrors: () => lastCompleted,
     async getCompany(ticker) {
       return (await lookup(ticker)).company;
     },

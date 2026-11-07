@@ -1,8 +1,10 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
-import Reveal, { EASE } from "@/components/motion/Reveal";
+import Reveal from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 type Risk = "Low" | "Medium" | "High";
 type SortKey = "weight" | "change" | "fee";
@@ -92,11 +94,11 @@ function Detail({ h }: { h: Holding }) {
       <dl className="grid grid-cols-3 gap-3 sm:grid-cols-1 sm:gap-2">
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
           <dt className="text-xs text-muted">Expense ratio</dt>
-          <dd className="text-sm text-ink tabular-nums">{h.fee.toFixed(2)}%</dd>
+          <dd className="text-sm text-ink tabular-nums">{percent(h.fee, 2)}</dd>
         </div>
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
           <dt className="text-xs text-muted">Yield</dt>
-          <dd className="text-sm text-ink tabular-nums">{h.yld.toFixed(1)}%</dd>
+          <dd className="text-sm text-ink tabular-nums">{percent(h.yld, 1)}</dd>
         </div>
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
           <dt className="text-xs text-muted">Risk</dt>
@@ -123,8 +125,8 @@ function buildMetrics(a: Holding, b: Holding): Metric[] {
     return (x < y) === lowerBetter ? -1 : 1;
   };
   return [
-    { label: "Fee", a: `${a.fee.toFixed(2)}%`, b: `${b.fee.toFixed(2)}%`, win: cmp(a.fee, b.fee, true) },
-    { label: "Yield", a: `${a.yld.toFixed(1)}%`, b: `${b.yld.toFixed(1)}%`, win: cmp(a.yld, b.yld, false) },
+    { label: "Fee", a: percent(a.fee, 2), b: percent(b.fee, 2), win: cmp(a.fee, b.fee, true) },
+    { label: "Yield", a: percent(a.yld, 1), b: percent(b.yld, 1), win: cmp(a.yld, b.yld, false) },
     { label: "Risk", a: a.risk, b: b.risk, win: cmp(RISK_RANK[a.risk], RISK_RANK[b.risk], true) },
     { label: "1y change", a: signed(a.oneYear), b: signed(b.oneYear), win: cmp(a.oneYear, b.oneYear, false) },
   ];

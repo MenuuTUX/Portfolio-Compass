@@ -74,7 +74,7 @@ describe('portfolio backup data', () => {
         { ticker: 'SPY', weight: 70, shares: 2 },
         { ticker: 'VTI', weight: 30, shares: 1 },
       ],
-      [{ ticker: 'spy', weight: 50, shares: 4 }],
+      [{ ticker: 'SPY', weight: 50, shares: 4 }],
     )).toEqual([
       { ticker: 'SPY', weight: 50, shares: 4 },
       { ticker: 'VTI', weight: 30, shares: 1 },

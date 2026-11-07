@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "./ui/HelpTip";
-import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
-import { getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
+import { getSourcedExpenseRatio } from "@/lib/provenance";
 
 export type SortKey =
   | "relevance"
@@ -26,11 +26,11 @@ export type SortKey =
   | "industry_asc"
   | "sector_asc";
 
-export type PerformanceFilter = "all" | "gainers" | "losers" | "flat";
-export type YieldFilter = "all" | "any" | "high" | "none";
-export type SizeFilter = "all" | "mega" | "large" | "mid" | "small";
-export type PeFilter = "all" | "value" | "growth" | "none";
-export type MerFilter = "all" | "ultra_low" | "low" | "any";
+type PerformanceFilter = "all" | "gainers" | "losers" | "flat";
+type YieldFilter = "all" | "any" | "high" | "none";
+type SizeFilter = "all" | "mega" | "large" | "mid" | "small";
+type PeFilter = "all" | "value" | "growth" | "none";
+type MerFilter = "all" | "ultra_low" | "low" | "any";
 
 export interface MarketFilterState {
   sort: SortKey;
@@ -350,8 +350,6 @@ export default function MarketFilters({
   );
 }
 
-// Pure helpers used by ComparisonEngine to filter/sort lists
-
 function assetYield(etf: {
   metrics?: { yield?: number | null; yieldSource?: string | null };
   dividendYield?: number | null;
@@ -387,7 +385,6 @@ export function applyMarketFilters<
   },
 >(items: T[], filters: MarketFilterState): T[] {
   let list = items.filter((item) => {
-    // Performance
     if (filters.performance === "gainers" && !(item.changePercent > 0.5))
       return false;
     if (filters.performance === "losers" && !(item.changePercent < -0.5))
@@ -398,20 +395,17 @@ export function applyMarketFilters<
     )
       return false;
 
-    // Yield
     const y = assetYield(item);
     if (filters.yieldFilter !== "all" && y == null) return false;
     if (filters.yieldFilter === "any" && y! <= 0) return false;
     if (filters.yieldFilter === "high" && y! < 3) return false;
     if (filters.yieldFilter === "none" && y! > 0) return false;
 
-    // Size
     if (filters.size !== "all") {
       const bucket = sizeBucket(item.marketCap);
       if (bucket !== filters.size) return false;
     }
 
-    // P/E (stocks)
     if (filters.pe !== "all") {
       const pe = item.peRatio;
       if (filters.pe === "none") {

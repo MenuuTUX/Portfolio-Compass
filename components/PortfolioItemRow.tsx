@@ -1,16 +1,17 @@
 import { memo, useEffect, useState } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
 import { ChevronDown, Trash2 } from "lucide-react";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import { getQuoteFreshness } from "@/lib/math/portfolio-returns";
 import { quoteSessionLabel } from "@/lib/quote-session";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { PortfolioItem } from "@/types";
 import Image from "next/image";
 import { HelpTip } from "./ui/HelpTip";
-import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
-import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
 
 interface PortfolioItemRowProps {
   item: PortfolioItem;
@@ -69,14 +70,7 @@ const PortfolioItemRow = memo(
           : null;
     const yieldValue = getSourcedYield(item.metrics, item.dividendYield);
     const yieldUnverified = isUnverifiedProviderYield(item.metrics?.yieldSource);
-    const yieldProvenance = describeYieldProvenance(
-      item.metrics?.yieldSource,
-      item.metrics?.yieldRetrievedAt,
-      item.metrics?.yieldSourceField,
-      item.metrics?.yieldInputUnit,
-      item.metrics?.yieldNormalization,
-      item.metrics?.yieldMeasurementDate,
-    );
+    const yieldProvenance = describeYieldProvenance(item.metrics);
     const expenseRatio = getSourcedExpenseRatio(item.metrics);
 
     const weight = item.weight ?? 0;

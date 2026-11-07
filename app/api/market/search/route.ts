@@ -9,6 +9,7 @@ import {
 } from "@/lib/fast-market";
 import { TOP_ETFS, TOP_STOCKS } from "@/config/tickers";
 import { isTicker, toYahooSymbol } from "@/lib/tickers";
+import { jsonError } from "@/lib/api";
 
 export const maxDuration = 30;
 
@@ -18,7 +19,6 @@ function parseAssetType(value: string | null): "STOCK" | "ETF" | undefined {
   return value === "STOCK" || value === "ETF" ? value : undefined;
 }
 
-// Browse/search for the market grid and comparison modal.
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = (searchParams.get("query") || "").trim();
@@ -84,10 +84,6 @@ export async function GET(request: NextRequest) {
       headers: cacheUnlessEmpty(CACHE.search, assets.length),
     });
   } catch (error) {
-    console.error("[API] Fast market search failed:", error);
-    return NextResponse.json(
-      { error: "Failed to search market data" },
-      { status: 502 },
-    );
+    return jsonError(502, "Failed to search market data", "[API] Fast market search failed:", error);
   }
 }

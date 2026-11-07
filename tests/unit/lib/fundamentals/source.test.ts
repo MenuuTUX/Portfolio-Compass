@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { createSecClient } from "@/lib/fundamentals/sec-client";
-import { edgarLiveSource, snapshotSource, withFallback, type FilingsSource } from "@/lib/fundamentals/source";
+import { edgarLiveSource, withFallback, type FilingsSource } from "@/lib/fundamentals/source";
 import { buildCompanyFilings } from "@/lib/fundamentals/periods";
 import { fixtureCompany, loadFixture } from "./helpers";
 
@@ -70,22 +70,6 @@ describe("edgarLiveSource", () => {
   });
 });
 
-describe("snapshotSource", () => {
-  it("returns the same company as live, labeled as snapshot", async () => {
-    const company = fixtureCompany("AAPL");
-    const files: Record<string, unknown> = {
-      "https://cdn.example/data/sec/tickers.json": { AAPL: 320193 },
-      "https://cdn.example/data/sec/c/320193.json": company,
-    };
-    const fetchFn = (async (url: string) =>
-      url in files ? new Response(JSON.stringify(files[url])) : new Response("no", { status: 404 })) as unknown as typeof fetch;
-    const snap = snapshotSource("https://cdn.example/data/", fetchFn);
-    const c = (await snap.getCompany("aapl"))!;
-    expect(c).toEqual({ ...company, source: "snapshot" });
-    expect(await snap.getCompany("MSFT")).toBeNull();
-  });
-});
-
 describe("withFallback", () => {
   const fixed = (id: "edgar-live" | "snapshot", result: () => Promise<null | ReturnType<typeof fixtureCompany>>): FilingsSource =>
     ({ id, getCompany: result });
@@ -96,8 +80,9 @@ describe("withFallback", () => {
       fixed("edgar-live", async () => { throw new Error("SEC request failed with 429"); }),
       fixed("snapshot", async () => ({ ...aapl, source: "snapshot" })),
     );
-    expect((await chain.getCompany("AAPL"))!.source).toBe("snapshot");
-    expect(chain.lastErrors()).toEqual(["edgar-live: SEC request failed with 429"]);
+    const { company, errors } = await chain.lookup("AAPL");
+    expect(company!.source).toBe("snapshot");
+    expect(errors).toEqual(["edgar-live: SEC request failed with 429"]);
   });
 
   it("returns each call's own errors when two calls run in parallel", async () => {

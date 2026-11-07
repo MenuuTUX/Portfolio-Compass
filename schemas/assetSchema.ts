@@ -1,26 +1,23 @@
-import { z } from 'zod';
+import { z } from "zod";
 import { quoteSessionValues } from "@/lib/quote-session";
 
 const QuoteSessionSchema = z.enum(quoteSessionValues);
 
-// Helper for date string validation (basic ISO check or just string)
-const DateString = z.string();
-
-export const EtfHistoryItemSchema = z.object({
-  date: DateString,
+const EtfHistoryItemSchema = z.object({
+  date: z.string(),
   price: z.number(),
   /** Dividend-adjusted close; absent when the provider returned none. */
   adjPrice: z.number().optional(),
   interval: z.string().optional(),
 });
 
-export const DividendHistoryItemSchema = z.object({
-  date: DateString,
+const DividendHistoryItemSchema = z.object({
+  date: z.string(),
   amount: z.number(),
   exDate: z.string().optional(),
 });
 
-export const MetricsSchema = z.object({
+const MetricsSchema = z.object({
   mer: z.number().nullable().optional(),
   yield: z.number().nullable().optional(),
   merSource: z.string().nullable().optional(),
@@ -28,25 +25,25 @@ export const MetricsSchema = z.object({
   merSourceField: z.enum(["netExpenseRatio", "annualReportExpenseRatio", "Expense Ratio"]).nullable().optional(),
   merInputUnit: z.enum(["fraction", "percent", "unknown"]).nullable().optional(),
   merNormalization: z.string().nullable().optional(),
+  /** Measurement/report date; provider adapters currently do not supply one. */
   merMeasurementDate: z.string().nullable().optional(),
   yieldSource: z.string().nullable().optional(),
   yieldRetrievedAt: z.string().nullable().optional(),
   yieldSourceField: z.enum(["trailingAnnualDividendYield", "dividendYield"]).nullable().optional(),
   yieldInputUnit: z.enum(["fraction", "percent"]).nullable().optional(),
   yieldNormalization: z.string().nullable().optional(),
+  /** The quote date used for a yield calculated from dated distributions. */
   yieldMeasurementDate: z.string().nullable().optional(),
+  /** How `beta` was obtained, e.g. "Estimated vs SPY from 249 daily total returns". */
   betaSource: z.string().nullable().optional(),
 });
 
-export const AllocationSchema = z.object({
+const AllocationSchema = z.object({
   equities: z.number(),
   bonds: z.number(),
   cash: z.number(),
   other: z.number().optional(),
 });
-
-// Since sectors is { [key: string]: number }, we use z.record
-export const SectorsSchema = z.record(z.string(), z.number());
 
 export const ETFSchema = z.object({
   ticker: z.string(),
@@ -62,8 +59,9 @@ export const ETFSchema = z.object({
   history: z.array(EtfHistoryItemSchema),
   dividendHistory: z.array(DividendHistoryItemSchema).optional(),
   metrics: MetricsSchema,
+  /** Percent weights (0-100). Null when no source reported an asset mix. */
   allocation: AllocationSchema.nullable(),
-  sectors: SectorsSchema.optional(),
+  sectors: z.record(z.string(), z.number()).optional(),
   holdings: z
     .array(
       z.object({
@@ -101,11 +99,15 @@ export const ETFSchema = z.object({
   holdingsCount: z.number().optional(),
   bondMaturity: z.number().optional(),
   bondDuration: z.number().optional(),
+  /** equity | bond | mixed | commodity | leveraged | cash | unknown */
   fundClass: z.string().optional(),
   category: z.string().optional(),
   family: z.string().optional(),
+  /** GICS-style sector (stocks) or fund category (ETFs). */
   sector: z.string().optional(),
+  /** Industry within sector (stocks) or fund category (ETFs). */
   industry: z.string().optional(),
+  /** Bond credit-quality weights (0-1), keyed by rating label. */
   creditQuality: z.record(z.string(), z.number()).optional(),
   redditCommunities: z
     .array(
@@ -117,13 +119,4 @@ export const ETFSchema = z.object({
     .optional(),
 });
 
-export const PortfolioItemSchema = ETFSchema.extend({
-  weight: z.number(),
-  shares: z.number(),
-});
-
-export const PortfolioSchema = z.array(PortfolioItemSchema);
-
 export type ETF = z.infer<typeof ETFSchema>;
-export type PortfolioItem = z.infer<typeof PortfolioItemSchema>;
-export type Portfolio = z.infer<typeof PortfolioSchema>;

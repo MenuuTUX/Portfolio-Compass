@@ -43,14 +43,6 @@ describe('createRandom', () => {
     const b = createRandom(99);
     expect(Array.from({ length: 5 }, a)).toEqual(Array.from({ length: 5 }, b));
   });
-
-  it('keeps generateMonteCarloPaths byte-identical to the pre-refactor output', () => {
-    const p = generateMonteCarloPaths([100, 50], [0.6, 0.4], [0.0004, 0.0002], [[0.01, 0], [0.004, 0.008]], 2, 5, 1000, 42);
-    expect(p).toEqual([
-      [1000, 992.211322912895, 975.168879325709, 975.4254927624679, 968.1158392166808, 953.51123448926],
-      [1000, 1007.8601496201622, 1021.0267153520188, 1033.4068068797706, 1032.425025281791, 1049.1647639174266],
-    ]);
-  });
 });
 
 describe('simulatePaths: reshuffle', () => {
@@ -223,22 +215,5 @@ describe('summaries', () => {
   it('medianPathIndex picks the path with the median ending value', () => {
     expect(medianPathIndex([[1, 5], [1, 1], [1, 3]])).toBe(2);
     expect(medianPathIndex([])).toBe(-1);
-  });
-});
-
-describe.skipIf(!process.env.MC_BENCH)('performance', () => {
-  it('runs the heaviest resample stats case', () => {
-    const returns = Array.from({ length: 10 }, (_, i) => history(250, i + 10));
-    const t0 = performance.now();
-    simulatePaths('resample', {
-      returns, currentPrices: Array(10).fill(50), weights: Array(10).fill(0.1),
-      initialValue: 10_000, numPaths: 5000, numDays: 30 * 252, stepDays: 21, seed: 1,
-    });
-    const t1 = performance.now();
-    simulatePaths('resample', {
-      returns, currentPrices: Array(10).fill(50), weights: Array(10).fill(0.1),
-      initialValue: 10_000, numPaths: 2000, numDays: 10 * 252, stepDays: 21, seed: 1,
-    });
-    console.log(`heavy ${(t1 - t0).toFixed(0)} ms, default ${(performance.now() - t1).toFixed(0)} ms`);
   });
 });

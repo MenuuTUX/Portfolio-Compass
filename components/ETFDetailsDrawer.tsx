@@ -15,15 +15,16 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { ETF } from "@/types";
-import { cn, formatCurrency, calculateRiskMetric, formatSectorName } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency, calculateRiskMetric, formatSectorName } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import SectorPieChart, { COLORS } from "./SectorPieChart";
-import AssetProfileCard from "./AssetProfileCard";
-import EtfVerdictCard from "./EtfVerdictCard";
-import ComparisonModal from "./ComparisonModal";
+import AssetProfileCard from "./workspace/AssetProfileCard";
+import EtfVerdictCard from "./workspace/EtfVerdictCard";
+import ComparisonModal from "./workspace/ComparisonModal";
 import { HelpTip } from "./ui/HelpTip";
-import { describeYieldProvenance, getSourcedYield } from "@/lib/yield-provenance";
-import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/fee-provenance";
+import { describeYieldProvenance, getSourcedYield, YAHOO_QUOTE_SOURCE } from "@/lib/provenance";
+import { describeExpenseRatioProvenance, getSourcedExpenseRatio } from "@/lib/provenance";
 import { quoteSessionLabel } from "@/lib/quote-session";
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { getRedditCommunities } from "@/config/tickers";
@@ -47,9 +48,6 @@ interface ETFDetailsDrawerProps {
   chart?: AssetChartState;
 }
 
-
-
-// Helper to format sector names (snake_case -> Title Case)
 function formatLargeNumber(num: number | undefined): string {
   if (num === undefined) return "n/a";
   if (num >= 1e12) return (num / 1e12).toFixed(2) + "T";
@@ -96,7 +94,6 @@ function metricProvenance(source?: string | null, retrievedAt?: string | null): 
   return [source, date ? `retrieved ${date}` : undefined].filter(Boolean).join(" · ");
 }
 
-// One label/value pair. Label (muted 12px) above value (12px).
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
@@ -300,8 +297,8 @@ export default function ETFDetailsDrawer({
   const c = chart ?? ownChart;
   const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(displayEtf) && !docked, onClose);
 
-  // Reset UI state when the asset changes (adjust-during-render pattern,
-  // avoids a cascading setState-in-effect)
+  // State that must reset when a prop changes is adjusted during render (React's
+  // documented alternative to a setState-in-effect); useAssetDetails and useAssetChart do the same.
   if (etf?.ticker !== prevTicker) {
     setPrevTicker(etf?.ticker);
     setShowLegend(false);
@@ -424,13 +421,13 @@ export default function ETFDetailsDrawer({
           title: "Dividends",
           metrics: [
             {
-              label: displayEtf.metrics?.yieldSource === "Yahoo Finance quote"
+              label: displayEtf.metrics?.yieldSource === YAHOO_QUOTE_SOURCE
                 ? "Yahoo yield unavailable · unverified"
                 : "Div Yield",
               value: sourcedYield != null
                 ? `${sourcedYield.toFixed(2)}%`
-                : displayEtf.metrics?.yieldSource === "Yahoo Finance quote" ? "N/A" : null,
-              subValue: describeYieldProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt, displayEtf.metrics?.yieldSourceField, displayEtf.metrics?.yieldInputUnit, displayEtf.metrics?.yieldNormalization, displayEtf.metrics?.yieldMeasurementDate),
+                : displayEtf.metrics?.yieldSource === YAHOO_QUOTE_SOURCE ? "N/A" : null,
+              subValue: describeYieldProvenance(displayEtf.metrics),
             },
             {
               label: "Dividend",
@@ -535,11 +532,11 @@ export default function ETFDetailsDrawer({
         title: "Dividends",
         metrics: [
           {
-            label: displayEtf.metrics?.yieldSource === "Yahoo Finance quote"
+            label: displayEtf.metrics?.yieldSource === YAHOO_QUOTE_SOURCE
               ? "Yahoo yield unavailable · unverified"
               : "Dividend Yield",
             value: percentOrNA(sourcedYield, displayEtf.metrics?.yieldSource),
-            subValue: describeYieldProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt, displayEtf.metrics?.yieldSourceField, displayEtf.metrics?.yieldInputUnit, displayEtf.metrics?.yieldNormalization, displayEtf.metrics?.yieldMeasurementDate) ?? metricProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt),
+            subValue: describeYieldProvenance(displayEtf.metrics) ?? metricProvenance(displayEtf.metrics?.yieldSource, displayEtf.metrics?.yieldRetrievedAt),
           },
           {
             label: "Dividend (ttm)",
@@ -688,7 +685,6 @@ export default function ETFDetailsDrawer({
 
   const content = displayEtf ? (
     <div className="px-4 pb-6 space-y-4">
-      {/* Price */}
       <div>
         <div className="flex items-baseline gap-1.5">
           <span className="text-[32px] leading-[38px] font-bold text-ink font-mono">
@@ -790,7 +786,6 @@ export default function ETFDetailsDrawer({
 
       {!external && aboutCard && <ClampedAbout>{aboutCard}</ClampedAbout>}
 
-      {/* Key metrics */}
       {hasAnyMetric ? (
         <div className="space-y-1">
           {metricSections
@@ -819,7 +814,6 @@ export default function ETFDetailsDrawer({
 
       {external && aboutCard && <RevealItem><ClampedAbout>{aboutCard}</ClampedAbout></RevealItem>}
 
-      {/* Allocation (ETFs only) */}
       {displayEtf.assetType !== "STOCK" && (
         <RevealItem>
         <Accordion
@@ -1007,7 +1001,6 @@ export default function ETFDetailsDrawer({
         </RevealItem>
       )}
 
-      {/* Communities */}
       {(() => {
         const configCommunities = getRedditCommunities(
           displayEtf.ticker,

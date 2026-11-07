@@ -1,26 +1,23 @@
-import { afterEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { mockModule } from "@/tests/helpers/mock-module";
+import { withFetch } from "@/tests/helpers/fetch";
 
-await mockModule("next/image", () => ({ default: ({ alt }: { alt?: string }) => <img alt={alt} /> }));
 await mockModule("framer-motion", () => ({
   motion: new Proxy({}, { get: () => "div" }),
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-await mockModule("@/components/Sparkline", () => ({ default: () => <div data-testid="sparkline" /> }));
 
 const { default: ComparisonEngine } = await import("@/components/ComparisonEngine");
 
-const originalFetch = global.fetch;
 afterEach(() => {
-  global.fetch = originalFetch;
   cleanup();
 });
 
 describe("ComparisonEngine empty history", () => {
   it("shows chart unavailable when comparison history is missing", async () => {
-    global.fetch = mock(async () => new Response(JSON.stringify([{
+    withFetch(async () => new Response(JSON.stringify([{
       ticker: "NOHIST",
       name: "No History Fund",
       price: 24,
@@ -30,12 +27,11 @@ describe("ComparisonEngine empty history", () => {
       history: [],
       metrics: {},
       allocation: { equities: 100, bonds: 0, cash: 0 },
-    }]), { status: 200, headers: { "Content-Type": "application/json" } })) as unknown as typeof fetch;
+    }]), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     render(<ComparisonEngine onAddToPortfolio={async () => {}} onRemoveFromPortfolio={() => {}} portfolio={[]} />);
 
     expect((await screen.findAllByText("No History Fund", {}, { timeout: 3000 })).length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.getAllByText("Chart unavailable").length).toBeGreaterThan(0));
-    expect(screen.queryByTestId("sparkline")).toBeNull();
   });
 });

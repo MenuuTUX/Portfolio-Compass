@@ -1,7 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { searchMarket } from "@/lib/api-client";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
-import { normalizeTicker, toPortfolioEtf } from "./normalize";
+import { matchTicker, normalizeTicker } from "@/lib/tickers";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
+import { toPortfolioEtf } from "./normalize";
 
 interface AddStockParams {
   ticker: string;
@@ -26,7 +29,7 @@ async function resolveStock(
     return toPortfolioEtf(provided, target);
   }
 
-  // Exact ticker match via DB-backed search (enriches history/holdings when available)
+  // Exact ticker match (enriches history/holdings when available)
   const exactRes = await fetch(
     `/api/etfs/search?tickers=${encodeURIComponent(target)}&includeHistory=true&adjusted=true`,
   );
@@ -34,28 +37,22 @@ async function resolveStock(
   if (exactRes.ok) {
     const results = await exactRes.json();
     if (Array.isArray(results)) {
-      const match = results.find(
-        (r: any) => normalizeTicker(r.ticker) === target,
-      );
+      const match = matchTicker(results, target);
       if (match) return toPortfolioEtf(match, target);
     }
   }
 
   // Fast market fallback using the same database-free path as the browse UI.
-  const marketRes = await fetch(
-    `/api/market/search?query=${encodeURIComponent(target)}&limit=10`,
-  );
+  const marketRes = await searchMarket({ query: target, limit: 10 });
   if (marketRes.ok) {
     const marketResults = await marketRes.json();
     if (Array.isArray(marketResults)) {
-      const match = marketResults.find(
-        (r: any) => normalizeTicker(r.ticker) === target,
-      );
+      const match = matchTicker(marketResults, target);
       if (match) return toPortfolioEtf(match, target);
     }
   }
 
-  // Surface non-OK search status so callers see real failures (not silent 200s)
+  // Surface a real search failure instead of reporting "not found"
   if (!exactRes.ok && exactRes.status !== 404) {
     throw new Error(
       `Failed to fetch stock details (${exactRes.status})`,
@@ -67,7 +64,6 @@ async function resolveStock(
 
 /**
  * Hook to add a stock/ETF to the local portfolio.
- * Local-first: writes to LocalStorage; optional API enrich is best-effort.
  */
 export const useAddStock = () => {
   const queryClient = useQueryClient();
@@ -101,7 +97,7 @@ export const useAddStock = () => {
       return stock;
     },
     onSuccess: (newStock) => {
-      queryClient.setQueryData<Portfolio>(["portfolio"], (oldPortfolio) => {
+      queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (oldPortfolio) => {
         if (!oldPortfolio) {
           return [
             {
@@ -132,7 +128,7 @@ export const useAddStock = () => {
         ];
       });
 
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
     },
   });
 };

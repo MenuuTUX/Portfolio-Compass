@@ -7,8 +7,9 @@
  */
 import type { AnnualPeriod, CompanyFilings, FactValue, LineItem, TrailingPeriod } from "../fundamentals/types";
 import { blumeAdjustBeta, computeWacc, terminalGrowthCap } from "./wacc";
-import { MARGINAL_TAX, type DcfInputs } from "./dcf";
+import { DcfError, MARGINAL_TAX, type DcfInputs } from "./dcf";
 import { kindForSic } from "../fundamentals/sector";
+import { DAY_MS } from "@/lib/dates";
 
 export interface ReadinessContext {
   /** Valuation date, YYYY-MM-DD. The library never reads the clock. */
@@ -30,15 +31,16 @@ export interface ReadinessContext {
   ronicBasis?: "wacc" | "history";
 }
 
-export type ReadinessResult =
+type ReadinessResult =
   | { ok: true; inputs: DcfInputs; sources: Record<string, string>; warnings: string[] }
   | { ok: false; reasons: string[] };
 
 type Items = Partial<Record<LineItem, FactValue>>;
 type Period = { items: Items } | AnnualPeriod | TrailingPeriod | null | undefined;
 
-const DAY = 86_400_000;
 const DEFAULT_ERP = 0.045;
+/** Cost of debt over the risk-free rate when the filing gives no interest expense. */
+const DEBT_SPREAD_FALLBACK = 0.01;
 /** Upper limit on the return on new capital taken from history. Asset-light leaders earn far more; the input is editable. */
 const RONIC_CAP = 0.6;
 const DEFAULT_TERMINAL_GROWTH = 0.025;
@@ -105,7 +107,7 @@ function stubFraction(lastEnd: string, today: string): number {
     year += 1;
     next = Date.UTC(year, m - 1, d);
   }
-  return Math.min(1, (next - todayMs) / DAY / 365);
+  return Math.min(1, (next - todayMs) / DAY_MS / 365);
 }
 
 /** Revenue growth per year over up to five years of annual history. */
@@ -242,7 +244,7 @@ export function checkReadiness(company: CompanyFilings, ctx: ReadinessContext): 
   }
 
   const interest = itemValue(last, "interestExpense");
-  const bookCostOfDebt = interest !== undefined && interest > 0 && debt > 0 ? interest / debt : riskFreeRate + 0.01;
+  const bookCostOfDebt = interest !== undefined && interest > 0 && debt > 0 ? interest / debt : riskFreeRate + DEBT_SPREAD_FALLBACK;
 
   let wacc;
   try {
@@ -255,8 +257,9 @@ export function checkReadiness(company: CompanyFilings, ctx: ReadinessContext): 
       marketCap: ctx.price * shares,
       totalDebt: debt,
     });
-  } catch {
-    return { ok: false, reasons: ["The cost of capital could not be calculated from these inputs."] };
+  } catch (error) {
+    const detail = error instanceof DcfError ? ` ${error.message}` : "";
+    return { ok: false, reasons: [`The cost of capital could not be calculated from these inputs.${detail}`] };
   }
 
   const cap = terminalGrowthCap(riskFreeRate);

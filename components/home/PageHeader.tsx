@@ -8,7 +8,6 @@ function greeting(): string {
 }
 
 interface PageHeaderProps {
-  /** Right-aligned actions, normally .ws-pill buttons. */
   children?: ReactNode;
 }
 

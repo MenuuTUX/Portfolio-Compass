@@ -1,31 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
 import { Plus, Trash2, Check, ChevronRight } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import Sparkline from "./Sparkline";
 import { HelpTip } from "./ui/HelpTip";
-import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/yield-provenance";
+import { describeYieldProvenance, getSourcedYield, isUnverifiedProviderYield } from "@/lib/provenance";
 import { quoteSessionLabel } from "@/lib/quote-session";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
+import { useFlash } from "@/hooks/useFlash";
 
 interface TrendingSectionProps {
   title: string;
   items: ETF[];
   Icon: React.ElementType;
-  theme?: "emerald" | "rose" | "purple" | "orange" | "amber";
   onAddToPortfolio: (etf: ETF) => Promise<void>;
   portfolio?: PortfolioItem[];
   onRemoveFromPortfolio?: (ticker: string) => void;
   onSelectItem: (etf: ETF) => void;
-  communityLookup?: (
-    ticker: string,
-    assetType?: string,
-  ) => { name: string; url: string }[];
   /** "watchlist" renders compact 42px rows for the Advanced workspace left panel. */
   variant?: "card" | "watchlist";
   /** Ticker highlighted with the sliding indicator (watchlist variant). */
@@ -51,19 +48,7 @@ export default function TrendingSection({
   startIndex = 0,
 }: TrendingSectionProps) {
   const [visibleCount, setVisibleCount] = useState(8);
-  const [flashStates, setFlashStates] = useState<
-    Record<string, "success" | "error" | null>
-  >({});
-
-  const triggerFlash = useCallback(
-    (ticker: string, type: "success" | "error") => {
-      setFlashStates((prev) => ({ ...prev, [ticker]: type }));
-      setTimeout(() => {
-        setFlashStates((prev) => ({ ...prev, [ticker]: null }));
-      }, 500);
-    },
-    [],
-  );
+  const { flashStates, triggerFlash } = useFlash();
 
   const handleAdd = async (etf: ETF) => {
     try {
@@ -324,7 +309,7 @@ export default function TrendingSection({
                   title={quoteUnavailable ? "Quote unavailable" : quoteTime ? `${quoteLabel ? `${quoteLabel} · ` : "Quote as of "}${quoteTime}` : "Quote time unavailable"}
                 >
                   <span
-                    title={describeYieldProvenance(etf.metrics?.yieldSource, etf.metrics?.yieldRetrievedAt, etf.metrics?.yieldSourceField, etf.metrics?.yieldInputUnit, etf.metrics?.yieldNormalization, etf.metrics?.yieldMeasurementDate)}
+                    title={describeYieldProvenance(etf.metrics)}
                     className={cn("inline-flex items-center gap-1", yieldUnverified && "text-muted-soft")}
                   >
                     {!yieldKnown ? "N/A" : `${yieldValue!.toFixed(2)}%`}{" "}

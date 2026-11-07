@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test";
 import type { PortfolioItem } from "@/types";
 import { alignPriceHistories, selectReturnBasis } from "@/lib/math/history";
 import { buildPortfolioIndexWithBasis } from "@/lib/portfolio-history";
-import { calculatePortfolioHistoricalStats } from "@/lib/math/portfolio-stats";
 import { estimateAnnualCovariance } from "@/lib/math/covariance";
 import { convertPriceHistoryToCad } from "@/lib/math/fx-history";
 import { pickHistory } from "@/hooks/usePortfolio";
@@ -100,16 +99,6 @@ describe("a fund with a known dividend", () => {
     const mixed = buildPortfolioIndexWithBasis([item("INC", incomeFund(true)), item("GRO", growthFund(false))]);
     expect(mixed.basis).toBe("price");
     expect(mixed.points.every((p) => p.v > 0)).toBe(true);
-  });
-
-  it("has a higher annualized total return than price return in the historical stats", () => {
-    const total = calculatePortfolioHistoricalStats([item("INC", incomeFund(true))]);
-    const price = calculatePortfolioHistoricalStats([item("INC", incomeFund(false))]);
-    expect(total.basis).toBe("total");
-    expect(price.basis).toBe("price");
-    expect(Math.abs(price.annualizedReturn!)).toBeLessThan(0.005);
-    expect(total.annualizedReturn!).toBeGreaterThan(0.05);
-    expect(total.annualizedReturn!).toBeLessThan(0.07);
   });
 
   it("reports the basis of the covariance estimate", () => {

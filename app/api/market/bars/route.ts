@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAcceptedThrough, lastCompletedSession } from "@/lib/lab/bar-types";
+import { isAcceptedThrough, lastCompletedSession, RECHECK_MS } from "@/lib/lab/bar-types";
 import { getTickerHistory } from "@/lib/lab/bars";
-import { parseTickers } from "@/lib/tickers";
+import { parseUpperTickers } from "@/lib/api";
+import { NO_STORE } from "@/lib/http-cache";
 
 export const maxDuration = 30;
 
@@ -19,14 +20,12 @@ function cached(browserSeconds: number, cdnSeconds: number): HeadersInit {
   };
 }
 
-const NO_STORE = { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store" };
-
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const [ticker] = parseTickers([params.get("ticker") ?? ""], 1);
+  const [symbol] = parseUpperTickers([params.get("ticker") ?? ""], 1);
   const through = params.get("through") ?? "";
 
-  if (!ticker) {
+  if (!symbol) {
     return NextResponse.json({ error: "A valid ticker is required" }, { status: 400, headers: cached(DAY, DAY) });
   }
   if (!isAcceptedThrough(through)) {
@@ -39,7 +38,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const symbol = ticker.toUpperCase();
   try {
     const series = await getTickerHistory(symbol, through);
     if (!series) {
@@ -49,7 +47,7 @@ export async function GET(request: NextRequest) {
     // A history that reaches `through` will not change today. One that stops short
     // (a holiday, or Yahoo settling late) is rechecked within the hour.
     const complete = series.d[series.d.length - 1] === through;
-    return NextResponse.json(series, { headers: complete ? cached(DAY, DAY) : cached(1800, 1800) });
+    return NextResponse.json(series, { headers: complete ? cached(DAY, DAY) : cached(RECHECK_MS / 1000, RECHECK_MS / 1000) });
   } catch (error) {
     console.error(`[API] Lab bars failed for ${symbol}:`, error);
     // Never cache an upstream failure: one Yahoo outage would otherwise reach every user.

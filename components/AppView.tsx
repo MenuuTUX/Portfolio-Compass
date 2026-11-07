@@ -11,7 +11,8 @@ import { useAddStock } from "@/hooks/useAddStock";
 import { useUpdatePortfolioItem } from "@/hooks/useUpdatePortfolioItem";
 import { useRemoveStock } from "@/hooks/useRemoveStock";
 import { savePortfolio } from "@/lib/storage";
-import { EASE } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import type { ETF, PortfolioItem } from "@/types";
 
 export type Tab = "TRENDING" | "PORTFOLIO" | "ETFS" | "STOCKS";
@@ -62,17 +63,17 @@ function View({ activeTab, onTabChange, onBackToLanding }: Props) {
       return p ? { ...item, weight: p.weight, shares: p.shares } : item;
     });
     savePortfolio(next.map(({ ticker, weight, shares }) => ({ ticker, weight, shares })));
-    queryClient.setQueryData(["portfolio"], next);
+    queryClient.setQueryData(PORTFOLIO_QUERY_KEY, next);
   };
 
   const handleClearPortfolio = () => {
     savePortfolio([]);
-    queryClient.setQueryData(["portfolio"], []);
+    queryClient.setQueryData(PORTFOLIO_QUERY_KEY, []);
   };
 
   const handleImportPortfolio = (items: PortfolioItem[]) => {
     savePortfolio(items);
-    queryClient.setQueryData(["portfolio"], items);
+    queryClient.setQueryData(PORTFOLIO_QUERY_KEY, items);
     onTabChange("PORTFOLIO");
   };
 

@@ -1,10 +1,11 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import { useEffect, useId, useRef, useState } from "react";
 import { m as motion } from "framer-motion";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 
-export interface HeroPoint {
+interface HeroPoint {
   t: number | string;
   v: number;
 }
@@ -13,9 +14,7 @@ interface HeroChartProps {
   points: HeroPoint[];
   positive?: boolean;
   height?: number;
-  /** Formats a value for the tooltip and the screen reader summary. */
   formatValue?: (v: number) => string;
-  /** Formats a point label (date). */
   formatLabel?: (t: number | string) => string;
   label?: string;
 }
@@ -101,7 +100,7 @@ export default function HeroChart({
 
   const change = last - first;
   const pct = first !== 0 ? (change / Math.abs(first)) * 100 : 0;
-  const summary = `${label}. Start ${formatValue(first)} on ${formatLabel(points[0].t)}, end ${formatValue(last)} on ${formatLabel(points[n - 1].t)}, change ${change >= 0 ? "+" : "-"}${formatValue(Math.abs(change))} (${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%).`;
+  const summary = `${label}. Start ${formatValue(first)} on ${formatLabel(points[0].t)}, end ${formatValue(last)} on ${formatLabel(points[n - 1].t)}, change ${change >= 0 ? "+" : "-"}${formatValue(Math.abs(change))} (${pct >= 0 ? "+" : ""}${percent(pct, 2)}).`;
 
   return (
     <div

@@ -1,14 +1,20 @@
 "use client";
 
-import { cn, formatCurrency } from "@/lib/utils";
+import { percent } from "@/lib/format";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { RefreshCw, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { AnimatePresence, animate, m as motion, useReducedMotion } from "framer-motion";
-import Reveal, { EASE } from "./motion/Reveal";
+import Reveal from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import HeroChart from "./home/HeroChart";
 import RangeChips from "./home/RangeChips";
 import { availableRanges, buildPortfolioIndexWithBasis, sliceIndex, type IndexRange } from "@/lib/portfolio-history";
 import { getPortfolioValuation } from "@/lib/math/portfolio-returns";
 import { useBankOfCanadaFx } from "@/hooks/useBankOfCanadaFx";
+import { useIsLg } from "@/hooks/useMediaQuery";
+import { fxSourceLabel } from "@/lib/fx-copy";
+import { sectorAllocation as rollupSectors, sectorWeights } from "@/lib/math/portfolio-rollups";
 import { Portfolio } from "@/types";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import PortfolioItemRow from "./PortfolioItemRow";
@@ -30,7 +36,7 @@ import {
   maxRightPane,
   PaneResizer,
   useResizableWidth,
-} from "./workspace/PaneResizer";
+} from "./ui/PaneResizer";
 
 type NavTab = "TRENDING" | "ETFS" | "STOCKS" | "PORTFOLIO";
 type DrawerTab = "ALLOCATION" | "OPTIMIZER" | "RISK";
@@ -45,6 +51,18 @@ const DRAWER_OPEN_HEIGHT = 320;
 const DRAWER_MIN_OPEN = 120;
 // Space the title, hero chart, range chips and caption need above the drawer
 const DRAWER_TOP_RESERVE = 400;
+const VALUATION_CLOCK_MS = 60_000;
+
+const REFRESH_QUOTES = "Refresh quotes before using portfolio totals or projections.";
+const VALUATION_UNAVAILABLE: Partial<Record<NonNullable<ReturnType<typeof getPortfolioValuation>["unavailableReason"]>, string>> = {
+  "quote-stale": `A held quote is older than five days. ${REFRESH_QUOTES}`,
+  "quote-invalid": `A held quote has an invalid timestamp. ${REFRESH_QUOTES}`,
+  "quote-from-future": `A held quote timestamp is in the future. ${REFRESH_QUOTES}`,
+  "quote-unavailable": `A held quote is unavailable. ${REFRESH_QUOTES}`,
+  "currency-unavailable": "A held quote is missing a supported currency.",
+  "unsupported-shares": "A holding has an invalid share count, so portfolio totals and projections are unavailable.",
+};
+const VALUATION_DEFAULT = "Add holdings with fresh quotes and known currencies to calculate a total.";
 
 /** Eases between values after the first render; the first render shows the value as is. */
 function AnimatedText({ value, format, className }: { value: number; format: (v: number) => string; className?: string }) {
@@ -93,8 +111,6 @@ export default function PortfolioBuilder({
   const [hideValues, setHideValues] = useState(false);
   const [indexRange, setIndexRange] = useState<IndexRange>("ALL");
 
-  // New internal view state for the Builder section
-  // Renamed 'TREEMAP' to 'ALLOCATION'
   const { points: portfolioIndex, basis: indexBasis } = useMemo(() => buildPortfolioIndexWithBasis(portfolio), [portfolio]);
   const indexRanges = useMemo(() => availableRanges(portfolioIndex), [portfolioIndex]);
   const indexPoints = useMemo(
@@ -117,14 +133,7 @@ export default function PortfolioBuilder({
       Math.max(DRAWER_MIN_OPEN, Math.min(parentH * 0.75, parentH - DRAWER_TOP_RESERVE, h)),
     );
   };
-  const [isLg, setIsLg] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const sync = () => setIsLg(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
+  const isLg = useIsLg();
   const chartWrapRef = useRef<HTMLDivElement>(null);
   const [chartHeight, setChartHeight] = useState(200);
   const hasChart = indexPoints.length > 1;
@@ -141,7 +150,7 @@ export default function PortfolioBuilder({
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [valuationNow, setValuationNow] = useState(() => Date.now());
   useEffect(() => {
-    const timer = window.setInterval(() => setValuationNow(Date.now()), 60_000);
+    const timer = window.setInterval(() => setValuationNow(Date.now()), VALUATION_CLOCK_MS);
     return () => window.clearInterval(timer);
   }, []);
   const currencies = new Set(portfolio.filter((item) => item.shares > 0).map((item) => item.currency));
@@ -163,91 +172,36 @@ export default function PortfolioBuilder({
   const optimizerUnavailableMessage = sameCurrencyValuation
     ? "Allocation scoring is unavailable while a candidate uses a different currency from the held portfolio."
     : mixedFxInternalsMessage;
-  const valuationUnavailableMessage = (() => {
-    switch (portfolioValuation.unavailableReason) {
-      case "quote-stale":
-        return "A held quote is older than five days. Refresh quotes before using portfolio totals or projections.";
-      case "quote-invalid":
-        return "A held quote has an invalid timestamp. Refresh quotes before using portfolio totals or projections.";
-      case "quote-from-future":
-        return "A held quote timestamp is in the future. Refresh quotes before using portfolio totals or projections.";
-      case "quote-unavailable":
-        return "A held quote is unavailable. Refresh quotes before using portfolio totals or projections.";
-      case "quote-missing":
-        return `Only ${portfolioValuation.pricedHoldings} of ${portfolioValuation.heldHoldings} held positions have a fresh quote.`;
-      case "currency-unavailable":
-        return "A held quote is missing a supported currency.";
-      case "unsupported-shares":
-        return "A holding has an invalid share count, so portfolio totals and projections are unavailable.";
-      case "fx-conversion-unavailable":
-        return fxQuery.isError
+  const unavailableReason = portfolioValuation.unavailableReason;
+  const valuationUnavailableMessage =
+    unavailableReason === "quote-missing"
+      ? `Only ${portfolioValuation.pricedHoldings} of ${portfolioValuation.heldHoldings} held positions have a fresh quote.`
+      : unavailableReason === "fx-conversion-unavailable"
+        ? fxQuery.isError
           ? "Bank of Canada FX is unavailable. Mixed-currency totals are hidden until a fresh daily rate is available."
-          : "A fresh Bank of Canada daily FX rate is unavailable. Mixed-currency totals are hidden.";
-      default:
-        return "Add holdings with fresh quotes and known currencies to calculate a total.";
-    }
-  })();
+          : "A fresh Bank of Canada daily FX rate is unavailable. Mixed-currency totals are hidden."
+        : (unavailableReason && VALUATION_UNAVAILABLE[unavailableReason]) || VALUATION_DEFAULT;
 
-  // Calculate aggregate metrics using Decimal for precision (Layer 1)
-  const { totalWeight } = useMemo(() => {
-    return portfolio.reduce(
-      (acc, item) => {
-        const weight = new Decimal(item.weight || 0);
-
-        return {
-          totalWeight: acc.totalWeight.plus(weight),
-        };
-      },
-      { totalWeight: new Decimal(0) },
-    );
-  }, [portfolio]);
+  const totalWeight = useMemo(
+    () => portfolio.reduce((sum, item) => sum.plus(new Decimal(item.weight || 0)), new Decimal(0)),
+    [portfolio],
+  );
 
   const isValid = totalWeight.minus(100).abs().lessThan(0.1);
 
-  // Sector weights: target weights when any are set, otherwise each holding's share of market value.
-  const sectorWeightByTicker = useMemo(() => {
-    const weights = new Map<string, number>();
-    const targetTotal = portfolio.reduce((sum, item) => sum + (item.weight || 0), 0);
-    if (targetTotal > 0) {
-      portfolio.forEach((item) => weights.set(item.ticker, item.weight || 0));
-      return weights;
-    }
-    // Mixed currencies are brought to CAD with the dated USD/CAD rate when one is loaded.
-    const values = portfolio.map((item) => {
-      const value = item.shares > 0 && item.price > 0 ? item.shares * item.price : 0;
-      return requestedBaseCurrency && item.currency === "USD" && fxQuery.data ? value * fxQuery.data.usdCad : value;
-    });
-    const total = values.reduce((sum, value) => sum + value, 0);
-    portfolio.forEach((item, index) => weights.set(item.ticker, total > 0 ? (values[index] / total) * 100 : 0));
-    return weights;
-  }, [portfolio, requestedBaseCurrency, fxQuery.data]);
+  const usdCad = requestedBaseCurrency ? fxQuery.data?.usdCad : undefined;
+  const sectorAllocation = useMemo(
+    () => rollupSectors(portfolio, sectorWeights(portfolio, usdCad)),
+    [portfolio, usdCad],
+  );
 
-  // Aggregate Sector Allocation
-  const sectorAllocation = useMemo(() => {
-    return portfolio.reduce((acc: { [key: string]: number }, item) => {
-      if (item.sectors) {
-        Object.entries(item.sectors).forEach(([sector, amount]) => {
-          // Convert the sector slug into a readable title.
-          const normalizedSector = sector
-            .replace(/_/g, " ")
-            .toLowerCase()
-            .split(" ")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(" ");
-
-          acc[normalizedSector] =
-            (acc[normalizedSector] || 0) + amount * ((sectorWeightByTicker.get(item.ticker) ?? 0) / 100);
-        });
-      }
-      return acc;
-    }, {});
-  }, [portfolio, sectorWeightByTicker]);
-
-  // Local state for display to handle debounced sorting
   const [displayPortfolio, setDisplayPortfolio] =
     useState<Portfolio>(portfolio);
   const isInteracting = useRef(false);
   const sortTimeout = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => () => {
+    if (sortTimeout.current) clearTimeout(sortTimeout.current);
+  }, []);
 
   // Latest portfolio for the debounced re-sort: without this, the timeout in
   // handleInteraction would close over a stale portfolio snapshot
@@ -256,7 +210,6 @@ export default function PortfolioBuilder({
     portfolioRef.current = portfolio;
   }, [portfolio]);
 
-  // Sync portfolio props to displayPortfolio with debounce logic
   useEffect(() => {
     if (isInteracting.current) {
       setDisplayPortfolio((prev) => {
@@ -408,7 +361,7 @@ export default function PortfolioBuilder({
             <div key={entry.name} className="flex items-center gap-2 text-xs text-muted">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
               <span className="truncate">{entry.name}</span>
-              <span className="ml-auto text-ink tabular-nums">{entry.value.toFixed(1)}%</span>
+              <span className="ml-auto text-ink tabular-nums">{percent(entry.value, 1)}</span>
             </div>
           ))}
         </div>
@@ -775,7 +728,7 @@ export default function PortfolioBuilder({
               <h2 className="text-sm font-bold text-ink">Target allocation</h2>
               <p className={cn("mt-1 text-[32px] font-bold leading-[38px] tabular-nums", portfolio.length > 0 && !isValid ? "text-rose-400" : "text-ink")}>
                 {portfolio.length > 0 ? (
-                  <AnimatedText value={totalWeight.toNumber()} format={(v) => `${v.toFixed(1)}%`} />
+                  <AnimatedText value={totalWeight.toNumber()} format={(v) => percent(v, 1)} />
                 ) : "0.0%"}
               </p>
               {portfolio.length > 0 && !isValid && <p className="text-xs text-rose-400">Should be 100%</p>}
@@ -790,7 +743,7 @@ export default function PortfolioBuilder({
             {portfolio.length > 0 && (
               <div className="flex flex-col gap-2">
                 {portfolioCurrency && requestedBaseCurrency && portfolioValuation.complete && (
-                  <p className="text-xs text-muted">Values converted to CAD using Bank of Canada FXUSDCAD daily average dated {fxQuery.data?.date}.</p>
+                  <p className="text-xs text-muted">Values converted to CAD using {fxSourceLabel(fxQuery.data?.date)}.</p>
                 )}
                 {!portfolioCurrency && <p className="text-sm text-muted">{valuationUnavailableMessage}</p>}
                 {portfolioCurrency && !sameCurrencyValuation && <p className="text-sm text-muted">{mixedFxInternalsMessage}</p>}
@@ -804,7 +757,7 @@ export default function PortfolioBuilder({
                   {weighted.map((item, index) => (
                     <motion.div
                       key={item.ticker}
-                      title={`${item.ticker} ${(item.weight || 0).toFixed(1)}%`}
+                      title={`${item.ticker} ${percent(item.weight || 0, 1)}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${(item.weight / totalWeight.toNumber()) * 100}%` }}
                       transition={{ duration: 0.6, ease: EASE, delay: 0.2 + index * 0.06 }}
@@ -820,7 +773,7 @@ export default function PortfolioBuilder({
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} aria-hidden="true" />
                         <span className="truncate text-body-strong">{item.ticker}</span>
                       </span>
-                      <span className="text-right tabular-nums">{(item.weight || 0).toFixed(1)}%</span>
+                      <span className="text-right tabular-nums">{percent(item.weight || 0, 1)}</span>
                     </li>
                   ))}
                 </ul>

@@ -16,7 +16,7 @@ export const TFSA_LIMITS: Readonly<Record<number, number>> = {
   2024: 7000, 2025: 7000, 2026: 7000,
 };
 
-export const TFSA_FIRST_YEAR = 2009;
+const TFSA_FIRST_YEAR = 2009;
 export const TFSA_LATEST_YEAR = Math.max(...Object.keys(TFSA_LIMITS).map(Number));
 
 /** CRA tax on an excess amount, per month it stays in the account. */
@@ -38,7 +38,7 @@ export function cumulativeRoom(yearTurned18: number, throughYear: number): numbe
   return total;
 }
 
-export interface RoomInput {
+interface RoomInput {
   yearTurned18: number;
   /** The calendar year to calculate for. */
   year: number;
@@ -77,7 +77,7 @@ export function overContributionTax(excess: number, months: number): number {
   return excess * OVER_CONTRIBUTION_RATE_PER_MONTH * months;
 }
 
-export interface ProjectionPoint {
+interface ProjectionPoint {
   year: number;
   contributed: number;
   balance: number;

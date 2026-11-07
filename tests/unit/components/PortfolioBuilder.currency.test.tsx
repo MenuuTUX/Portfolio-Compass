@@ -15,15 +15,11 @@ await mockModule("@tanstack/react-virtual", () => ({
     measureElement: () => {},
   }),
 }));
+await mockModule("@/components/WealthProjector", () => ({ default: (props: any) => <div>Projection model {props.startingValue} {props.baseCurrency} {props.fxProvenance?.date}</div> }));
+await mockModule("@/components/OptimizationPanel", () => ({ default: () => <div>Optimizer model</div> }));
 await mockModule("@/components/PortfolioItemRow", () => ({
   default: () => null,
 }));
-await mockModule("@/components/WealthProjector", () => ({ default: (props: any) => <div>Projection model {props.startingValue} {props.baseCurrency} {props.fxProvenance?.date}</div> }));
-await mockModule("@/components/OptimizationPanel", () => ({ default: () => <div>Optimizer model</div> }));
-await mockModule("@/components/AlgorithmExplainer", () => ({ default: () => null }));
-await mockModule("@/components/RiskReturnScatter", () => ({ default: () => null }));
-await mockModule("@/components/PortfolioBarChart", () => ({ default: () => null }));
-await mockModule("@/components/SectorPieChart", () => ({ default: () => null }));
 const { default: PortfolioBuilder } = await import("@/components/PortfolioBuilder");
 
 const freshQuote = new Date().toISOString();

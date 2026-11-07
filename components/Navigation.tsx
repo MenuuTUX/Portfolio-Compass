@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { m as motion } from "framer-motion";
 import { cn } from "@/lib/cn";
-import { EASE } from "@/components/motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 type Tab = "TRENDING" | "PORTFOLIO" | "ETFS" | "STOCKS";
 

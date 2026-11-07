@@ -2,16 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { Portfolio } from "@/types";
-import { mockModule } from "@/tests/helpers/mock-module";
 
-// Logo URLs are same-origin paths; next/image can't resolve them without a browser origin
-await mockModule("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <img alt={alt} />,
-}));
-await mockModule("@/components/simulation/MonteCarloSimulator", () => ({
-  default: () => <div>Simulator stub</div>,
-}));
-const { default: WealthProjector } = await import("@/components/WealthProjector");
+import WealthProjector from "@/components/WealthProjector";
 
 const KEY = "compass_risk_profile_v1";
 const NOTE = "Started from your quiz answers";

@@ -143,7 +143,7 @@ def weights(prices: pd.DataFrame, ctx) -> pd.DataFrame:
 `;
 }
 
-export interface CodeTemplate {
+interface CodeTemplate {
   id: string;
   label: string;
   description: string;

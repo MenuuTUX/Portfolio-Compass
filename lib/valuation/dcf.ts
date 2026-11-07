@@ -8,6 +8,8 @@
  * not subtracted again.
  */
 
+import { MIN_WACC_SPREAD, WACC_MAX, WACC_MIN } from "./limits";
+
 export type DcfErrorCode = "non-finite" | "shares" | "wacc-range" | "wacc-spread" | "invalid";
 
 export class DcfError extends Error {
@@ -20,9 +22,8 @@ export class DcfError extends Error {
   }
 }
 
-export const WACC_MIN = 0.03;
-export const WACC_MAX = 0.2;
-export const MIN_WACC_SPREAD = 0.01;
+/** Size of the cost-of-capital shift in `sensitivity`. */
+const WACC_STEP = 0.01;
 export const MARGINAL_TAX = 0.25;
 const EPS = 1e-12;
 
@@ -59,7 +60,7 @@ export interface DcfInputs {
 /** DCF inputs without the growth rate, which the reverse solver chooses. */
 export type DcfBase = Omit<DcfInputs, "g1">;
 
-export interface DcfYear {
+interface DcfYear {
   year: number;
   growth: number;
   revenue: number;
@@ -73,7 +74,7 @@ export interface DcfYear {
   pv: number;
 }
 
-export interface DcfResult {
+interface DcfResult {
   perShare: number;
   equity: number;
   ev: number;
@@ -293,8 +294,8 @@ export function impliedReturn(base: DcfInputs, price: number): ReturnSolve {
 /** Implied growth at the cost of capital one point lower, unchanged, and one point higher. */
 export function sensitivity(base: DcfBase | DcfInputs, price: number): Sensitivity {
   return {
-    waccMinus1: impliedGrowth({ ...base, wacc: base.wacc - 0.01 }, price),
+    waccMinus1: impliedGrowth({ ...base, wacc: base.wacc - WACC_STEP }, price),
     base: impliedGrowth(base, price),
-    waccPlus1: impliedGrowth({ ...base, wacc: base.wacc + 0.01 }, price),
+    waccPlus1: impliedGrowth({ ...base, wacc: base.wacc + WACC_STEP }, price),
   };
 }

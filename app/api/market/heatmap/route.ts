@@ -1,25 +1,10 @@
 import { cacheHeaders, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getFastQuotes } from "@/lib/fast-market";
+import type { HeatmapPayload, HeatmapStock } from "@/lib/heatmap";
 import { DEFAULT_HEATMAP_GROUP, getHeatmapGroup } from "@/config/sp500-heatmap";
 
 export const maxDuration = 30;
-
-export interface HeatmapStock {
-  ticker: string;
-  name: string;
-  changePercent: number;
-  marketCap: number;
-}
-
-export interface HeatmapPayload {
-  group: string;
-  label: string;
-  updatedAt: string;
-  /** Day change of the index proxy (an ETF, or the cap-weighted members when there is none). */
-  benchmark: { ticker: string | null; changePercent: number } | null;
-  sectors: { name: string; stocks: HeatmapStock[] }[];
-}
 
 export async function GET(request: NextRequest) {
   const requested = request.nextUrl.searchParams.get("group") ?? DEFAULT_HEATMAP_GROUP;

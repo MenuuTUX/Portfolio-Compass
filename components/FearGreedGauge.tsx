@@ -2,15 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { animate, useReducedMotion } from "framer-motion";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 import { HelpTip } from "./ui/HelpTip";
-
-export interface FearGreedData {
-  score: number;
-  rating: string;
-  updatedAt: string;
-}
+import { fetchFearGreed, type FearGreedData } from "@/lib/api-client";
 
 interface FearGreedGaugeProps {
   className?: string;
@@ -85,20 +80,13 @@ export default function FearGreedGauge({ className, compact = false, data: provi
 
   useEffect(() => {
     if (!selfFetch) return;
-    async function fetchData() {
-      try {
-        const res = await fetch("/api/market/fear-greed");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const json = await res.json();
-        setFetched(json);
-      } catch (err) {
+    fetchFearGreed()
+      .then(setFetched)
+      .catch((err) => {
         console.error(err);
         setError(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
+      })
+      .finally(() => setLoading(false));
   }, [selfFetch]);
 
   // Dial and number sweep up from 0 to the score

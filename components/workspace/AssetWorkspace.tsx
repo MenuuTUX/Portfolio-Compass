@@ -1,5 +1,6 @@
 "use client";
 
+import { percent } from "@/lib/format";
 import Image from "next/image";
 import { useId, useRef, useState } from "react";
 import { AnimatePresence, m as motion } from "framer-motion";
@@ -14,17 +15,18 @@ import {
   X,
 } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
-import EtfVerdictCard from "../EtfVerdictCard";
-import AssetProfileCard from "../AssetProfileCard";
+import EtfVerdictCard from "./EtfVerdictCard";
+import AssetProfileCard from "./AssetProfileCard";
 import DcfPanel from "../dcf/DcfPanel";
-import ComparisonModal from "../ComparisonModal";
+import ComparisonModal from "./ComparisonModal";
 import { AssetChart, ChartRangeBar } from "./AssetChart";
 import type { AssetChartState } from "./useAssetChart";
 import HoldingIcon from "./HoldingIcon";
 import PriceTween from "./PriceTween";
-import { EASE } from "../motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 const MIN_DRAWER = 36;
 const DEFAULT_DRAWER = 160;
@@ -39,7 +41,6 @@ interface AssetWorkspaceProps {
   onRemove: (ticker: string) => void;
   detailsOpen: boolean;
   onToggleDetails: () => void;
-  /** Returns to the market overview (heatmap) when provided. */
   onBack?: () => void;
 }
 
@@ -187,7 +188,7 @@ export default function AssetWorkspace({
               )}
             >
               {chart.isPositive ? "+" : ""}
-              {chart.percentageChange.toFixed(2)}%{" "}
+              {percent(chart.percentageChange, 2)}{" "}
               <span className="text-muted font-normal">{rangeLabel}</span>
             </motion.span>
           </AnimatePresence>

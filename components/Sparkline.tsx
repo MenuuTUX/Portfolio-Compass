@@ -2,7 +2,8 @@
 
 import { memo } from "react";
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/utils";
 
 interface SparklineProps {
   data: { date: string; price: number }[];

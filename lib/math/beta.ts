@@ -1,4 +1,6 @@
+import { olsSlope } from "@/lib/math/stats";
 import { selectReturnBasis, validAdjusted, type ReturnBasis } from "@/lib/math/history";
+import { isoDay } from "@/lib/dates";
 
 /**
  * Market proxy for beta. Yahoo's fund `beta3Year` is measured against each
@@ -26,7 +28,7 @@ function byUtcDay(points: readonly HistoryLike[]): Map<string, HistoryLike> {
     const time = new Date(point.date).getTime();
     const price = Number(point.price);
     if (!Number.isFinite(time) || !Number.isFinite(price) || price <= 0) continue;
-    out.set(new Date(time).toISOString().slice(0, 10), point);
+    out.set(isoDay(time), point);
   }
   return out;
 }
@@ -68,17 +70,9 @@ export function estimateMarketBeta(
   const n = assetReturns.length;
   if (n < MIN_BETA_OBSERVATIONS) return null;
 
-  const meanA = assetReturns.reduce((s, r) => s + r, 0) / n;
-  const meanM = marketReturns.reduce((s, r) => s + r, 0) / n;
-  let cov = 0;
-  let varM = 0;
-  for (let i = 0; i < n; i++) {
-    cov += (assetReturns[i] - meanA) * (marketReturns[i] - meanM);
-    varM += (marketReturns[i] - meanM) ** 2;
-  }
-  if (!(varM > 0)) return null;
-
-  const beta = cov / varM;
+  const fit = olsSlope(marketReturns, assetReturns);
+  if (!fit) return null;
+  const beta = fit.slope;
   if (!Number.isFinite(beta)) return null;
 
   return {

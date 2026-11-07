@@ -1,22 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import type { BarSeries } from "@/lib/lab/bar-types";
+import { series } from "@/tests/helpers/lab-series";
 import { buildFrame } from "@/lib/lab/engine/frame";
 import { BLANK_FORM, rowsFromPortfolio, TEMPLATES, toRequest } from "@/lib/lab/lab-form";
 import { compileStrategy, strategyTickers } from "@/lib/lab/no-code";
-
-function series(ticker: string, closes: number[]): BarSeries {
-  return {
-    ticker,
-    currency: "USD",
-    bars: closes.map((c, i) => ({
-      date: `2024-01-${String(i + 2).padStart(2, "0")}`,
-      open: c, high: c, low: c, close: c, adjClose: c, volume: null,
-    })),
-    dividends: [],
-    splits: [],
-    source: { provider: "Yahoo Finance", adjustment: "close: split-adjusted; adjClose: split- and dividend-adjusted", fetchedAt: "test" },
-  };
-}
 
 const row = (w: Float64Array, t: number, n: number) => [...w.subarray(t * n, (t + 1) * n)];
 

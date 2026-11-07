@@ -6,34 +6,17 @@ import { CACHE, cacheHeaders, NO_STORE } from "@/lib/http-cache";
 import { impliedGrowth, impliedReturn, sensitivity, type DcfInputs } from "@/lib/valuation/dcf";
 import { checkReadiness } from "@/lib/valuation/readiness";
 import { describeResult, describeReturn, exitMultipleWarning } from "@/lib/valuation/summarize";
-import { olsBeta, simpleReturns } from "@/lib/valuation/beta";
+import { MARKET_PROXY } from "@/lib/math/beta";
+import { olsBeta, simpleReturns, weeklyPairs } from "@/lib/valuation/beta";
 import { blumeAdjustBeta } from "@/lib/valuation/wacc";
 import type { DcfResponse } from "@/lib/valuation/response";
+import { isoDay } from "@/lib/dates";
 
 export const maxDuration = 30;
 
 const FALLBACK_RISK_FREE = 0.042;
-const WEEKS_FOR_BETA = 104;
 
 const pct = (x: number, digits = 1) => `${(x * 100).toFixed(digits)}%`;
-
-type Series = { date: string; price: number; adjPrice?: number }[];
-
-/** Weekly adjusted closes of the stock and SPY on their shared dates, newest last. */
-function weeklyPairs(history: Map<string, Series>, symbol: string) {
-  const asset = history.get(symbol) ?? [];
-  const market = new Map((history.get("SPY") ?? []).map((p) => [p.date.slice(0, 10), p.adjPrice ?? p.price]));
-  const a: number[] = [];
-  const m: number[] = [];
-  for (const p of asset) {
-    const spy = market.get(p.date.slice(0, 10));
-    if (spy !== undefined) {
-      a.push(p.adjPrice ?? p.price);
-      m.push(spy);
-    }
-  }
-  return { asset: a.slice(-(WEEKS_FOR_BETA + 1)), market: m.slice(-(WEEKS_FOR_BETA + 1)) };
-}
 
 function rowsFor(inputs: DcfInputs, extra: { beta: string; riskFree: string; shares: string }) {
   return [
@@ -78,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   const [quotes, history] = await Promise.all([
     getFastQuotes([symbol, "^TNX"]),
-    getFastHistory([symbol, "SPY"], "5Y", { adjusted: true }),
+    getFastHistory([symbol, MARKET_PROXY], "5Y", { adjusted: true }),
   ]);
   const quote = quotes.get(symbol);
   if (!quote || !(quote.price > 0)) {
@@ -91,7 +74,7 @@ export async function GET(request: NextRequest) {
   const riskFree = tnxUsable ? tnx / 100 : FALLBACK_RISK_FREE;
   if (!tnxUsable) warnings.push(`The 10-year Treasury yield was unavailable, so ${pct(FALLBACK_RISK_FREE)} is assumed.`);
 
-  const { asset, market } = weeklyPairs(history, symbol);
+  const { asset, market } = weeklyPairs(history.get(symbol) ?? [], history.get(MARKET_PROXY) ?? []);
   const estimate = olsBeta(simpleReturns(asset), simpleReturns(market));
   let rawBeta = 1;
   if (estimate) {
@@ -101,7 +84,7 @@ export async function GET(request: NextRequest) {
     warnings.push("Not enough price history to estimate beta, so a beta of 1.0 is assumed.");
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = isoDay(Date.now());
   // Market cap over price counts every share class; the quote's own share count can be one class only (Alphabet).
   const impliedShares = quote.marketCap && quote.marketCap > 0 ? quote.marketCap / quote.price : quote.sharesOutstanding;
   const base = { today, price: quote.price, riskFree, rawBeta, currentShares: impliedShares };

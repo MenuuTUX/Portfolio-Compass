@@ -1,3 +1,7 @@
+import { normalizeTicker } from "@/lib/tickers";
+import { DAY_MS, YEAR_MS } from "@/lib/dates";
+import { std } from "@/lib/math/stats";
+
 /**
  * Asset-class helpers shared by enrichment + UI.
  *
@@ -6,7 +10,7 @@
  * (credit ratings vs sectors, maturity vs PE) instead of empty placeholders.
  */
 
-export type FundClass =
+type FundClass =
   | "equity"
   | "bond"
   | "mixed"
@@ -34,19 +38,11 @@ const CREDIT_LABELS = new Map([
   ["other", "Other"],
 ]);
 
-interface BondRatingMap {
-  [rating: string]: number;
-}
-
-/** Human label for a Yahoo bond-rating key. */
 export function formatCreditRating(key: string): string {
   const k = key.toLowerCase().replace(/\s+/g, "_");
   return CREDIT_LABELS.get(k) || key.replace(/_/g, " ").toUpperCase();
 }
 
-/**
- * Infer fund class from positions and metadata without a network request.
- */
 export function detectFundClass(input: {
   name?: string;
   category?: string | null;
@@ -65,7 +61,7 @@ export function detectFundClass(input: {
     .join(" ")
     .toLowerCase();
 
-  // Explicit product cues first (leveraged/commodity names are reliable)
+  // Leveraged and commodity names are reliable, so they win over positions.
   if (
     /\b(2x|3x|leveraged|inverse|bull|bear|daily target)\b/.test(text) ||
     /\blev\b/.test(text)
@@ -84,7 +80,7 @@ export function detectFundClass(input: {
   const bond = input.bondPosition ?? 0;
   const cash = input.cashPosition ?? 0;
 
-  // Position-based (fractions 0-1 from Yahoo)
+  // Yahoo positions are fractions 0-1.
   if (bond >= 0.5 && stock < 0.2) return "bond";
   if (stock >= 0.5 && bond < 0.2) return "equity";
   if (stock >= 0.15 && bond >= 0.15) return "mixed";
@@ -104,7 +100,6 @@ export function detectFundClass(input: {
   return "unknown";
 }
 
-/** Convert Yahoo position fractions into 0-100 allocation weights. */
 export function positionsToAllocation(input: {
   stockPosition?: number;
   bondPosition?: number;
@@ -126,8 +121,8 @@ export function positionsToAllocation(input: {
  */
 export function parseBondRatings(
   ratings: Array<Record<string, number>> | undefined | null,
-): BondRatingMap {
-  const out: BondRatingMap = {};
+): Record<string, number> {
+  const out: Record<string, number> = {};
   if (!Array.isArray(ratings)) return out;
   for (const row of ratings) {
     for (const [key, val] of Object.entries(row)) {
@@ -152,7 +147,7 @@ export function parseBondRatings(
  */
 export function normalizeExpenseRatio(
   raw: number | undefined | null,
-  source: "quote" | "profile" | "scraper" | "auto" = "auto",
+  source: "quote" | "profile" | "scraper",
 ): number | undefined {
   if (
     raw === undefined || raw === null || !Number.isFinite(raw) || raw < 0 ||
@@ -165,20 +160,13 @@ export function normalizeExpenseRatio(
     return raw < 20 ? raw : undefined;
   }
 
-  if (source === "profile") {
-    // Decimal fraction → percent
-    if (raw > 0 && raw < 1) return raw * 100;
-    if (raw >= 1 && raw < 20) return raw; // already percent, rare
-    return undefined;
-  }
-
-  // auto: tiny values are almost always decimals; larger are percent
-  if (raw > 0 && raw < 0.01) return raw * 100;
-  if (raw >= 0.01 && raw < 20) return raw;
+  // profile: a decimal fraction (rarely already percent)
+  if (raw < 1) return raw * 100;
+  if (raw < 20) return raw;
   return undefined;
 }
 
-export interface NormalizedExpenseRatio {
+interface NormalizedExpenseRatio {
   value: number;
   sourceField: "netExpenseRatio" | "annualReportExpenseRatio" | "Expense Ratio";
   inputUnit: "fraction" | "percent" | "unknown";
@@ -186,7 +174,6 @@ export interface NormalizedExpenseRatio {
   measurementDate: null;
 }
 
-/** Normalize one named source field and retain how its input unit was interpreted. */
 export function normalizeExpenseRatioWithProvenance(
   raw: number | undefined | null,
   source: "quote" | "profile" | "scraper",
@@ -227,7 +214,7 @@ export function normalizeExpenseRatioWithProvenance(
   };
 }
 
-/** Prefer 5y beta, then 3y, ignore zeros. */
+/** Prefer 5y beta, then 3y; zero means absent. */
 export function pickBeta(
   beta?: number | null,
   beta3Year?: number | null,
@@ -264,19 +251,15 @@ export function realizedAnnualVolatility(
     !Number.isFinite(point.date) || !Number.isFinite(point.price) || point.price <= 0
   )) return undefined;
   const years = (points.at(-1)!.date - points[0].date) /
-    (365.25 * 24 * 60 * 60 * 1000);
+    YEAR_MS;
   if (years < 0.5) return undefined;
   const rets: number[] = [];
   for (let i = 1; i < points.length; i++) {
-    const gapDays = (points[i].date - points[i - 1].date) / (24 * 60 * 60 * 1000);
+    const gapDays = (points[i].date - points[i - 1].date) / DAY_MS;
     if (gapDays <= 0 || gapDays > 10) return undefined;
     rets.push(Math.log(points[i].price / points[i - 1].price));
   }
-  const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
-  let varSum = 0;
-  for (const r of rets) varSum += (r - mean) ** 2;
-  const std = Math.sqrt(varSum / (rets.length - 1));
-  const ann = std * Math.sqrt(rets.length / years);
+  const ann = std(rets) * Math.sqrt(rets.length / years);
   if (!Number.isFinite(ann)) return undefined;
   return ann;
 }
@@ -288,10 +271,9 @@ export function realizedAnnualVolatility(
 export function stockAnalysisPathForTicker(
   ticker: string,
 ): { kind: "etf" | "quote"; path: string } | null {
-  const t = ticker.trim().toUpperCase();
+  const t = normalizeTicker(ticker);
   if (!/^[A-Z0-9.-]{1,12}$/.test(t)) return null;
 
-  // Canadian listings
   if (t.endsWith(".TO")) {
     return { kind: "quote", path: `quote/tsx/${t.slice(0, -3).toLowerCase()}` };
   }
@@ -302,7 +284,7 @@ export function stockAnalysisPathForTicker(
     return { kind: "quote", path: `quote/cse/${t.split(".")[0].toLowerCase()}` };
   }
 
-  // US plain symbols (ETF page preferred for funds; caller may try stocks too)
+  // ETF page preferred for funds; the caller may try stocks too.
   if (!t.includes(".")) {
     return { kind: "etf", path: `etf/${t.toLowerCase()}` };
   }

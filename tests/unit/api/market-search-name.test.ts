@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { NextRequest } from "next/server";
+import { fastQuote } from "@/tests/helpers/quotes";
 import { mockModule } from "@/tests/helpers/mock-module";
 import type { FastQuote } from "@/lib/fast-market";
 
@@ -19,31 +21,16 @@ await mockModule("@/lib/fast-market", () => ({
   quoteToAsset,
 }));
 
-await mockModule("next/server", () => ({
-  NextRequest: class {
-    nextUrl: URL;
-    constructor(url: string) { this.nextUrl = new URL(url); }
-  },
-  NextResponse: {
-    json: (data: unknown, init?: { status?: number; headers?: HeadersInit }) => ({
-      _data: data,
-      status: init?.status ?? 200,
-      headers: new Headers(init?.headers),
-    }),
-  },
-}));
-
 const { GET } = await import("../../../app/api/market/search/route");
-const { NextRequest } = await import("next/server");
 
-const quote = (ticker: string, name: string) => ({
-  ticker, name, price: 100, changePercent: 0, assetType: "STOCK" as const,
-}) as FastQuote;
+const quote = (ticker: string, name: string) => fastQuote(ticker, { name, price: 100, changePercent: 0 }) as FastQuote;
 
-const search = async (query: string) =>
-  (await GET(new NextRequest(
+const search = async (query: string) => {
+  const res = await GET(new NextRequest(
     `http://localhost/api/market/search?query=${encodeURIComponent(query)}&history=false&profiles=false`,
-  ) as never)) as unknown as { status: number; _data: Array<{ ticker: string }> };
+  ));
+  return { status: res.status, body: (await res.json()) as Array<{ ticker: string }> };
+};
 
 beforeEach(() => {
   getFastQuotes.mockReset();
@@ -53,6 +40,18 @@ beforeEach(() => {
 });
 
 describe("market search by company name", () => {
+  it("resolves exact tickers without waiting for autocomplete, history, or profiles", async () => {
+    getFastQuotes.mockResolvedValue(new Map([["AAPL", quote("AAPL", "Apple Inc.")]]));
+
+    const res = await search("AAPL");
+
+    expect(res.status).toBe(200);
+    expect(res.body[0].ticker).toBe("AAPL");
+    expect(searchFastSymbols).not.toHaveBeenCalled();
+    expect(getFastQuotes).toHaveBeenCalledWith(["AAPL"], { includeProfiles: false });
+    expect(getFastHistory).not.toHaveBeenCalled();
+  });
+
   it("goes straight to name search for words too long to be a US ticker", async () => {
     searchFastSymbols.mockResolvedValue(["MSFT"]);
     getFastQuotes.mockResolvedValue(new Map([["MSFT", quote("MSFT", "Microsoft")]]));
@@ -60,7 +59,7 @@ describe("market search by company name", () => {
     const res = await search("microsoft");
 
     expect(searchFastSymbols).toHaveBeenCalledWith("microsoft", undefined, 20);
-    expect(res._data.map((a) => a.ticker)).toEqual(["MSFT"]);
+    expect(res.body.map((a) => a.ticker)).toEqual(["MSFT"]);
   });
 
   it("falls back to name search when a ticker-shaped word is not a ticker", async () => {
@@ -72,7 +71,7 @@ describe("market search by company name", () => {
     const res = await search("apple");
 
     expect(searchFastSymbols).toHaveBeenCalledTimes(1);
-    expect(res._data.map((a) => a.ticker)).toEqual(["AAPL"]);
+    expect(res.body.map((a) => a.ticker)).toEqual(["AAPL"]);
   });
 
   it("does not run name search when the exact ticker resolves", async () => {
@@ -85,6 +84,6 @@ describe("market search by company name", () => {
     getFastQuotes.mockResolvedValue(new Map([["BRK-B", quote("BRK-B", "Berkshire Hathaway")]]));
     const res = await search("brk.b");
     expect((getFastQuotes.mock.calls[0] as unknown[])[0]).toEqual(["BRK-B"]);
-    expect(res._data.map((a) => a.ticker)).toEqual(["BRK-B"]);
+    expect(res.body.map((a) => a.ticker)).toEqual(["BRK-B"]);
   });
 });

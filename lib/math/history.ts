@@ -1,4 +1,5 @@
 import { Portfolio, PortfolioItem } from "@/types";
+import { DAY_MS, YEAR_DAYS, isoDay } from "@/lib/dates";
 
 /**
  * What a history-derived return means. "total" uses dividend-adjusted closes,
@@ -8,7 +9,7 @@ import { Portfolio, PortfolioItem } from "@/types";
  */
 export type ReturnBasis = "total" | "price";
 
-export interface AlignedPriceHistory {
+interface AlignedPriceHistory {
   dates: string[];
   /**
    * One series per holding. On the "total" basis each is the first aligned
@@ -56,8 +57,6 @@ export function tickersWithoutAdjustedHistory(portfolio: Portfolio): string[] {
     .map((item) => item.ticker);
 }
 
-const DAY_MS = 86_400_000;
-
 /**
  * Average number of observations per calendar year, from the first and last
  * dates. Not snapped to 252, so weekly or monthly data annualizes correctly.
@@ -66,12 +65,12 @@ export function observationsPerYear(dates: string[]): number {
   if (dates.length < 3) return 252;
   const first = Date.parse(dates[0]);
   const last = Date.parse(dates[dates.length - 1]);
-  const years = (last - first) / DAY_MS / 365.25;
+  const years = (last - first) / DAY_MS / YEAR_DAYS;
   if (!(years > 0) || !Number.isFinite(years)) return 252;
   return (dates.length - 1) / years;
 }
 
-export type HistoryDiagnosis =
+type HistoryDiagnosis =
   | { ok: true }
   | { ok: false; reason: "too-short" | "gap"; ticker: string; found: number; needed: number; gapDays?: number };
 
@@ -82,7 +81,7 @@ function usableDates(points: ReadonlyArray<{ date: string; price: number }>): st
     const timestamp = new Date(point.date).getTime();
     const price = Number(point.price);
     if (!Number.isFinite(timestamp) || !Number.isFinite(price) || price <= 0) continue;
-    dates.add(new Date(timestamp).toISOString().slice(0, 10));
+    dates.add(isoDay(timestamp));
   }
   return [...dates].sort();
 }
@@ -122,7 +121,7 @@ export function hasDailyObservationCoverage(
   for (let i = 1; i < dates.length; i++) {
     const previous = new Date(dates[i - 1]).getTime();
     const current = new Date(dates[i]).getTime();
-    const gapDays = (current - previous) / 86_400_000;
+    const gapDays = (current - previous) / DAY_MS;
     if (!Number.isFinite(previous) || !Number.isFinite(current) || gapDays <= 0 || gapDays > maxGapDays) {
       return false;
     }
@@ -159,7 +158,7 @@ export function alignPriceHistories(
 
       // The market endpoints return UTC timestamps, while some fixtures use a
       // date-only string. Normalizing to a UTC day handles both shapes.
-      const date = new Date(timestamp).toISOString().slice(0, 10);
+      const date = isoDay(timestamp);
       byDate.set(date, { price, adj: validAdjusted(point) });
     }
 

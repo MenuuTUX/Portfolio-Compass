@@ -12,19 +12,18 @@ import type {
   Staleness,
   TrailingPeriod,
 } from "./types";
+import { DAY_MS, daysBetween, shiftIsoDate } from "@/lib/dates";
 
 const ANNUAL_FORMS = new Set(["10-K", "10-K/A", "10-K405", "20-F", "20-F/A", "40-F", "40-F/A", "10-KT"]);
 const QUARTERLY_FORMS = new Set(["10-Q", "10-Q/A"]);
 /** Filings the app links to. 8-Ks are kept only when they report an auditor change or non-reliance (items 4.01, 4.02). */
 const KEPT_FORMS = new Set(["10-K", "10-K405", "10-Q", "20-F", "40-F", "NT 10-K", "NT 10-Q"]);
-const DAY = 86_400_000;
 
 /** A restatement smaller than this is treated as rounding, not a change. */
 const RESTATEMENT_TOLERANCE = 0.005;
 
-const days = (start: string, end: string) => (Date.parse(end) - Date.parse(start)) / DAY;
-const isAnnualDuration = (f: SecFact) => !!f.start && days(f.start, f.end) >= 350 && days(f.start, f.end) <= 380;
-const near = (a: string, b: string, tolerance = 7) => Math.abs(Date.parse(a) - Date.parse(b)) <= tolerance * DAY;
+const isAnnualDuration = (f: SecFact) => !!f.start && daysBetween(f.start, f.end) >= 350 && daysBetween(f.start, f.end) <= 380;
+const near = (a: string, b: string, tolerance = 7) => Math.abs(Date.parse(a) - Date.parse(b)) <= tolerance * DAY_MS;
 
 interface Tagged extends SecFact { tag: string; unit: string }
 
@@ -168,7 +167,7 @@ export function parseFilings(sub: SecSubmissions, cik: number): Filing[] {
   return out;
 }
 
-export interface BuildOptions {
+interface BuildOptions {
   ticker: string;
   source: FilingsSourceId;
   /** Fiscal years to keep, newest last. */
@@ -265,7 +264,7 @@ export function buildCompanyFilings(
     // back to the year that holds most of the period: the end date less a week.
     const endYear = Number(p.end.slice(0, 4));
     const ownYear = p.fy === endYear || p.fy === endYear - 1;
-    let fiscalYear = ownYear ? p.fy! : Number(addDays(p.end, -7).slice(0, 4));
+    let fiscalYear = ownYear ? p.fy! : Number(shiftIsoDate(p.end, -7).slice(0, 4));
     // Never repeat a label; a clash can only come from unusual data, so the later period moves up by one.
     if (fiscalYear <= lastLabel) fiscalYear = lastLabel + 1;
     lastLabel = fiscalYear;
@@ -300,7 +299,7 @@ export function buildCompanyFilings(
 
   const trailing = buildTrailing(lead.byItem, annual[annual.length - 1]);
   const newestEnd = [annual[annual.length - 1]?.end, trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
-  const sharesOutstanding = latestSharesOutstanding(facts, newestEnd ? addDays(newestEnd, -STALE_COUNT_DAYS) : undefined);
+  const sharesOutstanding = latestSharesOutstanding(facts, newestEnd ? shiftIsoDate(newestEnd, -STALE_COUNT_DAYS) : undefined);
   const filings = parseFilings(sub, cik);
   const asOf = sub.filings.recent.filingDate.reduce((max, d) => (d > max ? d : max), "");
 
@@ -339,7 +338,7 @@ function buildTrailing(byItem: Record<LineItem, Tagged[][]>, lastYear: AnnualPer
   for (const item of ["revenue", "netIncome"] as LineItem[]) {
     for (const list of byItem[item]) {
       for (const f of list) {
-        if (QUARTERLY_FORMS.has(f.form) && f.start && near(f.start, addDays(lastYear.end, 1), 7) &&
+        if (QUARTERLY_FORMS.has(f.form) && f.start && near(f.start, shiftIsoDate(lastYear.end, 1), 7) &&
             f.end > lastYear.end && (!ytdEnd || f.end > ytdEnd)) ytdEnd = f.end;
       }
     }
@@ -352,9 +351,9 @@ function buildTrailing(byItem: Record<LineItem, Tagged[][]>, lastYear: AnnualPer
   }
 
   const balanceSheetDate = latestBalanceDate(byItem);
-  const ytdStart = addDays(lastYear.end, 1);
-  const priorStart = addDays(lastYear.start, 0);
-  const priorEnd = addDays(ytdEnd, -364);
+  const ytdStart = shiftIsoDate(lastYear.end, 1);
+  const priorStart = shiftIsoDate(lastYear.start, 0);
+  const priorEnd = shiftIsoDate(ytdEnd, -364);
   const missingOnBalanceDate: LineItem[] = [];
   for (const item of LINE_ITEMS) {
     const kind = CONCEPTS[item].kind;
@@ -429,6 +428,3 @@ function latestCount(all: SecFact[]): CompanyFilings["sharesOutstanding"] {
   return { value, asOf: latestEnd, accn: sameFiling[0].accn, classes: sameFiling.length };
 }
 
-function addDays(date: string, n: number): string {
-  return new Date(Date.parse(date) + n * DAY).toISOString().slice(0, 10);
-}

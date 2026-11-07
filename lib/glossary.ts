@@ -3,7 +3,7 @@
  * Keys are matched case-insensitively against UI labels.
  */
 
-export interface GlossaryEntry {
+interface GlossaryEntry {
   /** Short display name */
   label: string;
   /** What it is, in plain English */
@@ -414,14 +414,9 @@ export function getGlossaryEntry(label: string): GlossaryEntry | null {
     if (re.test(key) && targetEntry) return targetEntry;
   }
 
-  // Soft contains match on known keys
   for (const [k, entry] of entriesByKey) {
     if (key.includes(k) || k.includes(key)) return entry;
   }
 
   return null;
-}
-
-export function hasGlossaryEntry(label: string): boolean {
-  return getGlossaryEntry(label) !== null;
 }

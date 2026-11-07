@@ -2,7 +2,12 @@ import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
-import { normalizeTicker, toPortfolioEtf } from "./normalize";
+import { normalizeTicker } from "@/lib/tickers";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
+import type { FastEtfDetails } from "@/lib/fast-market";
+import { getJson, searchMarket } from "@/lib/api-client";
+import { QUOTE_REFRESH_MS } from "@/lib/polling";
+import { toPortfolioEtf } from "./normalize";
 import { selectReturnBasis } from "@/lib/math/history";
 import { isExtendedMarketSession } from "@/lib/quote-session";
 
@@ -60,14 +65,14 @@ interface FundProfile {
 }
 
 /** A fund still missing the mix, beta or holdings the optimizer and look-through use. */
-export function needsFundProfile(item: ETF): boolean {
+function needsFundProfile(item: ETF): boolean {
   if (item.assetType === "STOCK") return false;
   const a = item.allocation;
   return typeof item.beta !== "number" || !a || a.equities + a.bonds + a.cash <= 0 || !item.holdings?.length;
 }
 
 /** Fills fund fields the item is missing; never overwrites data it already has. */
-export function mergeFundProfile<T extends ETF>(item: T, fund?: FundProfile | null): T {
+function mergeFundProfile<T extends ETF>(item: T, fund?: FundProfile | null): T {
   if (!fund) return item;
   const next = { ...item };
   if (typeof next.beta !== "number" && typeof fund.beta === "number" && Number.isFinite(fund.beta)) {
@@ -135,13 +140,13 @@ export const usePortfolio = (refreshEnabled = false) => {
   // When quotes were last requested. Reused answers do not count, so the retry window stays fixed.
   const lastNetworkFetch = useRef(0);
   const query = useQuery<Portfolio>({
-    queryKey: ["portfolio"],
+    queryKey: PORTFOLIO_QUERY_KEY,
     queryFn: async ({ client }) => {
       const localItems = loadPortfolio();
       if (localItems.length === 0) return [];
 
       const tickers = localItems.map((item) => normalizeTicker(item.ticker));
-      const previous = client.getQueryData<Portfolio>(["portfolio"]) ?? [];
+      const previous = client.getQueryData<Portfolio>(PORTFOLIO_QUERY_KEY) ?? [];
       const sameHoldings =
         previous.length > 0 &&
         holdingsSignature(previous) === holdingsSignature(
@@ -177,9 +182,7 @@ export const usePortfolio = (refreshEnabled = false) => {
       if (missing.length > 0) {
         await Promise.all(missing.map(async (ticker) => {
           try {
-            const response = await fetch(
-              `/api/market/search?query=${encodeURIComponent(ticker)}&limit=5&history=false&profiles=false`,
-            );
+            const response = await searchMarket({ query: ticker, limit: 5, details: false });
             if (!response.ok) return;
             const assets = await response.json();
             const match = Array.isArray(assets)
@@ -196,7 +199,7 @@ export const usePortfolio = (refreshEnabled = false) => {
     },
     staleTime: 15000,
     refetchOnWindowFocus: true,
-    refetchInterval: refreshEnabled ? 60000 : false,
+    refetchInterval: refreshEnabled ? QUOTE_REFRESH_MS : false,
     refetchIntervalInBackground: false,
   });
   const { data, isStale, refetch } = query;
@@ -205,7 +208,7 @@ export const usePortfolio = (refreshEnabled = false) => {
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === null || event.key === PORTFOLIO_STORAGE_KEY) {
-        void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+        void queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
       }
     };
     window.addEventListener("storage", onStorage);
@@ -224,14 +227,13 @@ export const usePortfolio = (refreshEnabled = false) => {
     if (!tickersKey) return;
     let cancelled = false;
 
-    fetch(`/api/etfs/search?tickers=${encodeURIComponent(tickersKey)}&includeHistory=true&adjusted=true&profiles=true`)
-      .then((response) => response.ok ? response.json() : [])
+    getJson<ETF[]>(`/api/etfs/search?tickers=${encodeURIComponent(tickersKey)}&includeHistory=true&adjusted=true&profiles=true`, [])
       .then((assets: ETF[]) => {
         if (cancelled || !Array.isArray(assets)) return;
         const detailsByTicker = new Map(
           assets.map((asset) => [normalizeTicker(asset.ticker), asset]),
         );
-        queryClient.setQueryData<Portfolio>(["portfolio"], (current) => {
+        queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (current) => {
           if (!current || current.map((item) => item.ticker).join(",") !== tickersKey) {
             return current;
           }
@@ -258,16 +260,15 @@ export const usePortfolio = (refreshEnabled = false) => {
     if (!profileKey) return;
     let cancelled = false;
     Promise.all(profileKey.split(",").map((ticker) =>
-      fetch(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`)
-        .then((response) => response.ok ? response.json() : null)
+      getJson<FastEtfDetails | null>(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`, null)
         .catch(() => null),
     )).then((funds) => {
       if (cancelled) return;
       const fundByTicker = new Map(
-        funds.filter(Boolean).map((fund) => [normalizeTicker(fund.ticker), fund]),
+        funds.filter((fund): fund is FastEtfDetails => !!fund).map((fund) => [normalizeTicker(fund.ticker), fund]),
       );
       if (fundByTicker.size === 0) return;
-      queryClient.setQueryData<Portfolio>(["portfolio"], (current) =>
+      queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (current) =>
         current?.map((item) => mergeFundProfile(item, fundByTicker.get(item.ticker))),
       );
     });

@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import Image from "next/image";
 import { m as motion } from "framer-motion";
 import { ShoppingBag, TrendingDown, Zap, Sprout, Pickaxe, ChevronDown } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
-import { ETFSchema } from "@/schemas/assetSchema";
 import { z } from "zod";
 import ETFDetailsDrawer from "./ETFDetailsDrawer";
 import AssetWorkspace from "./workspace/AssetWorkspace";
@@ -16,11 +15,12 @@ import {
   maxRightPane,
   PaneResizer,
   useResizableWidth,
-} from "./workspace/PaneResizer";
+} from "./ui/PaneResizer";
 import { useAssetChart } from "./workspace/useAssetChart";
 import { mergeAssetData, useAssetDetails } from "./workspace/useAssetDetails";
-import FearGreedGauge, { FEAR_GREED_GRADIENT, type FearGreedData } from "./FearGreedGauge";
-import { RevealGroup, RevealItem, EASE } from "./motion/Reveal";
+import FearGreedGauge, { FEAR_GREED_GRADIENT } from "./FearGreedGauge";
+import { RevealGroup, RevealItem } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 import TrendingSection from "./TrendingSection";
 import PageHeader from "./home/PageHeader";
 import SummaryCard from "./home/SummaryCard";
@@ -31,11 +31,13 @@ import SpHeatmap from "./SpHeatmap";
 import ImportPortfolioCard from "./ImportPortfolioCard";
 import InstitutionalPortfolios from "./InstitutionalPortfolios";
 import { BatchAddItem, useBatchAddPortfolio } from "@/hooks/useBatchAddPortfolio";
+import { useIsLg } from "@/hooks/useMediaQuery";
+import { fetchFearGreed, fetchSnapshot, getJson, type FearGreedData } from "@/lib/api-client";
+import { startVisibleInterval } from "@/lib/polling";
 import {
   MAG7_TICKERS,
   JUST_BUY_TICKERS,
   NATURAL_RESOURCES_TICKERS,
-  getRedditCommunities,
 } from "@/config/tickers";
 
 interface TrendingTabProps {
@@ -48,20 +50,6 @@ interface TrendingTabProps {
 
 const signed = (n: number, digits = 2) =>
   `${n > 0 ? "+" : n < 0 ? "-" : ""}${Math.abs(n).toFixed(digits)}`;
-
-const LG_QUERY = "(min-width: 1024px)";
-function subscribeLg(callback: () => void) {
-  const mq = window.matchMedia(LG_QUERY);
-  mq.addEventListener("change", callback);
-  return () => mq.removeEventListener("change", callback);
-}
-function useIsLg() {
-  return useSyncExternalStore(
-    subscribeLg,
-    () => window.matchMedia(LG_QUERY).matches,
-    () => false,
-  );
-}
 
 /** Left-panel group header that expands its content with an animated height. */
 function PanelGroup({
@@ -214,23 +202,10 @@ export default function TrendingTab({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/market/fear-greed")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (cancelled) return;
-        if (json && typeof json.score === "number") {
-          setFearGreed({
-            score: json.score,
-            rating: String(json.rating ?? ""),
-            updatedAt: typeof json.updatedAt === "string" ? json.updatedAt : new Date().toISOString(),
-          });
-        } else {
-          setFearFailed(true);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setFearFailed(true);
-      });
+    fetchFearGreed().then(
+      (reading) => { if (!cancelled) setFearGreed(reading); },
+      () => { if (!cancelled) setFearFailed(true); },
+    );
     return () => {
       cancelled = true;
     };
@@ -253,24 +228,6 @@ export default function TrendingTab({
     let cancelled = false;
     // Tickers currently shown, kept for the live refresh below
     const liveTickers = { curated: [] as string[], movers: [] as string[] };
-
-    const fetchSnapshot = async (
-      tickers: string[],
-      includeHistory = false,
-    ): Promise<ETF[]> => {
-      if (tickers.length === 0) return [];
-      const res = await fetch(
-        `/api/market/snapshot?tickers=${tickers.join(",")}&history=${includeHistory}`,
-      );
-      if (!res.ok) throw new Error(`Snapshot failed: ${res.statusText}`);
-      const raw = await res.json();
-      try {
-        return z.array(ETFSchema).parse(raw);
-      } catch (e) {
-        console.warn("Snapshot validation failed:", e);
-        return [];
-      }
-    };
 
     // 1. Curated sections render as soon as their single batch resolves
     const fetchCurated = async () => {
@@ -316,12 +273,8 @@ export default function TrendingTab({
     const fetchMovers = async () => {
       try {
         const [gainersRaw, losersRaw] = await Promise.all([
-          fetch("/api/market/movers?type=gainers").then((res) =>
-            res.ok ? res.json() : { tickers: [] },
-          ),
-          fetch("/api/market/movers?type=losers").then((res) =>
-            res.ok ? res.json() : { tickers: [] },
-          ),
+          getJson("/api/market/movers?type=gainers", { tickers: [] }),
+          getJson("/api/market/movers?type=losers", { tickers: [] }),
         ]);
         if (cancelled) return;
 
@@ -371,7 +324,6 @@ export default function TrendingTab({
     // Keep prices live: re-pull quotes (no history) for everything on screen and
     // merge them into the existing rows so sparklines and details survive.
     const refreshQuotes = async () => {
-      if (document.visibilityState !== "visible") return;
       const tickers = Array.from(
         new Set([...liveTickers.curated, ...liveTickers.movers]),
       );
@@ -395,19 +347,13 @@ export default function TrendingTab({
         console.warn("Live quote refresh failed:", error);
       }
     };
-    const quoteTimer = window.setInterval(refreshQuotes, 60_000);
+    const stopQuoteTimer = startVisibleInterval(refreshQuotes);
 
     return () => {
       cancelled = true;
-      window.clearInterval(quoteTimer);
+      stopQuoteTimer();
     };
   }, []);
-
-  const communityLookup = (ticker: string, assetType?: string) =>
-    getRedditCommunities(ticker, assetType).map((c) => ({
-      name: c.displayName,
-      url: c.url,
-    }));
 
   const renderSkeleton = (label: string) => (
     <section className="mb-8" aria-label={label}>
@@ -535,56 +481,46 @@ export default function TrendingTab({
             title="Large Tech Watchlist"
             items={mag7Items}
             Icon={Zap}
-            theme="purple"
             onAddToPortfolio={onAddToPortfolio}
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={communityLookup}
           />
           <TrendingSection
             title="Natural Resources"
             items={naturalResourcesItems}
             Icon={Pickaxe}
-            theme="amber"
             onAddToPortfolio={onAddToPortfolio}
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={communityLookup}
           />
           <TrendingSection
             title="Reddit ETF Watchlist"
             items={justBuyItems}
             Icon={Sprout}
-            theme="orange"
             onAddToPortfolio={onAddToPortfolio}
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={communityLookup}
           />
           <TrendingSection
             title="Top Daily Gainers"
             items={trendingItems}
             Icon={ShoppingBag}
-            theme="emerald"
             onAddToPortfolio={onAddToPortfolio}
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={communityLookup}
           />
           <TrendingSection
             title="Top Daily Losers"
             items={discountedItems}
             Icon={TrendingDown}
-            theme="rose"
             onAddToPortfolio={onAddToPortfolio}
             portfolio={portfolio}
             onRemoveFromPortfolio={onRemoveFromPortfolio}
             onSelectItem={setSelectedItem}
-            communityLookup={communityLookup}
           />
             </>
           )}

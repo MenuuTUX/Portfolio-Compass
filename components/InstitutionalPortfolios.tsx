@@ -1,5 +1,6 @@
 "use client";
 
+import { useLater } from "@/hooks/useLater";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { m as motion, AnimatePresence } from "framer-motion";
@@ -22,7 +23,7 @@ import {
 import { cn } from "@/lib/cn";
 import { COLORS } from "./SectorPieChart";
 import { useDialogA11y } from "@/hooks/useDialogA11y";
-import { EASE } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 interface InstitutionalPortfoliosProps {
   onBatchAdd: (items: BatchAddItem[]) => Promise<void>;
@@ -89,6 +90,7 @@ export default function InstitutionalPortfolios({
   const [loadingType, setLoadingType] = useState<PortfolioType | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const later = useLater();
   const closeInstitutional = useCallback(() => setSelectedInstitution(null), []);
   const dialogRef = useDialogA11y<HTMLDivElement>(Boolean(selectedInstitution), closeInstitutional);
 
@@ -117,7 +119,7 @@ export default function InstitutionalPortfolios({
     try {
       await onBatchAdd(items);
       setAdded(type);
-      setTimeout(() => setAdded(null), 2000);
+      later(() => setAdded(null), 2000);
     } catch (error) {
       setAddError(error instanceof Error ? error.message : "Could not load this portfolio example.");
     } finally {
@@ -214,7 +216,6 @@ export default function InstitutionalPortfolios({
                   onClick={(e) => e.stopPropagation()}
                   className="mx-auto flex min-h-full w-full max-w-6xl flex-col px-5 pb-10 pt-8 md:px-10 md:pt-12"
                 >
-                  {/* Header */}
                   <div className="flex items-start justify-between gap-6">
                     <div className="min-w-0">
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
@@ -242,7 +243,6 @@ export default function InstitutionalPortfolios({
                     </button>
                   </div>
 
-                  {/* Every firm, always visible */}
                   <div
                     role="group"
                     aria-label="Choose a firm"
@@ -281,7 +281,6 @@ export default function InstitutionalPortfolios({
                     </p>
                   )}
 
-                  {/* All three portfolios side by side */}
                   <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
                     {PORTFOLIO_TYPES.map((type, i) => {
                       const portfolio = selectedInstitution.portfolios[type];

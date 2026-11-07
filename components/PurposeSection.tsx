@@ -8,7 +8,8 @@ import { useElementProgress } from "./landing/PhoneMock";
 import BuildMock from "./landing/mocks/BuildMock";
 import CompareMock from "./landing/mocks/CompareMock";
 import TestMock from "./landing/mocks/TestMock";
-import Reveal, { EASE, RevealGroup, RevealItem } from "./motion/Reveal";
+import Reveal, { RevealGroup, RevealItem } from "./motion/Reveal";
+import { EASE } from "@/lib/motion";
 
 const scrollToId = (id: string) => {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });

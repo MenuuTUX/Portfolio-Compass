@@ -8,9 +8,11 @@ import {
   getFastMarketBetas,
 } from "@/lib/fast-market";
 import { calculateTTMYield } from "@/lib/finance";
-import { getRedditCommunities } from "@/config/tickers";
 import { z } from "zod";
-import { isTicker } from "@/lib/tickers";
+import { isTicker, normalizeTicker } from "@/lib/tickers";
+import { jsonError, redditCommunities } from "@/lib/api";
+import { NO_STORE } from "@/lib/http-cache";
+import { YAHOO_QUOTE_SOURCE } from "@/lib/provenance";
 
 /**
  * "Sync" a ticker = refresh live market + fund details.
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedTicker = validation.data.ticker.toUpperCase();
+    const normalizedTicker = normalizeTicker(validation.data.ticker);
 
     const [quotes, histories, dividendHistory, details, betas] = await Promise.all([
       getFastQuotes([normalizedTicker], { includeProfiles: true, throwOnError: true }),
@@ -73,13 +75,6 @@ export async function POST(req: NextRequest) {
       ? null
       : calculateTTMYield(dividendHistory, q.price, { historyComplete: true })?.toNumber() ?? null;
     const yieldRetrievedAt = new Date().toISOString();
-    const communities = getRedditCommunities(
-      normalizedTicker,
-      q.assetType,
-    ).map((c) => ({
-      subreddit: c.name,
-      url: c.url,
-    }));
 
     const formattedEtf = {
       ticker: q.ticker,
@@ -94,7 +89,7 @@ export async function POST(req: NextRequest) {
         yield: calculatedYield ?? q.dividendYield ?? null,
         yieldSource: calculatedYield !== null
           ? "Yahoo Finance dividend history (TTM)"
-          : q.dividendYield !== undefined ? "Yahoo Finance quote" : null,
+          : q.dividendYield !== undefined ? YAHOO_QUOTE_SOURCE : null,
         yieldRetrievedAt: calculatedYield !== null
           ? yieldRetrievedAt
           : q.dividendYield !== undefined ? q.retrievedAt ?? null : null,
@@ -108,7 +103,7 @@ export async function POST(req: NextRequest) {
         yieldMeasurementDate: calculatedYield !== null ? q.quoteAsOf ?? null : null,
         mer: q.expenseRatio ?? details?.expenseRatio ?? null,
         merSource: q.expenseRatio !== undefined
-          ? "Yahoo Finance quote"
+          ? YAHOO_QUOTE_SOURCE
           : details?.expenseRatioSource ?? null,
         merRetrievedAt: q.expenseRatio !== undefined
           ? q.retrievedAt ?? null
@@ -138,7 +133,7 @@ export async function POST(req: NextRequest) {
         weight: h.weight,
       })),
       assetType: q.assetType,
-      redditCommunities: communities,
+      redditCommunities: redditCommunities(normalizedTicker, q.assetType),
       fundClass: details?.fundClass,
       category: details?.category,
       family: details?.family,
@@ -152,16 +147,8 @@ export async function POST(req: NextRequest) {
       industry: q.industry,
     };
 
-    return NextResponse.json(formattedEtf, {
-      headers: {
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch (error: any) {
-    console.error("Error syncing ETF (live):", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 },
-    );
+    return NextResponse.json(formattedEtf, { headers: NO_STORE });
+  } catch (error) {
+    return jsonError(500, "Internal Server Error", "Error syncing ETF (live):", error);
   }
 }

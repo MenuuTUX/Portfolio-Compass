@@ -62,12 +62,6 @@ const STEP_VALUE = 100;
  */
 const MAX_ITERATIONS = 400;
 
-export function riskPenaltyForProfile(
-  profile: NonNullable<GreedyOptimizationParams["riskProfile"]>,
-): number {
-  return LAMBDA_BY_PROFILE[profile];
-}
-
 /** Assumed annual risk-free return. A modelling assumption, not an estimate from data. */
 export const RISK_FREE = 0.02;
 
@@ -201,7 +195,7 @@ export function optimizePortfolioGreedy(
   } = params;
 
   const lambda = riskProfile
-    ? riskPenaltyForProfile(riskProfile)
+    ? LAMBDA_BY_PROFILE[riskProfile]
     : (paramLambda ?? 1.0);
 
   const numAssets = candidates.length;

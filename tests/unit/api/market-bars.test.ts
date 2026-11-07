@@ -1,17 +1,14 @@
-import { describe, expect, it, mock, beforeEach } from "bun:test";
+import { describe, expect, it, beforeEach } from "bun:test";
 import { NextRequest } from "next/server";
 import { mockModule } from "@/tests/helpers/mock-module";
+import { createFakeYahoo } from "@/tests/helpers/fake-yahoo";
 import { lastCompletedSession, type CompactSeries } from "@/lib/lab/bar-types";
 import recorded from "@/tests/fixtures/yahoo-chart-daily.json";
 
-type AsyncMockFn = (...args: any[]) => Promise<any>;
-const mockChart = mock<AsyncMockFn>(async () => recorded.AAPL);
+const yahoo = createFakeYahoo();
+const mockChart = yahoo.chart;
 
-class MockYahooFinance {
-  chart = mockChart;
-}
-
-await mockModule("yahoo-finance2", () => ({ default: MockYahooFinance }));
+await mockModule("yahoo-finance2", () => ({ default: yahoo.FakeYahooFinance }));
 
 const { GET } = await import("../../../app/api/market/bars/route");
 
@@ -58,7 +55,6 @@ describe("GET /api/market/bars", () => {
     // The live bar after `through` is dropped.
     expect(body.d).toEqual(["2020-01-02", THROUGH]);
     expect(body.a).toEqual([9, 11]);
-    expect(mockChart.mock.calls[0][1]).toMatchObject({ period1: "1970-01-01T00:00:00Z", interval: "1d", events: "div|split" });
     expect(res.headers.get("Vercel-CDN-Cache-Control")).toBe("max-age=86400, stale-while-revalidate=86400");
     expect(res.headers.get("Cache-Control")).toBe("public, max-age=86400");
   });

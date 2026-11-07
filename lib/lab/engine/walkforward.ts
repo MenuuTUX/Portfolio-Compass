@@ -13,9 +13,9 @@ import { computeMetrics, type Drawdown } from "@/lib/lab/engine/metrics";
 /** Fewest bars a train window needs for its Sharpe to mean anything. */
 export const MIN_TRAIN_BARS = 126;
 /** Fewest bars a test window needs. */
-export const MIN_TEST_BARS = 21;
+const MIN_TEST_BARS = 21;
 
-export interface WalkForwardInput {
+interface WalkForwardInput {
   /** One date per bar. */
   dates: string[];
   /** The candidate parameter values. */
@@ -27,7 +27,7 @@ export interface WalkForwardInput {
   riskFree?: number;
 }
 
-export interface PieceStats {
+interface PieceStats {
   cagr: number;
   sharpe: number | null;
   volatility: number;
@@ -35,7 +35,7 @@ export interface PieceStats {
   totalReturn: number;
 }
 
-export interface WalkForwardWindow {
+interface WalkForwardWindow {
   trainStart: string;
   trainEnd: string;
   testStart: string;
