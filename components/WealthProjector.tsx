@@ -26,6 +26,8 @@ import { projectContributionScenario } from "@/lib/math/scenario";
 import { PortfolioShareButton } from "./PortfolioShareButton";
 import { GAIN, HAIRLINE, HAIRLINE_STRONG, MUTED } from "@/lib/chart-colors";
 import { horizonYearsFromAge, loadRiskProfile } from "@/lib/risk-profile";
+import { fxSourceLabel } from "@/lib/fx-copy";
+import { EASE } from "./motion/Reveal";
 
 const NOTE = "Started from your quiz answers";
 
@@ -59,13 +61,11 @@ export default function WealthProjector({
   const currency = baseCurrency ?? getPortfolioCurrency(portfolio) ?? undefined;
   const mixedCurrency = new Set(portfolio.filter((item) => item.shares > 0).map((item) => item.currency)).size > 1;
 
-  // Market value from *all* holdings (shares × price)
   const currentPortfolioValue = useMemo(
     () => startingValue ?? getPortfolioMarketValue(portfolio),
     [portfolio, startingValue],
   );
 
-  // Simple Projection Logic
   // Use the actual held value, including zero, rather than seed a fictitious balance.
   const [initialInvestment, setInitialInvestment] = useState<number>(() => {
     return Number.isFinite(currentPortfolioValue) && currentPortfolioValue >= 0
@@ -232,7 +232,7 @@ export default function WealthProjector({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.45, ease: EASE }}
       >
         <div className="mb-12 flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="flex min-w-0 flex-1 basis-80 items-center gap-4">
@@ -292,7 +292,7 @@ export default function WealthProjector({
         {prefilled && <p className="mb-6 text-xs text-muted">{NOTE}</p>}
         {fxProvenance && mixedCurrency && (
           <p className="mb-6 text-xs text-muted">
-            Starting value converted to {currency} using Bank of Canada FXUSDCAD daily average dated {fxProvenance.date} ({fxProvenance.usdCad} CAD per USD). Future FX changes are not modeled.
+            Starting value converted to {currency} using {fxSourceLabel(fxProvenance.date)} ({fxProvenance.usdCad} CAD per USD). Future FX changes are not modeled.
           </p>
         )}
         {mixedCurrency && (
@@ -302,7 +302,6 @@ export default function WealthProjector({
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
-          {/* Controls */}
           <div className="p-6 rounded-2xl space-y-6 h-fit bg-surface-card ring-1 ring-hairline">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -429,7 +428,6 @@ export default function WealthProjector({
             </div>
           </div>
 
-          {/* Chart */}
           <div className="lg:col-span-3 p-6 rounded-2xl flex flex-col bg-surface-card ring-1 ring-hairline">
             {amountTooLarge && (
               <p role="status" className="mb-6 text-muted">Enter an amount below 1,000,000,000,000</p>
@@ -498,7 +496,7 @@ export default function WealthProjector({
                       borderColor: "var(--hairline)",
                       color: "var(--ink)",
                     }}
-                    formatter={(value: any) => formatCurrency(Number(value), currency)}
+                    formatter={(value) => formatCurrency(Number(value), currency)}
                   />
                   <Area
                     type="monotone"
@@ -549,7 +547,6 @@ export default function WealthProjector({
           </div>
         </div>
 
-        {/* Explainer Section */}
         <div className="mb-12">
           <SimulatorExplainer mode="SIMPLE" />
         </div>
