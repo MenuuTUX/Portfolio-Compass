@@ -149,6 +149,8 @@ describe('Monte Carlo Math Library', () => {
     expect(calculateCone([])).toEqual({
       median: [],
       p05: [],
+      p10: [],
+      p90: [],
       p95: [],
       dates: [],
     });

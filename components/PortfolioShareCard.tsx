@@ -5,7 +5,6 @@ import { formatCurrency } from "@/lib/utils";
 import { getPortfolioCurrency } from "@/lib/math/portfolio-returns";
 import type { BankOfCanadaFxRate } from "@/lib/math/portfolio-returns";
 import {
-  Share2,
   TrendingUp,
   Shield,
   Layers,
@@ -33,6 +32,8 @@ export interface ShareCardProps {
     scenario: string;
     growthType: "Simple" | "Monte Carlo";
     percentageGrowth: number;
+    /** True when a Monte Carlo run included monthly contributions, so totalInvested is the starting balance plus them. */
+    contributionsModeled?: boolean;
   };
   chartData: {
     value: number;
@@ -197,14 +198,13 @@ export const PortfolioShareCard = React.forwardRef<
       <div
         ref={ref}
         className="w-[1080px] h-[1350px] bg-canvas text-ink p-12 flex flex-col relative overflow-hidden font-sans"
-        style={{ fontFamily: "var(--font-openai-sans), sans-serif" }}
+        style={{ fontFamily: "var(--font-app), sans-serif" }}
       >
 
         <div className="flex justify-between items-start mb-12 relative z-10 border-b border-hairline pb-8 shrink-0">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-600 flex items-center justify-center ring-1 ring-white/10">
-              <Share2 className="w-8 h-8 text-ink" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="" width={64} height={64} className="h-16 w-16 rounded-2xl" />
             <div>
               <h1
                 className="text-4xl font-bold tracking-tight text-ink mb-2 font-display"
@@ -286,7 +286,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-neutral-500 text-xs font-bold  mb-2">
               {metrics.dividends == null
-                ? metrics.growthType === "Monte Carlo" ? "Starting Balance" : "Total Amount Invested"
+                ? metrics.growthType === "Monte Carlo" && !metrics.contributionsModeled ? "Starting Balance" : "Total Amount Invested"
                 : "Estimated Dividends"}
             </div>
             <div className="text-3xl font-bold text-body-strong tracking-tight mb-1">
@@ -294,7 +294,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-xs text-neutral-500 font-medium">
               {metrics.dividends == null
-                ? metrics.growthType === "Monte Carlo" ? "No contributions modeled" : "Starting balance plus contributions"
+                ? metrics.growthType === "Monte Carlo" && !metrics.contributionsModeled ? "No contributions modeled" : "Starting balance plus contributions"
                 : "Reinvested in the model"}
             </div>
           </div>
@@ -305,7 +305,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-neutral-500 text-xs font-bold  mb-2">
               {metrics.growthType === "Monte Carlo"
-                ? "Median Simulated CAGR"
+                ? (metrics.contributionsModeled ? "Median Yearly Return" : "Median Simulated CAGR")
                 : "Assumed Annual Return"}
             </div>
             <div className="text-3xl font-bold text-ink tracking-tight mb-1">
@@ -313,7 +313,7 @@ export const PortfolioShareCard = React.forwardRef<
             </div>
             <div className="text-xs text-neutral-500 font-medium">
               {metrics.growthType === "Monte Carlo"
-                ? "Derived from the median path"
+                ? (metrics.contributionsModeled ? "On money put in, from the median path" : "Derived from the median path")
                 : "Used as a constant model input"}
             </div>
           </div>
@@ -476,7 +476,7 @@ export const PortfolioShareCard = React.forwardRef<
                         textAnchor="end"
                         fill="#666"
                         fontSize="12"
-                        fontFamily="var(--font-openai-sans), sans-serif"
+                        fontFamily="var(--font-app), sans-serif"
                       >
                         {formatYTick(val)}
                       </text>
@@ -505,7 +505,7 @@ export const PortfolioShareCard = React.forwardRef<
                     textAnchor="start"
                     fill="#666"
                     fontSize="12"
-                    fontFamily="var(--font-openai-sans), sans-serif"
+                    fontFamily="var(--font-app), sans-serif"
                   >
                     Year 0
                   </text>
@@ -516,7 +516,7 @@ export const PortfolioShareCard = React.forwardRef<
                     textAnchor="middle"
                     fill="#666"
                     fontSize="12"
-                    fontFamily="var(--font-openai-sans), sans-serif"
+                    fontFamily="var(--font-app), sans-serif"
                   >
                     Year {metrics.years / 2}
                   </text>
@@ -527,7 +527,7 @@ export const PortfolioShareCard = React.forwardRef<
                     textAnchor="end"
                     fill="#666"
                     fontSize="12"
-                    fontFamily="var(--font-openai-sans), sans-serif"
+                    fontFamily="var(--font-app), sans-serif"
                   >
                     Year {metrics.years}
                   </text>

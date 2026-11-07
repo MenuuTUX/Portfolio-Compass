@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useId, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m as motion } from "framer-motion";
 import {
   ChartArea,
   ChartCandlestick,
@@ -18,6 +18,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { getAssetIconUrl } from "@/lib/etf-providers";
 import EtfVerdictCard from "../EtfVerdictCard";
 import AssetProfileCard from "../AssetProfileCard";
+import DcfPanel from "../dcf/DcfPanel";
 import ComparisonModal from "../ComparisonModal";
 import { AssetChart, ChartRangeBar } from "./AssetChart";
 import type { AssetChartState } from "./useAssetChart";
@@ -42,12 +43,14 @@ interface AssetWorkspaceProps {
   onBack?: () => void;
 }
 
-type DrawerTab = "portfolio" | "verdict" | "profile";
+type DrawerTab = "portfolio" | "verdict" | "profile" | "valuation";
 const DRAWER_TABS: { id: DrawerTab; label: string }[] = [
   { id: "portfolio", label: "Portfolio" },
   { id: "verdict", label: "Verdict" },
   { id: "profile", label: "Profile" },
 ];
+/** Only single stocks have filings to value; funds do not get this tab. */
+const VALUATION_TAB: { id: DrawerTab; label: string } = { id: "valuation", label: "Valuation" };
 
 const pill =
   "inline-flex items-center justify-center gap-1.5 h-7 px-3 rounded-full bg-surface-soft hover:bg-hairline-strong text-xs font-semibold text-ink transition-colors duration-75 focus-visible:outline-2 focus-visible:outline-compass";
@@ -381,7 +384,7 @@ export default function AssetWorkspace({
           </div>
           <div className="flex h-9 shrink-0 items-center justify-between px-3">
             <div role="tablist" aria-label="Asset panels" className="flex items-center gap-1">
-              {DRAWER_TABS.map((t) => (
+              {(etf.assetType === "STOCK" ? [...DRAWER_TABS, VALUATION_TAB] : DRAWER_TABS).map((t) => (
                 <button
                   key={t.id}
                   type="button"
@@ -447,6 +450,7 @@ export default function AssetWorkspace({
                   <PortfolioTab portfolio={portfolio} onRemove={onRemove} />
                 )}
                 {tab === "verdict" && <EtfVerdictCard etf={etf} history={chart.series} />}
+                {tab === "valuation" && etf.assetType === "STOCK" && <DcfPanel ticker={etf.ticker} />}
                 {tab === "profile" && (
                   <AssetProfileCard
                     ticker={etf.ticker}

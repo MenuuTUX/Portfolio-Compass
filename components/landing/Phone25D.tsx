@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { m as motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { useEffect, type ReactNode } from "react";
 
 /** Stacked slabs behind the screen; the tilt makes them read as the phone's thickness. */

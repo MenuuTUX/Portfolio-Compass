@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Info } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { getGlossaryEntry } from "@/lib/glossary";
 
 interface HelpTipProps {
@@ -32,7 +32,10 @@ export function HelpTip({
   const entry = getGlossaryEntry(term);
   const tipId = useId();
   const triggerRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  // A click or tap pins the tip open until the next click, Escape or outside press.
+  const [pinned, setPinned] = useState(false);
   const [coords, setCoords] = useState<{
     top: number;
     left: number;
@@ -71,6 +74,29 @@ export function HelpTip({
     };
   }, [open, updatePosition]);
 
+  // Escape and outside presses close the tip, including a pinned one.
+  useEffect(() => {
+    if (!open) return;
+    const close = () => {
+      setPinned(false);
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    const onPointer = (e: Event) => {
+      const t = e.target as Node | null;
+      if (t && (triggerRef.current?.contains(t) || tipRef.current?.contains(t))) return;
+      close();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+    };
+  }, [open]);
+
   // Unknown terms render as plain text.
   if (!entry) {
     return <span className={className}>{children ?? term}</span>;
@@ -79,7 +105,24 @@ export function HelpTip({
   const show = () => {
     setOpen(true);
   };
-  const hide = () => setOpen(false);
+  const hide = () => {
+    if (!pinned) setOpen(false);
+  };
+  const toggle = () => {
+    if (pinned) {
+      setPinned(false);
+      setOpen(false);
+    } else {
+      setPinned(true);
+      setOpen(true);
+    }
+  };
+  const onKeyDown = (e: React.KeyboardEvent<HTMLSpanElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggle();
+    }
+  };
 
   return (
     <>
@@ -95,6 +138,8 @@ export function HelpTip({
         onMouseLeave={hide}
         onFocus={show}
         onBlur={hide}
+        onClick={toggle}
+        onKeyDown={onKeyDown}
       >
         <span
           className={cn(
@@ -117,6 +162,7 @@ export function HelpTip({
         coords &&
         createPortal(
           <div
+            ref={tipRef}
             id={tipId}
             role="tooltip"
             style={{

@@ -130,3 +130,12 @@ describe("isAcceptedThrough", () => {
     expect(isAcceptedThrough("", now)).toBe(false);
   });
 });
+
+describe("mapChartResult with a missing open", () => {
+  it("keeps the bar and opens it at the close", () => {
+    const row = (day: string, open: number | null) => ({ date: new Date(`${day}T14:30:00Z`), open, close: 11, adjclose: 11 });
+    const bars = mapChartResult("X", { meta: { gmtoffset: 0 }, quotes: [row("2024-01-02", 10), row("2024-01-03", null), row("2024-01-04", 12)] }, FETCHED_AT).bars;
+    expect(bars.map((b) => b.date)).toEqual(["2024-01-02", "2024-01-03", "2024-01-04"]);
+    expect(bars[1].open).toBe(11);
+  });
+});

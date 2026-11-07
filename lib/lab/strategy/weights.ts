@@ -1,4 +1,5 @@
 import type { LookaheadResult, PriceMatrix } from "@/lib/lab/strategy/types";
+import { WEIGHT_SUM_TOLERANCE } from "@/lib/lab/engine/simulate";
 
 // Turning whatever a strategy returns into the engine's weight matrix, and the
 // lookahead check that works for any language.
@@ -9,6 +10,20 @@ import type { LookaheadResult, PriceMatrix } from "@/lib/lab/strategy/types";
  * becomes 0 here; the engine still rejects negatives and leverage.
  */
 export function normalizeWeights(out: unknown, prices: PriceMatrix): Float64Array {
+  const w = buildWeights(out, prices);
+  const N = prices.tickers.length;
+  // Same rule as the Python harness and the engine: a day may total 1 at most.
+  for (let t = 0; t < prices.dates.length; t++) {
+    let total = 0;
+    for (let j = 0; j < N; j++) total += w[t * N + j];
+    if (total > 1 + WEIGHT_SUM_TOLERANCE) {
+      throw new Error(`Your weights on ${prices.dates[t]} add up to ${Number(total.toFixed(6))}, but they must total 1 or less (the rest stays in cash).`);
+    }
+  }
+  return w;
+}
+
+function buildWeights(out: unknown, prices: PriceMatrix): Float64Array {
   const T = prices.dates.length;
   const N = prices.tickers.length;
   const w = new Float64Array(T * N);
@@ -57,10 +72,12 @@ export function normalizeWeights(out: unknown, prices: PriceMatrix): Float64Arra
 
 /** The first `rows` dates of a price matrix, as if later prices did not exist yet. */
 export function truncatePrices(prices: PriceMatrix, rows: number): PriceMatrix {
+  const n = rows * prices.tickers.length;
   return {
     dates: prices.dates.slice(0, rows),
     tickers: prices.tickers,
-    adjClose: prices.adjClose.slice(0, rows * prices.tickers.length),
+    adjClose: prices.adjClose.slice(0, n),
+    ...(prices.close ? { close: prices.close.slice(0, n) } : {}),
   };
 }
 

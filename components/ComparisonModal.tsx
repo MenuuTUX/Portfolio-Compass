@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { m as motion, AnimatePresence } from "framer-motion";
 import {
   X,
   Search,
@@ -113,15 +113,17 @@ export default function ComparisonModal({
   >({});
   const dialogRef = useDialogA11y<HTMLDivElement>(isOpen, onClose);
 
-  // Reset state when modal opens
-  useEffect(() => {
+  // Reset state when the modal closes
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (!isOpen) {
       setCompareAsset(null);
       setSearchQuery("");
       setSearchResults([]);
       setComparisonSeries({});
     }
-  }, [isOpen]);
+  }
 
   // Fetch aligned 1Y history for both assets from the fast market endpoint
   // (one round trip, no DB sync involved)
@@ -143,11 +145,10 @@ export default function ComparisonModal({
   }, [compareAsset, baseAsset.ticker, isOpen]);
 
   // Search Logic
+  // An empty query clears the results.
+  if (!searchQuery && searchResults.length > 0) setSearchResults([]);
   useEffect(() => {
-    if (!searchQuery) {
-      setSearchResults([]);
-      return;
-    }
+    if (!searchQuery) return;
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
@@ -373,7 +374,7 @@ export default function ComparisonModal({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-black/60 z-[60]"
+        className="fixed inset-0 bg-black/60 z-[70]"
       />
       <motion.div
         ref={dialogRef}
@@ -403,7 +404,7 @@ export default function ComparisonModal({
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-6">
           {/* Asset Headers */}
           <div className="grid grid-cols-[1fr_auto_1fr] gap-4 mb-8">
             {/* Asset A (Left) */}

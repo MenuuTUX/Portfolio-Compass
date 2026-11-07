@@ -1,306 +1,372 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
+import { Check } from "lucide-react";
 import { PortfolioItem } from "@/types";
 import {
   optimizePortfolioGreedy,
   GreedyOptimizationResult,
-  calculatePortfolioUtility,
-  getOptimizerInputGaps,
-  riskPenaltyForProfile,
+  getOptimizerBeta,
+  getOptimizerReturnProxy,
+  weightsFromShares,
+  RISK_FREE,
+  EQUITY_PREMIUM,
 } from "@/lib/optimizer";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Decimal } from "@/lib/decimal";
+import { HelpLabel, HelpTip } from "@/components/ui/HelpTip";
 import { estimateAnnualCovariance } from "@/lib/math/covariance";
-import {
-  getAssetBeta,
-  getAssetYieldFraction,
-} from "@/lib/math/portfolio-returns";
+import { loadRiskProfile } from "@/lib/risk-profile";
+
+export interface AllocationPlanItem {
+  ticker: string;
+  shares: number;
+  /** Target weight in percent; the plan sums to 100. */
+  weight: number;
+}
 
 interface OptimizationPanelProps {
   portfolio: PortfolioItem[];
   onCalibrating?: (isCalibrating: boolean) => void;
+  /** Replaces every holding's shares and target weight with the plan. */
+  onApply?: (plan: AllocationPlanItem[]) => void;
 }
 
-type StrategyMode = "Conservative" | "Balanced" | "Growth";
-const STRATEGY_MODES = ["Conservative", "Balanced", "Growth"] as const;
-const RISK_PROFILE_BY_STRATEGY = {
-  Conservative: "conservative",
-  Balanced: "balanced",
-  Growth: "growth",
-} as const;
+const STRATEGY_MODES = [
+  { mode: "Conservative", profile: "conservative", hint: "Lower swings, lower expected growth" },
+  { mode: "Balanced", profile: "balanced", hint: "Middle ground" },
+  { mode: "Growth", profile: "growth", hint: "Higher expected growth, bigger swings" },
+] as const;
+type StrategyMode = (typeof STRATEGY_MODES)[number]["mode"];
 
-/** Assumed annual return per unit of beta. A modelling assumption shown in the panel text, not an estimate from data. */
-const BETA_PREMIUM_ASSUMPTION = 0.06;
+const DEFAULT_AMOUNT = 10000;
+/** Larger amounts are rejected: the model is for household portfolios, and huge budgets only slow the loop. */
+const MAX_AMOUNT = 1e12;
 
 export default function OptimizationPanel({
   portfolio,
   onCalibrating,
+  onApply,
 }: OptimizationPanelProps) {
-  const [investmentAmount, setInvestmentAmount] = useState<number>(7000);
+  const [amountText, setAmountText] = useState(String(DEFAULT_AMOUNT));
+  const parsedAmount = amountText.trim() === "" ? 0 : Number(amountText);
+  const amountError = !Number.isFinite(parsedAmount)
+    ? "Enter a number, for example 10000."
+    : parsedAmount < 0
+      ? "Enter an amount of zero or more."
+      : parsedAmount > MAX_AMOUNT
+        ? "Enter an amount of 1 trillion or less."
+        : null;
+  const amount = amountError ? 0 : parsedAmount;
+  // Start at the level the quiz produced; the user can still change it.
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>(() => loadRiskProfile()?.profile ?? "Balanced");
+  // null means the default: add to holdings when any shares are already held.
+  const [holdingMode, setHoldingMode] = useState<"add" | "replace" | null>(null);
   const [result, setResult] = useState<GreedyOptimizationResult | null>(null);
-  const [proposedShares, setProposedShares] = useState<Record<string, number>>(
-    {},
+  const [appliedKey, setAppliedKey] = useState<string | null>(null);
+
+  const riskProfile = STRATEGY_MODES.find((s) => s.mode === strategyMode)!.profile;
+  const currency = portfolio[0]?.currency;
+  const alreadyHeld = portfolio.filter((p) => p.shares > 0).map((p) => p.ticker);
+  const addToHoldings = (holdingMode ?? (alreadyHeld.length > 0 ? "add" : "replace")) === "add";
+
+  // Risk and return both come from the same market exposure. Return always
+  // uses it; risk uses it only for the single-index fallback, and switches to
+  // the sample covariance when every holding has enough shared price history.
+  const covariance = useMemo(
+    () => estimateAnnualCovariance(portfolio.map((p) => ({ ...p, beta: getOptimizerBeta(p) }))),
+    [portfolio],
   );
-  const [strategyMode, setStrategyMode] = useState<StrategyMode>("Balanced");
-  const [runCount, setRunCount] = useState(0);
-  const covariance = useMemo(() => estimateAnnualCovariance(portfolio), [portfolio]);
   const candidates = useMemo(
     () => portfolio.map((p) => ({
       ticker: p.ticker,
       price: p.price,
-      // Return proxy used by this allocator, not a forecast.
-      expectedReturn: getAssetYieldFraction(p) + getAssetBeta(p) * BETA_PREMIUM_ASSUMPTION,
+      expectedReturn: getOptimizerReturnProxy(p),
     })),
     [portfolio],
   );
-  const riskProfile = RISK_PROFILE_BY_STRATEGY[strategyMode];
-  const lambda = riskPenaltyForProfile(riskProfile);
-  const missingInputTickers = useMemo(() => getOptimizerInputGaps(portfolio), [portfolio]);
-  const currency = portfolio[0]?.currency;
+  // Adding new money starts from the current shares, so the plan is the extra
+  // shares to buy. Replacing starts from nothing.
+  const startingShares = useMemo(
+    () => Object.fromEntries(portfolio.map((p) => [p.ticker, addToHoldings ? p.shares || 0 : 0])),
+    [portfolio, addToHoldings],
+  );
 
-  // Debounced calculation for initial recommendation
   useEffect(() => {
-    if (portfolio.length < 2 || missingInputTickers.length > 0) {
+    if (portfolio.length < 2) {
       const timer = setTimeout(() => {
         setResult(null);
-        setProposedShares({});
         onCalibrating?.(false);
       }, 0);
       return () => clearTimeout(timer);
     }
+    if (amountError) {
+      onCalibrating?.(false);
+      return;
+    }
     onCalibrating?.(true);
     const timer = setTimeout(() => {
-      if (portfolio.length > 0) {
-        // Calculate current portfolio value to determine remaining budget
-        let currentPortfolioValue = 0;
-        portfolio.forEach((p) => {
-          currentPortfolioValue += (p.price || 0) * (p.shares || 0);
-        });
-
-        const effectiveBudget = Math.max(
-          0,
-          investmentAmount - currentPortfolioValue,
-        );
-
-        // Sample covariance from aligned price history when the holdings have
-        // enough overlap, else a single-index matrix built from beta. Either
-        // way the off-diagonals are populated: with them zeroed, two funds
-        // tracking the same index looked like genuine diversification.
-        const res = optimizePortfolioGreedy({
+      try {
+        setResult(optimizePortfolioGreedy({
           candidates,
           covarianceMatrix: covariance.matrix,
           riskProfile,
-          budget: effectiveBudget,
-          initialShares: Object.fromEntries(
-            portfolio.map((p) => [p.ticker, p.shares || 0]),
-          ),
-        });
-
-        setResult(res);
-        setProposedShares(res.addedShares);
+          budget: amount,
+          initialShares: startingShares,
+        }));
+      } finally {
+        onCalibrating?.(false);
       }
-      onCalibrating?.(false);
-    }, 300); // 300ms debounce
+    }, 250);
     return () => clearTimeout(timer);
-  }, [investmentAmount, portfolio, onCalibrating, strategyMode, candidates, covariance, riskProfile, missingInputTickers, runCount]);
+  }, [amount, amountError, portfolio.length, candidates, covariance, riskProfile, startingShares, onCalibrating]);
 
-  // Ensure calibration state is reset on unmount
-  useEffect(() => {
-    return () => onCalibrating?.(false);
-  }, [onCalibrating]);
+  useEffect(() => () => onCalibrating?.(false), [onCalibrating]);
 
-  const projectedMetrics = useMemo(() => {
+  const plan = useMemo(() => {
     if (!result) return null;
+    const weights = weightsFromShares(portfolio, result.shares);
+    const items: AllocationPlanItem[] = portfolio.map((p) => ({
+      ticker: p.ticker,
+      shares: result.shares[p.ticker] || 0,
+      weight: weights[p.ticker] || 0,
+    }));
+    const currentValue = portfolio.reduce((sum, p) => sum + (p.shares || 0) * (p.price || 0), 0);
+    const totalValue = portfolio.reduce((sum, p) => sum + (result.shares[p.ticker] || 0) * (p.price || 0), 0);
+    // New money in add mode; the whole plan in replace mode.
+    const invested = addToHoldings ? totalValue - currentValue : totalValue;
 
-    let futureTotalValue = new Decimal(0);
-    const futureShares: Record<string, number> = {};
-
-    portfolio.forEach((p) => {
-      const added = proposedShares[p.ticker] || 0;
-      const total = (p.shares || 0) + added;
-      futureShares[p.ticker] = total;
-      futureTotalValue = futureTotalValue.plus(
-        new Decimal(p.price || 0).times(total),
-      );
-    });
-
-    const newWeights: Record<string, number> = {};
-    if (!futureTotalValue.isZero()) {
-      portfolio.forEach((p) => {
-        const s = futureShares[p.ticker] || 0;
-        const val = new Decimal(p.price || 0).times(s);
-        newWeights[p.ticker] = val.div(futureTotalValue).times(100).toNumber();
-      });
-    }
-
-    return { newWeights, futureTotalValue, futureShares };
-  }, [portfolio, proposedShares, result]);
-
-  const modelScores = useMemo(() => {
-    const currentShares = portfolio.map((item) => item.shares || 0);
-    const proposalShares = portfolio.map(
-      (item) => (item.shares || 0) + (proposedShares[item.ticker] || 0),
-    );
-    return {
-      current: calculatePortfolioUtility(candidates, covariance.matrix, lambda, currentShares),
-      proposal: calculatePortfolioUtility(candidates, covariance.matrix, lambda, proposalShares),
+    // Equity share, only when every holding reports a mix; a missing mix
+    // would otherwise read as 0% equity.
+    const hasMix = (p: PortfolioItem) => {
+      const a = p.allocation;
+      return !!a && a.equities + a.bonds + a.cash > 0;
     };
-  }, [portfolio, proposedShares, candidates, covariance, lambda]);
+    const equityShare = totalValue > 0 && portfolio.every(hasMix)
+      ? portfolio.reduce((sum, p) => {
+          const a = p.allocation;
+          return sum + (result.shares[p.ticker] || 0) * (p.price || 0) * (a.equities / (a.equities + a.bonds + a.cash));
+        }, 0) / totalValue
+      : null;
+    return { items, currentValue, totalValue, invested, leftover: result.remainingBudget, equityShare };
+  }, [portfolio, result, addToHoldings]);
 
-  if (!result || !projectedMetrics)
+  const planKey = plan ? `${addToHoldings ? "add" : "replace"}|${plan.items.map((i) => `${i.ticker}:${i.shares}`).join("|")}` : "";
+  const applied = appliedKey !== null && appliedKey === planKey;
+
+  // Why the plan buys nothing, in plain words. Null when it buys something.
+  const emptyPlanReason = (() => {
+    if (!plan || plan.invested > 0) return null;
+    if (!(amount > 0)) return "Enter an amount above zero to see a plan.";
+    const buyable = candidates.filter((c) => c.expectedReturn > 0 && c.price > 0);
+    if (buyable.length === 0) {
+      return "None of your funds has an expected return above zero, so the model buys none of them. Keep the money in cash, or add funds with a positive expected return.";
+    }
+    const cheapest = Math.min(...buyable.map((c) => c.price));
+    if (amount < cheapest) {
+      return `The amount is too small to buy one whole share of any fund you hold. The cheapest share costs ${formatCurrency(cheapest, currency)}.`;
+    }
+    return "The model could not find a whole-share plan for this amount. Try a larger amount.";
+  })();
+
+  if (portfolio.length < 2) {
     return (
       <div className="rounded-lg ring-1 ring-hairline bg-surface-card p-4 text-sm text-body">
-        {portfolio.length < 2 ? (
-          <>
-            <p className="font-bold text-ink">Allocation score unavailable</p>
-            <p className="mt-1 text-muted">{portfolio.length === 0
-              ? "Add at least two assets to compare allocations."
-              : "Add a second asset to compare allocations. Buying more of one asset leaves its model weight at 100%, so this score cannot evaluate that purchase. Use the simple contribution scenario to model an added amount."}</p>
-          </>
-        ) : missingInputTickers.length > 0 ? (
-          <>
-            <p className="font-bold text-ink">Experimental score unavailable</p>
-            <p className="mt-1 text-muted">An issuer-sourced yield or reported beta is missing for {missingInputTickers.join(", ")}. Yahoo quote yield is unverified and cannot qualify this score.</p>
-          </>
-        ) : (
-          "Calculating allocation..."
-        )}
+        <p className="font-bold text-ink">Add at least two holdings</p>
+        <p className="mt-1 text-muted">
+          The optimizer splits your money across the funds in your portfolio, so it needs at least two to choose between.
+        </p>
       </div>
     );
+  }
+
+  const noPrices = portfolio.every((p) => !(p.price > 0));
 
   return (
-    <div className="flex flex-col bg-surface-card ring-1 ring-hairline rounded-lg overflow-hidden">
-      <div className="flex flex-col gap-3 p-4">
-        <h2 className="text-base font-bold text-ink">Optimize allocation</h2>
-        <p className="text-sm leading-5 text-muted">
-          Experimental score only. These inputs are proxies, not forecasts or a
-          recommendation.
-        </p>
+    <div className="@container flex flex-col bg-surface-card ring-1 ring-hairline rounded-lg">
+      <div className="flex flex-col gap-4 p-4">
+        <div>
+          <h2 className="text-base font-bold text-ink">Optimize allocation</h2>
+          <p className="mt-1 text-sm leading-5 text-muted">
+            Enter how much you want to invest and pick a risk level. The model splits it across your holdings in whole shares.
+          </p>
+        </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRunCount((n) => n + 1)}
-            className="ws-pill"
-          >
-            Run optimizer
-          </button>
-          <div className="flex gap-1" role="group" aria-label="Risk penalty">
-            {STRATEGY_MODES.map((mode) => (
-              <button
-                type="button"
-                key={mode}
-                aria-pressed={strategyMode === mode}
-                onClick={() => setStrategyMode(mode)}
-                className={cn(
-                  "py-1.5 px-3 rounded-full text-xs min-h-[44px] md:min-h-0 font-medium transition-colors duration-75",
-                  strategyMode === mode
-                    ? "bg-surface-soft text-ink"
-                    : "text-muted hover:text-body-strong hover:bg-surface-soft",
-                )}
-              >
-                {mode}
-              </button>
-            ))}
+        <div className="grid gap-4 @lg:grid-cols-2">
+          <div>
+            <label htmlFor="optimizer-amount" className="block text-xs text-muted mb-1">
+              Amount to invest
+            </label>
+            <div className="relative">
+              <input
+                id="optimizer-amount"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                value={amountText}
+                onChange={(e) => setAmountText(e.target.value)}
+                aria-invalid={amountError ? true : undefined}
+                aria-describedby={amountError ? "optimizer-amount-error" : undefined}
+                className="block w-full pl-4 pr-14 py-3 bg-surface-soft rounded-xl text-xl font-bold text-ink tabular-nums placeholder:text-muted-soft focus-visible:ring-2 focus-visible:ring-compass outline-none"
+                placeholder="0"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted">
+                {currency}
+              </span>
+            </div>
+            {amountError && (
+              <p id="optimizer-amount-error" role="alert" className="mt-1 text-xs text-rose-400">
+                {amountError}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <span id="optimizer-risk-label" className="block text-xs text-muted mb-1"><HelpLabel term="Risk level" /></span>
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-soft p-1" role="radiogroup" aria-labelledby="optimizer-risk-label">
+              {STRATEGY_MODES.map(({ mode, hint }) => (
+                <button
+                  type="button"
+                  key={mode}
+                  role="radio"
+                  aria-checked={strategyMode === mode}
+                  title={hint}
+                  onClick={() => setStrategyMode(mode)}
+                  className={cn(
+                    "min-h-11 rounded-lg px-2 text-xs font-medium transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass",
+                    strategyMode === mode
+                      ? "bg-surface-card text-ink ring-1 ring-hairline"
+                      : "text-muted hover:text-ink",
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted">
+              {STRATEGY_MODES.find((s) => s.mode === strategyMode)!.hint}
+            </p>
           </div>
         </div>
 
         <div>
-          <label htmlFor="optimizer-portfolio-cap" className="block text-xs text-muted mb-1">
-            Maximum portfolio value for this comparison
-          </label>
-          <div className="relative">
-            <input
-              id="optimizer-portfolio-cap"
-              type="number"
-              value={investmentAmount}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setInvestmentAmount(Number.isFinite(next) ? Math.max(0, next) : 0);
-              }}
-              className="block w-full pl-4 pr-14 py-3 bg-surface-soft rounded-xl text-xl font-bold text-ink tabular-nums placeholder:text-muted-soft focus-visible:ring-2 focus-visible:ring-compass outline-none"
-              placeholder="0.00"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted">
-              {currency}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-hairline divide-y divide-hairline">
-        <div className="flex items-center justify-between px-4 py-3 text-sm">
-          <span className="text-ink">Current score</span>
-          <span className="font-bold text-ink tabular-nums">{modelScores.current.toFixed(4)}</span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 text-sm">
-          <span className="text-ink">Model candidate score</span>
-          <span className="font-bold text-ink tabular-nums">{modelScores.proposal.toFixed(4)}</span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 text-xs text-muted">
-          <span>Proposed value</span>
-          <span className="tabular-nums">{formatCurrency(projectedMetrics.futureTotalValue, currency)}</span>
-        </div>
-        <div className="flex items-center justify-between px-4 py-3 text-xs text-muted">
-          <span>Unallocated cash under cap</span>
-          <span className="tabular-nums">
-            {formatCurrency(
-              Math.max(0, investmentAmount - projectedMetrics.futureTotalValue.toNumber()),
-              currency,
-            )}
-          </span>
-        </div>
-      </div>
-
-      <div className="border-t border-hairline">
-        <h3 className="px-4 pt-4 pb-2 text-sm font-bold text-ink">Illustrative share mix</h3>
-        <ul className="divide-y divide-hairline border-t border-hairline">
-          {portfolio.map((item, rowIndex) => {
-            const sharesToAdd = proposedShares[item.ticker] || 0;
-            const newWeight =
-              projectedMetrics.newWeights[item.ticker] || item.weight;
-
-            return (
-              <motion.li
-                key={item.ticker}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1], delay: Math.min(rowIndex, 10) * 0.04 }}
-                className="flex items-center justify-between gap-3 px-4 py-3"
+          <span id="optimizer-holdings-label" className="block text-xs text-muted mb-1"><HelpTip term="new money">How the amount is used</HelpTip></span>
+          <div className="grid gap-1 rounded-xl bg-surface-soft p-1 @lg:grid-cols-2" role="radiogroup" aria-labelledby="optimizer-holdings-label">
+            {([
+              { mode: "add", label: "New money added to my current holdings" },
+              { mode: "replace", label: "Replace my current shares" },
+            ] as const).map(({ mode, label }) => (
+              <button
+                type="button"
+                key={mode}
+                role="radio"
+                aria-checked={(mode === "add") === addToHoldings}
+                onClick={() => setHoldingMode(mode)}
+                className={cn(
+                  "min-h-11 rounded-lg px-3 text-xs font-medium transition-colors duration-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass",
+                  (mode === "add") === addToHoldings
+                    ? "bg-surface-card text-ink ring-1 ring-hairline"
+                    : "text-muted hover:text-ink",
+                )}
               >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-ink">{item.ticker}</p>
-                  <div className="mt-1.5 h-1.5 w-full bg-surface-soft rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-body-strong"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, Math.max(0, newWeight))}%` }}
-                      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1], delay: Math.min(rowIndex, 10) * 0.04 }}
-                    />
-                  </div>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p
-                    className={cn(
-                      "text-sm font-bold tabular-nums",
-                      sharesToAdd > 0
-                        ? "text-compass"
-                        : sharesToAdd < 0
-                          ? "text-rose-400"
-                          : "text-muted",
-                    )}
-                  >
-                    {sharesToAdd > 0 ? `+${sharesToAdd}` : sharesToAdd}
-                  </p>
-                  <p className="text-xs text-muted tabular-nums">{newWeight.toFixed(2)}%</p>
-                </div>
-              </motion.li>
-            );
-          })}
-        </ul>
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {addToHoldings
+              ? "The plan is the extra shares to buy. Your current shares stay."
+              : "The plan replaces every current share with the new allocation."}
+          </p>
+        </div>
       </div>
+
+      {noPrices ? (
+        <p className="border-t border-hairline p-4 text-sm text-muted">Waiting for prices before the plan can be built.</p>
+      ) : amountError ? null : !plan ? (
+        <p className="border-t border-hairline p-4 text-sm text-muted">Calculating…</p>
+      ) : emptyPlanReason ? (
+        <p className="border-t border-hairline p-4 text-sm leading-5 text-body" role="status">{emptyPlanReason}</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-hairline border-t border-hairline" aria-label="Suggested allocation">
+            {portfolio.map((item, rowIndex) => {
+              const row = plan.items[rowIndex];
+              return (
+                <li key={item.ticker} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="truncate text-sm font-bold text-ink">{item.ticker}</p>
+                      <p className="shrink-0 text-sm font-bold tabular-nums text-ink">{row.weight.toFixed(1)}%</p>
+                    </div>
+                    <div className="mt-1.5 h-1.5 w-full bg-surface-soft rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-compass"
+                        initial={false}
+                        animate={{ width: `${Math.min(100, Math.max(0, row.weight))}%` }}
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-muted tabular-nums">
+                      {row.shares > 0
+                        ? `${row.shares} ${row.shares === 1 ? "share" : "shares"} · ${formatCurrency(row.shares * (item.price || 0), currency)}`
+                        : "Not bought"}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          <dl className="grid grid-cols-[1fr_auto] gap-y-2 border-t border-hairline px-4 py-3 text-sm">
+            <dt className="text-muted">Current value</dt>
+            <dd className="text-right tabular-nums text-ink">{formatCurrency(plan.currentValue, currency)}</dd>
+            <dt className="text-muted">{addToHoldings ? "New money invested" : "Invested"}</dt>
+            <dd className="text-right font-bold tabular-nums text-ink">{formatCurrency(plan.invested, currency)}</dd>
+            <dt className="text-muted">New total</dt>
+            <dd className="text-right tabular-nums text-ink">{formatCurrency(plan.totalValue, currency)}</dd>
+            <dt className="text-muted">Cash left over</dt>
+            <dd className="text-right tabular-nums text-ink">{formatCurrency(plan.leftover, currency)}</dd>
+            {plan.equityShare !== null && (
+              <>
+                <dt className="text-muted">Stocks vs bonds</dt>
+                <dd className="text-right tabular-nums text-ink">
+                  {Math.round(plan.equityShare * 100)}% / {100 - Math.round(plan.equityShare * 100)}%
+                </dd>
+              </>
+            )}
+          </dl>
+
+          {plan.equityShare !== null && plan.equityShare > 0.75 && strategyMode === "Conservative" && (
+            <p className="mx-4 mb-3 rounded-lg bg-surface-soft p-3 text-xs leading-5 text-muted">
+              Your holdings are mostly stock funds, so even Conservative stays mostly stocks. Add a bond fund to lower the risk further.
+            </p>
+          )}
+
+          {onApply && (
+            <div className="flex flex-wrap items-center gap-3 border-t border-hairline p-4">
+              <button
+                type="button"
+                className="ws-pill"
+                disabled={applied}
+                onClick={() => {
+                  onApply(plan.items);
+                  setAppliedKey(planKey);
+                }}
+              >
+                {applied ? <><Check className="w-4 h-4" aria-hidden="true" /> Applied</> : "Use this allocation"}
+              </button>
+              <p className="min-w-0 flex-1 text-xs text-muted">
+                {addToHoldings
+                  ? `Adds the new shares to your current ones, then sets target weights from the new totals.`
+                  : alreadyHeld.length > 0
+                    ? `Replaces your current shares (${alreadyHeld.join(", ")}) and target weights with this plan.`
+                    : `Sets the shares and target weights for all ${portfolio.length} holdings.`}
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
       <details className="group border-t border-hairline">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-compass">
@@ -311,26 +377,19 @@ export default function OptimizationPanel({
         </summary>
         <div className="flex flex-col gap-2 px-4 pb-4 text-xs leading-5 text-muted">
           <p>
-            The score uses issuer yield, reported beta × 6%, and estimated
-            annual covariance. These inputs are proxies, not forecasts or a
-            recommendation.{" "}
+            Each fund gets an <HelpTip term="expected return" showIcon={false}>expected return</HelpTip> of {(RISK_FREE * 100).toFixed(0)}% (<HelpTip term="risk-free rate" showIcon={false}>the risk-free rate</HelpTip>) plus {(EQUITY_PREMIUM * 100).toFixed(0)}% per unit of stock exposure. Stock exposure comes from the fund&apos;s reported stock/bond mix, or its beta when no mix is reported. Yield is part of that return, not added on top.
+          </p>
+          <p>
             {covariance.source === "history"
-              ? `The covariance uses ${covariance.samples} overlapping daily ${covariance.basis === "total" ? "total returns (dividend-adjusted closes)" : "price returns (adjusted closes unavailable for at least one holding)"}.`
-              : "The covariance uses a beta-based estimate because the holdings lack enough overlapping price history."}
+              ? <>Risk comes from {covariance.samples} overlapping daily returns, so funds that move together are not treated as <HelpTip term="diversification" showIcon={false}>diversification</HelpTip>.</>
+              : "Risk comes from each fund's stock exposure, because the holdings lack enough shared price history."}{" "}
+            The risk level sets how much extra return the model needs before it accepts more <HelpTip term="volatility" showIcon={false}>volatility</HelpTip>.
           </p>
           <p>
-            Unitless scores are comparable only under these same heuristic inputs. No trade can be applied from this panel.
-          </p>
-          <p>
-            The model invests the whole budget, one lot at a time, choosing the lot with the best change in the allocation score per dollar, even when no lot raises it. Cash is left only when it is less than one share, and assets with a zero or negative return proxy are never bought.
+            It buys whole shares in lots, then one share at a time, until less than one share&apos;s worth of cash is left. These are model estimates, not advice, and they do not predict future returns.
           </p>
         </div>
       </details>
-
-      <p className="border-t border-hairline bg-canvas p-4 text-xs leading-5 text-muted">
-        This experimental result is for inspection only. Apply is unavailable
-        while expected returns and fallback correlations remain heuristic.
-      </p>
     </div>
   );
 }

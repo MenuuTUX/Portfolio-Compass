@@ -23,14 +23,11 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: 999,
-              background: "#ffffff",
-            }}
-          />
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <circle cx="16" cy="16" r="12.5" stroke="#f8f7f4" strokeWidth="1.5" />
+            <path d="M21.8 10.2 18 18 14 14l7.8-3.8Z" fill="#24b77e" />
+            <path d="M10.2 21.8 14 14l4 4-7.8 3.8Z" fill="#ef7469" />
+          </svg>
           <div style={{ fontSize: 28, color: "#8c8c8c" }}>
             Portfolio Compass
           </div>

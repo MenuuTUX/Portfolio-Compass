@@ -3,7 +3,7 @@
 import { RotateCcw } from "lucide-react";
 import { applyLesson, type LabForm } from "@/lib/lab/lab-form";
 import { applyTweak, extractTickers, lessonById, LESSONS, liveNotes, setupText } from "@/lib/lab/lessons";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import ModeSwitch from "./ModeSwitch";
 
 const field =
@@ -11,7 +11,8 @@ const field =
 const label = "block text-xs font-medium text-muted mb-1";
 
 const TOOLS: [call: string, text: string][] = [
-  ['day.price("SPY")', "today's closing price"],
+  ['day.adj_price("SPY")', "today's closing price, adjusted for splits and dividends"],
+  ['day.price("SPY")', "today's closing price, split-adjusted only (for price levels)"],
   ['day.average("SPY", 50)', "average price over the last 50 days"],
   ['day.change("SPY", 126)', "growth over the last 126 days (0.05 = up 5%)"],
   ['day.high("SPY", 252)', "highest close of the last 252 days"],

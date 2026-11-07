@@ -3,6 +3,8 @@
  * Pass holdings already loaded on the client (or from live ETF details).
  */
 
+import { toYahooSymbol } from "@/lib/tickers";
+
 export interface HoldingWeight {
   ticker: string;
   name: string;
@@ -23,6 +25,13 @@ interface OverlapResult {
   /** Reported percentage of each portfolio covered by valid, distinct holdings; may exceed 100 for invalid feeds. */
   coverageA: number;
   coverageB: number;
+  /**
+   * True when either list covers less than 100% of its fund, so the overlap is
+   * measured over disclosed top holdings only. The real overlap can only be higher.
+   */
+  lowerBound: boolean;
+  /** Plain-words overlap text for display, or null when the feed is invalid. */
+  label: string | null;
 }
 
 interface CommonHolding {
@@ -44,7 +53,8 @@ export function calculateOverlapFromHoldings(
   const toMap = (holdings: HoldingWeight[]) => {
     const map = new Map<string, { ticker: string; name: string; weight: number }>();
     holdings.forEach((holding) => {
-      const ticker = typeof holding.ticker === 'string' ? holding.ticker.trim().toUpperCase() : '';
+      // toYahooSymbol makes BRK.B and BRK-B the same holding.
+      const ticker = typeof holding.ticker === 'string' ? toYahooSymbol(holding.ticker) : '';
       // Keep the first valid row for a ticker so duplicate feed entries cannot inflate weight.
       if (!ticker || !Number.isFinite(holding.weight) || holding.weight <= 0 || map.has(ticker)) return;
       map.set(ticker, { ticker, name: holding.name, weight: holding.weight });
@@ -86,11 +96,22 @@ export function calculateOverlapFromHoldings(
   );
 
   const status = coverageA > 100 || coverageB > 100 ? 'overfull' : 'valid';
+  const score = status === 'valid' ? Math.min(100, overlapScore) : null;
+  const lowerBound = coverageA < 100 || coverageB < 100;
+  const rounded = score === null ? null : Math.round(score * 10) / 10;
+  const label = rounded === null
+    ? null
+    : lowerBound
+      ? `At least ${rounded}% overlap, based on disclosed top holdings`
+      : `${rounded}% overlap`;
+
   return {
-    overlapScore: status === 'valid' ? Math.min(100, overlapScore) : null,
+    overlapScore: score,
     status,
     commonHoldings,
     coverageA,
     coverageB,
+    lowerBound,
+    label,
   };
 }

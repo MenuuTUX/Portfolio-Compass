@@ -63,6 +63,24 @@ Hosting runs the Next.js app and its API proxies. Clearing site data clears the 
 
 Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CSS, Recharts, Pyodide and Monaco (Lab only). CI runs typecheck, lint and 390+ unit tests on every pull request.
 
+## How I built it
+
+I built this with AI coding agents. About half the commits come from Google's Jules, and later work went through Claude Code. My job was deciding what the numbers should mean, then checking that the code produced them. Where a formula has a closed form, a unit test compares the code against it.
+
+These choices shape every result on the site:
+
+- **Next-bar fills.** A signal from today's close trades at tomorrow's open, never at the close that produced it.
+- **Total return by default.** Performance math uses dividend-adjusted closes. If any holding lacks them, the whole calculation falls back to price return and says so, so the two are never mixed.
+- **No hidden winners.** Comparisons show fees, yields and history side by side with no "best fund" label, because the site gives no advice.
+- **A 70/30 split on every backtest.** A rule that only worked in the early years shows up without any extra step.
+
+### What I got wrong
+
+- The allocator stopped spending. Its score depends on portfolio weights, not size, so after a lot or two no single purchase raised it. A new investor's $7,000 budget ended with $6,900 in cash. It now invests the budget, and a test checks the mix against the two-asset closed-form optimum.
+- Monte Carlo percentiles came from as few as 20 paths, so the "5th percentile" was roughly the second-worst path. They now come from 2,000.
+- The risk profiles were mislabelled. Once the allocator spent the full budget, "Balanced" held about 80% bonds. The risk penalty is now set so a stock and bond fund pair lands near 30%, 60% and 90% equity.
+- For a while the docs said dividends were left out after the code had switched to total return. A reviewer who read both would have stopped trusting either.
+
 ## Known limitations
 
 - The main site's performance math (portfolio index, covariance, historical stats, Monte Carlo drift and volatility) uses Yahoo's dividend-adjusted closes, so it is total return, with distributions reinvested. Charts of a single fund still show the quoted price. If any holding in a calculation has no adjusted closes, the whole calculation falls back to price returns and the screen says so. Intraday ranges (1D, 1W) have no adjusted close and are display only. Yahoo revises adjusted closes after each distribution, so a series is only consistent with itself and is never mixed with another fetch.
@@ -75,7 +93,7 @@ Stack: Next.js (App Router), React, TypeScript, Bun, TanStack Query, Tailwind CS
 - Market data comes from Yahoo Finance and scrapers and has not been cross-checked against a second source.
 - Lab results depend on one data source and one cost model, and ignore taxes.
 
-More detail is in [docs/interview-notes.md](docs/interview-notes.md), including the places where design docs and code disagree.
+More detail is in [docs/design-notes.md](docs/design-notes.md), including the places where design docs and code disagree.
 
 ## Getting started
 

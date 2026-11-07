@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, type HTMLMotionProps } from "framer-motion";
+import { m as motion, type HTMLMotionProps } from "framer-motion";
 
 /** Wealthsimple-style ease: fast out, long settle. */
 export const EASE = [0.16, 1, 0.3, 1] as const;

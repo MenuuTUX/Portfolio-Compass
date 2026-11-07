@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { AlertTriangle, CheckCircle2, Terminal } from "lucide-react";
 import type { LookaheadResult, StrategyError, StrategyLanguage } from "@/lib/lab/strategy/types";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/cn";
 import { RowResizer, useResizableWidth } from "@/components/workspace/PaneResizer";
 
 const maxConsole = () => Math.max(120, Math.round(window.innerHeight * 0.6));
@@ -73,10 +73,17 @@ export default function CodePane({ wide, language, code, onChange, onRun, consol
                 Lookahead check failed: weights from {out.lookahead.firstDate} changed when later prices were removed. The strategy either reads future prices or is not deterministic (seed any randomness). Until that is fixed, its results are not valid.
               </p>
             ) : (
-              <p className="flex items-start gap-1.5 text-emerald-400">
-                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                No lookahead found: weights stayed the same with history cut off at {out.lookahead.cutoffs.join(" and ")}.
-              </p>
+              out.lookahead.cutoffs.length === 0 ? (
+                <p className="text-muted">The lookahead check did not run: the history is too short to cut off.</p>
+              ) : (
+                <p
+                  className="flex items-start gap-1.5 text-emerald-400"
+                  title={`A spot check, not proof. The strategy was rerun with history cut off at ${out.lookahead.cutoffs.join(" and ")}, and its weights did not change. It cannot rule out every way of reading future prices.`}
+                >
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                  No lookahead detected at {out.lookahead.cutoffs.length} test cut-off{out.lookahead.cutoffs.length === 1 ? "" : "s"}.
+                </p>
+              )
             )
           )}
           {out.logs.map((line, i) => (

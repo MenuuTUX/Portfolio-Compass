@@ -1,12 +1,33 @@
 "use client";
 
-import { motion, useReducedMotion, useTransform } from "framer-motion";
+import { m as motion, useReducedMotion, useTransform } from "framer-motion";
+import Image from "next/image";
 import BrushArt from "./landing/BrushArt";
 import GrowthScreen from "./landing/GrowthScreen";
 import Phone25D from "./landing/Phone25D";
 import PhoneMock, { PhoneEntrance, useLandingScroll } from "./landing/PhoneMock";
 import Reveal, { EASE } from "./motion/Reveal";
 import { useEffect, useState } from "react";
+
+const WIDE_QUERY = "(min-width: 900px)";
+type HeroLayout = "unknown" | "wide" | "narrow";
+
+/**
+ * Server HTML renders both hero art trees (CSS hides one of them). After hydration
+ * we keep only the visible one mounted, so hidden trees don't animate or hold state.
+ */
+function useHeroLayout(): HeroLayout {
+  const [layout, setLayout] = useState<HeroLayout>("unknown");
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(WIDE_QUERY);
+    const apply = () => setLayout(mq.matches ? "wide" : "narrow");
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return layout;
+}
 
 interface HeroProps {
   onStart?: () => void;
@@ -32,17 +53,24 @@ function ArrowIcon() {
   );
 }
 
-const HEADLINE = ["Build a portfolio.", "Test what it", "assumes."];
+const HEADLINE = ["Build a portfolio.", "Backtest what it", "assumes."];
 
 export default function Hero({ onStart, onViewMarket }: HeroProps) {
   const [annualReturn, setAnnualReturn] = useState(7);
   const [years, setYears] = useState(10);
   const [scrolled, setScrolled] = useState(false);
+  const layout = useHeroLayout();
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    // The landing scrolls inside #top, so the header must listen there, not on window.
+    const scroller = document.getElementById("top");
+    const target: EventTarget = scroller ?? window;
+    const onScroll = () => {
+      const y = Math.max(window.scrollY, scroller ? scroller.scrollTop : 0);
+      setScrolled(y > 24);
+    };
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    target.addEventListener("scroll", onScroll, { passive: true });
+    return () => target.removeEventListener("scroll", onScroll);
   }, []);
   const scrollY = useLandingScroll();
   const reduce = useReducedMotion();
@@ -55,19 +83,16 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
     <section className="overflow-x-clip bg-canvas text-ink selection:bg-compass/20" aria-labelledby="landing-title">
       <motion.header
         className="ws-nav"
-        initial={{ opacity: 0, y: -24 }}
+        initial={false}
         animate={{
-          opacity: 1,
-          y: 0,
           boxShadow: scrolled ? "0 8px 28px rgba(0,0,0,0.16)" : "0 2px 8px rgba(0,0,0,0.06)",
         }}
         transition={{ duration: 0.7, ease: EASE }}
         style={scrolled ? { backgroundColor: "var(--color-surface-card)", backdropFilter: "none" } : undefined}
       >
         <div className="flex flex-1 items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" width={28} height={28} className="h-7 w-7 rounded-lg" />
-          <span className="text-base font-semibold ">Portfolio Compass</span>
+          <Image src="/logo.png" alt="" width={28} height={28} sizes="28px" className="h-7 w-7 rounded-lg" />
+          <span className="whitespace-nowrap text-base font-semibold tracking-tight max-[359px]:hidden">Portfolio Compass</span>
         </div>
         <nav aria-label="Landing sections" className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
@@ -102,27 +127,29 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
               "radial-gradient(40% 55% at 69% 38%, rgba(182,165,230,0.16), transparent 70%), radial-gradient(30% 45% at 78% 20%, rgba(224,184,74,0.14), transparent 70%), radial-gradient(27% 40% at 58% 70%, rgba(132,197,138,0.12), transparent 70%)",
           }}
         />
-        <motion.div
-          className="pointer-events-none absolute top-16 z-10 hidden w-[50%] max-w-[52rem] min-[900px]:block"
-          style={{ y: artY, right: "-4%" }}
-        >
-          <BrushArt className="w-full" />
-          <motion.div className="pointer-events-auto absolute left-[12%] top-[6%] w-[74%]" style={{ y: phoneY }}>
-            <PhoneEntrance float={false}>
-              <Phone25D maxWidth="clamp(300px, 24cqw, 420px)">
-                <PhoneMock interactive tilt={0} maxWidth="clamp(300px, 24cqw, 420px)" screenHeight="clamp(520px, 74vh, 700px)">
-                  <GrowthScreen idPrefix="growth-wide" years={years} annualReturn={annualReturn} onYears={setYears} onReturn={setAnnualReturn} />
-                </PhoneMock>
-              </Phone25D>
-            </PhoneEntrance>
+        {layout !== "narrow" && (
+          <motion.div
+            className="pointer-events-none absolute top-16 z-10 hidden w-[50%] max-w-[52rem] min-[900px]:block"
+            style={{ y: artY, right: "-4%" }}
+          >
+            <BrushArt className="w-full" />
+            <motion.div className="pointer-events-auto absolute left-[12%] top-[6%] w-[74%]" style={{ y: phoneY }}>
+              <PhoneEntrance float={false}>
+                <Phone25D maxWidth="clamp(300px, 24cqw, 420px)">
+                  <PhoneMock interactive tilt={0} maxWidth="clamp(300px, 24cqw, 420px)" screenHeight="clamp(520px, 74vh, 700px)">
+                    <GrowthScreen idPrefix="growth-wide" years={years} annualReturn={annualReturn} onYears={setYears} onReturn={setAnnualReturn} />
+                  </PhoneMock>
+                </Phone25D>
+              </PhoneEntrance>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        )}
         <motion.div className="relative min-[900px]:max-w-[50%]" style={{ y: textY, opacity: textOpacity }}>
-        <Reveal onMount y={12} className="flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="" width={20} height={20} className="h-5 w-5 rounded-md" />
+        {/* Entrances are CSS animations, not framer initial states, so the server HTML is already visible. */}
+        <div className="animate-ws-fade-up flex items-center gap-2">
+          <Image src="/logo.png" alt="" width={20} height={20} sizes="20px" className="h-5 w-5 rounded-md" />
           <span className="text-sm font-medium text-ink">Portfolio Compass</span>
-        </Reveal>
+        </div>
         <h1
           id="landing-title"
           className="mt-6 max-w-5xl font-display font-bold text-ink text-[clamp(40px,11vw,64px)] min-[900px]:text-[clamp(40px,5.2cqw,112px)]"
@@ -130,40 +157,37 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         >
           {HEADLINE.map((line, i) => (
             <span key={line} className="block overflow-hidden pb-[0.12em] -mb-[0.12em]">
-              <motion.span
-                className="block"
-                initial={{ y: "110%" }}
-                animate={{ y: 0 }}
-                transition={{ duration: 0.9, delay: 0.15 + i * 0.08, ease: EASE }}
-              >
+              <span className="ws-rise block" style={{ animationDelay: `${i * 70}ms` }}>
                 {line}
-              </motion.span>
+              </span>
             </span>
           ))}
         </h1>
-        <Reveal onMount delay={0.6} className="mt-8 max-w-[46ch]">
+        <div className="animate-ws-fade-up mt-8 max-w-[46ch]" style={{ animationDelay: "120ms" }}>
           <p className="text-lg leading-relaxed text-body">
             Compare funds and stocks, then test an allocation against historical data and simulated paths.
           </p>
-        </Reveal>
-        <Reveal onMount delay={0.72} className="mt-10 flex items-center gap-3">
+        </div>
+        <div className="animate-ws-fade-up mt-10 flex items-center gap-3" style={{ animationDelay: "180ms" }}>
           <button type="button" onClick={onStart} className="ws-btn-solid">
             Get started
           </button>
           <button type="button" onClick={onViewMarket} aria-label="Browse market" className="ws-arrow-btn">
             <ArrowIcon />
           </button>
-        </Reveal>
-        <Reveal onMount delay={0.84} y={12}>
+        </div>
+        <div className="animate-ws-fade-up" style={{ animationDelay: "240ms" }}>
           <p className="mt-5 text-sm text-muted">For research and education, not financial advice.</p>
-        </Reveal>
+        </div>
         </motion.div>
 
-        <Reveal className="relative mt-14 min-[900px]:hidden">
-          <PhoneMock interactive tilt={0} maxWidth={360} screenHeight={640}>
-            <GrowthScreen idPrefix="growth-sm" years={years} annualReturn={annualReturn} onYears={setYears} onReturn={setAnnualReturn} />
-          </PhoneMock>
-        </Reveal>
+        {layout !== "wide" && (
+          <Reveal className="relative mt-14 min-[900px]:hidden">
+            <PhoneMock interactive tilt={0} maxWidth={360} screenHeight={640}>
+              <GrowthScreen idPrefix="growth-sm" years={years} annualReturn={annualReturn} onYears={setYears} onReturn={setAnnualReturn} />
+            </PhoneMock>
+          </Reveal>
+        )}
       </div>
     </section>
   );

@@ -1,3 +1,4 @@
+import { cacheHeaders, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getFastQuotes } from "@/lib/fast-market";
 import { DEFAULT_HEATMAP_GROUP, getHeatmapGroup } from "@/config/sp500-heatmap";
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       sectors,
     };
     return NextResponse.json(payload, {
-      headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" },
+      headers: cacheHeaders(CACHE.heatmap),
     });
   } catch (error) {
     console.error("[API] Heatmap failed:", error);

@@ -67,6 +67,12 @@ export const fetchHistoryFromApi: FetchHistory = async (ticker, through) => {
   };
 };
 
+function shiftDate(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Requests in flight at once: enough to load a universe quickly, few enough to stay inside the API rate limit. */
 export const FETCH_CONCURRENCY = 6;
 const MAX_RETRY_WAIT_S = 5;
@@ -87,6 +93,8 @@ export interface LoadResult {
   missing: string[];
   /** Tickers the server could not load; an older cached copy was used if one existed. */
   failed: string[];
+  /** Tickers that ended on an older cached copy, with the last bar that copy holds. */
+  staleTickers: { ticker: string; lastBar: string }[];
   /** Latest completed session the data covers. */
   through: string;
   /** Network requests made; 0 when everything came from the local cache. */
@@ -106,11 +114,14 @@ export async function loadBars(
     fetchOne = fetchHistoryFromApi,
     now = new Date(),
     wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+    warmupDays = 0,
   }: {
     store: BarStore;
     fetchOne?: FetchHistory;
     now?: Date;
     wait?: (ms: number) => Promise<void>;
+    /** Calendar days of history to return before `start`, so indicators are warm on the first day. */
+    warmupDays?: number;
   },
 ): Promise<LoadResult> {
   const through = lastCompletedSession(now);
@@ -128,6 +139,7 @@ export async function loadBars(
   }));
 
   const failed: string[] = [];
+  const fallback = new Map<string, CachedRecord>();
   let requests = 0;
   let next = 0;
   const worker = async () => {
@@ -142,7 +154,10 @@ export async function loadBars(
       } else if (res.status !== 404) {
         failed.push(ticker);
         const old = stale.get(ticker);
-        if (old) records.set(ticker, old);
+        if (old) {
+          records.set(ticker, old);
+          fallback.set(ticker, old);
+        }
       }
     }
   };
@@ -150,12 +165,18 @@ export async function loadBars(
 
   const series: BarSeries[] = [];
   const missing: string[] = [];
+  const staleTickers: { ticker: string; lastBar: string }[] = [];
   for (const ticker of tickers) {
     const record = records.get(ticker);
-    const s = record && fromCompact(record, start, end);
-    if (s && s.bars.length > 0) series.push(s);
+    const s = record && fromCompact(record, shiftDate(start, -warmupDays), end);
+    // Warmup bars alone do not count: the ticker needs a price inside the window.
+    if (s && s.bars.some((b) => b.date >= start)) {
+      series.push(s);
+      const old = fallback.get(ticker);
+      if (old) staleTickers.push({ ticker, lastBar: old.d[old.d.length - 1] });
+    }
     // A failed fetch with no older copy is reported as failed, not as missing data.
     else if (record || !failed.includes(ticker)) missing.push(ticker);
   }
-  return { series, missing, failed, through, requests };
+  return { series, missing, failed, staleTickers, through, requests };
 }

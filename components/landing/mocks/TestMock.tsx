@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useInView, useReducedMotion } from "framer-motion";
+import { m as motion, useInView, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import CountUp from "../../motion/CountUp";
 import { EASE } from "../../motion/Reveal";
@@ -124,7 +124,12 @@ export default function TestMock() {
   const [scenario, setScenario] = useState<Scenario>("Median");
   const [spread, setSpread] = useState<Spread>("Typical");
   const [running, setRunning] = useState(false);
-  const [started, setStarted] = useState(false);
+  // Plays once, the first time the mock scrolls into view.
+  const [wasInView, setWasInView] = useState(false);
+  if (inView !== wasInView) {
+    setWasInView(inView);
+    if (inView) setRunning(true);
+  }
   const [hover, setHover] = useState<number | null>(null);
   const [kbd, setKbd] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,8 +145,6 @@ export default function TestMock() {
 
   useEffect(() => {
     if (!inView) return;
-    setStarted(true);
-    setRunning(true);
     timer.current = setTimeout(() => setRunning(false), RUN_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);
@@ -174,7 +177,7 @@ export default function TestMock() {
       ? { initial: false as const, animate: { pathLength: 1 } }
       : {
           initial: { pathLength: 0 },
-          animate: { pathLength: started ? 1 : 0 },
+          animate: { pathLength: inView ? 1 : 0 },
           transition: { duration, delay, ease: EASE },
         };
 

@@ -87,4 +87,28 @@ describe("GET /api/market/fx-history", () => {
     ) as any) as any;
     expect(response.status).toBe(502);
   });
+
+  it("stitches the older noon series onto the daily series across 2017-01-03", async () => {
+    const requested: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      requested.push(url.pathname);
+      const body = url.pathname.includes("IEXE0101")
+        ? { observations: [{ d: "2016-12-30", IEXE0101: { v: "1.3427" } }] }
+        : { observations: [{ d: "2017-01-03", FXUSDCAD: { v: "1.3435" } }] };
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const res = await GET(new NextRequest(
+      "http://localhost/api/market/fx-history?start_date=2016-12-28&end_date=2017-01-05",
+    ) as any) as any;
+
+    expect(res.status).toBe(200);
+    expect(requested.some((p) => p.includes("IEXE0101"))).toBe(true);
+    expect(requested.some((p) => p.includes("FXUSDCAD"))).toBe(true);
+    expect(res._data.series).toEqual([
+      { date: "2016-12-30", usdCad: 1.3427 },
+      { date: "2017-01-03", usdCad: 1.3435 },
+    ]);
+  });
 });

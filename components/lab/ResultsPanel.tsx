@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { Download, LineChart } from "lucide-react";
-import { motion } from "framer-motion";
+import { m as motion } from "framer-motion";
 import type { LabRun } from "./useLabEngine";
 import LabChart, { type ChartSeries } from "./LabChart";
-import { compactMoney, money, pct, signedPct } from "./format";
-import { cn } from "@/lib/utils";
+import { compactMoney, isShortRun, money, pct, rebaseToCommonStart, SHORT_RUN, signedPct } from "./format";
+import { cn } from "@/lib/cn";
+import { HelpTip } from "@/components/ui/HelpTip";
 import { splitMetrics, type SliceStats } from "@/lib/lab/engine/holdout";
 import RobustnessPanel, { VariantNotice, type RobustnessState } from "./RobustnessPanel";
 
@@ -214,6 +215,7 @@ function PlainSummary({ run, hasFlows }: { run: LabRun; hasFlows: boolean }) {
   const worst = m.maxDrawdown;
   const benchWorst = bench?.metrics.maxDrawdown;
   const cagrGap = bench ? m.cagr - bench.metrics.cagr : null;
+  const short = isShortRun(m.startDate, m.endDate);
 
   return (
     <section aria-label="Result in plain words" className="space-y-3 rounded-xl p-4 ring-1 ring-hairline">
@@ -237,7 +239,7 @@ function PlainSummary({ run, hasFlows }: { run: LabRun; hasFlows: boolean }) {
                   <b className={diff >= 0 ? "text-emerald-400" : "text-rose-400"}>{diff >= 0 ? "finished ahead by" : "finished behind by"} {money(Math.abs(diff), cur)}</b>.</>
               )}
             </>
-          ) : (
+          ) : short ? null : (
             <>
               Growth per year was {signedPct(m.cagr)} against {signedPct(bench.metrics.cagr)} for holding {bench.ticker}
               {cagrGap !== null && <>, <b className={cagrGap >= 0 ? "text-emerald-400" : "text-rose-400"}>{cagrGap >= 0 ? "ahead" : "behind"} by {pct(Math.abs(cagrGap))} a year</b></>}.
@@ -247,7 +249,9 @@ function PlainSummary({ run, hasFlows }: { run: LabRun; hasFlows: boolean }) {
       )}
       <dl className="grid gap-px overflow-hidden rounded-lg bg-hairline sm:grid-cols-3">
         {[
-          ["Growth per year", signedPct(m.cagr), bench ? `${bench.ticker}: ${signedPct(bench.metrics.cagr)}` : "On average, compounded"],
+          short
+            ? ["Growth per year", SHORT_RUN, "Too short to annualize; see Total return"]
+            : ["Growth per year", signedPct(m.cagr), bench ? `${bench.ticker}: ${signedPct(bench.metrics.cagr)}` : "On average, compounded"],
           [
             "Worst drop",
             worst ? pct(-Math.abs(worst.depth)) : "n/a",
@@ -280,12 +284,13 @@ function HoldoutCheck({ run }: { run: LabRun }) {
   const { report } = run;
   const split = useMemo(() => splitMetrics(report.dates, report.sim), [report]);
   if (!split) return null;
+  const short = isShortRun(run.report.metrics.startDate, run.report.metrics.endDate);
   const rows: [string, (s: SliceStats) => string][] = [
-    ["Growth per year", (s) => signedPct(s.cagr)],
+    ["Growth per year", (s) => (short ? SHORT_RUN : signedPct(s.cagr))],
     ["Sharpe", (s) => (s.sharpe === null ? "n/a" : s.sharpe.toFixed(2))],
     ["Worst drop", (s) => (s.maxDrawdown ? pct(-Math.abs(s.maxDrawdown.depth)) : "n/a")],
   ];
-  const weaker = split.holdout.cagr < split.inSample.cagr - 0.03;
+  const weaker = !short && split.holdout.cagr < split.inSample.cagr - 0.03;
   return (
     <section aria-label="In-sample and hold-out" className="space-y-3 rounded-xl p-4 ring-1 ring-hairline">
       <h3 className="text-sm font-medium text-ink">Does it hold up on newer data?</h3>
@@ -300,7 +305,7 @@ function HoldoutCheck({ run }: { run: LabRun }) {
         <tbody>
           {rows.map(([label, f]) => (
             <tr key={label} className="border-t border-hairline">
-              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted">{label}</th>
+              <th scope="row" className="py-1.5 pr-3 text-left font-normal text-muted"><HelpTip term={label} showIcon={false}>{label}</HelpTip></th>
               <td className="py-1.5 font-mono text-ink">{f(split.inSample)}</td>
               <td className="py-1.5 font-mono text-ink">{f(split.holdout)}</td>
             </tr>
@@ -310,7 +315,8 @@ function HoldoutCheck({ run }: { run: LabRun }) {
       <p className="text-xs text-muted">
         {weaker
           ? "The newer stretch did noticeably worse than the older one. Either the idea weakened or the older years were unusually good, so treat the full-period number with caution."
-          : "Both pieces come from one run, and the rule was not refit between them. A similar result on both is a good sign, not proof."}
+          : "Both pieces come from one run, and the rule was not refit between them. A similar result on both is a good sign, not proof."}{" "}
+        This splits a run you have already seen, so it is a sanity check, not an untouched test.
       </p>
     </section>
   );
@@ -330,6 +336,14 @@ interface ResultsPanelProps {
 export default function ResultsPanel({ run, compare, guided, variants, robustness, onRobustness }: ResultsPanelProps) {
   const [tab, setTab] = useState<Tab>("Overview");
   const [log, setLog] = useState(true);
+
+  // Each compared run is rebased to 1 at the latest start they share, so runs
+  // that began on different days are drawn from the same origin.
+  const compareChart = useMemo(() => {
+    const rb = rebaseToCommonStart(compare.map((r) => ({ dates: r.report.dates, growth: growth(r) })));
+    const series = compare.flatMap((run, i) => (rb.values[i] ? [{ run, i, values: rb.values[i]! }] : []));
+    return { dates: rb.dates, series };
+  }, [compare]);
 
   // Both lines show what the starting amount grew to, time-weighted, so a
   // strategy with contributions still lines up against its benchmark.
@@ -413,7 +427,7 @@ export default function ResultsPanel({ run, compare, guided, variants, robustnes
               {[
                 ["Final value", money(m.finalEquity, report.currency)],
                 ["Contributed", money(m.netContributions, report.currency)],
-                ["CAGR", signedPct(m.cagr)],
+                ["CAGR", isShortRun(m.startDate, m.endDate) ? SHORT_RUN : signedPct(m.cagr)],
                 ["Max drawdown", pct(m.maxDrawdown?.depth ?? 0)],
               ].map(([k, v]) => (
                 <div key={k} className="bg-[var(--panel)] p-3">
@@ -465,21 +479,18 @@ export default function ResultsPanel({ run, compare, guided, variants, robustnes
         {tab === "Compare" && (
           compare.length < 2 ? (
             <p className="text-sm text-muted">Tick two or more runs in the run list to compare them here.</p>
+          ) : compareChart.series.length < 2 ? (
+            <p className="text-sm text-muted">The ticked runs do not overlap in time, so there is no shared start to compare from.</p>
           ) : (
             <div className="space-y-4">
               <LabChart
-                dates={compare.reduce((a, r) => (r.report.dates.length > a.length ? r.report.dates : a), [] as string[])}
-                series={compare.map((r, i) => {
-                  const longest = compare.reduce((a, x) => (x.report.dates.length > a.length ? x.report.dates : a), [] as string[]);
-                  const g = growth(r);
-                  const byDate = new Map(r.report.dates.map((d, t) => [d, g[t]]));
-                  return { label: `${r.id}. ${r.name}`, values: longest.map((d) => byDate.get(d) ?? NaN), dash: DASHES[i % DASHES.length] };
-                })}
+                dates={compareChart.dates}
+                series={compareChart.series.map(({ run: r, i, values }) => ({ label: `${r.id}. ${r.name}`, values, dash: DASHES[i % DASHES.length] }))}
                 log={log}
                 format={(v) => `${v.toFixed(2)}×`}
                 summary={`Growth of 1 for ${compare.length} runs.`}
               />
-              <p className="text-xs text-muted">Growth of 1, time-weighted, so runs with different contributions line up.</p>
+              <p className="text-xs text-muted">Growth of 1 from the latest start date the runs share, time-weighted, so runs with different contributions and start dates line up.</p>
             </div>
           )
         )}

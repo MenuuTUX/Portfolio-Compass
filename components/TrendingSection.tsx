@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, m as motion } from "framer-motion";
 import { Plus, Trash2, Check, ChevronRight } from "lucide-react";
 import { ETF, PortfolioItem } from "@/types";
 import { cn, formatCurrency } from "@/lib/utils";

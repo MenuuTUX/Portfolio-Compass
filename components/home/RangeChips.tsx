@@ -1,8 +1,8 @@
 "use client";
 
 import { useId } from "react";
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { m as motion } from "framer-motion";
+import { cn } from "@/lib/cn";
 
 interface RangeChipsProps<T extends string> {
   ranges: readonly T[];

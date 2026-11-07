@@ -12,7 +12,26 @@ interface SparklineProps {
   className?: string;
 }
 
+function summarise(data: { price: number }[]) {
+  if (data.length === 0) return null;
+  let low = Infinity;
+  let high = -Infinity;
+  for (const point of data) {
+    if (point.price < low) low = point.price;
+    if (point.price > high) high = point.price;
+  }
+  return {
+    first: data[0].price,
+    last: data[data.length - 1].price,
+    low,
+    high,
+    count: data.length,
+  };
+}
+
 const Sparkline = memo(({ data, color, name, className }: SparklineProps) => {
+  // One summary row for screen readers instead of one row per point.
+  const summary = summarise(data);
   return (
     <div className={cn("h-8 w-20", className)}>
       <ResponsiveContainer width="100%" height="100%">
@@ -34,17 +53,23 @@ const Sparkline = memo(({ data, color, name, className }: SparklineProps) => {
         <caption>Price History Sparkline{name ? ` for ${name}` : ""}</caption>
         <thead>
           <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Price</th>
+            <th scope="col">First</th>
+            <th scope="col">Last</th>
+            <th scope="col">Low</th>
+            <th scope="col">High</th>
+            <th scope="col">Points</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((item, i) => (
-            <tr key={i}>
-              <td>{new Date(item.date).toLocaleDateString()}</td>
-              <td>{formatCurrency(item.price)}</td>
+          {summary && (
+            <tr>
+              <td>{formatCurrency(summary.first)}</td>
+              <td>{formatCurrency(summary.last)}</td>
+              <td>{formatCurrency(summary.low)}</td>
+              <td>{formatCurrency(summary.high)}</td>
+              <td>{summary.count}</td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </div>

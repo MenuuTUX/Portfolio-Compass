@@ -20,7 +20,6 @@ await mockModule("@/components/PortfolioItemRow", () => ({
 }));
 await mockModule("@/components/WealthProjector", () => ({ default: (props: any) => <div>Projection model {props.startingValue} {props.baseCurrency} {props.fxProvenance?.date}</div> }));
 await mockModule("@/components/OptimizationPanel", () => ({ default: () => <div>Optimizer model</div> }));
-await mockModule("@/components/ContributePopup", () => ({ default: () => null }));
 await mockModule("@/components/AlgorithmExplainer", () => ({ default: () => null }));
 await mockModule("@/components/RiskReturnScatter", () => ({ default: () => null }));
 await mockModule("@/components/PortfolioBarChart", () => ({ default: () => null }));
@@ -52,7 +51,7 @@ const callbacks = {
 describe("PortfolioBuilder currency behavior", () => {
   afterEach(cleanup);
 
-  it("converts fresh mixed USD/CAD holdings, enables the simple projection, and gates optimization", () => {
+  it("converts fresh mixed USD/CAD holdings, enables the simple projection, and gates optimization", async () => {
     render(
       <PortfolioBuilder
         portfolio={[holding("US", "USD", 100), holding("CA", "CAD", 100)] as any}
@@ -63,12 +62,16 @@ describe("PortfolioBuilder currency behavior", () => {
     expect(screen.getByText((text) => text.includes("CAD") && text.includes("240.00"))).toBeTruthy();
     expect(screen.getByText(`Values converted to CAD using Bank of Canada FXUSDCAD daily average dated ${fxDate}.`)).toBeTruthy();
     expect(screen.getByText(/simple projection starts from today's CAD-converted value/)).toBeTruthy();
+    expect(screen.getByText(/Monte Carlo converts past USD prices to CAD at dated Bank of Canada rates/)).toBeTruthy();
+    expect(screen.getByText(/Allocation scoring is unavailable for mixed currencies/)).toBeTruthy();
+    expect(screen.queryByText(/Monte Carlo remain unavailable/)).toBeNull();
     expect(screen.getByRole("button", { name: "See Growth Projection" }).hasAttribute("disabled")).toBe(false);
     expect(screen.queryByText("Optimizer model")).toBeNull();
     const projection = screen.getByRole("button", { name: "See Growth Projection" });
     expect(projection.hasAttribute("disabled")).toBe(false);
     fireEvent.click(projection);
-    expect(screen.getByText(`Projection model 240 CAD ${fxDate}`)).toBeTruthy();
+    // The projector loads on demand.
+    expect(await screen.findByText(`Projection model 240 CAD ${fxDate}`)).toBeTruthy();
   });
 
   it("fails closed for projection when the dated FX rate is stale", () => {

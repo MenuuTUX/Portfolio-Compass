@@ -16,6 +16,13 @@ export function useDialogA11y<T extends HTMLElement>(
 ) {
   const dialogRef = useRef<T>(null);
 
+  // Callers pass a new onClose on every render. Keep the latest one in a ref
+  // so re-renders do not re-run the effect and move focus back to the first control.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -37,7 +44,7 @@ export function useDialogA11y<T extends HTMLElement>(
 
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -69,7 +76,7 @@ export function useDialogA11y<T extends HTMLElement>(
       openDialogs.delete(dialog);
       previousFocus?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   return dialogRef;
 }

@@ -194,4 +194,22 @@ describe("SettingsDrawer portfolio backup", () => {
     expect(loadPortfolio()).toEqual([{ ticker: "SPY", weight: 100, shares: 2 }]);
     expect(screen.queryByRole("button", { name: "Merge import" })).toBeNull();
   });
+
+  it("refuses a backup file over 1 MB before parsing it", async () => {
+    savePortfolio([{ ticker: "SPY", weight: 100, shares: 2 }]);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDrawer isOpen onClose={() => {}} />
+      </QueryClientProvider>,
+    );
+
+    const file = new File(["x".repeat(1_000_001)], "big.json", { type: "application/json" });
+    fireEvent.change(screen.getByLabelText("Choose a backup file"), {
+      target: { files: [file] },
+    });
+
+    expect(await screen.findByText("This backup file is larger than 1 MB.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Merge import" })).toBeNull();
+    expect(loadPortfolio()).toEqual([{ ticker: "SPY", weight: 100, shares: 2 }]);
+  });
 });

@@ -2,7 +2,7 @@
 
 import { cn, formatCurrency } from "@/lib/utils";
 import { RefreshCw, Eye, EyeOff, ChevronDown } from "lucide-react";
-import { AnimatePresence, animate, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, animate, m as motion, useReducedMotion } from "framer-motion";
 import Reveal, { EASE } from "./motion/Reveal";
 import HeroChart from "./home/HeroChart";
 import RangeChips from "./home/RangeChips";
@@ -13,10 +13,13 @@ import { Portfolio } from "@/types";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import PortfolioItemRow from "./PortfolioItemRow";
 import { Decimal } from "@/lib/decimal";
-import WealthProjector from "./WealthProjector";
-import ContributePopup from "./ContributePopup";
-import OptimizationPanel from "./OptimizationPanel";
-import AlgorithmExplainer from "./AlgorithmExplainer";
+import dynamic from "next/dynamic";
+// Opened on demand, so the Portfolio tab loads without the projector and explainer code.
+const WealthProjector = dynamic(() => import("./WealthProjector"), {
+  loading: () => <div role="status" className="p-6 text-sm text-muted">Loading projection...</div>,
+});
+import OptimizationPanel, { type AllocationPlanItem } from "./OptimizationPanel";
+const AlgorithmExplainer = dynamic(() => import("./AlgorithmExplainer"), { ssr: false });
 import RiskReturnScatter from "./RiskReturnScatter";
 import PortfolioBarChart from "./PortfolioBarChart";
 import SectorPieChart, { COLORS } from "./SectorPieChart";
@@ -68,6 +71,10 @@ interface PortfolioBuilderProps {
   onUpdateWeight: (ticker: string, weight: number) => void;
   onUpdateShares: (ticker: string, shares: number) => void;
   onClear: () => void;
+  /** Shows skeleton rows instead of the empty state while holdings load. */
+  isLoading?: boolean;
+  /** Replaces every holding's shares and target weight with an optimizer plan. */
+  onApplyAllocation?: (plan: AllocationPlanItem[]) => void;
   /** Optional: lets the empty state send people to the asset browsers. */
   onNavigate?: (tab: NavTab) => void;
 }
@@ -78,10 +85,11 @@ export default function PortfolioBuilder({
   onUpdateWeight,
   onUpdateShares,
   onClear,
+  isLoading = false,
+  onApplyAllocation,
   onNavigate,
 }: PortfolioBuilderProps) {
   const [viewMode, setViewMode] = useState<"BUILDER" | "PROJECTION">("BUILDER");
-  const [showContributePopup, setShowContributePopup] = useState(false);
   const [hideValues, setHideValues] = useState(false);
   const [indexRange, setIndexRange] = useState<IndexRange>("ALL");
 
@@ -151,7 +159,7 @@ export default function PortfolioBuilder({
   const sameCurrencyValuation = !!portfolioCurrency && !requestedBaseCurrency;
   const projectionAvailable = portfolioValuation.complete;
   const optimizerAvailable = sameCurrencyValuation && portfolio.every((item) => item.currency === portfolioCurrency);
-  const mixedFxInternalsMessage = "The simple projection starts from today's CAD-converted value and does not model future FX changes. Allocation scoring and Monte Carlo remain unavailable for mixed currencies.";
+  const mixedFxInternalsMessage = "The simple projection starts from today's CAD-converted value and does not model future FX changes. Monte Carlo converts past USD prices to CAD at dated Bank of Canada rates and also leaves out future FX changes. Allocation scoring is unavailable for mixed currencies.";
   const optimizerUnavailableMessage = sameCurrencyValuation
     ? "Allocation scoring is unavailable while a candidate uses a different currency from the held portfolio."
     : mixedFxInternalsMessage;
@@ -196,6 +204,24 @@ export default function PortfolioBuilder({
 
   const isValid = totalWeight.minus(100).abs().lessThan(0.1);
 
+  // Sector weights: target weights when any are set, otherwise each holding's share of market value.
+  const sectorWeightByTicker = useMemo(() => {
+    const weights = new Map<string, number>();
+    const targetTotal = portfolio.reduce((sum, item) => sum + (item.weight || 0), 0);
+    if (targetTotal > 0) {
+      portfolio.forEach((item) => weights.set(item.ticker, item.weight || 0));
+      return weights;
+    }
+    // Mixed currencies are brought to CAD with the dated USD/CAD rate when one is loaded.
+    const values = portfolio.map((item) => {
+      const value = item.shares > 0 && item.price > 0 ? item.shares * item.price : 0;
+      return requestedBaseCurrency && item.currency === "USD" && fxQuery.data ? value * fxQuery.data.usdCad : value;
+    });
+    const total = values.reduce((sum, value) => sum + value, 0);
+    portfolio.forEach((item, index) => weights.set(item.ticker, total > 0 ? (values[index] / total) * 100 : 0));
+    return weights;
+  }, [portfolio, requestedBaseCurrency, fxQuery.data]);
+
   // Aggregate Sector Allocation
   const sectorAllocation = useMemo(() => {
     return portfolio.reduce((acc: { [key: string]: number }, item) => {
@@ -210,12 +236,12 @@ export default function PortfolioBuilder({
             .join(" ");
 
           acc[normalizedSector] =
-            (acc[normalizedSector] || 0) + amount * (item.weight / 100);
+            (acc[normalizedSector] || 0) + amount * ((sectorWeightByTicker.get(item.ticker) ?? 0) / 100);
         });
       }
       return acc;
     }, {});
-  }, [portfolio]);
+  }, [portfolio, sectorWeightByTicker]);
 
   // Local state for display to handle debounced sorting
   const [displayPortfolio, setDisplayPortfolio] =
@@ -314,13 +340,10 @@ export default function PortfolioBuilder({
     }
     return (
       <>
-        {showContributePopup && (
-          <ContributePopup onClose={() => setShowContributePopup(false)} />
-        )}
         <Reveal onMount y={12} duration={0.5} className="h-full min-h-0 overflow-y-auto custom-scrollbar">
           <WealthProjector
             portfolio={portfolio}
-            startingValue={portfolioValuation.totalValue!}
+            startingValue={Math.round(portfolioValuation.totalValue! * 100) / 100}
             baseCurrency={portfolioCurrency!}
             fxProvenance={requestedBaseCurrency ? fxQuery.data : undefined}
             onBack={() => setViewMode("BUILDER")}
@@ -396,7 +419,7 @@ export default function PortfolioBuilder({
   const drawerBody = (() => {
     if (activeTab === "OPTIMIZER") {
       return optimizerActive ? (
-        <OptimizationPanel portfolio={portfolio} onCalibrating={setIsCalibrating} />
+        <OptimizationPanel portfolio={portfolio} onCalibrating={setIsCalibrating} onApply={onApplyAllocation} />
       ) : (
         <div className="flex flex-col gap-3">
           {!optimizerAvailable && portfolio.length > 0 && (
@@ -414,11 +437,11 @@ export default function PortfolioBuilder({
       );
     }
     return (
-      <div className="grid h-full grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,320px)] gap-6">
-        <div className="min-h-[320px] xl:h-full xl:min-h-0">
+      <div className="@container">
+        <div className="grid grid-cols-1 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,280px)] gap-6 items-start">
           <PortfolioBarChart portfolio={portfolio} />
+          {sectorXRay}
         </div>
-        {sectorXRay}
       </div>
     );
   })();
@@ -450,7 +473,20 @@ export default function PortfolioBuilder({
             )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar border-t border-hairline max-h-[60vh] lg:max-h-none">
-            {displayPortfolio.length === 0 ? (
+            {displayPortfolio.length === 0 && isLoading ? (
+              <div role="status" aria-label="Loading holdings" className="flex flex-col gap-3 p-3">
+                {[0, 1, 2].map((row) => (
+                  <div key={row} className="flex items-center gap-2.5 animate-pulse" aria-hidden="true">
+                    <div className="h-7 w-7 shrink-0 rounded-md bg-surface-soft" />
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <div className="h-2.5 w-1/3 rounded bg-surface-soft" />
+                      <div className="h-2.5 w-2/3 rounded bg-surface-soft" />
+                    </div>
+                    <div className="h-2.5 w-12 rounded bg-surface-soft" />
+                  </div>
+                ))}
+              </div>
+            ) : displayPortfolio.length === 0 ? (
               <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 p-4 text-center text-sm text-muted">
                 <p>Add assets from Markets, ETFs or Stocks</p>
                 {onNavigate && (
@@ -525,17 +561,19 @@ export default function PortfolioBuilder({
                   Allocation Mode
                 </button>
                 <button
-                  onClick={() => {
-                    setViewMode("PROJECTION");
-                    setTimeout(() => setShowContributePopup(true), 800);
-                  }}
+                  onClick={() => setViewMode("PROJECTION")}
                   disabled={!projectionAvailable}
                   title={!projectionAvailable ? valuationUnavailableMessage : undefined}
                   className={pill}
                 >
                   See Growth Projection
                 </button>
-                <button onClick={onClear} className={pill}>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Remove every holding from this portfolio? This cannot be undone.")) onClear();
+                  }}
+                  className={pill}
+                >
                   <RefreshCw className="w-4 h-4" aria-hidden="true" /> Reset
                 </button>
               </div>
@@ -790,9 +828,9 @@ export default function PortfolioBuilder({
             )}
 
             <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-bold text-ink">Experimental score</h3>
+              <h3 className="text-sm font-bold text-ink">Optimizer</h3>
               <p className="text-xs leading-5 text-muted">
-                Allocation scores use proxy inputs, not forecasts or a recommendation. Nothing here can be applied as a trade.
+                Enter an amount and a risk level, and the optimizer splits it across your holdings. Model estimates, not advice.
               </p>
               {optimizerAvailable && portfolio.length > 0 && (
                 <button type="button" className={cn(pill, "self-start")} onClick={() => selectTab("OPTIMIZER")}>
