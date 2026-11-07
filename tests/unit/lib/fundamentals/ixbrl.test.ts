@@ -64,3 +64,28 @@ describe("coverShareCount with class weights", () => {
     expect(coverShareCount(html, { CommonClassAMember: 1500 })).toEqual({ value: 1_408_523_611, asOf: "2026-07-29", classes: 2, weighted: false });
   });
 });
+
+describe("classConversionRates and a rate-weighted cover count (Visa)", () => {
+  const ctx = (id: string, member: string, at: string) => `<xbrli:context id="${id}"><xbrli:entity><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementClassOfStockAxis">${member}</xbrldi:explicitMember></xbrli:segment></xbrli:entity><xbrli:period><xbrli:instant>${at}</xbrli:instant></xbrli:period></xbrli:context>`;
+  const rate = (c: string, v: string) => `<ix:nonFraction contextRef="${c}" name="v:CommonStockConversionRate" scale="0">${v}</ix:nonFraction>`;
+  const shares = (c: string, v: string) => `<ix:nonFraction contextRef="${c}" name="dei:EntityCommonStockSharesOutstanding" scale="0">${v}</ix:nonFraction>`;
+  const html = [
+    ctx("a", "us-gaap:CommonClassAMember", "2026-09-30"), ctx("b3", "v:CommonClassB3Member", "2026-09-30"), ctx("b3old", "v:CommonClassB3Member", "2025-09-30"), ctx("c", "us-gaap:CommonClassCMember", "2026-09-30"),
+    rate("a", "&#8212;"), rate("b3", "1.4773"), rate("b3old", "1.5000"), rate("c", "4.0000"),
+    ctx("ca", "us-gaap:CommonClassAMember", "2026-10-29"), ctx("cb3", "v:CommonClassB3Member", "2026-10-29"), ctx("cc", "us-gaap:CommonClassCMember", "2026-10-29"),
+    shares("ca", "1,724,473,215"), shares("cb3", "60,589,871"), shares("cc", "9,080,220"),
+  ].join("");
+
+  it("reads the newest numeric rate per class and skips the dash of the main class", async () => {
+    const { classConversionRates } = await import("@/lib/fundamentals/ixbrl");
+    expect(classConversionRates(html, "v:CommonStockConversionRate")).toEqual({ CommonClassB3Member: 1.4773, CommonClassCMember: 4 });
+  });
+
+  it("weights the cover counts by those rates, with the main class as one", async () => {
+    const { classConversionRates, coverShareCount } = await import("@/lib/fundamentals/ixbrl");
+    const weights = { CommonClassAMember: 1, ...classConversionRates(html, "v:CommonStockConversionRate") };
+    const count = coverShareCount(html, weights)!;
+    expect(count.weighted).toBe(true);
+    expect(count.value).toBeCloseTo(1_724_473_215 + 60_589_871 * 1.4773 + 9_080_220 * 4, 0);
+  });
+});

@@ -1,5 +1,5 @@
 import { buildCompanyFilings } from "./periods";
-import { coverShareCount, extensionDepreciation } from "./ixbrl";
+import { classConversionRates, coverShareCount, extensionDepreciation } from "./ixbrl";
 import { normalizeTicker, type SecClient } from "./sec-client";
 import type { CompanyFilings, FilingsSourceId } from "./types";
 
@@ -45,6 +45,15 @@ export const SUCCESSOR_REGISTRANTS: Record<number, number> = {
  */
 const CLASS_WEIGHTS: Record<number, Record<string, number>> = {
   1067983: { CommonClassAMember: 1500, CommonClassBMember: 1 },
+};
+
+/**
+ * Companies whose conversion rates change over time and are tagged in the filing itself: the fact that holds the
+ * rate for each class, and the class that is the unit (rate 1, shown as a dash). Visa's class B and C shares
+ * convert into class A at rates that fall as litigation losses are recovered, so the rates are read, not fixed.
+ */
+const CLASS_RATE_FACTS: Record<number, { fact: string; unit: string }> = {
+  1403161: { fact: "v:CommonStockConversionRate", unit: "CommonClassAMember" },
 };
 
 /**
@@ -134,7 +143,11 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
     if (!filing) return c;
     try {
       const html = await client.filingHtml(filing.url);
-      const count = html ? coverShareCount(html, CLASS_WEIGHTS[c.cik]) : null;
+      const rateFact = CLASS_RATE_FACTS[c.cik];
+      const weights = html && rateFact
+        ? { [rateFact.unit]: 1, ...classConversionRates(html, rateFact.fact) }
+        : CLASS_WEIGHTS[c.cik];
+      const count = html ? coverShareCount(html, weights) : null;
       const newest = [c.annual[c.annual.length - 1]?.end, c.trailing?.end].filter((d): d is string => Boolean(d)).sort().pop();
       // Same freshness rule as company-facts counts: not older than a year before the newest period.
       if (!count || (newest && Date.parse(count.asOf) < Date.parse(newest) - 400 * 86_400_000)) return c;
@@ -144,7 +157,7 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
       // shows as an approximate per-share warning.
       const diluted = c.annual[c.annual.length - 1]?.items.dilutedShares?.value;
       if (count.classes > 1 && !count.weighted && diluted && disagrees(count.value, diluted)) return c;
-      return { ...c, sharesOutstanding: { value: count.value, asOf: count.asOf, classes: count.classes, accn: filing.accn } };
+      return { ...c, sharesOutstanding: { value: Math.round(count.value), asOf: count.asOf, classes: count.classes, accn: filing.accn } };
     } catch {
       return c;
     }

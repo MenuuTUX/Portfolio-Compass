@@ -78,3 +78,26 @@ export function coverShareCount(html: string, weights: Record<string, number> = 
     weighted,
   };
 }
+
+/**
+ * Conversion rates into the main class, as a filer tags them per share class (Visa: v:CommonStockConversionRate).
+ * Returns the class member name without its prefix mapped to the rate on the newest date that has one. A class with
+ * no numeric rate (the main class itself, shown as a dash) is left out.
+ */
+export function classConversionRates(html: string, factName: string): Record<string, number> {
+  const contexts = new Map<string, { at: string; member: string }>();
+  for (const m of html.matchAll(/<(?:xbrli:)?context\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:xbrli:)?context>/g)) {
+    const at = m[2].match(/<(?:xbrli:)?instant>\s*([^<\s]+)/)?.[1];
+    const member = m[2].match(/<xbrldi:explicitMember[^>]*>\s*([^<\s]+)/)?.[1];
+    if (at && member) contexts.set(m[1], { at, member: member.split(":").pop()! });
+  }
+  const best: Record<string, { at: string; rate: number }> = {};
+  for (const m of html.matchAll(/<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/g)) {
+    if (m[1].match(/\bname="([^"]+)"/)?.[1] !== factName) continue;
+    const ctx = contexts.get(m[1].match(/\bcontextRef="([^"]+)"/)?.[1] ?? "");
+    const rate = Number(m[2].replace(/<[^>]+>/g, "").replace(/[,\s]/g, ""));
+    if (!ctx || !Number.isFinite(rate) || rate <= 0) continue;
+    if (!best[ctx.member] || ctx.at > best[ctx.member].at) best[ctx.member] = { at: ctx.at, rate };
+  }
+  return Object.fromEntries(Object.entries(best).map(([k, v]) => [k, v.rate]));
+}
