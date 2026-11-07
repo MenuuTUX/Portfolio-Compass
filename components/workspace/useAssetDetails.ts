@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ETF } from "@/types";
 import { getJson, syncEtf } from "@/lib/api-client";
+import type { FastEtfDetails } from "@/lib/fast-market";
 import { startVisibleInterval } from "@/lib/polling";
 
 // Tickers that already ran a background deep-sync this session; avoids
@@ -77,7 +78,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
     const stopQuoteTimer = startVisibleInterval(() => void pullQuote());
 
     // Fund technicals: Yahoo + gap-fill (fee, holdings, credit quality)
-    getJson<any>(`/api/market/etf-details?ticker=${encodeURIComponent(etf.ticker)}`, null)
+    getJson<FastEtfDetails | null>(`/api/market/etf-details?ticker=${encodeURIComponent(etf.ticker)}`, null)
       .then((fund) => {
         if (cancelled || !fund) return;
         setFreshEtf((prev) => {
@@ -107,7 +108,7 @@ export function useAssetDetails(etf: ETF | null): ETF | null {
             patch.sectors = fund.sectors;
           }
           if (fund.holdings?.length) {
-            patch.holdings = fund.holdings.map((h: any) => ({
+            patch.holdings = fund.holdings.map((h) => ({
               ticker: h.ticker,
               name: h.name,
               weight: h.weight,

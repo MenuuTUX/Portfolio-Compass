@@ -1003,7 +1003,8 @@ export async function searchFastSymbols(
 
 const ETF_DETAILS_TTL_MS = 10 * 60_000;
 
-interface FastEtfDetails {
+/** Response body of GET /api/market/etf-details. */
+export interface FastEtfDetails {
   ticker: string;
   description?: string;
   expenseRatio?: number; // percent, e.g. 0.09 for 0.09%

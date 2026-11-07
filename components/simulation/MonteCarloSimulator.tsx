@@ -141,6 +141,11 @@ interface SimulationModelStats {
 const pct = (v: number) => (v > 0 && v < 0.005 ? "<1%" : `${Math.round(v * 100)}%`);
 
 /** "AAPL", "AAPL and MSFT", "AAPL, MSFT and VTI". */
+/** The message of a thrown value; "unknown error" when it has none. */
+function errorMessage(e: unknown): string {
+  return (e as { message?: string } | null | undefined)?.message ?? "unknown error";
+}
+
 function joinNames(names: string[]): string {
   if (names.length <= 1) return names.join("");
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
@@ -228,9 +233,9 @@ export default function MonteCarloSimulator({
           const points = series?.[item.ticker.toUpperCase()];
           return points?.length ? { ...item, history: points } : item;
         });
-      } catch (e: any) {
+      } catch (e) {
         if (!refetchIsUpgradeOnly) {
-          setError(`Error loading data: ${e.message}`);
+          setError(`Error loading data: ${errorMessage(e)}`);
           setIsLoadingHistory(false);
           return null;
         }
@@ -261,8 +266,8 @@ export default function MonteCarloSimulator({
         });
         if (converted.some((item) => !item)) throw new Error("Historical FX does not cover every held price observation.");
         historyPortfolio = converted as Portfolio;
-      } catch (e: any) {
-        setError(e.message);
+      } catch (e) {
+        setError(errorMessage(e));
         setIsLoadingHistory(false);
         return null;
       }
@@ -286,8 +291,8 @@ export default function MonteCarloSimulator({
         let outcome: ModeOutcome;
         try {
           outcome = await runMode(m, inputs);
-        } catch (e: any) {
-          outcome = { mode: m, unavailable: `${MODE_INFO[m].name} could not run: ${e?.message ?? "unknown error"}.` };
+        } catch (e) {
+          outcome = { mode: m, unavailable: `${MODE_INFO[m].name} could not run: ${errorMessage(e)}.` };
         }
         const clear = fresh && index === 0;
         setResults((prev) => ({ ...(clear ? {} : prev), [m]: outcome }));

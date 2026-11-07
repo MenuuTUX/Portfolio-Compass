@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { searchMarket } from "@/lib/api-client";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
-import { normalizeTicker } from "@/lib/tickers";
+import { matchTicker, normalizeTicker } from "@/lib/tickers";
 import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import { toPortfolioEtf } from "./normalize";
 import { z } from "zod";
@@ -60,9 +60,7 @@ async function fetchStocksByTickers(tickers: string[]): Promise<ETF[]> {
           if (!res.ok) return;
           const data = await res.json();
           if (!Array.isArray(data)) return;
-          const match = data.find(
-            (r: any) => normalizeTicker(r.ticker) === ticker,
-          );
+          const match = matchTicker(data, ticker);
           if (match) found.set(ticker, toPortfolioEtf(match, ticker));
         } catch (e) {
           console.warn(`Market fallback failed for ${ticker}`, e);

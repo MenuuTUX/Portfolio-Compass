@@ -4,6 +4,7 @@ import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, PORTFOLIO_STORAGE_KEY, type LocalPortfolioItem } from "@/lib/storage";
 import { normalizeTicker } from "@/lib/tickers";
 import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
+import type { FastEtfDetails } from "@/lib/fast-market";
 import { getJson, searchMarket } from "@/lib/api-client";
 import { QUOTE_REFRESH_MS } from "@/lib/polling";
 import { toPortfolioEtf } from "./normalize";
@@ -259,12 +260,12 @@ export const usePortfolio = (refreshEnabled = false) => {
     if (!profileKey) return;
     let cancelled = false;
     Promise.all(profileKey.split(",").map((ticker) =>
-      getJson<any>(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`, null)
+      getJson<FastEtfDetails | null>(`/api/market/etf-details?ticker=${encodeURIComponent(ticker)}`, null)
         .catch(() => null),
     )).then((funds) => {
       if (cancelled) return;
       const fundByTicker = new Map(
-        funds.filter(Boolean).map((fund) => [normalizeTicker(fund.ticker), fund]),
+        funds.filter((fund): fund is FastEtfDetails => !!fund).map((fund) => [normalizeTicker(fund.ticker), fund]),
       );
       if (fundByTicker.size === 0) return;
       queryClient.setQueryData<Portfolio>(PORTFOLIO_QUERY_KEY, (current) =>

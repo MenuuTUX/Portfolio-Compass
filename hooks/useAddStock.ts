@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { searchMarket } from "@/lib/api-client";
 import { Portfolio, ETF } from "@/types";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
-import { normalizeTicker } from "@/lib/tickers";
+import { matchTicker, normalizeTicker } from "@/lib/tickers";
 import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import { toPortfolioEtf } from "./normalize";
 
@@ -37,9 +37,7 @@ async function resolveStock(
   if (exactRes.ok) {
     const results = await exactRes.json();
     if (Array.isArray(results)) {
-      const match = results.find(
-        (r: any) => normalizeTicker(r.ticker) === target,
-      );
+      const match = matchTicker(results, target);
       if (match) return toPortfolioEtf(match, target);
     }
   }
@@ -49,9 +47,7 @@ async function resolveStock(
   if (marketRes.ok) {
     const marketResults = await marketRes.json();
     if (Array.isArray(marketResults)) {
-      const match = marketResults.find(
-        (r: any) => normalizeTicker(r.ticker) === target,
-      );
+      const match = matchTicker(marketResults, target);
       if (match) return toPortfolioEtf(match, target);
     }
   }

@@ -9,6 +9,12 @@ export function normalizeTicker(ticker: string): string {
   return ticker.trim().toUpperCase();
 }
 
+/** The result whose ticker is `ticker`, comparing in the normalized spelling. */
+export function matchTicker<T extends { ticker: string }>(results: readonly T[], ticker: string): T | undefined {
+  const target = normalizeTicker(ticker);
+  return results.find((r) => normalizeTicker(r.ticker) === target);
+}
+
 export function isTicker(value: string): boolean {
   return TICKER_PATTERN.test(value);
 }
