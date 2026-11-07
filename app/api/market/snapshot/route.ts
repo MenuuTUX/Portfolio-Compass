@@ -1,19 +1,18 @@
 import { cacheUnlessEmpty, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getFastQuotes, getFastHistory, getFastDividendHistories, quoteToAsset } from "@/lib/fast-market";
-import { parseTickers } from "@/lib/tickers";
+import { jsonError, parseUpperTickers } from "@/lib/api";
 
 export const maxDuration = 30;
 
 const MAX_TICKERS = 120;
 
-// Batched quotes (+ optional history) for portfolio/trending cards.
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const tickersParam = searchParams.get("tickers") || "";
   const includeHistory = searchParams.get("history") !== "false";
 
-  const tickers = parseTickers(tickersParam.split(","), MAX_TICKERS);
+  const tickers = parseUpperTickers(tickersParam.split(","), MAX_TICKERS);
 
   if (tickers.length === 0) {
     return NextResponse.json({ error: "No tickers provided" }, { status: 400 });
@@ -29,7 +28,7 @@ export async function GET(request: NextRequest) {
     const dividendHistories = await getFastDividendHistories([...quotes.keys()]);
 
     const assets = [];
-    for (const ticker of tickers.map((t) => t.toUpperCase())) {
+    for (const ticker of tickers) {
       const q = quotes.get(ticker);
       if (!q) continue;
 
@@ -40,10 +39,6 @@ export async function GET(request: NextRequest) {
       headers: cacheUnlessEmpty(CACHE.quotes, assets.length),
     });
   } catch (error) {
-    console.error("[API] Snapshot failed:", error);
-    return NextResponse.json(
-      { error: "Failed to load market snapshot" },
-      { status: 502 },
-    );
+    return jsonError(502, "Failed to load market snapshot", "[API] Snapshot failed:", error);
   }
 }

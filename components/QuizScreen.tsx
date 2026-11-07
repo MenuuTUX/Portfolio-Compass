@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import IntroQuiz, { type QuizResult } from "@/components/IntroQuiz";
 import QueryProvider from "@/components/QueryProvider";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import { loadPortfolio, savePortfolio } from "@/lib/storage";
 import { portfolioAfterQuiz, saveRiskProfile } from "@/lib/risk-profile";
 
@@ -26,7 +27,7 @@ function Quiz({ onDone }: Props) {
     const next = portfolioAfterQuiz(loadPortfolio(), result.suggestedPortfolio);
     if (next) {
       savePortfolio(next);
-      await queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      await queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
     }
     onDone("PORTFOLIO");
   };

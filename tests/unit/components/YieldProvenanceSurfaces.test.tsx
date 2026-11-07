@@ -112,7 +112,6 @@ describe("Yahoo yield provenance surfaces", () => {
         title="Trending"
         items={[yahooFund]}
         Icon={() => <span />}
-        theme="amber"
         onAddToPortfolio={async () => {}}
         onSelectItem={() => {}}
       />,
@@ -129,7 +128,6 @@ describe("Yahoo yield provenance surfaces", () => {
         title="Trending"
         items={[unattributedFund]}
         Icon={() => <span />}
-        theme="amber"
         onAddToPortfolio={async () => {}}
         onSelectItem={() => {}}
       />,

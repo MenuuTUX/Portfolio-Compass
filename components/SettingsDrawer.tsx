@@ -1,7 +1,8 @@
 "use client";
 
 import { m as motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { RevealGroup, RevealItem } from "@/components/motion/Reveal";
+import { RevealGroup, RevealItem, EASE } from "@/components/motion/Reveal";
+import { PORTFOLIO_QUERY_KEY } from "@/lib/query-client";
 import {
   X,
   Trash2,
@@ -109,7 +110,7 @@ export default function SettingsDrawer({
         ? importPreview
         : mergePortfolioBackup(loadPortfolioBackup(), importPreview);
       savePortfolio(holdings);
-      await queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      await queryClient.invalidateQueries({ queryKey: PORTFOLIO_QUERY_KEY });
       setImportPreview(null);
       setStatus({
         type: "success",
@@ -152,9 +153,8 @@ export default function SettingsDrawer({
     setStatus(null);
 
     try {
-      // Client-side clear
       savePortfolio([]);
-      await queryClient.setQueryData(["portfolio"], []);
+      await queryClient.setQueryData(PORTFOLIO_QUERY_KEY, []);
 
       setStatus({ type: "success", message: "Portfolio cleared." });
     } catch (error) {
@@ -170,10 +170,8 @@ export default function SettingsDrawer({
     setStatus(null);
 
     try {
-      // Pull tickers from the local portfolio so we refresh what the user sees
-      // without needing CRON_SECRET (that protects the admin bulk deep-sync).
       const portfolio =
-        queryClient.getQueryData<{ ticker?: string }[]>(["portfolio"]) ?? [];
+        queryClient.getQueryData<{ ticker?: string }[]>(PORTFOLIO_QUERY_KEY) ?? [];
       const tickers = Array.from(
         new Set(
           portfolio
@@ -239,7 +237,7 @@ export default function SettingsDrawer({
             initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
-            transition={{ duration: reduceMotion ? 0 : 0.32, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: reduceMotion ? 0 : 0.32, ease: EASE }}
             className="app-panel-safe fixed right-0 top-0 h-[100dvh] w-full overflow-y-auto sm:w-[420px] bg-surface-card ring-1 ring-hairline z-[70] px-6 sm:rounded-l-2xl shadow-[-24px_0_64px_rgba(0,0,0,0.45)]"
           >
             <div className="flex items-center justify-between mb-6">
@@ -437,7 +435,7 @@ export default function SettingsDrawer({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: reduceMotion ? 0 : 0.24, ease: EASE }}
                     role={status.type === "error" ? "alert" : "status"}
                     aria-live={status.type === "error" ? "assertive" : "polite"}
                     className="rounded-2xl ring-1 ring-hairline p-4 flex items-start gap-3"

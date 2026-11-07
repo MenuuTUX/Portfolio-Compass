@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAcceptedThrough, lastCompletedSession } from "@/lib/lab/bar-types";
 import { getTickerHistory } from "@/lib/lab/bars";
-import { parseTickers } from "@/lib/tickers";
+import { parseUpperTickers } from "@/lib/api";
+import { NO_STORE } from "@/lib/http-cache";
 
 export const maxDuration = 30;
 
@@ -19,14 +20,12 @@ function cached(browserSeconds: number, cdnSeconds: number): HeadersInit {
   };
 }
 
-const NO_STORE = { "Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store" };
-
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const [ticker] = parseTickers([params.get("ticker") ?? ""], 1);
+  const [symbol] = parseUpperTickers([params.get("ticker") ?? ""], 1);
   const through = params.get("through") ?? "";
 
-  if (!ticker) {
+  if (!symbol) {
     return NextResponse.json({ error: "A valid ticker is required" }, { status: 400, headers: cached(DAY, DAY) });
   }
   if (!isAcceptedThrough(through)) {
@@ -39,7 +38,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const symbol = ticker.toUpperCase();
   try {
     const series = await getTickerHistory(symbol, through);
     if (!series) {

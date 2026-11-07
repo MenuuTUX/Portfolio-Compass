@@ -79,7 +79,6 @@ export function PortfolioShareButton({
             : "Export snapshot"}
       </button>
 
-      {/* Hidden Render Container */}
       <div className="fixed left-[-9999px] top-[-9999px]">
         <div id="portfolio-share-card">
           <PortfolioShareCard

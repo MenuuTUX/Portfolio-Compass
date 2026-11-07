@@ -19,6 +19,7 @@ import { AlertTriangle } from "lucide-react";
 import { Portfolio } from "@/types";
 import { TickIcon } from "./TickIcon";
 import { HAIRLINE, LOSS, MUTED } from "@/lib/chart-colors";
+import { CONCENTRATION_BANDS, lookThroughExposure } from "@/lib/math/portfolio-rollups";
 
 interface PortfolioBarChartProps {
   portfolio: Portfolio;
@@ -26,17 +27,17 @@ interface PortfolioBarChartProps {
 
 // Chart series colors
 const PALETTE = {
-  emerald: { main: "#34d399", dark: "#059669" }, // Lighter Emerald
-  blue: { main: "#60a5fa", dark: "#2563eb" }, // Lighter Blue
-  violet: { main: "#a78bfa", dark: "#7c3aed" }, // Lighter Violet
-  cyan: { main: "#22d3ee", dark: "#0891b2" }, // Lighter Cyan
-  rose: { main: "#fb7185", dark: "#e11d48" }, // Lighter Rose
-  amber: { main: "#fcd34d", dark: "#d97706" }, // Lighter Amber
-  fuchsia: { main: "#e879f9", dark: "#c026d3" }, // Lighter Fuchsia
-  sky: { main: "#38bdf8", dark: "#0284c7" }, // Lighter Sky
-  indigo: { main: "#818cf8", dark: "#4f46e5" }, // Lighter Indigo
-  lime: { main: "#a3e635", dark: "#65a30d" }, // Lighter Lime
-  teal: { main: "#2dd4bf", dark: "#0d9488" }, // Lighter Teal
+  emerald: { main: "#34d399", dark: "#059669" },
+  blue: { main: "#60a5fa", dark: "#2563eb" },
+  violet: { main: "#a78bfa", dark: "#7c3aed" },
+  cyan: { main: "#22d3ee", dark: "#0891b2" },
+  rose: { main: "#fb7185", dark: "#e11d48" },
+  amber: { main: "#fcd34d", dark: "#d97706" },
+  fuchsia: { main: "#e879f9", dark: "#c026d3" },
+  sky: { main: "#38bdf8", dark: "#0284c7" },
+  indigo: { main: "#818cf8", dark: "#4f46e5" },
+  lime: { main: "#a3e635", dark: "#65a30d" },
+  teal: { main: "#2dd4bf", dark: "#0d9488" },
 };
 
 const SOURCE_COLORS = [
@@ -58,13 +59,12 @@ const CONCENTRATION_COLORS = {
 };
 
 const getConcentrationColor = (totalWeight: number) => {
-  if (totalWeight > 20) return CONCENTRATION_COLORS.ABOVE_20;
-  if (totalWeight > 10) return CONCENTRATION_COLORS.TEN_TO_20;
-  if (totalWeight > 5) return CONCENTRATION_COLORS.FIVE_TO_10;
+  if (totalWeight > CONCENTRATION_BANDS.severe) return CONCENTRATION_COLORS.ABOVE_20;
+  if (totalWeight > CONCENTRATION_BANDS.elevated) return CONCENTRATION_COLORS.TEN_TO_20;
+  if (totalWeight > CONCENTRATION_BANDS.watch) return CONCENTRATION_COLORS.FIVE_TO_10;
   return CONCENTRATION_COLORS.UNDER_5;
 };
 
-// Custom Y-Axis Tick Component
 const CustomYAxisTick = (props: any) => {
   const { x, y, payload, riskMap } = props;
   const { value: ticker } = payload;
@@ -72,8 +72,8 @@ const CustomYAxisTick = (props: any) => {
   const assetType = props.assetTypeMap?.[ticker] || "STOCK";
 
   const totalWeight = riskMap?.[ticker] || 0;
-  const isAboveTenPercent = totalWeight > 10;
-  const isAboveTwentyPercent = totalWeight > 20;
+  const isAboveTenPercent = totalWeight > CONCENTRATION_BANDS.elevated;
+  const isAboveTwentyPercent = totalWeight > CONCENTRATION_BANDS.severe;
 
   return (
     <g transform={`translate(${x},${y})`}>
@@ -118,155 +118,18 @@ const CustomYAxisTick = (props: any) => {
 export default function PortfolioBarChart({
   portfolio,
 }: PortfolioBarChartProps) {
-  const { chartData, sources, riskMap, maxWeight, assetTypeMap } =
-    useMemo(() => {
-      const aggregatedData: {
-        [holdingTicker: string]: {
-          totalWeight: number;
-          name: string;
-          isCash: boolean;
-          assetType: string;
-          sources: { [source: string]: number };
-        };
-      } = {};
-
-      const uniqueSources = new Set<string>();
-
-      portfolio.forEach((item) => {
-        const itemWeight = item.weight;
-        const sourceName = item.ticker;
-        // A 0% holding adds nothing but an empty legend entry.
-        if (!(itemWeight > 0)) return;
-
-        if (item.holdings && item.holdings.length > 0) {
-          uniqueSources.add(sourceName);
-          let holdingsSumPercent = 0;
-
-          item.holdings.forEach((h) => {
-            const effectiveWeight = (itemWeight * h.weight) / 100;
-            if (!aggregatedData[h.ticker]) {
-              aggregatedData[h.ticker] = {
-                totalWeight: 0,
-                name: h.name,
-                isCash: false,
-                assetType: "STOCK", // Default to STOCK for look-through holdings
-                sources: {},
-              };
-            }
-            aggregatedData[h.ticker].totalWeight += effectiveWeight;
-            aggregatedData[h.ticker].sources[sourceName] =
-              (aggregatedData[h.ticker].sources[sourceName] || 0) +
-              effectiveWeight;
-            holdingsSumPercent += h.weight;
-          });
-
-          const residue = Math.max(0, 100 - holdingsSumPercent);
-          if (residue > 1) {
-            const effectiveResidue = (itemWeight * residue) / 100;
-            const otherKey = "Other";
-            if (!aggregatedData[otherKey]) {
-              aggregatedData[otherKey] = {
-                totalWeight: 0,
-                name: "Other Assets",
-                isCash: false,
-                assetType: "STOCK",
-                sources: {},
-              };
-            }
-            aggregatedData[otherKey].totalWeight += effectiveResidue;
-            aggregatedData[otherKey].sources[sourceName] =
-              (aggregatedData[otherKey].sources[sourceName] || 0) +
-              effectiveResidue;
-          }
-        } else {
-          const holdingKey = item.ticker;
-          const sourceKey = "Direct";
-          uniqueSources.add(sourceKey);
-
-          if (!aggregatedData[holdingKey]) {
-            aggregatedData[holdingKey] = {
-              totalWeight: 0,
-              name: item.name,
-              isCash: false,
-              assetType: item.assetType || "STOCK", // Use actual asset type for direct holdings
-              sources: {},
-            };
-          }
-          aggregatedData[holdingKey].totalWeight += itemWeight;
-          aggregatedData[holdingKey].sources[sourceKey] =
-            (aggregatedData[holdingKey].sources[sourceKey] || 0) + itemWeight;
-        }
-      });
-
-      const totalPortfolioAllocated = portfolio.reduce(
-        (sum, item) => sum + item.weight,
-        0,
-      );
-      const cashBuffer = Math.max(0, 100 - totalPortfolioAllocated);
-
-      if (cashBuffer > 0.01) {
-        uniqueSources.add("Direct");
-        if (!aggregatedData["Cash"]) {
-          aggregatedData["Cash"] = {
-            totalWeight: 0,
-            name: "Cash Buffer",
-            isCash: true,
-            assetType: "Cash",
-            sources: {},
-          };
-        }
-        aggregatedData["Cash"].totalWeight += cashBuffer;
-        aggregatedData["Cash"].sources["Direct"] =
-          (aggregatedData["Cash"].sources["Direct"] || 0) + cashBuffer;
-      }
-
-      let data = Object.entries(aggregatedData).map(([ticker, d]) => {
-        const flat: any = {
-          name: ticker,
-          fullName: d.name,
-          totalWeight: d.totalWeight,
-          isCash: d.isCash,
-          assetType: d.assetType,
-        };
-        Object.entries(d.sources).forEach(([src, w]) => {
-          flat[src] = w;
-        });
-        return flat;
-      });
-
-      data.sort((a, b) => b.totalWeight - a.totalWeight);
-
-      const MAX_ITEMS = 25;
-      if (data.length > MAX_ITEMS) {
-        data = data.slice(0, MAX_ITEMS);
-      }
-
-      const sourceList = Array.from(uniqueSources).sort((a, b) => {
-        if (a === "Direct") return -1;
-        if (b === "Direct") return 1;
-        return a.localeCompare(b);
-      });
-
-      const rMap: Record<string, number> = {};
-      const aMap: Record<string, string> = {}; // Asset Type Map
-      let maxW = 0;
-      data.forEach((d) => {
-        rMap[d.name] = d.totalWeight;
-        aMap[d.name] = d.assetType;
-        if (d.totalWeight > maxW) maxW = d.totalWeight;
-      });
-
-      // Ensure X-Axis covers at least the zones (up to 25% to give buffer for 20% zone)
-      if (maxW < 25) maxW = 25;
-
-      return {
-        chartData: data,
-        sources: sourceList,
-        riskMap: rMap,
-        maxWeight: maxW,
-        assetTypeMap: aMap,
-      };
-    }, [portfolio]);
+  const { chartData, sources, riskMap, maxWeight, assetTypeMap } = useMemo(() => {
+    const { rows, sources } = lookThroughExposure(portfolio);
+    const riskMap: Record<string, number> = {};
+    const assetTypeMap: Record<string, string> = {};
+    for (const row of rows) {
+      riskMap[row.name] = row.totalWeight;
+      assetTypeMap[row.name] = row.assetType;
+    }
+    // The axis always covers the concentration bands, with headroom past the top one.
+    const maxWeight = Math.max(25, ...rows.map((row) => row.totalWeight));
+    return { chartData: rows, sources, riskMap, maxWeight, assetTypeMap };
+  }, [portfolio]);
 
   if (portfolio.length === 0) {
     return (
@@ -299,7 +162,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.UNDER_5}80`,
                 }}
               />
-              <span className="text-muted">Up to 5%</span>
+              <span className="text-muted">Up to {CONCENTRATION_BANDS.watch}%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -309,7 +172,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.FIVE_TO_10}80`,
                 }}
               />
-              <span className="text-muted">5% to 10%</span>
+              <span className="text-muted">{CONCENTRATION_BANDS.watch}% to {CONCENTRATION_BANDS.elevated}%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -319,7 +182,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.TEN_TO_20}80`,
                 }}
               />
-              <span className="text-muted">10% to 20%</span>
+              <span className="text-muted">{CONCENTRATION_BANDS.elevated}% to {CONCENTRATION_BANDS.severe}%</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span
@@ -329,7 +192,7 @@ export default function PortfolioBarChart({
                   boxShadow: `0 0 8px ${CONCENTRATION_COLORS.ABOVE_20}80`,
                 }}
               />
-              <span className="text-muted">Above 20%</span>
+              <span className="text-muted">Above {CONCENTRATION_BANDS.severe}%</span>
             </div>
           </div>
         </div>
@@ -349,7 +212,6 @@ export default function PortfolioBarChart({
               barSize={20}
             >
               <defs>
-                {/* Lighter Risk Gradients for Bars */}
                 <linearGradient id="gradDirectUnder5" x1="0" y1="0" x2="1" y2="0">
                   <stop
                     offset="0%"
@@ -399,7 +261,6 @@ export default function PortfolioBarChart({
                   />
                 </linearGradient>
 
-                {/* Source Gradients (Lighter) */}
                 {SOURCE_COLORS.map((color, idx) => (
                   <linearGradient
                     key={`gradSource${idx}`}
@@ -479,12 +340,12 @@ export default function PortfolioBarChart({
                           </span>
                         </div>
 
-                        {d.totalWeight > 10 && (
+                        {d.totalWeight > CONCENTRATION_BANDS.elevated && (
                           <div className="flex items-start gap-2 mb-4 bg-surface-soft border border-hairline p-2.5 rounded-lg text-rose-200">
                             <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
                             <span className="leading-snug">
                               This holding represents more than{" "}
-                              {d.totalWeight > 20 ? "20%" : "10%"} of the
+                              {d.totalWeight > CONCENTRATION_BANDS.severe ? CONCENTRATION_BANDS.severe : CONCENTRATION_BANDS.elevated}% of the
                               target allocation.
                             </span>
                           </div>
@@ -495,11 +356,8 @@ export default function PortfolioBarChart({
                             Source Breakdown
                           </span>
                           {[...payload]
-                            .sort(
-                              (a: any, b: any) =>
-                                (b.value || 0) - (a.value || 0),
-                            )
-                            .map((entry: any, idx: number) => (
+                            .sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0))
+                            .map((entry, idx) => (
                               <div
                                 key={idx}
                                 className="flex justify-between gap-4 items-center"
@@ -538,53 +396,47 @@ export default function PortfolioBarChart({
                 iconSize={8}
               />
 
-              {/* Concentration Areas (Background Zones) */}
-              {/* Concentration band: 0% to 5% */}
               <ReferenceArea
                 x1={0}
-                x2={5}
+                x2={CONCENTRATION_BANDS.watch}
                 fill={CONCENTRATION_COLORS.UNDER_5}
                 fillOpacity={0.03}
               />
 
-              {/* Concentration band: 5% to 10% */}
               <ReferenceArea
-                x1={5}
-                x2={10}
+                x1={CONCENTRATION_BANDS.watch}
+                x2={CONCENTRATION_BANDS.elevated}
                 fill={CONCENTRATION_COLORS.FIVE_TO_10}
                 fillOpacity={0.03}
               />
 
-              {/* Concentration band: 10% to 20% */}
               <ReferenceArea
-                x1={10}
-                x2={20}
+                x1={CONCENTRATION_BANDS.elevated}
+                x2={CONCENTRATION_BANDS.severe}
                 fill={CONCENTRATION_COLORS.TEN_TO_20}
                 fillOpacity={0.03}
               />
 
-              {/* Concentration band: above 20% */}
               <ReferenceArea
-                x1={20}
+                x1={CONCENTRATION_BANDS.severe}
                 fill={CONCENTRATION_COLORS.ABOVE_20}
                 fillOpacity={0.03}
               />
 
-              {/* Divider Lines (Optional, subtle) */}
               <ReferenceLine
-                x={5}
+                x={CONCENTRATION_BANDS.watch}
                 stroke={CONCENTRATION_COLORS.FIVE_TO_10}
                 strokeDasharray="2 4"
                 strokeOpacity={0.3}
               />
               <ReferenceLine
-                x={10}
+                x={CONCENTRATION_BANDS.elevated}
                 stroke={CONCENTRATION_COLORS.TEN_TO_20}
                 strokeDasharray="2 4"
                 strokeOpacity={0.4}
               />
               <ReferenceLine
-                x={20}
+                x={CONCENTRATION_BANDS.severe}
                 stroke={CONCENTRATION_COLORS.ABOVE_20}
                 strokeDasharray="2 4"
                 strokeOpacity={0.5}
@@ -592,7 +444,6 @@ export default function PortfolioBarChart({
 
               {sources.map((source, index) => {
                 const isLast = index === sources.length - 1;
-                // Rounder bars: [0, 6, 6, 0]
                 const radius: [number, number, number, number] = isLast
                   ? [0, 6, 6, 0]
                   : [0, 0, 0, 0];
@@ -607,11 +458,11 @@ export default function PortfolioBarChart({
                     >
                       {chartData.map((entry, i) => {
                         let fillId = "url(#gradDirectUnder5)";
-                        if (entry.totalWeight > 20)
+                        if (entry.totalWeight > CONCENTRATION_BANDS.severe)
                           fillId = "url(#gradDirectCrit)";
-                        else if (entry.totalWeight > 10)
+                        else if (entry.totalWeight > CONCENTRATION_BANDS.elevated)
                           fillId = "url(#gradDirectHigh)";
-                        else if (entry.totalWeight > 5)
+                        else if (entry.totalWeight > CONCENTRATION_BANDS.watch)
                           fillId = "url(#gradDirectWarn)";
 
                         return (

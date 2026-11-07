@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { m as motion } from "framer-motion";
+import { EASE } from "./motion/Reveal";
 import { Check } from "lucide-react";
 import { PortfolioItem } from "@/types";
 import {
@@ -303,7 +304,7 @@ export default function OptimizationPanel({
                         className="h-full bg-compass"
                         initial={false}
                         animate={{ width: `${Math.min(100, Math.max(0, row.weight))}%` }}
-                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: 0.4, ease: EASE }}
                       />
                     </div>
                     <p className="mt-1 text-xs text-muted tabular-nums">
