@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { createSecClient } from "@/lib/fundamentals/sec-client";
-import { edgarLiveSource, snapshotSource, withFallback, type FilingsSource } from "@/lib/fundamentals/source";
+import { edgarLiveSource, withFallback, type FilingsSource } from "@/lib/fundamentals/source";
 import { buildCompanyFilings } from "@/lib/fundamentals/periods";
 import { fixtureCompany, loadFixture } from "./helpers";
 
@@ -67,22 +67,6 @@ describe("edgarLiveSource", () => {
     const live = edgarLiveSource(createSecClient({ userAgent: UA, fetch: fetchFn, sleep: async () => {} }));
     expect((await live.getCompany("AAPL"))!.ticker).toBe("AAPL");
     expect((await live.getCompany("AAPL2"))!.ticker).toBe("AAPL2");
-  });
-});
-
-describe("snapshotSource", () => {
-  it("returns the same company as live, labeled as snapshot", async () => {
-    const company = fixtureCompany("AAPL");
-    const files: Record<string, unknown> = {
-      "https://cdn.example/data/sec/tickers.json": { AAPL: 320193 },
-      "https://cdn.example/data/sec/c/320193.json": company,
-    };
-    const fetchFn = (async (url: string) =>
-      url in files ? new Response(JSON.stringify(files[url])) : new Response("no", { status: 404 })) as unknown as typeof fetch;
-    const snap = snapshotSource("https://cdn.example/data/", fetchFn);
-    const c = (await snap.getCompany("aapl"))!;
-    expect(c).toEqual({ ...company, source: "snapshot" });
-    expect(await snap.getCompany("MSFT")).toBeNull();
   });
 });
 

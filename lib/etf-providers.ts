@@ -165,23 +165,6 @@ function findProvider(etfName: string) {
   );
 }
 
-export function getProviderLogo(etfName: string): string | null {
-  const match = findProvider(etfName);
-
-  if (match) {
-    const missing = [
-      "agfiq",
-      "advisorshares",
-      "alpha-architect",
-      "american-century-investments",
-      "cibc-asset-management",
-    ];
-    if (missing.includes(match.slug)) return null;
-    return `/logos/${match.slug}.png`;
-  }
-  return null;
-}
-
 // Same-origin logo endpoint: tries several sources and always answers with an
 // image (a letter monogram when no real logo exists).
 const logoUrl = (ticker: string) => `/api/logo/${encodeURIComponent(ticker)}`;

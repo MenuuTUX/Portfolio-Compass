@@ -39,10 +39,6 @@ function getKnownAssetYieldFraction(item: PortfolioItem): number | null {
   return null;
 }
 
-export function getReportedAssetYieldFraction(item: PortfolioItem): number | null {
-  return getKnownAssetYieldFraction(item);
-}
-
 /** Market value of one holding. */
 export function getHoldingValue(item: PortfolioItem): number {
   const price = Number(item.price) || 0;

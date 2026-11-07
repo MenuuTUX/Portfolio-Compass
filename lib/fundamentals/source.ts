@@ -222,37 +222,6 @@ export function edgarLiveSource(client: SecClient, opts: { now?: () => number } 
   };
 }
 
-/**
- * Snapshot: static files built nightly from the SEC's bulk downloads, served
- * from any static host (`baseUrl`). Layout: sec/tickers.json maps a ticker to
- * its CIK; sec/c/{CIK}.json holds one CompanyFilings.
- */
-export function snapshotSource(baseUrl: string, doFetch: typeof fetch = fetch): FilingsSource {
-  const root = baseUrl.replace(/\/+$/, "");
-  let tickers: Promise<Record<string, number>> | null = null;
-  const loadTickers = () => {
-    tickers ??= doFetch(`${root}/sec/tickers.json`).then((r) => {
-      if (!r.ok) throw new Error(`Snapshot ticker list unavailable (${r.status}).`);
-      return r.json() as Promise<Record<string, number>>;
-    }).catch((e) => {
-      tickers = null;
-      throw e;
-    });
-    return tickers;
-  };
-  return {
-    id: "snapshot",
-    async getCompany(ticker) {
-      const cik = (await loadTickers())[normalizeTicker(ticker)];
-      if (!cik) return null;
-      const res = await doFetch(`${root}/sec/c/${cik}.json`);
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`Snapshot file unavailable (${res.status}).`);
-      return { ...((await res.json()) as CompanyFilings), source: "snapshot" };
-    },
-  };
-}
-
 /** A lookup result with the errors from that lookup only (sources that failed before one answered). */
 export interface FilingsLookup {
   company: CompanyFilings | null;
