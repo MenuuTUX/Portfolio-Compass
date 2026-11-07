@@ -1,6 +1,8 @@
 import { cacheHeaders, CACHE } from "@/lib/http-cache";
 import { NextRequest, NextResponse } from "next/server";
 import type { HistoricalFxRate } from "@/lib/math/fx-history";
+import { jsonError } from "@/lib/api";
+import { timeoutSignal } from "@/lib/upstream";
 
 function isIsoDate(value: string | null): value is string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -39,7 +41,7 @@ async function fetchObservations(seriesId: string, startDate: string, endDate: s
   url.searchParams.set("end_date", endDate);
   const response = await fetch(url, {
     headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(8000),
+    signal: timeoutSignal(),
   });
   if (!response.ok) throw new Error(`Valet returned ${response.status}`);
   const data = await response.json() as { observations?: Record<string, { v?: string } | string | undefined>[] };
@@ -87,10 +89,6 @@ export async function GET(request: NextRequest) {
       { headers: cacheHeaders(CACHE.fxHistory) },
     );
   } catch (error) {
-    console.error("[API] Bank of Canada FX history failed:", error);
-    return NextResponse.json(
-      { error: "Failed to load historical FX data" },
-      { status: 502 },
-    );
+    return jsonError(502, "Failed to load historical FX data", "[API] Bank of Canada FX history failed:", error);
   }
 }

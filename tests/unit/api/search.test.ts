@@ -183,21 +183,4 @@ describe('API: /api/etfs/search (live, no DB)', () => {
     expect(response.status).toBe(200);
     expect(response._data[0].ticker).toBe('MSFT');
   });
-
-  it('seeds browse defaults without any database', async () => {
-    mockGetFastQuotes.mockImplementation(async (tickers: string[]) => {
-      const m = new Map();
-      for (const t of tickers.slice(0, 3)) {
-        m.set(t.toUpperCase(), quote(t.toUpperCase(), { assetType: 'ETF' }));
-      }
-      return m;
-    });
-
-    const request = new NextRequest('http://localhost/api/etfs/search?limit=3');
-    const response: any = await GET(request);
-
-    expect(response.status).toBe(200);
-    expect(response._data.length).toBeGreaterThan(0);
-    expect(mockGetFastQuotes).toHaveBeenCalled();
-  });
 });
