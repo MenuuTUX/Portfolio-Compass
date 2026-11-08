@@ -62,7 +62,8 @@ const VALUATION_UNAVAILABLE: Partial<Record<NonNullable<ReturnType<typeof getPor
   "currency-unavailable": "A held quote is missing a supported currency.",
   "unsupported-shares": "A holding has an invalid share count, so portfolio totals and projections are unavailable.",
 };
-const VALUATION_DEFAULT = "Add holdings with fresh quotes and known currencies to calculate a total.";
+const NEEDS_SHARES = "Enter how many shares you own on at least one holding to see your balance and growth projection. Use Enter shares under the Portfolio heading, or tap the arrow next to a holding.";
+const VALUATION_DEFAULT ="Add holdings with fresh quotes and known currencies to calculate a total.";
 
 /** Eases between values after the first render; the first render shows the value as is. */
 function AnimatedText({ value, format, className }: { value: number; format: (v: number) => string; className?: string }) {
@@ -173,8 +174,13 @@ export default function PortfolioBuilder({
     ? "Allocation scoring is unavailable while a candidate uses a different currency from the held portfolio."
     : mixedFxInternalsMessage;
   const unavailableReason = portfolioValuation.unavailableReason;
+  // With no shares the FX rate is never fetched, so the FX reason would mislead.
+  const needsShares = portfolio.length > 0 && portfolioValuation.heldHoldings === 0 &&
+    unavailableReason !== "unsupported-shares";
   const valuationUnavailableMessage =
-    unavailableReason === "quote-missing"
+    needsShares
+      ? NEEDS_SHARES
+      : unavailableReason === "quote-missing"
       ? `Only ${portfolioValuation.pricedHoldings} of ${portfolioValuation.heldHoldings} held positions have a fresh quote.`
       : unavailableReason === "fx-conversion-unavailable"
         ? fxQuery.isError
@@ -275,6 +281,24 @@ export default function PortfolioBuilder({
     [],
   );
   const handleCollapseRow = useCallback(() => setExpandedTicker(null), []);
+  // Takes a user with no shares straight to the fix: open the top holding and focus Shares.
+  const focusSharesFor = useRef<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const startEnteringShares = useCallback(() => {
+    const ticker = displayPortfolio[0]?.ticker;
+    if (!ticker) return;
+    focusSharesFor.current = ticker;
+    setExpandedTicker(ticker);
+    setFocusRequest((n) => n + 1);
+  }, [displayPortfolio]);
+  useEffect(() => {
+    const ticker = focusSharesFor.current;
+    if (!ticker || expandedTicker !== ticker) return;
+    focusSharesFor.current = null;
+    const input = document.getElementById(`shares-${ticker}`) as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+  }, [expandedTicker, focusRequest]);
 
   if (viewMode === "PROJECTION") {
     if (!projectionAvailable) {
@@ -311,7 +335,7 @@ export default function PortfolioBuilder({
   const panel = "ws-panel bg-surface-card rounded-lg ring-1 ring-hairline";
   const totalValue = portfolio.length > 0 && portfolioCurrency ? portfolioValuation.totalValue! : null;
   // Weights alone leave every share count at 0; a balance of 0.00 would read as a bug.
-  const noShares = totalValue === 0;
+  const noShares = totalValue === 0 || needsShares;
   const totalFallback = portfolio.length === 0 ? "Portfolio" : noShares ? "No shares entered" : "Value unavailable";
   // Value-weighted move from the latest quotes already held; same-currency only.
   const heldMove = (() => {
@@ -514,9 +538,9 @@ export default function PortfolioBuilder({
                   Allocation Mode
                 </button>
                 <button
-                  onClick={() => setViewMode("PROJECTION")}
-                  disabled={!projectionAvailable}
-                  title={!projectionAvailable ? valuationUnavailableMessage : undefined}
+                  onClick={noShares ? startEnteringShares : () => setViewMode("PROJECTION")}
+                  disabled={!projectionAvailable && !noShares}
+                  title={noShares ? "Enter your shares first" : !projectionAvailable ? valuationUnavailableMessage : undefined}
                   className={pill}
                 >
                   See Growth Projection
@@ -557,16 +581,25 @@ export default function PortfolioBuilder({
                   ? `${heldMove.pct >= 0 ? "+" : "-"}${Math.abs(heldMove.pct).toFixed(2)}% latest session`
                   : `${heldMove.delta >= 0 ? "+" : "-"}${formatCurrency(Math.abs(heldMove.delta), portfolioCurrency!)} (${heldMove.pct >= 0 ? "+" : "-"}${Math.abs(heldMove.pct).toFixed(2)}%) latest session`}
               </p>
-            ) : portfolio.length > 0 && totalValue === null ? (
+            ) : portfolio.length > 0 && totalValue === null && !noShares ? (
               // Say why there is no total, instead of showing the setup hint under "Unavailable".
               <p className="mt-1 text-sm text-muted">
                 The total is hidden until every holding has a fresh quote and a known currency. The reason is listed under Target allocation.
               </p>
             ) : (
               <p className="mt-1 text-sm text-muted">
-                {noShares
-                  ? "Enter shares on a holding to see a balance. The chart below uses your target weights only."
-                  : "Set holdings and weights. Aim for a 100% total allocation."}
+                {noShares ? (
+                  <>
+                    Add how many shares you own to see your balance and growth projection. The chart below uses your target weights only.{" "}
+                    <button
+                      type="button"
+                      onClick={startEnteringShares}
+                      className="font-medium text-ink underline underline-offset-2"
+                    >
+                      Enter shares
+                    </button>
+                  </>
+                ) : "Set holdings and weights. Aim for a 100% total allocation."}
               </p>
             )}
           </div>
