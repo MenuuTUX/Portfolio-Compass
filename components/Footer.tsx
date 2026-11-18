@@ -45,6 +45,7 @@ export default function Footer() {
                 <li><Link href="/privacy" className={linkClass}>Privacy</Link></li>
                 <li><Link href="/terms" className={linkClass}>Terms</Link></li>
                 <li><a href="https://github.com/MenuuTUX/Portfolio-Compass" className={linkClass}>Source</a></li>
+                <li><a href="https://github.com/MenuuTUX/Portfolio-Compass/issues" className={linkClass}>Contact</a></li>
               </ul>
             </RevealItem>
           </RevealGroup>
