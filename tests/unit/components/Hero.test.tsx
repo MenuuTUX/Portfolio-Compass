@@ -64,17 +64,19 @@ describe("Hero header on the landing scroller", () => {
 });
 
 describe("Hero art on phones and desktops", () => {
-  it("mounts only the desktop art on wide screens", () => {
+  const brush = () => document.querySelector('[id^="pc-brush-"]');
+
+  it("mounts the painted arch and the comparison on wide screens", () => {
     stubWidth(true);
     render(<Hero />);
-    expect(document.getElementById("growth-wide-title")).not.toBeNull();
-    expect(document.getElementById("growth-sm-title")).toBeNull();
+    expect(brush()).not.toBeNull();
+    expect(document.querySelectorAll('[role="switch"]').length).toBe(1);
   });
 
-  it("mounts only the phone copy on narrow screens", () => {
+  it("drops the painted arch but keeps one comparison on narrow screens", () => {
     stubWidth(false);
     render(<Hero />);
-    expect(document.getElementById("growth-wide-title")).toBeNull();
-    expect(document.getElementById("growth-sm-title")).not.toBeNull();
+    expect(brush()).toBeNull();
+    expect(document.querySelectorAll('[role="switch"]').length).toBe(1);
   });
 });

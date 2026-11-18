@@ -3,10 +3,8 @@
 import { m as motion, useReducedMotion, useTransform } from "framer-motion";
 import Image from "next/image";
 import BrushArt from "./landing/BrushArt";
-import GrowthScreen from "./landing/GrowthScreen";
-import Phone25D from "./landing/Phone25D";
-import PhoneMock, { PhoneEntrance, useLandingScroll } from "./landing/PhoneMock";
-import Reveal from "./motion/Reveal";
+import HeroCompare from "./landing/HeroCompare";
+import { useLandingScroll } from "./landing/scroll";
 import { EASE } from "@/lib/motion";
 import { useEffect, useState } from "react";
 
@@ -14,8 +12,8 @@ const WIDE_QUERY = "(min-width: 900px)";
 type HeroLayout = "unknown" | "wide" | "narrow";
 
 /**
- * Server HTML renders both hero art trees (CSS hides one of them). After hydration
- * we keep only the visible one mounted, so hidden trees don't animate or hold state.
+ * The painted arch only shows on wide screens. Server HTML renders it (CSS hides it on
+ * narrow screens); after hydration it stays mounted only where it is visible.
  */
 function useHeroLayout(): HeroLayout {
   const [layout, setLayout] = useState<HeroLayout>("unknown");
@@ -41,24 +39,14 @@ const scrollToId = (id: string) => {
 
 const NAV_LINKS = [
   { label: "Compare", id: "compare" },
-  { label: "Portfolio", id: "build" },
-  { label: "Backtest", id: "test" },
-  { label: "Learn", id: "learn" },
+  { label: "Portfolio", id: "portfolio" },
+  { label: "Simulate", id: "simulate" },
+  { label: "Your data", id: "your-data" },
 ];
 
-function ArrowIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M4 10h12m0 0-5-5m5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-const HEADLINE = ["Build a portfolio.", "Backtest what it", "assumes."];
+const HEADLINE = ["You opened a TFSA.", "Now compare what", "goes in it."];
 
 export default function Hero({ onStart, onViewMarket }: HeroProps) {
-  const [annualReturn, setAnnualReturn] = useState(7);
-  const [years, setYears] = useState(10);
   const [scrolled, setScrolled] = useState(false);
   const layout = useHeroLayout();
   useEffect(() => {
@@ -76,9 +64,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
   const scrollY = useLandingScroll();
   const reduce = useReducedMotion();
   const artY = useTransform(scrollY, [0, 900], [0, reduce ? 0 : -80]);
-  const phoneY = useTransform(scrollY, [0, 900], [0, reduce ? 0 : -60]);
   const textY = useTransform(scrollY, [0, 900], [0, reduce ? 0 : -30]);
-  const textOpacity = useTransform(scrollY, [0, 900], [1, reduce ? 1 : 0.2]);
 
   return (
     <section className="overflow-x-clip bg-canvas text-ink selection:bg-compass/20" aria-labelledby="landing-title">
@@ -93,7 +79,7 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
       >
         <div className="flex flex-1 items-center gap-2.5">
           <Image src="/logo.png" alt="" width={28} height={28} sizes="28px" className="h-7 w-7 rounded-lg" />
-          <span className="whitespace-nowrap text-base font-semibold tracking-tight max-[359px]:hidden">Portfolio Compass</span>
+          <span className="whitespace-nowrap text-base font-semibold max-[359px]:hidden">Portfolio Compass</span>
         </div>
         <nav aria-label="Landing sections" className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
@@ -119,54 +105,35 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         </div>
       </motion.header>
 
-      <div className="@container relative mx-auto w-full max-w-[88rem] px-6 pt-32 pb-24 sm:pt-40 sm:pb-32 lg:px-10 min-[900px]:min-h-[860px]">
-        {layout !== "narrow" && (
-          <motion.div
-            className="pointer-events-none absolute top-16 z-10 hidden w-[50%] max-w-[52rem] min-[900px]:block"
-            style={{ y: artY, right: "-4%" }}
-          >
-            <BrushArt className="w-full" />
-            <motion.div className="pointer-events-auto absolute left-[12%] top-[6%] w-[74%]" style={{ y: phoneY }}>
-              <PhoneEntrance float={false}>
-                <Phone25D maxWidth="clamp(300px, 24cqw, 420px)">
-                  <PhoneMock interactive tilt={0} maxWidth="clamp(300px, 24cqw, 420px)" screenHeight="clamp(520px, 74vh, 700px)">
-                    <GrowthScreen idPrefix="growth-wide" years={years} annualReturn={annualReturn} onYears={setYears} onReturn={setAnnualReturn} />
-                  </PhoneMock>
-                </Phone25D>
-              </PhoneEntrance>
-            </motion.div>
-          </motion.div>
-        )}
-        <motion.div className="relative min-[900px]:max-w-[50%]" style={{ y: textY, opacity: textOpacity }}>
+      <div className="@container relative mx-auto grid w-full max-w-[88rem] gap-14 px-6 pt-32 pb-24 sm:pt-40 sm:pb-32 lg:px-10 min-[900px]:grid-cols-2 min-[900px]:items-start min-[900px]:gap-12">
+        {/* Top-aligned and level with the comparison, so opening its assumptions never moves the headline. */}
+        <motion.div className="relative min-[900px]:pt-36" style={{ y: textY }}>
         {/* Entrances are CSS animations, not framer initial states, so the server HTML is already visible. */}
-        <div className="animate-ws-fade-up flex items-center gap-2">
-          <Image src="/logo.png" alt="" width={20} height={20} sizes="20px" className="h-5 w-5 rounded-md" />
-          <span className="text-sm font-medium text-ink">Portfolio Compass</span>
-        </div>
         <h1
           id="landing-title"
-          className="mt-6 max-w-5xl font-display font-bold text-ink text-[clamp(40px,11vw,64px)] min-[900px]:text-[clamp(40px,5.2cqw,112px)]"
+          className="max-w-5xl text-balance font-display font-bold text-ink text-[clamp(40px,11vw,64px)] min-[900px]:text-[clamp(40px,4.9cqw,104px)]"
           style={{ lineHeight: 1.05, letterSpacing: "0.005em" }}
         >
+          {/* Hand-set lines that rise in on wide screens; on narrow screens the words flow and balance instead. */}
           {HEADLINE.map((line, i) => (
-            <span key={line} className="block overflow-hidden pb-[0.12em] -mb-[0.12em]">
-              <span className="ws-rise block" style={{ animationDelay: `${i * 70}ms` }}>
+            <span key={line} className="min-[900px]:block min-[900px]:overflow-hidden min-[900px]:pb-[0.12em] min-[900px]:-mb-[0.12em]">
+              <span className="ws-rise min-[900px]:block" style={{ animationDelay: `${i * 70}ms` }}>
                 {line}
-              </span>
+              </span>{" "}
             </span>
           ))}
         </h1>
         <div className="animate-ws-fade-up mt-8 max-w-[46ch]" style={{ animationDelay: "120ms" }}>
-          <p className="text-lg leading-relaxed text-body">
-            Compare funds and stocks, then test an allocation against historical data and simulated paths.
+          <p className="text-pretty text-lg leading-relaxed text-body">
+            Put funds side by side with what each number assumes, then build a portfolio and simulate a range of outcomes from its own price history.
           </p>
         </div>
-        <div className="animate-ws-fade-up mt-10 flex items-center gap-3" style={{ animationDelay: "180ms" }}>
+        <div className="animate-ws-fade-up mt-10 flex flex-wrap items-center gap-3" style={{ animationDelay: "180ms" }}>
           <button type="button" onClick={onStart} className="ws-btn-solid">
             Get started
           </button>
-          <button type="button" onClick={onViewMarket} aria-label="Browse market" className="ws-arrow-btn">
-            <ArrowIcon />
+          <button type="button" onClick={onViewMarket} className="ws-btn-outline">
+            Browse market
           </button>
         </div>
         <div className="animate-ws-fade-up" style={{ animationDelay: "240ms" }}>
@@ -174,13 +141,20 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
         </div>
         </motion.div>
 
-        {layout !== "wide" && (
-          <Reveal className="relative mt-14 min-[900px]:hidden">
-            <PhoneMock interactive tilt={0} maxWidth={360} screenHeight={640}>
-              <GrowthScreen idPrefix="growth-sm" years={years} annualReturn={annualReturn} onYears={setYears} onReturn={setAnnualReturn} />
-            </PhoneMock>
-          </Reveal>
-        )}
+        {/* On wide screens the arch rises above the comparison, so the column leaves room on top. */}
+        <div className="relative min-[900px]:pt-36">
+          {layout !== "narrow" && (
+            <motion.div
+              className="pointer-events-none absolute -top-8 left-[4%] hidden w-[92%] min-[900px]:block"
+              style={{ y: artY }}
+            >
+              <BrushArt className="w-full" />
+            </motion.div>
+          )}
+          <div className="animate-ws-fade-up relative" style={{ animationDelay: "160ms" }}>
+            <HeroCompare />
+          </div>
+        </div>
       </div>
     </section>
   );

@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import CountUp from "../../motion/CountUp";
 import { EASE } from "@/lib/motion";
 import { createRandom } from "@/lib/monte-carlo";
-import PhoneMock from "../PhoneMock";
 import { money, STARTING_BALANCE } from "../shared";
 
 type Scenario = "Low" | "Median" | "High";
@@ -154,8 +153,6 @@ export default function TestMock() {
 
   const W = 320;
   const H = 150;
-  const PW = 154;
-  const PH = 64;
   const drawKey = `${seed}-${years}-${spread}`;
 
   const idx = IDX[scenario];
@@ -205,38 +202,7 @@ export default function TestMock() {
   );
 
   return (
-    <div ref={rootRef} className="grid items-start gap-4 sm:grid-cols-[minmax(0,280px)_1fr]">
-      <PhoneMock interactive tilt={-3} maxWidth={280} screenHeight={520}>
-        <p className="text-xs font-bold text-ink">Simulated paths</p>
-        <p className="mt-1 text-xs text-muted">
-          {running ? (
-            <>
-              <CountUp key={seed} value={PATHS * 25} duration={RUN_MS / 1000} className="tabular-nums" /> runs, {years} years
-            </>
-          ) : (
-            <>1,000 runs, {years} years</>
-          )}
-        </p>
-        <svg viewBox={`0 0 ${PW} ${PH}`} className="mt-4 h-28 w-full" fill="none" preserveAspectRatio="none" aria-hidden="true">
-          {series.map((s, k) => (
-            <motion.path
-              key={`${drawKey}-${k}`}
-              d={linePath(s, PW, PH, 4, lo, hi)}
-              className={`${lineClass(k)} transition-[stroke-width,opacity] duration-300`}
-              strokeWidth={lineWidth(k, 2.2, 1.2)}
-              style={{ opacity: lineOpacity(k) }}
-              vectorEffect="non-scaling-stroke"
-              strokeLinejoin="round"
-              {...draw(0.1 + k * 0.12, 0.9)}
-            />
-          ))}
-        </svg>
-        <div className="mt-3">
-          <Chips options={SCENARIOS} value={scenario} onChange={setScenario} group="phone-scenario" label="Scenario" />
-        </div>
-        <p className="mt-4 text-center text-sm font-semibold text-ink">{resultLine}</p>
-        <p className="mt-2 text-center text-xs text-muted-soft">Model scenarios, not forecasts</p>
-      </PhoneMock>
+    <div ref={rootRef}>
 
       <motion.div
         initial={reduce ? false : { opacity: 0, y: 24 }}
@@ -318,7 +284,7 @@ export default function TestMock() {
             </div>
           )}
           <div className="mt-1 flex justify-between text-xs text-muted-soft" aria-hidden="true">
-            <span>Today</span>
+            <span>Today: {money(STARTING_BALANCE)} CAD</span>
             <span>{years} years</span>
           </div>
         </div>

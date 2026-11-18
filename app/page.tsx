@@ -130,7 +130,7 @@ export default function Home() {
             className="overflow-y-auto h-dvh custom-scrollbar"
           >
             <Hero onStart={handleStart} onViewMarket={handleViewMarket} />
-            <PurposeSection />
+            <PurposeSection onStart={handleStart} onViewMarket={handleViewMarket} />
             <Footer />
           </motion.div>
         ) : viewMode === 'INTRO_QUIZ' ? (

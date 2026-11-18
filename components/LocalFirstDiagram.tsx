@@ -140,12 +140,12 @@ export default function LocalFirstDiagram() {
       >
         <h3
           id="local-first-title"
-          className="font-display font-medium text-ink"
+          className="text-balance font-display font-medium text-ink"
           style={{ fontSize: "clamp(32px, 4vw, 48px)", lineHeight: 1.16, letterSpacing: "0.005em" }}
         >
           Your portfolio stays with you
         </h3>
-        <p className="mt-4 max-w-[46ch] text-lg leading-relaxed text-body">
+        <p className="mt-4 max-w-[46ch] text-pretty text-lg leading-relaxed text-body">
           Market data comes in. Your working portfolio and recent tickers stay in this browser. No account, no cookies. Storage: Browser only.
         </p>
 

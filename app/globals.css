@@ -337,6 +337,12 @@ body {
   }
   .ws-btn-outline:hover { opacity: 0.8; }
 
+  /* 44px touch targets; mouse and trackpad keep the 40px pill. */
+  @media (pointer: coarse) {
+    .ws-btn-solid,
+    .ws-btn-outline { height: 2.75rem; }
+  }
+
   /* Circular outlined arrow button, 48px */
   .ws-arrow-btn {
     display: inline-flex;
@@ -444,8 +450,11 @@ body {
     background-color: #fff;
     transition: transform 160ms var(--ease-out);
   }
-  .ws-switch[aria-checked="true"] { background-color: var(--color-compass); }
-  .ws-switch[aria-checked="true"] > span { transform: translateX(1.125rem); }
+  /* Checked either on the switch itself or on a labelled switch button that wraps the track. */
+  .ws-switch[aria-checked="true"],
+  [role="switch"][aria-checked="true"] > .ws-switch { background-color: var(--color-compass); }
+  .ws-switch[aria-checked="true"] > span,
+  [role="switch"][aria-checked="true"] > .ws-switch > span { transform: translateX(1.125rem); }
 }
 
 /* Slim scrollbars */
@@ -454,12 +463,6 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.32); border-radius: 3px; }
 .dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.16); }
-
-/* Scrollable surface with no visible scrollbar (phone screens). Placed after the global rules so it wins. */
-.ws-no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-.ws-no-scrollbar::-webkit-scrollbar { display: none; width: 0; height: 0; background: transparent; }
-.ws-no-scrollbar::-webkit-scrollbar-thumb,
-.dark .ws-no-scrollbar::-webkit-scrollbar-thumb { background: transparent; }
 
 .card-shine { position: relative; }
 
