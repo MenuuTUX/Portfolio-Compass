@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Terms",
   description:
     "Terms of use for Portfolio Compass, including what its projections are and are not.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

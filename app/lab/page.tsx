@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description: "Backtest allocation, trend and momentum strategies on past prices. Hypothetical results, not advice.",
   // The Lab is reached from Settings, not from search.
   robots: { index: false },
+  alternates: { canonical: "/lab" },
 };
 
 export default function LabPage() {

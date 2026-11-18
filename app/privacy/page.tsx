@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Privacy",
   description:
     "What Portfolio Compass stores, what it sends to its own server, and which third parties see your requests.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

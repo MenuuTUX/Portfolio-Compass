@@ -120,14 +120,6 @@ export default function Hero({ onStart, onViewMarket }: HeroProps) {
       </motion.header>
 
       <div className="@container relative mx-auto w-full max-w-[88rem] px-6 pt-32 pb-24 sm:pt-40 sm:pb-32 lg:px-10 min-[900px]:min-h-[860px]">
-        <div
-          className="pointer-events-none absolute inset-y-0 -inset-x-1/4 -z-0"
-          aria-hidden="true"
-          style={{
-            background:
-              "radial-gradient(40% 55% at 69% 38%, rgba(182,165,230,0.16), transparent 70%), radial-gradient(30% 45% at 78% 20%, rgba(224,184,74,0.14), transparent 70%), radial-gradient(27% 40% at 58% 70%, rgba(132,197,138,0.12), transparent 70%)",
-          }}
-        />
         {layout !== "narrow" && (
           <motion.div
             className="pointer-events-none absolute top-16 z-10 hidden w-[50%] max-w-[52rem] min-[900px]:block"

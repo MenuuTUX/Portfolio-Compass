@@ -68,7 +68,6 @@ function Band({
   overlap,
   contain,
   wide,
-  tint,
   children,
 }: {
   id: string;
@@ -77,14 +76,12 @@ function Band({
   text: string;
   next: string;
   flip?: boolean;
-  /** Lets the mock poke above the tinted band. */
+  /** Lets the mock poke above the card. */
   overlap?: boolean;
-  /** Keeps the mock fully inside the tinted card: no poke-out, no scroll drift. */
+  /** Keeps the mock fully inside the card: no poke-out, no scroll drift. */
   contain?: boolean;
   /** Gives the mock column more room than the text column. */
   wide?: boolean;
-  /** Tailwind gradient classes for the tinted card. */
-  tint: string;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -115,7 +112,7 @@ function Band({
             <ArrowIcon />
           </motion.button>
         </Reveal>
-        <Reveal delay={0.1} className={`rounded-3xl bg-surface-soft ${tint} ${contain ? "p-6 sm:p-10" : "p-6 sm:p-12"} ${flip ? "lg:order-1" : ""}`}>
+        <Reveal delay={0.1} className={`rounded-3xl bg-surface-soft ${contain ? "p-6 sm:p-10" : "p-6 sm:p-12"} ${flip ? "lg:order-1" : ""}`}>
           <motion.div ref={ref} style={{ y: drift }}>
             <div className={overlap && !contain ? "sm:-mt-20" : ""}>{children}</div>
           </motion.div>
@@ -161,7 +158,6 @@ export default function PurposeSection() {
         title={<>Put funds and stocks side by side.</>}
         text="Search market data, compare holdings and see how fees, risk and return stack up."
         next="build"
-        tint="bg-[linear-gradient(135deg,rgba(224,184,74,0.12),rgba(182,165,230,0.16))]"
       >
         <CompareMock />
       </Band>
@@ -172,7 +168,6 @@ export default function PurposeSection() {
         title={<>Shape an allocation you can explain.</>}
         text="Start from a model portfolio or your own mix, then allocate whole shares under a cash limit."
         next="test"
-        tint="bg-[linear-gradient(135deg,rgba(132,197,138,0.12),rgba(224,184,74,0.14))]"
         flip
         contain
         wide
@@ -186,7 +181,6 @@ export default function PurposeSection() {
         title={<>Backtest what it assumes.</>}
         text="Run historical checks and Monte Carlo paths. Results are model scenarios based on past estimates, not forecasts."
         next="learn"
-        tint="bg-[linear-gradient(135deg,rgba(182,165,230,0.16),rgba(229,112,63,0.10))]"
         overlap
         wide
       >

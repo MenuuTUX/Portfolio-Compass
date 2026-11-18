@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "TFSA planner",
   description:
     "Work out your TFSA contribution room and see what steady monthly saving adds up to. Educational, not advice.",
+  alternates: { canonical: "/tfsa" },
 };
 
 const CRA = "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/tax-free-savings-account";

@@ -14,12 +14,12 @@ The landing page offers two clear paths. "Build a portfolio" starts the optional
 
 Two registers share one token set. Product name and logo stay Portfolio Compass.
 
-- **Landing** feels like a public consumer-finance site: cream in light mode, near-black in dark mode, giant bold headlines, a floating nav bar, painted arch art, phone mocks, an index list, and full-width bands.
+- **Landing** feels like a public consumer-finance site: a pale grey tinted with compass green in light mode, near-black in dark mode, giant bold headlines, a floating nav bar, painted arch art, phone mocks, an index list, and full-width bands.
 - **App** (Browse market and Portfolio) feels like a pro trading workspace: page `#0d0d0d`, three panels, a status bar, no side rail. Panels are `#0f0f0f` with 8px radius and a white 5% ring.
 
 ### Font
 
-Inter is the only typeface (`--font-app`, loaded with `next/font/google` in `app/layout.tsx`, open source under the SIL Open Font License). `font-sans`, `font-display`, `font-serif`, and `font-mono` all resolve to it. Do not add another font.
+Atkinson Hyperlegible Next is the only typeface (`--font-app`, loaded with `next/font/google` in `app/layout.tsx`, open source under the SIL Open Font License). The Braille Institute drew it so that 0 and O, 1, l and I, and 8 and B stay distinct. Tickers and figures are most of what people read here, so that matters more than a neutral look. Its tabular figures keep number columns aligned. `font-sans`, `font-display`, `font-serif`, and `font-mono` all resolve to it. Do not add another font.
 
 ### Tokens
 
@@ -27,20 +27,20 @@ Tokens live in [app/globals.css](app/globals.css). Each is a CSS variable redefi
 
 | Role | Utility | Dark | Light |
 | --- | --- | --- | --- |
-| Canvas | `bg-canvas`, `.ws-page` | `#0d0d0d` | `#f5f3ef` |
+| Canvas | `bg-canvas`, `.ws-page` | `#0d0d0d` | `#e4ebe9` |
 | Card | `bg-surface-card` | `#1c1c1c` | `#fcfcfc` |
-| Raised surface | `bg-surface-soft` | `#262626` | `#ebe8e2` |
+| Raised surface | `bg-surface-soft` | `#262626` | `#dde4e2` |
 | Panel | `.ws-panel`, `--panel` | `#0f0f0f` | `#fcfcfc` |
-| Panel ring | `--panel-ring` | white 5% | `rgba(28,27,27,0.08)` |
+| Panel ring | `--panel-ring` | white 5% | `rgba(26,32,31,0.08)` |
 | Hairline | `border-hairline` | white 10% | ink 10% |
-| Main text | `text-ink` | `#ffffff` | `#1c1b1b` |
-| Body | `text-body` | `#b6b6b6` | `#4a4846` |
-| Muted | `text-muted`, `text-muted-soft` | `#868686`, `#5f5f5f` | `#6b6865`, `#8a8783` |
+| Main text | `text-ink` | `#ffffff` | `#1a201f` |
+| Body | `text-body` | `#b6b6b6` | `#414947` |
+| Muted | `text-muted`, `text-muted-soft` | `#868686`, `#5f5f5f` | `#575f5d`, `#59615f` |
 | Gain | `text-emerald-400` | `#6dc382` | `#059669` |
 | Loss | `text-rose-400`, `text-red-400` | `#f0777b` | `#c74437` |
-| Link and focus | `text-compass` | `#6dc382` | `#11745b` |
+| Link and focus | `text-compass` | `#6dc382` | `#10715a` |
 
-Light `--muted` is 5:1 on the cream canvas. `--muted-soft` is for decorative text only. Legacy `stone-*` and `neutral-*` utilities map onto the same scale.
+The light canvas is compass green (`#11745b`) mixed about 6% into a light grey, and the light greys carry the same tint. The page takes its color from the product's one accent, and the warm gold and brown in the hero art stand out against a cool ground instead of blending into it. Light `--muted` is 5.4:1 on the canvas, and compass green and loss red stay above 4.5:1 on the canvas and the raised surface. `--muted-soft` is for decorative text only. Legacy `stone-*` and `neutral-*` utilities map onto the same scale.
 
 ### Color rule
 
