@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "app/globals.css"
+        ],
+        "createdAt": "2026-11-18T06:03:41.098Z",
+        "reason": "Claude triage: .lab-note-bar is a Monaco editor gutter decoration (linesDecorationsClassName in components/lab/CodeEditor.tsx) marking lines a Lab lesson note points at, a code-editor convention, not a card accent; predates this session (1a789b4)"
+      }
+    ]
+  }
+}

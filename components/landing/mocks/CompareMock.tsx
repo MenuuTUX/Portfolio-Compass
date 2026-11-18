@@ -31,11 +31,10 @@ const HOLDINGS: Holding[] = [
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "weight", label: "Weight" },
-  { key: "change", label: "Change" },
+  { key: "change", label: "Day change" },
   { key: "fee", label: "Fee" },
 ];
 
-const RISK_RANK: Record<Risk, number> = { Low: 0, Medium: 1, High: 2 };
 const TWEEN = { duration: 0.4, ease: EASE };
 
 const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "-" : ""}${Math.abs(n).toFixed(1)}%`;
@@ -93,7 +92,7 @@ function Detail({ h }: { h: Holding }) {
       </div>
       <dl className="grid grid-cols-3 gap-3 sm:grid-cols-1 sm:gap-2">
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
-          <dt className="text-xs text-muted">Expense ratio</dt>
+          <dt className="text-xs text-muted">Fee</dt>
           <dd className="text-sm text-ink tabular-nums">{percent(h.fee, 2)}</dd>
         </div>
         <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
@@ -115,20 +114,15 @@ interface Metric {
   label: string;
   a: string;
   b: string;
-  /** Which side wins: -1 a, 1 b, 0 tie. */
-  win: -1 | 0 | 1;
 }
 
+/** Side by side with no winner: which figure matters is the visitor's call. */
 function buildMetrics(a: Holding, b: Holding): Metric[] {
-  const cmp = (x: number, y: number, lowerBetter: boolean): -1 | 0 | 1 => {
-    if (x === y) return 0;
-    return (x < y) === lowerBetter ? -1 : 1;
-  };
   return [
-    { label: "Fee", a: percent(a.fee, 2), b: percent(b.fee, 2), win: cmp(a.fee, b.fee, true) },
-    { label: "Yield", a: percent(a.yld, 1), b: percent(b.yld, 1), win: cmp(a.yld, b.yld, false) },
-    { label: "Risk", a: a.risk, b: b.risk, win: cmp(RISK_RANK[a.risk], RISK_RANK[b.risk], true) },
-    { label: "1y change", a: signed(a.oneYear), b: signed(b.oneYear), win: cmp(a.oneYear, b.oneYear, false) },
+    { label: "Fee", a: percent(a.fee, 2), b: percent(b.fee, 2) },
+    { label: "Yield", a: percent(a.yld, 1), b: percent(b.yld, 1) },
+    { label: "Risk", a: a.risk, b: b.risk },
+    { label: "1-year return", a: signed(a.oneYear), b: signed(b.oneYear) },
   ];
 }
 
@@ -162,7 +156,7 @@ export default function CompareMock() {
     pair && metrics
       ? `Comparing ${pair[0].ticker} and ${pair[1].ticker}. ` +
         metrics
-          .map((m) => `${m.label}: ${m.win === 0 ? "tied" : `${m.win === -1 ? pair[0].ticker : pair[1].ticker} is better`}`)
+          .map((m) => `${m.label}: ${pair[0].ticker} ${m.a}, ${pair[1].ticker} ${m.b}`)
           .join(". ") +
         "."
       : checked.length === 1
@@ -176,27 +170,32 @@ export default function CompareMock() {
           <p className="text-sm font-medium text-ink">Compare holdings</p>
           <div className="flex items-center gap-2" role="group" aria-label="Sort holdings">
             <span className="text-xs text-muted">Sort by:</span>
-            <div className="flex gap-1">
+            <div className="flex">
               {SORTS.map((s) => {
                 const active = sort === s.key;
                 return (
+                  // The button is a 44px touch target; the visible pill inside stays small.
                   <button
                     key={s.key}
                     type="button"
                     aria-pressed={active}
                     onClick={() => setSort(s.key)}
-                    className={`relative rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-compass ${
-                      active ? "text-canvas" : "bg-surface-soft text-body hover:text-ink"
-                    }`}
+                    className="group inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center px-0.5 text-xs font-medium focus-visible:outline-none"
                   >
-                    {active && (
-                      <motion.span
-                        layoutId="compare-mock-sort-pill"
-                        className="absolute inset-0 rounded-full bg-ink"
-                        transition={{ duration: 0.3, ease: EASE }}
-                      />
-                    )}
-                    <span className="relative">{s.label}</span>
+                    <span
+                      className={`relative rounded-full px-3 py-1 transition-colors duration-150 group-focus-visible:ring-2 group-focus-visible:ring-compass ${
+                        active ? "text-canvas" : "bg-surface-soft text-body group-hover:text-ink"
+                      }`}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="compare-mock-sort-pill"
+                          className="absolute inset-0 rounded-full bg-ink"
+                          transition={{ duration: 0.3, ease: EASE }}
+                        />
+                      )}
+                      <span className="relative">{s.label}</span>
+                    </span>
                   </button>
                 );
               })}
@@ -282,8 +281,8 @@ export default function CompareMock() {
                   {metrics.map((m) => (
                     <div key={m.label} className="grid grid-cols-[1fr_1fr_1fr] gap-2 py-1.5 text-sm tabular-nums">
                       <dt className="text-xs text-muted">{m.label}</dt>
-                      <dd className={`text-right ${m.win === -1 || m.win === 0 ? "font-medium text-ink" : "text-muted"}`}>{m.a}</dd>
-                      <dd className={`text-right ${m.win === 1 || m.win === 0 ? "font-medium text-ink" : "text-muted"}`}>{m.b}</dd>
+                      <dd className="text-right font-medium text-ink">{m.a}</dd>
+                      <dd className="text-right font-medium text-ink">{m.b}</dd>
                     </div>
                   ))}
                 </dl>
@@ -292,7 +291,7 @@ export default function CompareMock() {
           )}
         </AnimatePresence>
 
-        <p className="px-5 pb-4 pt-3 text-xs text-muted-soft">Example data</p>
+        <p className="px-5 pb-4 pt-3 text-xs text-muted-soft">Example data. Priced in CAD except GLD, which trades in USD.</p>
         <div aria-live="polite" role="status" className="sr-only">
           {summary}
         </div>

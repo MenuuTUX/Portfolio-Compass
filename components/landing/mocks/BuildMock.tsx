@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerE
 import { RevealGroup, RevealItem } from "../../motion/Reveal";
 import { EASE } from "@/lib/motion";
 import { createRandom } from "@/lib/monte-carlo";
-import PhoneMock from "../PhoneMock";
 import { money, STARTING_BALANCE } from "../shared";
 
 type AssetKey = "Equity" | "Bonds" | "Cash" | "Gold";
@@ -213,51 +212,8 @@ export default function BuildMock() {
   const shown = ASSETS.find((a) => a.key === selected);
 
   return (
-    <RevealGroup stagger={0.08} className="grid items-center gap-4 sm:grid-cols-[minmax(0,280px)_1fr]">
+    <RevealGroup stagger={0.08}>
       <p className="sr-only" aria-live="polite">{summary}</p>
-
-      <RevealItem>
-        <PhoneMock interactive>
-          <p className="text-xs font-bold text-ink">Model allocation</p>
-          <div className="mt-4 flex h-28 items-end gap-2">
-            {ASSETS.map((a) => (
-              <button
-                key={a.key}
-                type="button"
-                aria-pressed={selected === a.key}
-                aria-label={`${a.key} ${alloc[a.key]}%`}
-                onClick={() => toggle(a.key)}
-                className={`flex h-full flex-1 items-end rounded-t-lg ${FOCUS}`}
-              >
-                <motion.span
-                  className={`block w-full origin-bottom rounded-t-lg ${a.cls}`}
-                  initial={{ height: "0%" }}
-                  animate={{ height: inView ? `${Math.max(alloc[a.key], 3)}%` : "0%", opacity: dim(a.key) }}
-                  transition={{ duration: dur, ease: EASE }}
-                />
-              </button>
-            ))}
-          </div>
-          <ul className="mt-4 space-y-1">
-            {ASSETS.map((a) => (
-              <li key={a.key}>
-                <button
-                  type="button"
-                  aria-pressed={selected === a.key}
-                  onClick={() => toggle(a.key)}
-                  style={{ opacity: dim(a.key) }}
-                  className={`flex min-h-9 w-full items-center gap-2 rounded-md text-xs transition-opacity ${FOCUS}`}
-                >
-                  <span className={`h-2 w-2 rounded-full ${a.cls}`} />
-                  <span className="flex-1 text-left text-body">{a.key}</span>
-                  <Pct value={alloc[a.key]} duration={dur} className="font-bold text-ink tabular-nums" />
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-center text-xs text-muted-soft">Example data</p>
-        </PhoneMock>
-      </RevealItem>
 
       <div ref={anchor} className="space-y-4">
         <RevealItem className="rounded-xl bg-surface-card p-5 text-left">
@@ -339,9 +295,9 @@ export default function BuildMock() {
         </RevealItem>
 
         <RevealItem className="rounded-xl bg-surface-card p-5 text-left">
-          <p className="text-sm text-muted">Illustrative value</p>
+          <p className="text-sm text-muted">Illustrative value, CAD</p>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3">
-            <p className="text-3xl font-semibold tracking-tight text-ink tabular-nums">{money(headline)}</p>
+            <p className="text-3xl font-semibold text-ink tabular-nums">{money(headline)}</p>
             <p className={`text-sm tabular-nums ${change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {change >= 0 ? "+" : ""}
               {percent(change, 1)} over {range}
@@ -354,7 +310,7 @@ export default function BuildMock() {
               className={`h-auto w-full touch-pan-y rounded-md ${FOCUS}`}
               role="img"
               tabIndex={0}
-              aria-label={`Illustrative balance over ${range} for a ${alloc.Equity}% equity mix, starting at $10,000. Use left and right arrow keys to inspect points.`}
+              aria-label={`Illustrative balance over ${range} for a ${alloc.Equity}% equity mix, starting at ${money(STARTING_BALANCE)} CAD. Use left and right arrow keys to inspect points.`}
               onPointerMove={onPointer}
               onPointerDown={onPointer}
               onPointerLeave={() => setCursor(null)}

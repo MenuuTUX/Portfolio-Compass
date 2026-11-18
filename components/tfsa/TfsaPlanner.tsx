@@ -144,7 +144,7 @@ export default function TfsaPlanner() {
                 </tbody>
               </table>
             </div>
-            <p className="text-xs text-muted">
+            <p className="max-w-[34em] text-pretty text-xs text-muted">
               These rates are assumptions, not forecasts. Real markets rise and fall, and a path that averages 5% can end well above or below this table. Test an actual mix of funds on the Portfolio page, which runs Monte Carlo paths on its past prices, or replay it in the Lab.
             </p>
           </section>

@@ -8,13 +8,13 @@ Portfolio Compass helps people inspect holdings before they change them. The int
 - Someone with holdings can check position sizes, exposure, overlap, source dates, and the effect of a contribution.
 - Both can see unknown data and model assumptions. A missing quote never becomes a zero, and a modeled path never becomes a forecast.
 
-The landing page offers two clear paths. "Build a portfolio" starts the optional educational example flow. "Explore funds" opens fund search. Returning visitors with saved holdings go to Portfolio.
+The landing page offers two clear paths. "Get started" starts the optional educational example flow. "Browse market" opens the market view. Returning visitors with saved holdings go to Portfolio.
 
 ## Design language
 
 Two registers share one token set. Product name and logo stay Portfolio Compass.
 
-- **Landing** feels like a public consumer-finance site: a pale grey tinted with compass green in light mode, near-black in dark mode, giant bold headlines, a floating nav bar, painted arch art, phone mocks, an index list, and full-width bands.
+- **Landing** feels like a public consumer-finance site: a pale grey tinted with compass green in light mode, near-black in dark mode, giant bold headlines, a floating nav bar, painted arch art, and full-width bands that each hold one working example.
 - **App** (Browse market and Portfolio) feels like a pro trading workspace: page `#0d0d0d`, three panels, a status bar, no side rail. Panels are `#0f0f0f` with 8px radius and a white 5% ring.
 
 ### Font
@@ -75,7 +75,7 @@ Every interactive element shows a 2px `compass` outline with a 2px offset on key
 
 ## Layout
 
-Landing: floating nav bar (`.ws-nav`), hero with giant headline, painted arch art and phone mocks, an index list, then full-width bands. Footer closes the page.
+Landing: floating nav bar (`.ws-nav`), a hero with a giant headline beside a comparison of three real Canadian ETFs under the painted arch (`components/landing/HeroCompare.tsx`, a dated snapshot with a "What does this assume?" switch), then three bands (Compare, Portfolio, Simulate), each a headline beside one working example card with no label above the heading, the local-first diagram and founder note, then a closing section (`#start`) that repeats Get started and Browse market under "Your holdings stay in this browser." The footer holds the GitHub star and Share.
 
 App: a top bar, then three panels side by side on desktop (lists, detail, context), with a status bar at the bottom. There is no left rail. Panels scroll independently. On mobile the panels stack into tabs with visible labels.
 
